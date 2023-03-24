@@ -1,0 +1,42 @@
+PODS:
+  - KakaJSON (1.1.2)
+  - Kingfisher (6.3.1)
+  - lottie-ios (2.5.3)
+  - RxCocoa (5.1.1):
+    - RxRelay (~> 5)
+    - RxSwift (~> 5)
+  - RxRelay (5.1.3):
+    - RxSwift (~> 5)
+  - RxSwift (5.1.1)
+  - SnapKit (5.0.1)
+
+DEPENDENCIES:
+  - KakaJSON (= 1.1.2)
+  - Kingfisher (~> 6.3.1)
+  - lottie-ios (~> 2.5.3)
+  - RxCocoa (= 5.1.1)
+  - RxSwift (= 5.1.1)
+  - SnapKit (= 5.0.1)
+
+SPEC REPOS:
+  trunk:
+    - KakaJSON
+    - Kingfisher
+    - lottie-ios
+    - RxCocoa
+    - RxRelay
+    - RxSwift
+    - SnapKit
+
+SPEC CHECKSUMS:
+  KakaJSON: cc5ff50a8c1cfbb09413db8496cb709a209e6137
+  Kingfisher: 016c8b653a35add51dd34a3aba36b580041acc74
+  lottie-ios: a50d5c0160425cd4b01b852bb9578963e6d92d31
+  RxCocoa: 32065309a38d29b5b0db858819b5bf9ef038b601
+  RxRelay: 5a18c2eb2d68326ebaf0112f80d837ae41b92b97
+  RxSwift: 81470a2074fa8780320ea5fe4102807cb7118178
+  SnapKit: 97b92857e3df3a0c71833cce143274bf6ef8e5eb
+
+PODFILE CHECKSUM: 664883e1fd05436953b388e6fc1384bdccf26753
+
+COCOAPODS: 1.12.0
