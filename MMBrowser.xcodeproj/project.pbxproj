@@ -9,8 +9,6 @@
 /* Begin PBXBuildFile section */
 		84E6B61429CD567E001723AE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E6B61329CD567E001723AE /* AppDelegate.swift */; };
 		84E6B61629CD567E001723AE /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E6B61529CD567E001723AE /* SceneDelegate.swift */; };
-		84E6B61829CD567E001723AE /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E6B61729CD567E001723AE /* ViewController.swift */; };
-		84E6B61B29CD567E001723AE /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 84E6B61929CD567E001723AE /* Main.storyboard */; };
 		84E6B61D29CD5680001723AE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 84E6B61C29CD5680001723AE /* Assets.xcassets */; };
 		84E6B62029CD5680001723AE /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 84E6B61E29CD5680001723AE /* LaunchScreen.storyboard */; };
 		F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B4BFF2E376570F7159D72FDE /* Pods_MMBrowser.framework */; };
@@ -22,8 +20,6 @@
 		84E6B61029CD567E001723AE /* MMBrowser.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MMBrowser.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		84E6B61329CD567E001723AE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		84E6B61529CD567E001723AE /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
-		84E6B61729CD567E001723AE /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
-		84E6B61A29CD567E001723AE /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		84E6B61C29CD5680001723AE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		84E6B61F29CD5680001723AE /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		84E6B62129CD5680001723AE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -48,7 +44,6 @@
 				5A666B2B1F4C3CE119311D9E /* Pods-MMBrowser.debug.xcconfig */,
 				5AC60CC55E9A2EC274446D93 /* Pods-MMBrowser.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -83,8 +78,6 @@
 			children = (
 				84E6B61329CD567E001723AE /* AppDelegate.swift */,
 				84E6B61529CD567E001723AE /* SceneDelegate.swift */,
-				84E6B61729CD567E001723AE /* ViewController.swift */,
-				84E6B61929CD567E001723AE /* Main.storyboard */,
 				84E6B61C29CD5680001723AE /* Assets.xcassets */,
 				84E6B61E29CD5680001723AE /* LaunchScreen.storyboard */,
 				84E6B62129CD5680001723AE /* Info.plist */,
@@ -154,7 +147,6 @@
 			files = (
 				84E6B62029CD5680001723AE /* LaunchScreen.storyboard in Resources */,
 				84E6B61D29CD5680001723AE /* Assets.xcassets in Resources */,
-				84E6B61B29CD567E001723AE /* Main.storyboard in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -207,7 +199,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				84E6B61829CD567E001723AE /* ViewController.swift in Sources */,
 				84E6B61429CD567E001723AE /* AppDelegate.swift in Sources */,
 				84E6B61629CD567E001723AE /* SceneDelegate.swift in Sources */,
 			);
@@ -216,14 +207,6 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
-		84E6B61929CD567E001723AE /* Main.storyboard */ = {
-			isa = PBXVariantGroup;
-			children = (
-				84E6B61A29CD567E001723AE /* Base */,
-			);
-			name = Main.storyboard;
-			sourceTree = "<group>";
-		};
 		84E6B61E29CD5680001723AE /* LaunchScreen.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -285,7 +268,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -339,7 +322,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -357,11 +340,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -369,7 +352,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "new-test.MMBrowser";
+				PRODUCT_BUNDLE_IDENTIFIER = com.offline.music.player.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -385,11 +368,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
-				INFOPLIST_KEY_UIMainStoryboardFile = Main;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -397,7 +380,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "new-test.MMBrowser";
+				PRODUCT_BUNDLE_IDENTIFIER = com.offline.music.player.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -415,7 +398,7 @@
 				84E6B62329CD5680001723AE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 		84E6B62429CD5680001723AE /* Build configuration list for PBXNativeTarget "MMBrowser" */ = {
 			isa = XCConfigurationList;
@@ -424,7 +407,7 @@
 				84E6B62629CD5680001723AE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 	};
