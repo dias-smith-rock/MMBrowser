@@ -33,6 +33,7 @@
 		84E6B61D29CD5680001723AE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 84E6B61C29CD5680001723AE /* Assets.xcassets */; };
 		84E6B62029CD5680001723AE /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 84E6B61E29CD5680001723AE /* LaunchScreen.storyboard */; };
 		F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B4BFF2E376570F7159D72FDE /* Pods_MMBrowser.framework */; };
+		2C41423ED35F4E9B8F2E4131 /* AdBlockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E63D9108D904B9CAC95C4F4 /* AdBlockManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -66,6 +67,7 @@
 		84E6B61F29CD5680001723AE /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		84E6B62129CD5680001723AE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B4BFF2E376570F7159D72FDE /* Pods_MMBrowser.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MMBrowser.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		6E63D9108D904B9CAC95C4F4 /* AdBlockManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdBlockManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -139,6 +141,7 @@
 			children = (
 				7516FF0960494341BBF842EB /* LetterAvatarView.swift */,
 				692B7195D86D4E0FB1665C61 /* Theme.swift */,
+				6E63D9108D904B9CAC95C4F4 /* AdBlockManager.swift */,
 				971058D3549E409B9CE0A4FC /* Toast.swift */,
 				AB14BBFF62F54412A7A1F341 /* URLInputResolver.swift */,
 			);
@@ -317,6 +320,7 @@
 				E8D0DE37978041AEB06C9650 /* WebViewController.swift in Sources */,
 				48A1B0AF07424100A4034D1F /* LetterAvatarView.swift in Sources */,
 				B949D05BE3EB438496C12AE4 /* Theme.swift in Sources */,
+				2C41423ED35F4E9B8F2E4131 /* AdBlockManager.swift in Sources */,
 				C8A4D2E8EE3446E595794736 /* Toast.swift in Sources */,
 				8CF43A8331F542A6BB26BE50 /* URLInputResolver.swift in Sources */,
 				E0AFDF7B7DB14239B5DA25D6 /* BookmarkStore.swift in Sources */,

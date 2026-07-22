@@ -26,6 +26,8 @@ final class WebViewController: UIViewController {
     private let errorLabel = UILabel()
     private let retryButton = UIButton(type: .system)
     private var lastFailedURL: URL?
+    private var pendingURL: URL?
+    private var didSetupWebView = false
 
     init(isIncognito: Bool) {
         self.isIncognito = isIncognito
@@ -37,21 +39,31 @@ final class WebViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .white
-        setupWebView()
         setupErrorView()
+        setupWebView()
     }
 
     private func setupWebView() {
+        guard !didSetupWebView else { return }
+        didSetupWebView = true
+
         let config = WKWebViewConfiguration()
         if isIncognito {
             config.websiteDataStore = .nonPersistent()
         }
         config.allowsInlineMediaPlayback = true
+
+        AdBlockManager.shared.apply(to: config) { [weak self] in
+            self?.finishWebViewSetup(with: config)
+        }
+    }
+
+    private func finishWebViewSetup(with config: WKWebViewConfiguration) {
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.navigationDelegate = self
         wv.uiDelegate = self
         wv.allowsBackForwardNavigationGestures = true
-        view.addSubview(wv)
+        view.insertSubview(wv, at: 0)
         wv.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
@@ -76,6 +88,11 @@ final class WebViewController: UIViewController {
         canGoForwardObservation = wv.observe(\.canGoForward, options: [.new]) { [weak self] webView, _ in
             guard let self = self else { return }
             self.delegate?.webViewController(self, didUpdateNavigationState: webView.canGoBack, canGoForward: webView.canGoForward)
+        }
+
+        if let pendingURL = pendingURL {
+            self.pendingURL = nil
+            wv.load(URLRequest(url: pendingURL))
         }
     }
 
@@ -110,7 +127,11 @@ final class WebViewController: UIViewController {
     func load(url: URL) {
         errorContainer.isHidden = true
         lastFailedURL = nil
-        webView?.load(URLRequest(url: url))
+        if let webView = webView {
+            webView.load(URLRequest(url: url))
+        } else {
+            pendingURL = url
+        }
     }
 
     func goBack() { if webView?.canGoBack == true { webView?.goBack() } }
