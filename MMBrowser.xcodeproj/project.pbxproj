@@ -7,19 +7,61 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		84E6B61429CD567E001723AE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E6B61329CD567E001723AE /* AppDelegate.swift */; };
-		84E6B61629CD567E001723AE /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E6B61529CD567E001723AE /* SceneDelegate.swift */; };
+		F539F3A4AE974FD39112CAE2 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A93B638C878E4847B9260906 /* AppDelegate.swift */; };
+		98E53498404E4AA8B4270A35 /* AddressBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69CB2A102F7B49408F5405F0 /* AddressBarView.swift */; };
+		70488BA166AC40519183BFBC /* BottomToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A48D55BB74114080AD64B6DA /* BottomToolbarView.swift */; };
+		6C22C5EAB1C2465C8E230FB8 /* BrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62308BC5B1744075A4293A4B /* BrowserViewController.swift */; };
+		E8D0DE37978041AEB06C9650 /* WebViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CA8773D36AA4560B52CF56C /* WebViewController.swift */; };
+		48A1B0AF07424100A4034D1F /* LetterAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7516FF0960494341BBF842EB /* LetterAvatarView.swift */; };
+		B949D05BE3EB438496C12AE4 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 692B7195D86D4E0FB1665C61 /* Theme.swift */; };
+		C8A4D2E8EE3446E595794736 /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 971058D3549E409B9CE0A4FC /* Toast.swift */; };
+		8CF43A8331F542A6BB26BE50 /* URLInputResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB14BBFF62F54412A7A1F341 /* URLInputResolver.swift */; };
+		E0AFDF7B7DB14239B5DA25D6 /* BookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30B992FD78C147D7A2A00D3A /* BookmarkStore.swift */; };
+		199D51AF2E3F4B0FBDE1F2D6 /* BookmarksViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54C5AA639A934126BB5BC955 /* BookmarksViewController.swift */; };
+		4402FE04C7974CC5A3DEDB4A /* HistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05229609DA7A4B5A8CC0BE4E /* HistoryStore.swift */; };
+		B6CC34C2BC154BA3B85BF231 /* HistoryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38B4B6D431444B319409E490 /* HistoryViewController.swift */; };
+		D18C0E1833BC413CADDB0B6F /* ShortcutStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 348BC0EFE8AA494E800F5F56 /* ShortcutStore.swift */; };
+		108C1DC380A14941B2864410 /* MenuViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87DD8D8ED51C4691AC4141D6 /* MenuViewController.swift */; };
+		027C90FCBFF54EF19C3AEBFE /* DiscoverMock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D45A958565D4FD2BCCEB8D2 /* DiscoverMock.swift */; };
+		B9900DA251724F39BF10EB1F /* GoogleLogoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AD0ADFBD2404B2CA47E374F /* GoogleLogoView.swift */; };
+		4EF48C67EEB54867816D796A /* NewTabViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C52241376DC49259FF00EF9 /* NewTabViewController.swift */; };
+		31E7ECA9C28D4BB7814DE4FF /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B28BE5F586407F812024C3 /* SceneDelegate.swift */; };
+		EFA6547E03C243A0AFFA4F6B /* BrowserTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23BBCF4E9DB74F259594E372 /* BrowserTab.swift */; };
+		BF69552B3D404DFCA60DF7D3 /* TabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D4AC39C8A274463BCCF270E /* TabManager.swift */; };
+		E7DDEC5C8C8A4DAC98521F02 /* TabSwitcherViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABB1E912262A43EA8D9B97C4 /* TabSwitcherViewController.swift */; };
+		1D9F3F27159F4C5B9D6FCC8A /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 158219DF966E458AA0A26829 /* ViewController.swift */; };
 		84E6B61D29CD5680001723AE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 84E6B61C29CD5680001723AE /* Assets.xcassets */; };
 		84E6B62029CD5680001723AE /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 84E6B61E29CD5680001723AE /* LaunchScreen.storyboard */; };
 		F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B4BFF2E376570F7159D72FDE /* Pods_MMBrowser.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A93B638C878E4847B9260906 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		69CB2A102F7B49408F5405F0 /* AddressBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressBarView.swift; sourceTree = "<group>"; };
+		A48D55BB74114080AD64B6DA /* BottomToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomToolbarView.swift; sourceTree = "<group>"; };
+		62308BC5B1744075A4293A4B /* BrowserViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserViewController.swift; sourceTree = "<group>"; };
+		0CA8773D36AA4560B52CF56C /* WebViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewController.swift; sourceTree = "<group>"; };
+		7516FF0960494341BBF842EB /* LetterAvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LetterAvatarView.swift; sourceTree = "<group>"; };
+		692B7195D86D4E0FB1665C61 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		971058D3549E409B9CE0A4FC /* Toast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Toast.swift; sourceTree = "<group>"; };
+		AB14BBFF62F54412A7A1F341 /* URLInputResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLInputResolver.swift; sourceTree = "<group>"; };
+		30B992FD78C147D7A2A00D3A /* BookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkStore.swift; sourceTree = "<group>"; };
+		54C5AA639A934126BB5BC955 /* BookmarksViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarksViewController.swift; sourceTree = "<group>"; };
+		05229609DA7A4B5A8CC0BE4E /* HistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryStore.swift; sourceTree = "<group>"; };
+		38B4B6D431444B319409E490 /* HistoryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewController.swift; sourceTree = "<group>"; };
+		348BC0EFE8AA494E800F5F56 /* ShortcutStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutStore.swift; sourceTree = "<group>"; };
+		87DD8D8ED51C4691AC4141D6 /* MenuViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuViewController.swift; sourceTree = "<group>"; };
+		7D45A958565D4FD2BCCEB8D2 /* DiscoverMock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverMock.swift; sourceTree = "<group>"; };
+		2AD0ADFBD2404B2CA47E374F /* GoogleLogoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleLogoView.swift; sourceTree = "<group>"; };
+		5C52241376DC49259FF00EF9 /* NewTabViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTabViewController.swift; sourceTree = "<group>"; };
+		E7B28BE5F586407F812024C3 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		23BBCF4E9DB74F259594E372 /* BrowserTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTab.swift; sourceTree = "<group>"; };
+		8D4AC39C8A274463BCCF270E /* TabManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabManager.swift; sourceTree = "<group>"; };
+		ABB1E912262A43EA8D9B97C4 /* TabSwitcherViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabSwitcherViewController.swift; sourceTree = "<group>"; };
+		158219DF966E458AA0A26829 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		5A666B2B1F4C3CE119311D9E /* Pods-MMBrowser.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MMBrowser.debug.xcconfig"; path = "Target Support Files/Pods-MMBrowser/Pods-MMBrowser.debug.xcconfig"; sourceTree = "<group>"; };
 		5AC60CC55E9A2EC274446D93 /* Pods-MMBrowser.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-MMBrowser.release.xcconfig"; path = "Target Support Files/Pods-MMBrowser/Pods-MMBrowser.release.xcconfig"; sourceTree = "<group>"; };
 		84E6B61029CD567E001723AE /* MMBrowser.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MMBrowser.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		84E6B61329CD567E001723AE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
-		84E6B61529CD567E001723AE /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		84E6B61C29CD5680001723AE /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		84E6B61F29CD5680001723AE /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		84E6B62129CD5680001723AE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -76,13 +118,82 @@
 		84E6B61229CD567E001723AE /* MMBrowser */ = {
 			isa = PBXGroup;
 			children = (
-				84E6B61329CD567E001723AE /* AppDelegate.swift */,
-				84E6B61529CD567E001723AE /* SceneDelegate.swift */,
+				A93B638C878E4847B9260906 /* AppDelegate.swift */,
+				E7B28BE5F586407F812024C3 /* SceneDelegate.swift */,
+				158219DF966E458AA0A26829 /* ViewController.swift */,
+				D6B2E3C4D9CF4F58A9DBC4B4 /* Common */,
+				9C8CFC2F44C740F196FD0484 /* Browser */,
+				2CD02810E0A64B25809F55E4 /* NewTab */,
+				DED58CA0B80540AAAC0C25DE /* Tabs */,
+				DCAFE13ADE3948999DDF3784 /* Menu */,
+				4292B1172E6643A185046C9D /* Library */,
 				84E6B61C29CD5680001723AE /* Assets.xcassets */,
 				84E6B61E29CD5680001723AE /* LaunchScreen.storyboard */,
 				84E6B62129CD5680001723AE /* Info.plist */,
 			);
 			path = MMBrowser;
+			sourceTree = "<group>";
+		};
+		D6B2E3C4D9CF4F58A9DBC4B4 /* Common */ = {
+			isa = PBXGroup;
+			children = (
+				7516FF0960494341BBF842EB /* LetterAvatarView.swift */,
+				692B7195D86D4E0FB1665C61 /* Theme.swift */,
+				971058D3549E409B9CE0A4FC /* Toast.swift */,
+				AB14BBFF62F54412A7A1F341 /* URLInputResolver.swift */,
+			);
+			path = Common;
+			sourceTree = "<group>";
+		};
+		9C8CFC2F44C740F196FD0484 /* Browser */ = {
+			isa = PBXGroup;
+			children = (
+				69CB2A102F7B49408F5405F0 /* AddressBarView.swift */,
+				A48D55BB74114080AD64B6DA /* BottomToolbarView.swift */,
+				62308BC5B1744075A4293A4B /* BrowserViewController.swift */,
+				0CA8773D36AA4560B52CF56C /* WebViewController.swift */,
+			);
+			path = Browser;
+			sourceTree = "<group>";
+		};
+		2CD02810E0A64B25809F55E4 /* NewTab */ = {
+			isa = PBXGroup;
+			children = (
+				7D45A958565D4FD2BCCEB8D2 /* DiscoverMock.swift */,
+				2AD0ADFBD2404B2CA47E374F /* GoogleLogoView.swift */,
+				5C52241376DC49259FF00EF9 /* NewTabViewController.swift */,
+			);
+			path = NewTab;
+			sourceTree = "<group>";
+		};
+		DED58CA0B80540AAAC0C25DE /* Tabs */ = {
+			isa = PBXGroup;
+			children = (
+				23BBCF4E9DB74F259594E372 /* BrowserTab.swift */,
+				8D4AC39C8A274463BCCF270E /* TabManager.swift */,
+				ABB1E912262A43EA8D9B97C4 /* TabSwitcherViewController.swift */,
+			);
+			path = Tabs;
+			sourceTree = "<group>";
+		};
+		DCAFE13ADE3948999DDF3784 /* Menu */ = {
+			isa = PBXGroup;
+			children = (
+				87DD8D8ED51C4691AC4141D6 /* MenuViewController.swift */,
+			);
+			path = Menu;
+			sourceTree = "<group>";
+		};
+		4292B1172E6643A185046C9D /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				30B992FD78C147D7A2A00D3A /* BookmarkStore.swift */,
+				54C5AA639A934126BB5BC955 /* BookmarksViewController.swift */,
+				05229609DA7A4B5A8CC0BE4E /* HistoryStore.swift */,
+				38B4B6D431444B319409E490 /* HistoryViewController.swift */,
+				348BC0EFE8AA494E800F5F56 /* ShortcutStore.swift */,
+			);
+			path = Library;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -199,8 +310,29 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				84E6B61429CD567E001723AE /* AppDelegate.swift in Sources */,
-				84E6B61629CD567E001723AE /* SceneDelegate.swift in Sources */,
+				F539F3A4AE974FD39112CAE2 /* AppDelegate.swift in Sources */,
+				98E53498404E4AA8B4270A35 /* AddressBarView.swift in Sources */,
+				70488BA166AC40519183BFBC /* BottomToolbarView.swift in Sources */,
+				6C22C5EAB1C2465C8E230FB8 /* BrowserViewController.swift in Sources */,
+				E8D0DE37978041AEB06C9650 /* WebViewController.swift in Sources */,
+				48A1B0AF07424100A4034D1F /* LetterAvatarView.swift in Sources */,
+				B949D05BE3EB438496C12AE4 /* Theme.swift in Sources */,
+				C8A4D2E8EE3446E595794736 /* Toast.swift in Sources */,
+				8CF43A8331F542A6BB26BE50 /* URLInputResolver.swift in Sources */,
+				E0AFDF7B7DB14239B5DA25D6 /* BookmarkStore.swift in Sources */,
+				199D51AF2E3F4B0FBDE1F2D6 /* BookmarksViewController.swift in Sources */,
+				4402FE04C7974CC5A3DEDB4A /* HistoryStore.swift in Sources */,
+				B6CC34C2BC154BA3B85BF231 /* HistoryViewController.swift in Sources */,
+				D18C0E1833BC413CADDB0B6F /* ShortcutStore.swift in Sources */,
+				108C1DC380A14941B2864410 /* MenuViewController.swift in Sources */,
+				027C90FCBFF54EF19C3AEBFE /* DiscoverMock.swift in Sources */,
+				B9900DA251724F39BF10EB1F /* GoogleLogoView.swift in Sources */,
+				4EF48C67EEB54867816D796A /* NewTabViewController.swift in Sources */,
+				31E7ECA9C28D4BB7814DE4FF /* SceneDelegate.swift in Sources */,
+				EFA6547E03C243A0AFFA4F6B /* BrowserTab.swift in Sources */,
+				BF69552B3D404DFCA60DF7D3 /* TabManager.swift in Sources */,
+				E7DDEC5C8C8A4DAC98521F02 /* TabSwitcherViewController.swift in Sources */,
+				1D9F3F27159F4C5B9D6FCC8A /* ViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
