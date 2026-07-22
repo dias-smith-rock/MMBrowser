@@ -1,0 +1,19 @@
+# Vendor / 构建
+Pods/
+DerivedData/
+build/
+**/xcuserdata/
+*.xcuserstate
+
+# 资源（对语义索引几乎无价值）
+MMBrowser/Assets.xcassets/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+
+# 杂项
+.DS_Store
+*.ipa
+*.dSYM
