@@ -2,12 +2,9 @@ import UIKit
 import SnapKit
 
 enum MenuAction {
-    case bookmarks
-    case history
-    case reload
-    case newTab
-    case newIncognitoTab
-    case addBookmark
+    case bookmarks, history, readingList, downloads, settings
+    case reload, newTab, newIncognitoTab, addBookmark, addReadingList
+    case readerMode, findInPage, desktopSite, sharePDF, screenshot, longScreenshot
     case placeholder(String)
 }
 
@@ -17,16 +14,13 @@ protocol MenuViewControllerDelegate: AnyObject {
 
 final class MenuViewController: UIViewController {
     weak var delegate: MenuViewControllerDelegate?
-
     private let scrollView = UIScrollView()
     private let content = UIView()
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = BrowserTheme.elevated
-        if #available(iOS 13.0, *) {
-            modalPresentationStyle = .pageSheet
-        }
+        modalPresentationStyle = .pageSheet
 
         view.addSubview(scrollView)
         scrollView.addSubview(content)
@@ -39,10 +33,10 @@ final class MenuViewController: UIViewController {
         let icons: [(String, String, MenuAction)] = [
             ("star", "Bookmarks", .bookmarks),
             ("clock", "History", .history),
-            ("book", "Reading list", .placeholder("Reading list")),
-            ("shield", "What's new", .placeholder("What's new")),
-            ("arrow.down.circle", "Downloads", .placeholder("Downloads")),
-            ("gear", "Settings", .placeholder("Settings"))
+            ("book", "Reading list", .readingList),
+            ("arrow.down.circle", "Downloads", .downloads),
+            ("doc.text", "Reader", .readerMode),
+            ("gear", "Settings", .settings)
         ]
 
         let iconScroll = UIScrollView()
@@ -52,11 +46,9 @@ final class MenuViewController: UIViewController {
         iconStack.spacing = 12
         iconScroll.addSubview(iconStack)
         content.addSubview(iconScroll)
-
         for (symbol, title, action) in icons {
             iconStack.addArrangedSubview(makeIconItem(symbol: symbol, title: title, action: action))
         }
-
         iconScroll.snp.makeConstraints { make in
             make.top.equalToSuperview().offset(20)
             make.leading.trailing.equalToSuperview()
@@ -69,10 +61,15 @@ final class MenuViewController: UIViewController {
 
         let rows: [(String, String, MenuAction)] = [
             ("Reload", "arrow.clockwise", .reload),
+            ("Find in page", "magnifyingglass", .findInPage),
+            ("Request Desktop Site", "desktopcomputer", .desktopSite),
             ("New tab", "plus.circle", .newTab),
             ("New Incognito tab", "eye.slash", .newIncognitoTab),
             ("Add to bookmarks", "star", .addBookmark),
-            ("Add to reading list", "book", .placeholder("Reading list"))
+            ("Add to reading list", "book", .addReadingList),
+            ("Share as PDF", "doc.richtext", .sharePDF),
+            ("Screenshot", "camera", .screenshot),
+            ("Long screenshot", "camera.viewfinder", .longScreenshot)
         ]
 
         var previous: UIView = iconScroll
@@ -83,9 +80,7 @@ final class MenuViewController: UIViewController {
                 make.top.equalTo(previous.snp.bottom).offset(index == 0 ? 16 : 4)
                 make.leading.trailing.equalToSuperview().inset(12)
                 make.height.equalTo(48)
-                if index == rows.count - 1 {
-                    make.bottom.equalToSuperview().offset(-24)
-                }
+                if index == rows.count - 1 { make.bottom.equalToSuperview().offset(-24) }
             }
             previous = button
         }
@@ -140,8 +135,6 @@ final class MenuViewController: UIViewController {
         button.setImage(UIImage(systemName: symbol), for: .normal)
         button.tintColor = BrowserTheme.textPrimary
         button.addTarget(self, action: #selector(actionTapped(_:)), for: .touchUpInside)
-
-        // Put icon on trailing side visually by using semanticContentAttribute
         button.semanticContentAttribute = .forceRightToLeft
         return button
     }

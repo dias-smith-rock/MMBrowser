@@ -10,6 +10,7 @@ final class TabManager {
 
     private(set) var tabs: [BrowserTab] = []
     private(set) var selectedIndex: Int = 0
+    private(set) var groupNames: [String] = ["Default", "Work", "Personal"]
 
     var selectedTab: BrowserTab? {
         guard tabs.indices.contains(selectedIndex) else { return nil }
@@ -73,5 +74,32 @@ final class TabManager {
             .sorted { $0.lastAccessed > $1.lastAccessed }
             .prefix(limit)
             .map { $0 }
+    }
+
+    func tabs(matching query: String, incognito: Bool) -> [BrowserTab] {
+        let base = incognito ? incognitoTabs : normalTabs
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return base }
+        return base.filter {
+            $0.title.lowercased().contains(q) || ($0.url?.absoluteString.lowercased().contains(q) ?? false) || $0.groupName.lowercased().contains(q)
+        }
+    }
+
+    func moveTab(_ id: UUID, toGroup name: String) {
+        guard let tab = tabs.first(where: { $0.id == id }) else { return }
+        tab.groupName = name
+        if !groupNames.contains(name) { groupNames.append(name) }
+        delegate?.tabManagerDidUpdate(self)
+    }
+
+    func invalidateAllWebViews() {
+        for tab in tabs {
+            tab.webController?.cleanup()
+            tab.webController = nil
+        }
+        delegate?.tabManagerDidUpdate(self)
+        if let selected = selectedTab {
+            delegate?.tabManager(self, didSelect: selected)
+        }
     }
 }

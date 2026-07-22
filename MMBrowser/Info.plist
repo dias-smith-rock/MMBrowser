@@ -24,5 +24,7 @@
 		<key>NSAllowsArbitraryLoadsInWebContent</key>
 		<true/>
 	</dict>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>MMBrowser needs access to save screenshots to your photo library.</string>
 </dict>
 </plist>

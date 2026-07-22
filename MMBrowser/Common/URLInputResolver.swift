@@ -4,10 +4,10 @@ enum URLInputResolver {
     static func resolve(_ raw: String) -> URL {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            return URL(string: "https://www.google.com")!
+            return URL(string: SearchEngineManager.current.homeURL)!
         }
 
-        if let url = URL(string: trimmed), url.scheme == "http" || url.scheme == "https", url.host != nil {
+        if let url = URL(string: trimmed), let scheme = url.scheme, (scheme == "http" || scheme == "https"), url.host != nil {
             return url
         }
 
@@ -16,13 +16,14 @@ enum URLInputResolver {
             && !trimmed.hasPrefix("?")
 
         if looksLikeURL {
-            let withScheme = trimmed.hasPrefix("//") ? "https:\(trimmed)" : "https://\(trimmed)"
-            if let url = URL(string: withScheme) {
-                return url
+            let hostPart = trimmed.hasPrefix("//") ? String(trimmed.dropFirst(2)) : trimmed
+            let https = URL(string: "https://\(hostPart)")!
+            if AppSettings.httpsOnly {
+                return https
             }
+            return https
         }
 
-        let query = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? trimmed
-        return URL(string: "https://www.google.com/search?q=\(query)")!
+        return SearchEngineManager.current.searchURL(for: trimmed)
     }
 }

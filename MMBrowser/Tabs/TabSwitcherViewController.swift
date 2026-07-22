@@ -16,6 +16,8 @@ final class TabSwitcherViewController: UIViewController {
     private let modeControl = UISegmentedControl(items: [" incognito ", " tabs ", " grid "])
     private let doneButton = UIButton(type: .system)
     private let addButton = UIButton(type: .system)
+    private let searchField = UITextField()
+    private var searchQuery = ""
 
     init(tabManager: TabManager) {
         self.tabManager = tabManager
@@ -25,7 +27,7 @@ final class TabSwitcherViewController: UIViewController {
     required init?(coder: NSCoder) { fatalError() }
 
     private var displayedTabs: [BrowserTab] {
-        showingIncognito ? tabManager.incognitoTabs : tabManager.normalTabs
+        tabManager.tabs(matching: searchQuery, incognito: showingIncognito)
     }
 
     override func viewDidLoad() {
@@ -138,8 +140,27 @@ final class TabSwitcherViewController: UIViewController {
         delegate?.tabSwitcherDidClose()
     }
 
+    private func promptMoveGroup(for tab: BrowserTab) {
+        let alert = UIAlertController(title: "Move to group", message: tab.title, preferredStyle: .actionSheet)
+        for name in tabManager.groupNames {
+            alert.addAction(UIAlertAction(title: name, style: .default, handler: { _ in
+                self.tabManager.moveTab(tab.id, toGroup: name)
+                self.reload()
+            }))
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+
     @objc private func searchPlaceholder() {
-        Toast.show("Coming soon", from: self)
+        let alert = UIAlertController(title: "Search tabs", message: nil, preferredStyle: .alert)
+        alert.addTextField { $0.placeholder = "Title, URL, or group"; $0.text = self.searchQuery }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Search", style: .default, handler: { _ in
+            self.searchQuery = alert.textFields?.first?.text ?? ""
+            self.reload()
+        }))
+        present(alert, animated: true)
     }
 }
 
@@ -161,6 +182,9 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
                 self.delegate?.tabSwitcherDidClose()
             }
         }
+        cell.onMoveGroup = { [weak self] in
+            self?.promptMoveGroup(for: tab)
+        }
         return cell
     }
 
@@ -179,6 +203,7 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
 final class TabGridCell: UICollectionViewCell {
     static let reuseID = "TabGridCell"
     var onClose: (() -> Void)?
+    var onMoveGroup: (() -> Void)?
 
     private let card = UIView()
     private let titleLabel = UILabel()
@@ -213,6 +238,8 @@ final class TabGridCell: UICollectionViewCell {
         card.addSubview(closeButton)
         card.addSubview(preview)
         preview.addSubview(placeholder)
+        let long = UILongPressGestureRecognizer(target: self, action: #selector(longPressed))
+        contentView.addGestureRecognizer(long)
 
         card.snp.makeConstraints { make in make.edges.equalToSuperview() }
         titleLabel.snp.makeConstraints { make in
@@ -235,7 +262,7 @@ final class TabGridCell: UICollectionViewCell {
     required init?(coder: NSCoder) { fatalError() }
 
     func configure(tab: BrowserTab, selected: Bool) {
-        titleLabel.text = tab.title
+        titleLabel.text = tab.groupName == "Default" ? tab.title : "[\(tab.groupName)] \(tab.title)"
         preview.image = tab.snapshot
         placeholder.isHidden = tab.snapshot != nil
         placeholder.text = tab.isNewTabPage ? "New Tab" : (tab.url?.host ?? "Page")
@@ -244,4 +271,7 @@ final class TabGridCell: UICollectionViewCell {
     }
 
     @objc private func closeTapped() { onClose?() }
+    @objc private func longPressed(_ g: UILongPressGestureRecognizer) {
+        if g.state == .began { onMoveGroup?() }
+    }
 }

@@ -9,6 +9,8 @@ final class BrowserTab {
     var lastAccessed: Date
     var snapshot: UIImage?
     var webController: WebViewController?
+    var groupName: String
+    var preferDesktop: Bool
 
     init(isIncognito: Bool = false) {
         self.id = UUID()
@@ -19,6 +21,8 @@ final class BrowserTab {
         self.lastAccessed = Date()
         self.snapshot = nil
         self.webController = nil
+        self.groupName = "Default"
+        self.preferDesktop = false
     }
 
     var displayHost: String {

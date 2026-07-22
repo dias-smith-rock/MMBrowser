@@ -4,6 +4,7 @@ import SnapKit
 final class BrowserViewController: UIViewController {
     let tabManager = TabManager()
 
+    private let statusBarFill = UIView()
     private let contentContainer = UIView()
     private let addressBar = AddressBarView()
     private let toolbar = BottomToolbarView()
@@ -18,6 +19,25 @@ final class BrowserViewController: UIViewController {
         tabManager.delegate = self
         setupChrome()
         showSelectedTab()
+        if !AppSettings.didShowOnboarding {
+            DispatchQueue.main.async { self.presentOnboarding() }
+        }
+        NotificationCenter.default.addObserver(self, selector: #selector(trackerChanged), name: .trackerProtectionChanged, object: nil)
+    }
+
+    @objc private func trackerChanged() {
+        tabManager.invalidateAllWebViews()
+        showSelectedTab()
+    }
+
+    private func presentOnboarding() {
+        let onboarding = OnboardingViewController()
+        onboarding.modalPresentationStyle = .fullScreen
+        onboarding.onFinished = { [weak self, weak onboarding] in
+            onboarding?.dismiss(animated: true)
+            self?.newTabController?.applyHomeSettings()
+        }
+        present(onboarding, animated: true)
     }
 
     private func setupChrome() {
@@ -30,6 +50,8 @@ final class BrowserViewController: UIViewController {
         chromeStack.addArrangedSubview(addressBar)
         chromeStack.addArrangedSubview(toolbar)
 
+        statusBarFill.backgroundColor = BrowserTheme.background
+        view.addSubview(statusBarFill)
         view.addSubview(contentContainer)
         view.addSubview(chromeStack)
 
@@ -39,12 +61,17 @@ final class BrowserViewController: UIViewController {
         toolbar.snp.makeConstraints { make in
             make.height.equalTo(BrowserTheme.toolbarHeight)
         }
+        statusBarFill.snp.makeConstraints { make in
+            make.top.leading.trailing.equalToSuperview()
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.top)
+        }
         chromeStack.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview()
             make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
         }
         contentContainer.snp.makeConstraints { make in
-            make.top.leading.trailing.equalToSuperview()
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
+            make.leading.trailing.equalToSuperview()
             make.bottom.equalTo(chromeStack.snp.top)
         }
     }
@@ -260,6 +287,10 @@ extension BrowserViewController: NewTabViewControllerDelegate {
     }
 
     func newTabDidRequestEditShortcuts() {}
+
+    func newTabDidRequestSettings() {
+        openSettings()
+    }
 }
 
 extension BrowserViewController: WebViewControllerDelegate {
@@ -292,6 +323,21 @@ extension BrowserViewController: WebViewControllerDelegate {
     }
 
     func webViewControllerDidFail(_ controller: WebViewController, error: Error) {}
+
+    func webViewController(_ controller: WebViewController, present vc: UIViewController) {
+        present(vc, animated: true)
+    }
+
+    func webViewController(_ controller: WebViewController, warnDangerous url: URL, proceed: @escaping () -> Void) {
+        let alert = UIAlertController(
+            title: "Dangerous site",
+            message: "This site looks suspicious and may be used for phishing.\n\n" + (url.host ?? url.absoluteString),
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Go Back", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Continue", style: .destructive, handler: { _ in proceed() }))
+        present(alert, animated: true)
+    }
 }
 
 extension BrowserViewController: TabSwitcherViewControllerDelegate {
@@ -318,6 +364,12 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 self.openLibraryList(isBookmarks: true)
             case .history:
                 self.openLibraryList(isBookmarks: false)
+            case .readingList:
+                self.openReadingList()
+            case .downloads:
+                self.openDownloads()
+            case .settings:
+                self.openSettings()
             case .reload:
                 self.tabManager.selectedTab?.webController?.reload()
             case .newTab:
@@ -333,9 +385,52 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 }
                 BookmarkStore.shared.add(title: tab.title, url: url)
                 Toast.show("Bookmark added", from: self)
+            case .addReadingList:
+                self.tabManager.selectedTab?.webController?.saveReadingList()
+            case .readerMode:
+                self.tabManager.selectedTab?.webController?.openReaderMode()
+            case .findInPage:
+                self.tabManager.selectedTab?.webController?.showFindInPage()
+            case .desktopSite:
+                guard let tab = self.tabManager.selectedTab else { return }
+                tab.preferDesktop.toggle()
+                tab.webController?.setPreferDesktop(tab.preferDesktop)
+                Toast.show(tab.preferDesktop ? "Desktop site" : "Mobile site", from: self)
+            case .sharePDF:
+                self.tabManager.selectedTab?.webController?.sharePDF()
+            case .screenshot:
+                self.tabManager.selectedTab?.webController?.screenshot()
+            case .longScreenshot:
+                self.tabManager.selectedTab?.webController?.longScreenshot()
             case .placeholder(let name):
                 Toast.show("\(name) coming soon", from: self)
             }
         }
+    }
+
+    private func openSettings() {
+        let settings = SettingsViewController()
+        settings.onRequestRebuildWebViews = { [weak self] in
+            self?.tabManager.invalidateAllWebViews()
+            self?.showSelectedTab()
+        }
+        let nav = UINavigationController(rootViewController: settings)
+        nav.navigationBar.barStyle = .black
+        present(nav, animated: true)
+    }
+
+    private func openReadingList() {
+        let list = ReadingListViewController()
+        list.onOpenURL = { [weak self] url in self?.navigate(to: url) }
+        let nav = UINavigationController(rootViewController: list)
+        nav.navigationBar.barStyle = .black
+        present(nav, animated: true)
+    }
+
+    private func openDownloads() {
+        let list = DownloadsViewController()
+        let nav = UINavigationController(rootViewController: list)
+        nav.navigationBar.barStyle = .black
+        present(nav, animated: true)
     }
 }

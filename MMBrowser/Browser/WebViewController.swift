@@ -9,6 +9,8 @@ protocol WebViewControllerDelegate: AnyObject {
     func webViewController(_ controller: WebViewController, didUpdateNavigationState canGoBack: Bool, canGoForward: Bool)
     func webViewController(_ controller: WebViewController, requestNewTabFor url: URL)
     func webViewControllerDidFail(_ controller: WebViewController, error: Error)
+    func webViewController(_ controller: WebViewController, present reader: UIViewController)
+    func webViewController(_ controller: WebViewController, warnDangerous url: URL, proceed: @escaping () -> Void)
 }
 
 final class WebViewController: UIViewController {
@@ -28,6 +30,12 @@ final class WebViewController: UIViewController {
     private var lastFailedURL: URL?
     private var pendingURL: URL?
     private var didSetupWebView = false
+    private var httpsFallbackAttempted = false
+    private var preferDesktop = false
+    private var findBar: FindInPageBar?
+    private var lastFindQuery: String?
+
+    private let desktopUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
     init(isIncognito: Bool) {
         self.isIncognito = isIncognito
@@ -38,7 +46,7 @@ final class WebViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .white
+        view.backgroundColor = BrowserTheme.background
         setupErrorView()
         setupWebView()
     }
@@ -46,26 +54,25 @@ final class WebViewController: UIViewController {
     private func setupWebView() {
         guard !didSetupWebView else { return }
         didSetupWebView = true
-
         let config = WKWebViewConfiguration()
-        if isIncognito {
-            config.websiteDataStore = .nonPersistent()
-        }
+        if isIncognito { config.websiteDataStore = .nonPersistent() }
         config.allowsInlineMediaPlayback = true
-
         AdBlockManager.shared.apply(to: config) { [weak self] in
             self?.finishWebViewSetup(with: config)
         }
     }
 
     private func finishWebViewSetup(with config: WKWebViewConfiguration) {
+        config.userContentController.addUserScript(YouTubeDarkMode.userScript)
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.navigationDelegate = self
         wv.uiDelegate = self
         wv.allowsBackForwardNavigationGestures = true
+        wv.scrollView.contentInsetAdjustmentBehavior = .never
         view.insertSubview(wv, at: 0)
         wv.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
+            make.leading.trailing.bottom.equalToSuperview()
         }
         webView = wv
 
@@ -79,6 +86,7 @@ final class WebViewController: UIViewController {
         }
         urlObservation = wv.observe(\.url, options: [.new]) { [weak self] webView, _ in
             guard let self = self else { return }
+            YouTubeDarkMode.applyAppearance(to: webView, url: webView.url)
             self.delegate?.webViewController(self, didUpdateURL: webView.url)
         }
         canGoBackObservation = wv.observe(\.canGoBack, options: [.new]) { [weak self] webView, _ in
@@ -92,7 +100,7 @@ final class WebViewController: UIViewController {
 
         if let pendingURL = pendingURL {
             self.pendingURL = nil
-            wv.load(URLRequest(url: pendingURL))
+            loadPrepared(url: pendingURL, in: wv)
         }
     }
 
@@ -100,16 +108,13 @@ final class WebViewController: UIViewController {
         errorContainer.isHidden = true
         errorContainer.backgroundColor = BrowserTheme.background
         view.addSubview(errorContainer)
-
         errorLabel.textColor = BrowserTheme.textPrimary
         errorLabel.font = .systemFont(ofSize: 16)
         errorLabel.numberOfLines = 0
         errorLabel.textAlignment = .center
-
         retryButton.setTitle("Retry", for: .normal)
         retryButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
         retryButton.addTarget(self, action: #selector(retryTapped), for: .touchUpInside)
-
         errorContainer.addSubview(errorLabel)
         errorContainer.addSubview(retryButton)
         errorContainer.snp.makeConstraints { make in make.edges.equalToSuperview() }
@@ -127,20 +132,187 @@ final class WebViewController: UIViewController {
     func load(url: URL) {
         errorContainer.isHidden = true
         lastFailedURL = nil
-        if let webView = webView {
-            webView.load(URLRequest(url: url))
-        } else {
+        httpsFallbackAttempted = false
+        guard let webView = webView else {
             pendingURL = url
+            return
         }
+        loadPrepared(url: url, in: webView)
+    }
+
+    private func loadPrepared(url: URL, in webView: WKWebView) {
+        if DangerousSiteGuard.isDangerous(url) {
+            delegate?.webViewController(self, warnDangerous: url) { [weak self] in
+                self?.actuallyLoad(url, in: webView)
+            }
+            return
+        }
+        actuallyLoad(url, in: webView)
+    }
+
+    private func actuallyLoad(_ url: URL, in webView: WKWebView) {
+        YouTubeDarkMode.applyAppearance(to: webView, url: url)
+        applyDesktopPreference(to: webView)
+        let go = {
+            if YouTubeDarkMode.isYouTube(url) {
+                YouTubeDarkMode.ensureDarkCookie(in: webView.configuration.websiteDataStore) {
+                    webView.load(URLRequest(url: url))
+                }
+            } else {
+                webView.load(URLRequest(url: url))
+            }
+        }
+        go()
     }
 
     func goBack() { if webView?.canGoBack == true { webView?.goBack() } }
     func goForward() { if webView?.canGoForward == true { webView?.goForward() } }
     func reload() { webView?.reload() }
 
+    func setPreferDesktop(_ enabled: Bool) {
+        preferDesktop = enabled
+        guard let webView = webView else { return }
+        applyDesktopPreference(to: webView)
+        webView.reload()
+    }
+
+    private func applyDesktopPreference(to webView: WKWebView) {
+        if preferDesktop {
+            webView.customUserAgent = desktopUA
+        } else {
+            webView.customUserAgent = nil
+        }
+    }
+
     func captureSnapshot(completion: @escaping (UIImage?) -> Void) {
-        webView?.takeSnapshot(with: nil) { image, _ in
-            completion(image)
+        webView?.takeSnapshot(with: nil) { image, _ in completion(image) }
+    }
+
+    func openReaderMode() {
+        guard let webView = webView else { return }
+        webView.evaluateJavaScript(ReaderExtractor.script) { [weak self] result, _ in
+            guard let self = self else { return }
+            guard let json = result as? String,
+                  let data = json.data(using: .utf8),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let ok = obj["ok"] as? Bool, ok,
+                  let html = obj["html"] as? String else {
+                Toast.show("Couldn't extract article", from: self)
+                return
+            }
+            let title = (obj["title"] as? String) ?? (webView.title ?? "Reader")
+            let reader = ReaderViewController(title: title, bodyHTML: html)
+            let nav = UINavigationController(rootViewController: reader)
+            nav.navigationBar.barStyle = .black
+            self.delegate?.webViewController(self, present: nav)
+        }
+    }
+
+    func showFindInPage() {
+        guard findBar == nil else { findBar?.focus(); return }
+        let bar = FindInPageBar()
+        bar.delegate = self
+        view.addSubview(bar)
+        bar.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview()
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
+            make.height.equalTo(52)
+        }
+        findBar = bar
+        bar.focus()
+    }
+
+    func saveReadingList() {
+        guard let webView = webView, let url = webView.url else {
+            Toast.show("No page to save", from: self)
+            return
+        }
+        let title = webView.title ?? url.host ?? "Saved"
+        if #available(iOS 14.0, *) {
+            let config = WKPDFConfiguration()
+            webView.createPDF(configuration: config) { result in
+                let data = try? result.get()
+                ReadingListStore.shared.add(title: title, url: url, pdfData: data)
+                Toast.show("Saved to Reading List", from: self)
+            }
+        } else {
+            ReadingListStore.shared.add(title: title, url: url, pdfData: nil)
+            Toast.show("Saved to Reading List", from: self)
+        }
+    }
+
+    func sharePDF() {
+        guard let webView = webView else { return }
+        if #available(iOS 14.0, *) {
+            webView.createPDF(configuration: WKPDFConfiguration()) { [weak self] result in
+                guard let self = self else { return }
+                switch result {
+                case .success(let data):
+                    let url = FileManager.default.temporaryDirectory.appendingPathComponent("page.pdf")
+                    try? data.write(to: url)
+                    let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+                    self.delegate?.webViewController(self, present: activity)
+                case .failure:
+                    Toast.show("PDF failed", from: self)
+                }
+            }
+        } else {
+            Toast.show("PDF requires iOS 14+", from: self)
+        }
+    }
+
+    func screenshot() {
+        guard let webView = webView else { return }
+        if webView.isLoading || webView.estimatedProgress < 0.99 {
+            Toast.show("Waiting for page to finish loading…", from: self)
+        } else {
+            Toast.show("Preparing screenshot…", from: self)
+        }
+        LongScreenshotCapturer.captureViewport(from: webView) { [weak self] image in
+            guard let self = self else { return }
+            guard let image = image else {
+                Toast.show("Screenshot failed", from: self)
+                return
+            }
+            let editor = ScreenshotEditorViewController(image: image)
+            self.delegate?.webViewController(self, present: editor)
+        }
+    }
+
+    func longScreenshot() {
+        guard let webView = webView else { return }
+        if webView.isLoading || webView.estimatedProgress < 0.99 {
+            Toast.show("Waiting for page to finish loading…", from: self)
+        } else {
+            Toast.show("Capturing long screenshot…", from: self)
+        }
+        LongScreenshotCapturer.capture(from: webView) { [weak self] image in
+            guard let self = self else { return }
+            guard let image = image else {
+                Toast.show("Screenshot failed", from: self)
+                return
+            }
+            let activity = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+            self.delegate?.webViewController(self, present: activity)
+        }
+    }
+
+    func downloadCurrentIfFile() {
+        guard let url = webView?.url else { return }
+        let ext = url.pathExtension.lowercased()
+        let fileLike = ["pdf", "zip", "png", "jpg", "jpeg", "gif", "mp3", "mp4", "mov", "dmg", "pkg", "csv", "txt"].contains(ext)
+        guard fileLike else {
+            Toast.show("Open a downloadable file URL first", from: self)
+            return
+        }
+        DownloadManager.shared.download(from: url, suggestedName: url.lastPathComponent) { [weak self] result in
+            guard let self = self else { return }
+            switch result {
+            case .success(let item):
+                Toast.show("Downloaded \(item.fileName)", from: self)
+            case .failure(let error):
+                Toast.show(error.localizedDescription, from: self)
+            }
         }
     }
 
@@ -156,21 +328,85 @@ final class WebViewController: UIViewController {
     }
 
     @objc private func retryTapped() {
-        if let url = lastFailedURL {
-            load(url: url)
+        if let url = lastFailedURL { load(url: url) } else { webView?.reload() }
+    }
+
+    deinit { cleanup() }
+}
+
+extension WebViewController: FindInPageBarDelegate {
+    func findBar(_ bar: FindInPageBar, didSearch text: String, forward: Bool) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let mode: String
+        if trimmed.isEmpty {
+            mode = "clear"
+            lastFindQuery = nil
+            bar.setCountText("")
+        } else if trimmed == lastFindQuery {
+            mode = forward ? "next" : "prev"
         } else {
-            webView?.reload()
+            mode = "highlight"
+            lastFindQuery = trimmed
+        }
+
+        let js = FindInPageScript.javaScript(query: trimmed, mode: mode)
+        webView?.evaluateJavaScript(js) { result, error in
+            if let error = error {
+                print("[FindInPage] \(error.localizedDescription)")
+            }
+            if let r = result as? String, !r.isEmpty {
+                bar.setCountText(r)
+            } else if mode == "clear" {
+                bar.setCountText("")
+            }
         }
     }
 
-    deinit {
-        cleanup()
+    func findBarDidDismiss(_ bar: FindInPageBar) {
+        let js = FindInPageScript.javaScript(query: "", mode: "clear")
+        webView?.evaluateJavaScript(js, completionHandler: nil)
+        lastFindQuery = nil
+        bar.removeFromSuperview()
+        findBar = nil
     }
 }
 
 extension WebViewController: WKNavigationDelegate {
+    func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+        YouTubeDarkMode.applyAppearance(to: webView, url: navigationAction.request.url)
+        if let url = navigationAction.request.url {
+            let scheme = (url.scheme ?? "").lowercased()
+            // Ignore App/deeplink schemes (common on Chinese portals like Sogou) to avoid "Unsupported URL".
+            let allowed = ["http", "https", "about", "blob", "data", "file"]
+            if !scheme.isEmpty && !allowed.contains(scheme) {
+                decisionHandler(.cancel)
+                return
+            }
+
+            let ext = url.pathExtension.lowercased()
+            if ["pdf", "zip", "dmg", "pkg"].contains(ext), navigationAction.navigationType == .linkActivated {
+                DownloadManager.shared.download(from: url, suggestedName: url.lastPathComponent) { [weak self] result in
+                    if case .success(let item) = result {
+                        if let self = self { Toast.show("Downloaded \(item.fileName)", from: self) }
+                    }
+                }
+                decisionHandler(.cancel)
+                return
+            }
+            if DangerousSiteGuard.isDangerous(url), navigationAction.navigationType == .linkActivated {
+                decisionHandler(.cancel)
+                delegate?.webViewController(self, warnDangerous: url) { [weak webView] in
+                    webView?.load(URLRequest(url: url))
+                }
+                return
+            }
+        }
+        decisionHandler(.allow)
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         errorContainer.isHidden = true
+        httpsFallbackAttempted = false
         delegate?.webViewController(self, didUpdateProgress: 1, isLoading: false)
         delegate?.webViewController(self, didUpdateTitle: webView.title)
         delegate?.webViewController(self, didUpdateURL: webView.url)
@@ -190,6 +426,31 @@ extension WebViewController: WKNavigationDelegate {
     private func handleFailure(_ error: Error) {
         let nsError = error as NSError
         if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled { return }
+        // App-link / unsupported scheme failures should not blank the page.
+        if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorUnsupportedURL {
+            return
+        }
+        if let failing = nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL {
+            let scheme = (failing.scheme ?? "").lowercased()
+            if !["http", "https", "about", "blob", "data", "file"].contains(scheme) {
+                return
+            }
+        }
+
+        // HTTPS first fallback to http once
+        if !AppSettings.httpsOnly,
+           !httpsFallbackAttempted,
+           let url = webView?.url ?? lastFailedURL,
+           url.scheme == "https",
+           var comps = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            httpsFallbackAttempted = true
+            comps.scheme = "http"
+            if let httpURL = comps.url {
+                webView?.load(URLRequest(url: httpURL))
+                return
+            }
+        }
+
         lastFailedURL = webView?.url
         errorLabel.text = "Couldn't load page.\n\(error.localizedDescription)"
         errorContainer.isHidden = false

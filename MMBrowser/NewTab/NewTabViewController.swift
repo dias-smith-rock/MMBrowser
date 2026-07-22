@@ -7,6 +7,7 @@ protocol NewTabViewControllerDelegate: AnyObject {
     func newTabDidOpenURL(_ url: URL)
     func newTabDidTapSeeMoreContinue()
     func newTabDidRequestEditShortcuts()
+    func newTabDidRequestSettings()
 }
 
 final class NewTabViewController: UIViewController {
@@ -34,9 +35,40 @@ final class NewTabViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = BrowserTheme.background
         setupLayout()
+        applyHomeSettings()
         reloadShortcuts()
         reloadContinue()
         reloadDiscover()
+        NotificationCenter.default.addObserver(self, selector: #selector(applyHomeSettings), name: .homeSettingsChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(engineChanged), name: .searchEngineChanged, object: nil)
+    }
+
+    @objc func applyHomeSettings() {
+        shortcutsScroll.isHidden = !AppSettings.showShortcuts
+        continueCard.isHidden = continueCard.isHidden || !AppSettings.showContinue
+        if !AppSettings.showContinue { continueCard.isHidden = true }
+        discoverStack.isHidden = !AppSettings.showDiscover
+        discoverStack.superview?.subviews.forEach { v in
+            if let label = v as? UILabel, label.text == "Discover" {
+                label.isHidden = !AppSettings.showDiscover
+            }
+        }
+        let colors: [UIColor] = [
+            BrowserTheme.background,
+            UIColor(red: 0.08, green: 0.12, blue: 0.22, alpha: 1),
+            UIColor(red: 0.07, green: 0.14, blue: 0.10, alpha: 1),
+            UIColor(red: 0.05, green: 0.05, blue: 0.08, alpha: 1)
+        ]
+        view.backgroundColor = colors[AppSettings.homeWallpaperIndex % colors.count]
+        engineChanged()
+    }
+
+    @objc private func engineChanged() {
+        let name = SearchEngineManager.current.name
+        searchField.attributedPlaceholder = NSAttributedString(
+            string: "Search \(name) or type URL",
+            attributes: [.foregroundColor: BrowserTheme.textSecondary]
+        )
     }
 
     func reloadShortcuts() {
@@ -48,6 +80,10 @@ final class NewTabViewController: UIViewController {
     }
 
     func reloadContinue(from tabs: [BrowserTab] = []) {
+        guard AppSettings.showContinue else {
+            continueCard.isHidden = true
+            return
+        }
         let recent = tabs.first
         if let tab = recent, let url = tab.url {
             continueCard.isHidden = false
@@ -81,22 +117,21 @@ final class NewTabViewController: UIViewController {
         editButton.layer.cornerRadius = 18
         editButton.addTarget(self, action: #selector(editTapped), for: .touchUpInside)
 
-        signInButton.setTitle("Sign in", for: .normal)
+        signInButton.setTitle("Settings", for: .normal)
         signInButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
         signInButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
         signInButton.layer.cornerRadius = 16
         signInButton.layer.borderWidth = 1
         signInButton.layer.borderColor = UIColor(white: 0.35, alpha: 1).cgColor
         signInButton.contentEdgeInsets = UIEdgeInsets(top: 6, left: 14, bottom: 6, right: 14)
-        signInButton.addTarget(self, action: #selector(signInTapped), for: .touchUpInside)
+        signInButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
 
         searchContainer.backgroundColor = BrowserTheme.elevated
         searchContainer.layer.cornerRadius = 28
 
-        let gIcon = UILabel()
-        gIcon.text = "G"
-        gIcon.font = .systemFont(ofSize: 20, weight: .bold)
-        gIcon.textColor = BrowserTheme.chromeBlue
+        let gIcon = UIImageView(image: UIImage(systemName: "magnifyingglass"))
+        gIcon.tintColor = BrowserTheme.chromeBlue
+        gIcon.contentMode = .scaleAspectFit
 
         searchField.textColor = BrowserTheme.textPrimary
         searchField.tintColor = BrowserTheme.chromeBlue
@@ -106,7 +141,7 @@ final class NewTabViewController: UIViewController {
         searchField.autocorrectionType = .no
         searchField.delegate = self
         searchField.attributedPlaceholder = NSAttributedString(
-            string: "Search Google or type URL",
+            string: "Search or type URL",
             attributes: [.foregroundColor: BrowserTheme.textSecondary]
         )
 
@@ -125,7 +160,7 @@ final class NewTabViewController: UIViewController {
         searchContainer.addSubview(mic)
         searchContainer.addSubview(lens)
 
-        styleChip(aiButton, title: "AI Mode", systemName: "magnifyingglass")
+        styleChip(aiButton, title: "Search", systemName: "magnifyingglass")
         styleChip(incognitoButton, title: "Incognito", systemName: "eye.slash")
         aiButton.addTarget(self, action: #selector(placeholderFeature), for: .touchUpInside)
         incognitoButton.addTarget(self, action: #selector(incognitoTapped), for: .touchUpInside)
@@ -186,7 +221,7 @@ final class NewTabViewController: UIViewController {
             make.top.equalTo(editButton.snp.bottom).offset(36)
             make.centerX.equalToSuperview()
             make.height.equalTo(52)
-            make.width.equalTo(180)
+            make.width.equalTo(260)
         }
         searchContainer.snp.makeConstraints { make in
             make.top.equalTo(logoView.snp.bottom).offset(28)
@@ -197,7 +232,7 @@ final class NewTabViewController: UIViewController {
         gIcon.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(16)
             make.centerY.equalToSuperview()
-            make.width.equalTo(22)
+            make.size.equalTo(22)
         }
         lens.snp.makeConstraints { make in
             make.trailing.equalToSuperview().offset(-14)
@@ -428,12 +463,14 @@ final class NewTabViewController: UIViewController {
         delegate?.newTabDidRequestEditShortcuts()
     }
 
-    @objc private func signInTapped() {
-        Toast.show("Sign in coming soon", from: self)
+    @objc private func settingsTapped() {
+        delegate?.newTabDidRequestSettings()
     }
 
     @objc private func placeholderFeature() {
-        Toast.show("Coming soon", from: self)
+        if let url = URL(string: SearchEngineManager.current.homeURL) {
+            delegate?.newTabDidOpenURL(url)
+        }
     }
 
     @objc private func incognitoTapped() {
