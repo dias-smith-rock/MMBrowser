@@ -11,8 +11,9 @@ final class HistoryViewController: UIViewController, UITableViewDataSource, UITa
         view.backgroundColor = BrowserTheme.background
         navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Close", style: .plain, target: self, action: #selector(close))
         navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Clear", style: .plain, target: self, action: #selector(clear))
-        navigationController?.navigationBar.barTintColor = BrowserTheme.background
-        navigationController?.navigationBar.isTranslucent = false
+        if let navigationBar = navigationController?.navigationBar {
+            BrowserTheme.applyDarkNavigationBar(to: navigationBar)
+        }
 
         items = HistoryStore.shared.items
         tableView.backgroundColor = BrowserTheme.background

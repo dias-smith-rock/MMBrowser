@@ -10,4 +10,24 @@ enum BrowserTheme {
     static let textSecondary = UIColor(white: 0.72, alpha: 1)
     static let toolbarHeight: CGFloat = 52
     static let addressBarHeight: CGFloat = 44
+
+    /// Applies opaque dark chrome so presented sheets don't fall back to the system white nav bar.
+    static func applyDarkNavigationBar(to navigationBar: UINavigationBar) {
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = background
+        appearance.titleTextAttributes = [.foregroundColor: textPrimary]
+        appearance.largeTitleTextAttributes = [.foregroundColor: textPrimary]
+
+        navigationBar.standardAppearance = appearance
+        navigationBar.scrollEdgeAppearance = appearance
+        navigationBar.compactAppearance = appearance
+        if #available(iOS 15.0, *) {
+            navigationBar.compactScrollEdgeAppearance = appearance
+        }
+        navigationBar.barStyle = .black
+        navigationBar.isTranslucent = false
+        navigationBar.tintColor = chromeBlue
+        navigationBar.titleTextAttributes = [.foregroundColor: textPrimary]
+    }
 }

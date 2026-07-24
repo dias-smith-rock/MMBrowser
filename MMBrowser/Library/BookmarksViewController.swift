@@ -10,8 +10,9 @@ final class BookmarksViewController: UIViewController, UITableViewDataSource, UI
         title = "Bookmarks"
         view.backgroundColor = BrowserTheme.background
         navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Close", style: .plain, target: self, action: #selector(close))
-        navigationController?.navigationBar.barTintColor = BrowserTheme.background
-        navigationController?.navigationBar.isTranslucent = false
+        if let navigationBar = navigationController?.navigationBar {
+            BrowserTheme.applyDarkNavigationBar(to: navigationBar)
+        }
 
         items = BookmarkStore.shared.items
         tableView.backgroundColor = BrowserTheme.background

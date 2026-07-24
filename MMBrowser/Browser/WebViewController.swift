@@ -203,7 +203,8 @@ final class WebViewController: UIViewController {
             let title = (obj["title"] as? String) ?? (webView.title ?? "Reader")
             let reader = ReaderViewController(title: title, bodyHTML: html)
             let nav = UINavigationController(rootViewController: reader)
-            nav.navigationBar.barStyle = .black
+            nav.overrideUserInterfaceStyle = .dark
+            BrowserTheme.applyDarkNavigationBar(to: nav.navigationBar)
             self.delegate?.webViewController(self, present: nav)
         }
     }

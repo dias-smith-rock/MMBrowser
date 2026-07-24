@@ -225,8 +225,8 @@ final class BrowserViewController: UIViewController {
             root = list
         }
         let nav = UINavigationController(rootViewController: root)
-        nav.navigationBar.barStyle = .black
-        nav.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
+        nav.overrideUserInterfaceStyle = .dark
+        BrowserTheme.applyDarkNavigationBar(to: nav.navigationBar)
         present(nav, animated: true)
     }
 }
@@ -415,7 +415,8 @@ extension BrowserViewController: MenuViewControllerDelegate {
             self?.showSelectedTab()
         }
         let nav = UINavigationController(rootViewController: settings)
-        nav.navigationBar.barStyle = .black
+        nav.overrideUserInterfaceStyle = .dark
+        BrowserTheme.applyDarkNavigationBar(to: nav.navigationBar)
         present(nav, animated: true)
     }
 
@@ -423,14 +424,16 @@ extension BrowserViewController: MenuViewControllerDelegate {
         let list = ReadingListViewController()
         list.onOpenURL = { [weak self] url in self?.navigate(to: url) }
         let nav = UINavigationController(rootViewController: list)
-        nav.navigationBar.barStyle = .black
+        nav.overrideUserInterfaceStyle = .dark
+        BrowserTheme.applyDarkNavigationBar(to: nav.navigationBar)
         present(nav, animated: true)
     }
 
     private func openDownloads() {
         let list = DownloadsViewController()
         let nav = UINavigationController(rootViewController: list)
-        nav.navigationBar.barStyle = .black
+        nav.overrideUserInterfaceStyle = .dark
+        BrowserTheme.applyDarkNavigationBar(to: nav.navigationBar)
         present(nav, animated: true)
     }
 }

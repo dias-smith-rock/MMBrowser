@@ -11,12 +11,11 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         title = "Settings"
         view.backgroundColor = BrowserTheme.background
         navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(close))
-        navigationController?.navigationBar.barStyle = .black
-        navigationController?.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white]
-
-        if #available(iOS 13.0, *) {
-            tableView.overrideUserInterfaceStyle = .dark
+        if let navigationBar = navigationController?.navigationBar {
+            BrowserTheme.applyDarkNavigationBar(to: navigationBar)
         }
+
+        tableView.overrideUserInterfaceStyle = .dark
         tableView.backgroundColor = BrowserTheme.background
         tableView.dataSource = self
         tableView.delegate = self
