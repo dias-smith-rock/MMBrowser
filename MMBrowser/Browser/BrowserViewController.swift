@@ -325,7 +325,23 @@ extension BrowserViewController: WebViewControllerDelegate {
     func webViewControllerDidFail(_ controller: WebViewController, error: Error) {}
 
     func webViewController(_ controller: WebViewController, present vc: UIViewController) {
+        presentAfterClearingPresented(vc)
+    }
+
+    /// Ensures we are not already presenting (e.g. leftover alert) before showing another VC.
+    private func presentAfterClearingPresented(_ vc: UIViewController) {
+        if let presented = presentedViewController {
+            ScreenshotPerf.mark(
+                "ui.present.waitDismiss",
+                extra: String(describing: type(of: presented))
+            )
+            presented.dismiss(animated: false) { [weak self] in
+                self?.presentAfterClearingPresented(vc)
+            }
+            return
+        }
         present(vc, animated: true)
+        ScreenshotPerf.mark("ui.present.started", extra: String(describing: type(of: vc)))
     }
 
     func webViewController(_ controller: WebViewController, warnDangerous url: URL, proceed: @escaping () -> Void) {

@@ -18,6 +18,7 @@
 		5F551AC16CAD4143A1593E53 /* LetterAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3979F26B75FD439E9108F7A7 /* LetterAvatarView.swift */; };
 		47C017E84DF14D329312A9B6 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1779FCB4C5AF48C29F8F9FFA /* Theme.swift */; };
 		90F8BD6BD7DB43AF80342259 /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37FC46822386450BA067F7F5 /* Toast.swift */; };
+		E1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift */; };
 		C58A1413B374481F93E6D824 /* URLInputResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72957411D4864AC0B8541064 /* URLInputResolver.swift */; };
 		F28F14D6142F47C884D1BE09 /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2647202205AE48D0A2EE427F /* DownloadManager.swift */; };
 		39B5B31AA5B34064830D0554 /* DownloadsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EF1A8CF7C4FDF9609AC37 /* DownloadsViewController.swift */; };
@@ -65,6 +66,7 @@
 		3979F26B75FD439E9108F7A7 /* LetterAvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LetterAvatarView.swift; sourceTree = "<group>"; };
 		1779FCB4C5AF48C29F8F9FFA /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		37FC46822386450BA067F7F5 /* Toast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Toast.swift; sourceTree = "<group>"; };
+		F1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotPerf.swift; sourceTree = "<group>"; };
 		72957411D4864AC0B8541064 /* URLInputResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLInputResolver.swift; sourceTree = "<group>"; };
 		2647202205AE48D0A2EE427F /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManager.swift; sourceTree = "<group>"; };
 		ED5EF1A8CF7C4FDF9609AC37 /* DownloadsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsViewController.swift; sourceTree = "<group>"; };
@@ -199,6 +201,7 @@
 				3979F26B75FD439E9108F7A7 /* LetterAvatarView.swift */,
 				1779FCB4C5AF48C29F8F9FFA /* Theme.swift */,
 				37FC46822386450BA067F7F5 /* Toast.swift */,
+				F1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift */,
 				72957411D4864AC0B8541064 /* URLInputResolver.swift */,
 			);
 			path = Common;
@@ -434,6 +437,7 @@
 				5F551AC16CAD4143A1593E53 /* LetterAvatarView.swift in Sources */,
 				47C017E84DF14D329312A9B6 /* Theme.swift in Sources */,
 				90F8BD6BD7DB43AF80342259 /* Toast.swift in Sources */,
+				E1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift in Sources */,
 				C58A1413B374481F93E6D824 /* URLInputResolver.swift in Sources */,
 				F28F14D6142F47C884D1BE09 /* DownloadManager.swift in Sources */,
 				39B5B31AA5B34064830D0554 /* DownloadsViewController.swift in Sources */,

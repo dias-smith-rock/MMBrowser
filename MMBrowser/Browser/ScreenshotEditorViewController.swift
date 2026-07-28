@@ -196,6 +196,7 @@ final class ScreenshotEditorViewController: UIViewController {
         case rotateFrame(startAngle: CGFloat, startRotation: CGFloat)
         case drawArrow(start: CGPoint)
         case moveAnnotation(index: Int, startTouch: CGPoint, startItem: ScreenshotAnnotation)
+        case moveArrowEndpoint(index: Int, isStart: Bool)
         case rotateText(index: Int, startAngle: CGFloat, startRotation: CGFloat)
         case rotateArrow(index: Int, startAngle: CGFloat, startStart: CGPoint, startEnd: CGPoint)
     }
@@ -226,6 +227,7 @@ final class ScreenshotEditorViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        let start = ScreenshotPerf.now()
         view.backgroundColor = .black
 
         canvas.clipsToBounds = true
@@ -280,10 +282,17 @@ final class ScreenshotEditorViewController: UIViewController {
         canvas.addGestureRecognizer(pan)
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
         canvas.addGestureRecognizer(tap)
+        ScreenshotPerf.mark(
+            "editor.viewDidLoad",
+            since: start,
+            extra: "image=\(Int(sourceImage.size.width))x\(Int(sourceImage.size.height))@\(sourceImage.scale)"
+        )
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        let start = ScreenshotPerf.now()
+        ScreenshotPerf.noteLayout()
         let safe = view.safeAreaInsets
         canvas.frame = CGRect(
             x: 0,
@@ -296,14 +305,18 @@ final class ScreenshotEditorViewController: UIViewController {
         imageFrameInCanvas = aspectFitFrame(imageSize: sourceImage.size, in: canvas.bounds)
 
         placeInitialSelectionIfNeeded()
-        refreshOverlay()
+        refreshOverlay(source: "layout")
+        ScreenshotPerf.mark("editor.viewDidLayoutSubviews", since: start)
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        let start = ScreenshotPerf.now()
         // First layout can run with empty bounds during presentation; place again when visible.
         placeInitialSelectionIfNeeded()
-        refreshOverlay()
+        refreshOverlay(source: "appear")
+        ScreenshotPerf.mark("editor.viewDidAppear", since: start)
+        ScreenshotPerf.endSessionSummary()
     }
 
     private func placeInitialSelectionIfNeeded() {
@@ -345,15 +358,16 @@ final class ScreenshotEditorViewController: UIViewController {
         menuStack.alignment = .center
     }
 
-    private func makeMenuButton(symbol: String, title: String, action: Selector) -> UIButton {
+    private func makeMenuButton(symbol: String, title: String, action: Selector, selected: Bool = false) -> UIButton {
         let button = UIButton(type: .system)
         let side: CGFloat = 36
-        button.backgroundColor = UIColor(white: 0.22, alpha: 1)
+        button.backgroundColor = selected ? frameColor : UIColor(white: 0.22, alpha: 1)
         button.layer.cornerRadius = 8
         button.tintColor = .white
         let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
         button.setImage(UIImage(systemName: symbol, withConfiguration: config), for: .normal)
         button.accessibilityLabel = title
+        button.accessibilityTraits = selected ? [.button, .selected] : .button
         button.addTarget(self, action: action, for: .touchUpInside)
         button.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
@@ -369,40 +383,40 @@ final class ScreenshotEditorViewController: UIViewController {
             $0.removeFromSuperview()
         }
 
-        let items: [(String, String, Selector)]
+        let items: [(String, String, Selector, Bool)]
         if let index = selectedAnnotationIndex, annotations.indices.contains(index) {
             switch annotations[index] {
             case .text:
                 items = [
-                    ("textformat.size", "Size", #selector(textSizeTapped)),
-                    ("paintpalette", "Color", #selector(textColorTapped)),
-                    ("textformat", "Font", #selector(textFontTapped)),
-                    ("rotate.right", "Rotate", #selector(textRotateTapped)),
-                    ("checkmark", "Done", #selector(deselectTapped))
+                    ("textformat.size", "Size", #selector(textSizeTapped), false),
+                    ("paintpalette", "Color", #selector(textColorTapped), false),
+                    ("textformat", "Font", #selector(textFontTapped), false),
+                    ("rotate.right", "Rotate", #selector(textRotateTapped), annotationRotateMode),
+                    ("checkmark", "Done", #selector(deselectTapped), false)
                 ]
             case .arrow:
                 items = [
-                    ("arrow.triangle.branch", "Style", #selector(arrowStyleTapped)),
-                    ("paintpalette", "Color", #selector(arrowColorTapped)),
-                    ("pencil.tip", "Width", #selector(arrowWidthTapped)),
-                    ("arrow.clockwise", "Angle", #selector(arrowAngleTapped)),
-                    ("checkmark", "Done", #selector(deselectTapped))
+                    ("arrow.triangle.branch", "Style", #selector(arrowStyleTapped), false),
+                    ("paintpalette", "Color", #selector(arrowColorTapped), false),
+                    ("pencil.tip", "Width", #selector(arrowWidthTapped), false),
+                    ("arrow.clockwise", "Angle", #selector(arrowAngleTapped), annotationRotateMode),
+                    ("checkmark", "Done", #selector(deselectTapped), false)
                 ]
             }
         } else {
             items = [
-                ("arrow.up.right", "Arrow", #selector(addArrowTapped)),
-                ("textformat", "Text", #selector(addTextTapped)),
-                ("square.on.circle", "Shape", #selector(changeShapeTapped)),
-                ("rotate.right", "Rotate", #selector(frameRotateTapped)),
-                ("square.and.arrow.down", "Album", #selector(saveAlbumTapped)),
-                ("doc.on.clipboard", "Copy", #selector(saveClipboardTapped)),
-                ("xmark", "Cancel", #selector(cancelTapped))
+                ("arrow.up.right", "Arrow", #selector(addArrowTapped), arrowMode),
+                ("textformat", "Text", #selector(addTextTapped), textMode),
+                ("square.on.circle", "Shape", #selector(changeShapeTapped), false),
+                ("rotate.right", "Rotate", #selector(frameRotateTapped), false),
+                ("square.and.arrow.down", "Album", #selector(saveAlbumTapped), false),
+                ("doc.on.clipboard", "Copy", #selector(saveClipboardTapped), false),
+                ("xmark", "Cancel", #selector(cancelTapped), false)
             ]
         }
 
-        for (symbol, title, sel) in items {
-            menuStack.addArrangedSubview(makeMenuButton(symbol: symbol, title: title, action: sel))
+        for (symbol, title, sel, selected) in items {
+            menuStack.addArrangedSubview(makeMenuButton(symbol: symbol, title: title, action: sel, selected: selected))
         }
         layoutMenuNearFrame()
     }
@@ -514,12 +528,17 @@ final class ScreenshotEditorViewController: UIViewController {
 
     // MARK: - Overlay
 
-    private func refreshOverlay() {
+    private func refreshOverlay(source: String = "unknown") {
         guard canvas.bounds.width > 1, canvas.bounds.height > 1 else { return }
         clampSelectionCenterAndSize()
         guard selectionSize.width > 1, selectionSize.height > 1 else { return }
 
+        let totalStart = ScreenshotPerf.now()
+        var t0 = totalStart
+
         let cutout = selectionPathInCanvas()
+        let pathMs = (ScreenshotPerf.now() - t0) * 1000
+        t0 = ScreenshotPerf.now()
 
         let maskPath = UIBezierPath(rect: canvas.bounds)
         maskPath.append(cutout)
@@ -529,17 +548,38 @@ final class ScreenshotEditorViewController: UIViewController {
         maskLayer.fillRule = .evenOdd
         dimView.frame = canvas.bounds
         dimView.layer.mask = maskLayer
+        let maskMs = (ScreenshotPerf.now() - t0) * 1000
+        t0 = ScreenshotPerf.now()
 
         borderLayer.path = cutout.cgPath
         // Keep stroke above the dim mask hole.
         canvas.layer.insertSublayer(borderLayer, above: dimView.layer)
         canvas.layer.insertSublayer(rotateStem, above: borderLayer)
+        let borderMs = (ScreenshotPerf.now() - t0) * 1000
+        t0 = ScreenshotPerf.now()
 
         updateHandles()
+        let handlesMs = (ScreenshotPerf.now() - t0) * 1000
+        t0 = ScreenshotPerf.now()
+
         redrawAnnotations()
+        let annMs = (ScreenshotPerf.now() - t0) * 1000
+        t0 = ScreenshotPerf.now()
+
         updateSelectionOutline()
         layoutMenuNearFrame()
         bringChromeToFront()
+        let chromeMs = (ScreenshotPerf.now() - t0) * 1000
+
+        let totalMs = (ScreenshotPerf.now() - totalStart) * 1000
+        let breakdown = String(
+            format: "path=%.1f mask=%.1f border=%.1f handles=%.1f ann=%.1f chrome=%.1f",
+            pathMs, maskMs, borderMs, handlesMs, annMs, chromeMs
+        )
+        ScreenshotPerf.noteRefresh(source: source, durationMs: totalMs, breakdown: breakdown)
+        if source.hasPrefix("pan") {
+            ScreenshotPerf.notePanRefresh(durationMs: totalMs)
+        }
     }
 
     private func bringChromeToFront() {
@@ -554,6 +594,51 @@ final class ScreenshotEditorViewController: UIViewController {
     }
 
     private func updateHandles() {
+        // Arrow selection: only start / end / mid (3 nodes). Hide crop frame chrome.
+        if let index = selectedAnnotationIndex,
+           case .arrow(let arrow) = annotations[index] {
+            let start = absolutePoint(arrow.start)
+            let end = absolutePoint(arrow.end)
+            let mid = CGPoint(x: (start.x + end.x) / 2, y: (start.y + end.y) / 2)
+            let points = [start, end, mid]
+            for (i, handle) in cornerHandles.enumerated() {
+                if i < 3 {
+                    handle.isHidden = false
+                    handle.bounds = CGRect(x: 0, y: 0, width: handleSize, height: handleSize)
+                    handle.center = points[i]
+                    handle.transform = .identity
+                } else {
+                    handle.isHidden = true
+                }
+            }
+            rotateHandle.isHidden = true
+            rotateStem.path = nil
+            return
+        }
+
+        // Text selection: corners on the text box + rotate handle. Hide crop-frame chrome.
+        if let index = selectedAnnotationIndex,
+           case .text(let text) = annotations[index] {
+            let geometry = textSelectionGeometry(text)
+            for (i, handle) in cornerHandles.enumerated() {
+                handle.isHidden = false
+                handle.bounds = CGRect(x: 0, y: 0, width: handleSize, height: handleSize)
+                handle.center = geometry.corners[i]
+                handle.transform = CGAffineTransform(rotationAngle: geometry.rotation)
+            }
+            let stem = UIBezierPath()
+            stem.move(to: geometry.topMid)
+            stem.addLine(to: geometry.rotate)
+            rotateStem.path = stem.cgPath
+            rotateHandle.isHidden = false
+            rotateHandle.bounds = CGRect(x: 0, y: 0, width: 20, height: 20)
+            rotateHandle.center = geometry.rotate
+            return
+        }
+
+        for handle in cornerHandles { handle.isHidden = false }
+        rotateHandle.isHidden = false
+
         let localCorners = [
             CGPoint(x: -selectionSize.width / 2, y: -selectionSize.height / 2),
             CGPoint(x: selectionSize.width / 2, y: -selectionSize.height / 2),
@@ -578,6 +663,41 @@ final class ScreenshotEditorViewController: UIViewController {
         rotateHandle.center = rotateCanvas
     }
 
+    private struct TextSelectionGeometry {
+        var corners: [CGPoint]
+        var topMid: CGPoint
+        var rotate: CGPoint
+        var rotation: CGFloat
+        var center: CGPoint
+    }
+
+    private func textSelectionGeometry(_ text: TextAnnotation) -> TextSelectionGeometry {
+        let font = text.font.font(size: text.fontSize)
+        let size = (text.value as NSString).size(withAttributes: [.font: font])
+        let pad: CGFloat = 10
+        let halfW = size.width / 2 + pad
+        let halfH = size.height / 2 + pad
+        let rotation = selectionRotation + text.rotation
+        let center = absolutePoint(text.origin)
+        let transform = CGAffineTransform(translationX: center.x, y: center.y).rotated(by: rotation)
+        let locals = [
+            CGPoint(x: -halfW, y: -halfH),
+            CGPoint(x: halfW, y: -halfH),
+            CGPoint(x: -halfW, y: halfH),
+            CGPoint(x: halfW, y: halfH)
+        ]
+        let corners = locals.map { $0.applying(transform) }
+        let topMid = CGPoint(x: 0, y: -halfH).applying(transform)
+        let rotate = CGPoint(x: 0, y: -halfH - 28).applying(transform)
+        return TextSelectionGeometry(
+            corners: corners,
+            topMid: topMid,
+            rotate: rotate,
+            rotation: rotation,
+            center: center
+        )
+    }
+
     private func updateSelectionOutline() {
         guard let index = selectedAnnotationIndex, annotations.indices.contains(index) else {
             selectionOutlineLayer.path = nil
@@ -585,9 +705,14 @@ final class ScreenshotEditorViewController: UIViewController {
         }
         switch annotations[index] {
         case .text(let text):
+            // Solid high-contrast box so selection stays visible on busy pages / red text.
+            selectionOutlineLayer.lineDashPattern = nil
+            selectionOutlineLayer.lineWidth = 2.5
+            selectionOutlineLayer.strokeColor = frameColor.cgColor
+            selectionOutlineLayer.fillColor = UIColor.clear.cgColor
             let font = text.font.font(size: text.fontSize)
             let size = (text.value as NSString).size(withAttributes: [.font: font])
-            let pad: CGFloat = 8
+            let pad: CGFloat = 10
             let rect = CGRect(
                 x: -size.width / 2 - pad,
                 y: -size.height / 2 - pad,
@@ -599,14 +724,10 @@ final class ScreenshotEditorViewController: UIViewController {
             t = t.rotated(by: selectionRotation + text.rotation)
             path.apply(t)
             selectionOutlineLayer.path = path.cgPath
-        case .arrow(let arrow):
-            let s = absolutePoint(arrow.start)
-            let e = absolutePoint(arrow.end)
-            let path = UIBezierPath()
-            path.move(to: s)
-            path.addLine(to: e)
-            selectionOutlineLayer.path = path.cgPath
-            selectionOutlineLayer.lineWidth = max(arrow.lineWidth + 4, 6)
+        case .arrow:
+            // Don't overlay a dashed stroke on the arrow — it makes solid arrows look dashed.
+            // The three endpoint handles already indicate selection.
+            selectionOutlineLayer.path = nil
         }
     }
 
@@ -614,13 +735,27 @@ final class ScreenshotEditorViewController: UIViewController {
 
     private func handleIndex(at point: CGPoint) -> Int? {
         for (index, handle) in cornerHandles.enumerated() {
+            if handle.isHidden { continue }
             if handle.frame.insetBy(dx: -12, dy: -12).contains(point) { return index }
         }
         return nil
     }
 
+    /// 0 = start, 1 = end, 2 = mid (move). Only valid while an arrow is selected.
+    private func arrowHandleIndex(at point: CGPoint) -> Int? {
+        guard let index = selectedAnnotationIndex,
+              case .arrow = annotations[index] else { return nil }
+        for i in 0..<min(3, cornerHandles.count) {
+            let handle = cornerHandles[i]
+            if handle.isHidden { continue }
+            if handle.frame.insetBy(dx: -12, dy: -12).contains(point) { return i }
+        }
+        return nil
+    }
+
     private func isRotateHandle(at point: CGPoint) -> Bool {
-        rotateHandle.frame.insetBy(dx: -14, dy: -14).contains(point)
+        guard !rotateHandle.isHidden else { return false }
+        return rotateHandle.frame.insetBy(dx: -14, dy: -14).contains(point)
     }
 
     private func isInsideSelection(at point: CGPoint) -> Bool {
@@ -680,10 +815,43 @@ final class ScreenshotEditorViewController: UIViewController {
                 draftArrowEnd = point
                 return
             }
-            if isRotateHandle(at: point) {
+            // Arrow endpoint / mid nodes take priority over crop-frame chrome.
+            if let arrowIndex = selectedAnnotationIndex,
+               case .arrow(let arrow) = annotations[arrowIndex],
+               let handle = arrowHandleIndex(at: point) {
+                if handle == 2 {
+                    interaction = .moveAnnotation(
+                        index: arrowIndex,
+                        startTouch: point,
+                        startItem: .arrow(arrow)
+                    )
+                } else {
+                    interaction = .moveArrowEndpoint(index: arrowIndex, isStart: handle == 0)
+                }
+                return
+            }
+            // Text selection chrome: rotate handle / corners act on the text, not the crop frame.
+            if let textIndex = selectedAnnotationIndex,
+               case .text(let text) = annotations[textIndex] {
+                if isRotateHandle(at: point) {
+                    let center = absolutePoint(text.origin)
+                    let angle = atan2(point.y - center.y, point.x - center.x)
+                    interaction = .rotateText(index: textIndex, startAngle: angle, startRotation: text.rotation)
+                    return
+                }
+                if handleIndex(at: point) != nil {
+                    interaction = .moveAnnotation(
+                        index: textIndex,
+                        startTouch: point,
+                        startItem: .text(text)
+                    )
+                    return
+                }
+            }
+            if selectedAnnotationIndex == nil, isRotateHandle(at: point) {
                 let angle = atan2(point.y - selectionCenter.y, point.x - selectionCenter.x)
                 interaction = .rotateFrame(startAngle: angle, startRotation: selectionRotation)
-            } else if let corner = handleIndex(at: point) {
+            } else if selectedAnnotationIndex == nil, let corner = handleIndex(at: point) {
                 interaction = .resize(
                     corner: corner,
                     startTouch: point,
@@ -694,8 +862,10 @@ final class ScreenshotEditorViewController: UIViewController {
                 if selectedAnnotationIndex != index {
                     selectedAnnotationIndex = index
                     annotationRotateMode = false
+                    arrowMode = false
+                    textMode = false
                     rebuildMenu()
-                    refreshOverlay()
+                    refreshOverlay(source: "select")
                 }
                 if annotationRotateMode, case .text(let text) = annotations[index] {
                     let center = absolutePoint(text.origin)
@@ -719,6 +889,7 @@ final class ScreenshotEditorViewController: UIViewController {
                     selectedAnnotationIndex = nil
                     annotationRotateMode = false
                     rebuildMenu()
+                    updateHandles()
                     updateSelectionOutline()
                 }
                 interaction = .moveFrame(startTouch: point, startCenter: selectionCenter)
@@ -732,14 +903,14 @@ final class ScreenshotEditorViewController: UIViewController {
                     x: startCenter.x + point.x - startTouch.x,
                     y: startCenter.y + point.y - startTouch.y
                 )
-                refreshOverlay()
+                refreshOverlay(source: "pan.move")
             case .resize(let corner, let startTouch, let startSize, let startCenter):
                 applyResize(corner: corner, startTouch: startTouch, startSize: startSize, startCenter: startCenter, current: point)
-                refreshOverlay()
+                refreshOverlay(source: "pan.resize")
             case .rotateFrame(let startAngle, let startRotation):
                 let angle = atan2(point.y - selectionCenter.y, point.x - selectionCenter.x)
                 selectionRotation = startRotation + (angle - startAngle)
-                refreshOverlay()
+                refreshOverlay(source: "pan.rotate")
             case .moveAnnotation(let index, let startTouch, let startItem):
                 let startLocal = toLocal(startTouch)
                 let curLocal = toLocal(point)
@@ -748,6 +919,21 @@ final class ScreenshotEditorViewController: UIViewController {
                 annotations[index] = translatedAnnotation(startItem, dxNorm: dxNorm, dyNorm: dyNorm)
                 redrawAnnotations()
                 updateSelectionOutline()
+                updateHandles()
+                layoutMenuNearFrame()
+            case .moveArrowEndpoint(let index, let isStart):
+                guard case .arrow(var arrow) = annotations[index] else { break }
+                let p = clampNormalized(normalizedPoint(fromCanvas: point))
+                if isStart {
+                    arrow.start = p
+                } else {
+                    arrow.end = p
+                }
+                annotations[index] = .arrow(arrow)
+                redrawAnnotations()
+                updateSelectionOutline()
+                updateHandles()
+                layoutMenuNearFrame()
             case .rotateText(let index, let startAngle, let startRotation):
                 guard case .text(var text) = annotations[index] else { break }
                 let center = absolutePoint(text.origin)
@@ -756,6 +942,8 @@ final class ScreenshotEditorViewController: UIViewController {
                 annotations[index] = .text(text)
                 redrawAnnotations()
                 updateSelectionOutline()
+                updateHandles()
+                layoutMenuNearFrame()
             case .rotateArrow(let index, let startAngle, let startStart, let startEnd):
                 guard case .arrow(var arrow) = annotations[index] else { break }
                 let mid = CGPoint(x: (startStart.x + startEnd.x) / 2, y: (startStart.y + startEnd.y) / 2)
@@ -767,6 +955,8 @@ final class ScreenshotEditorViewController: UIViewController {
                 annotations[index] = .arrow(arrow)
                 redrawAnnotations()
                 updateSelectionOutline()
+                updateHandles()
+                layoutMenuNearFrame()
             case .drawArrow(let start):
                 draftArrowEnd = point
                 redrawAnnotations(draftArrow: (start, point))
@@ -775,6 +965,7 @@ final class ScreenshotEditorViewController: UIViewController {
             }
         case .ended, .cancelled:
             if case .drawArrow(let start) = interaction, let end = draftArrowEnd {
+                arrowMode = false
                 if hypot(end.x - start.x, end.y - start.y) > 16 {
                     let arrow = ArrowAnnotation(
                         start: clampNormalized(normalizedPoint(fromCanvas: start)),
@@ -783,15 +974,22 @@ final class ScreenshotEditorViewController: UIViewController {
                     annotations.append(.arrow(arrow))
                     selectedAnnotationIndex = annotations.count - 1
                     annotationRotateMode = false
-                    rebuildMenu()
                 }
                 draftArrowEnd = nil
-                arrowMode = false
+                rebuildMenu()
                 redrawAnnotations()
+                updateHandles()
                 updateSelectionOutline()
+                layoutMenuNearFrame()
             }
-            if case .rotateText = interaction { annotationRotateMode = false }
-            if case .rotateArrow = interaction { annotationRotateMode = false }
+            if case .rotateText = interaction {
+                annotationRotateMode = false
+                rebuildMenu()
+            }
+            if case .rotateArrow = interaction {
+                annotationRotateMode = false
+                rebuildMenu()
+            }
             interaction = .none
         default:
             break
@@ -803,6 +1001,7 @@ final class ScreenshotEditorViewController: UIViewController {
 
         if textMode {
             textMode = false
+            rebuildMenu()
             let alert = UIAlertController(title: "Add Text", message: nil, preferredStyle: .alert)
             alert.addTextField { $0.placeholder = "Enter text" }
             alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -825,7 +1024,9 @@ final class ScreenshotEditorViewController: UIViewController {
             selectedAnnotationIndex = index
             annotationRotateMode = false
             rebuildMenu()
+            updateHandles()
             updateSelectionOutline()
+            layoutMenuNearFrame()
             return
         }
 
@@ -833,7 +1034,9 @@ final class ScreenshotEditorViewController: UIViewController {
             selectedAnnotationIndex = nil
             annotationRotateMode = false
             rebuildMenu()
+            updateHandles()
             updateSelectionOutline()
+            layoutMenuNearFrame()
         }
     }
 
@@ -932,6 +1135,7 @@ final class ScreenshotEditorViewController: UIViewController {
     // MARK: - Drawing annotations
 
     private func redrawAnnotations(draftArrow: (CGPoint, CGPoint)? = nil) {
+        let start = ScreenshotPerf.now()
         annotationsHost.layer.sublayers?.forEach { $0.removeFromSuperlayer() }
         annotationsHost.subviews.forEach { $0.removeFromSuperview() }
 
@@ -988,6 +1192,10 @@ final class ScreenshotEditorViewController: UIViewController {
             layer.lineCap = .round
             annotationsHost.layer.addSublayer(layer)
         }
+        let ms = (ScreenshotPerf.now() - start) * 1000
+        if ms >= 4 {
+            ScreenshotPerf.mark("editor.redrawAnnotations", since: start, extra: "count=\(annotations.count)")
+        }
     }
 
     private func arrowPath(from start: CGPoint, to end: CGPoint, style: ScreenshotArrowStyle, lineWidth: CGFloat) -> UIBezierPath {
@@ -1033,28 +1241,39 @@ final class ScreenshotEditorViewController: UIViewController {
 
     @objc private func addArrowTapped() {
         selectedAnnotationIndex = nil
+        annotationRotateMode = false
+        if arrowMode {
+            arrowMode = false
+        } else {
+            arrowMode = true
+            textMode = false
+        }
         rebuildMenu()
         updateSelectionOutline()
-        arrowMode = true
-        textMode = false
-        Toast.show("Drag to draw an arrow", from: self)
     }
 
     @objc private func addTextTapped() {
         selectedAnnotationIndex = nil
+        annotationRotateMode = false
+        if textMode {
+            textMode = false
+        } else {
+            textMode = true
+            arrowMode = false
+        }
         rebuildMenu()
         updateSelectionOutline()
-        textMode = true
-        arrowMode = false
-        Toast.show("Tap where the text should appear", from: self)
     }
 
     @objc private func changeShapeTapped() {
+        arrowMode = false
+        textMode = false
+        rebuildMenu()
         let sheet = UIAlertController(title: "Crop Shape", message: nil, preferredStyle: .actionSheet)
         for item in ScreenshotCropShape.allCases {
             sheet.addAction(UIAlertAction(title: item.title, style: .default) { [weak self] _ in
                 self?.shape = item
-                self?.refreshOverlay()
+                self?.refreshOverlay(source: "shape")
             })
         }
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -1062,16 +1281,22 @@ final class ScreenshotEditorViewController: UIViewController {
     }
 
     @objc private func frameRotateTapped() {
+        arrowMode = false
+        textMode = false
+        rebuildMenu()
         selectionRotation += .pi / 12
-        refreshOverlay()
-        Toast.show("Drag the top handle to rotate freely", from: self)
+        refreshOverlay(source: "menu.rotate")
     }
 
     @objc private func deselectTapped() {
         selectedAnnotationIndex = nil
         annotationRotateMode = false
+        arrowMode = false
+        textMode = false
         rebuildMenu()
+        updateHandles()
         updateSelectionOutline()
+        layoutMenuNearFrame()
     }
 
     // MARK: - Text menu
@@ -1085,6 +1310,8 @@ final class ScreenshotEditorViewController: UIViewController {
                 self?.annotations[index] = .text(text)
                 self?.redrawAnnotations()
                 self?.updateSelectionOutline()
+                self?.updateHandles()
+                self?.layoutMenuNearFrame()
             })
         }
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -1115,6 +1342,8 @@ final class ScreenshotEditorViewController: UIViewController {
                 self?.annotations[index] = .text(text)
                 self?.redrawAnnotations()
                 self?.updateSelectionOutline()
+                self?.updateHandles()
+                self?.layoutMenuNearFrame()
             })
         }
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -1122,8 +1351,8 @@ final class ScreenshotEditorViewController: UIViewController {
     }
 
     @objc private func textRotateTapped() {
-        annotationRotateMode = true
-        Toast.show("Drag around the text to rotate", from: self)
+        annotationRotateMode.toggle()
+        rebuildMenu()
     }
 
     // MARK: - Arrow menu
@@ -1174,8 +1403,8 @@ final class ScreenshotEditorViewController: UIViewController {
     }
 
     @objc private func arrowAngleTapped() {
-        annotationRotateMode = true
-        Toast.show("Drag around the arrow to change angle", from: self)
+        annotationRotateMode.toggle()
+        rebuildMenu()
     }
 
     private func presentSheet(_ sheet: UIAlertController) {

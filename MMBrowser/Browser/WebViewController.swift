@@ -264,29 +264,42 @@ final class WebViewController: UIViewController {
 
     func screenshot() {
         guard let webView = webView else { return }
-        if webView.isLoading || webView.estimatedProgress < 0.99 {
-            Toast.show("Waiting for page to finish loading…", from: self)
-        } else {
-            Toast.show("Preparing screenshot…", from: self)
-        }
+        ScreenshotPerf.beginSession("manual_screenshot")
+        ScreenshotPerf.mark(
+            "ui.screenshot.tapped",
+            extra: String(
+                format: "loading=%@ progress=%.2f",
+                webView.isLoading ? "YES" : "NO",
+                webView.estimatedProgress
+            )
+        )
+        // Avoid modal toast here: capture often finishes in ~100ms and a UIAlertController
+        // would still be presented, causing the editor present to fail intermittently.
+        let captureStart = ScreenshotPerf.now()
         LongScreenshotCapturer.captureViewport(from: webView) { [weak self] image in
             guard let self = self else { return }
+            ScreenshotPerf.mark("ui.capture.callback", since: captureStart)
             guard let image = image else {
+                ScreenshotPerf.mark("ui.screenshot.failed")
                 Toast.show("Screenshot failed", from: self)
                 return
             }
+            let buildStart = ScreenshotPerf.now()
             let editor = ScreenshotEditorViewController(image: image)
+            ScreenshotPerf.mark(
+                "ui.editor.init",
+                since: buildStart,
+                extra: "image=\(Int(image.size.width))x\(Int(image.size.height))@\(image.scale)"
+            )
+            let presentStart = ScreenshotPerf.now()
             self.delegate?.webViewController(self, present: editor)
+            ScreenshotPerf.mark("ui.editor.present.called", since: presentStart)
         }
     }
 
     func longScreenshot() {
         guard let webView = webView else { return }
-        if webView.isLoading || webView.estimatedProgress < 0.99 {
-            Toast.show("Waiting for page to finish loading…", from: self)
-        } else {
-            Toast.show("Capturing long screenshot…", from: self)
-        }
+        // Same present race as screenshot — skip modal progress toast.
         LongScreenshotCapturer.capture(from: webView) { [weak self] image in
             guard let self = self else { return }
             guard let image = image else {

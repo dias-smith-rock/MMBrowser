@@ -66,39 +66,103 @@ enum LongScreenshotCapturer {
 
     /// Captures the current viewport after the page has finished loading.
     static func captureViewport(from webView: WKWebView, completion: @escaping (UIImage?) -> Void) {
-        waitUntilPageReady(webView: webView, attempt: 0) {
-            waitForViewportPaint(webView: webView, attempt: 0) {
-                let config = WKSnapshotConfiguration()
-                config.rect = CGRect(origin: .zero, size: webView.bounds.size)
-                webView.takeSnapshot(with: config) { image, _ in
-                    DispatchQueue.main.async {
-                        guard let image = image else {
-                            completion(nil)
-                            return
-                        }
-                        if isMostlyBlank(image) {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                                webView.takeSnapshot(with: config) { retry, _ in
-                                    DispatchQueue.main.async { completion(retry ?? image) }
-                                }
-                            }
-                            return
-                        }
-                        completion(image)
-                    }
+        let totalStart = ScreenshotPerf.now()
+        ScreenshotPerf.mark(
+            "captureViewport.start",
+            extra: String(
+                format: "loading=%@ progress=%.2f bounds=%.0fx%.0f",
+                webView.isLoading ? "YES" : "NO",
+                webView.estimatedProgress,
+                webView.bounds.width,
+                webView.bounds.height
+            )
+        )
+
+        // Manual screenshot: do not wait for every in-viewport image.
+        // Sites often keep tracking/lazy images pending forever (logs showed ~4.4s timeout, ready=false),
+        // while takeSnapshot itself is ~16ms once we snapshot.
+        let alreadyLoaded = !webView.isLoading && webView.estimatedProgress >= 0.99
+        let readyStart = ScreenshotPerf.now()
+
+        let proceedToSnapshot: () -> Void = {
+            ScreenshotPerf.mark("captureViewport.waitReady.done", since: readyStart)
+            ScreenshotPerf.mark("captureViewport.waitPaint.skipped", extra: "manual_viewport")
+            takeViewportSnapshot(webView: webView, totalStart: totalStart, completion: completion)
+        }
+
+        if alreadyLoaded {
+            // Single short hop so the current frame can commit; avoid multi-second image polls.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: proceedToSnapshot)
+        } else {
+            waitUntilPageReady(webView: webView, attempt: 0, settleDelay: 0.08, completion: proceedToSnapshot)
+        }
+    }
+
+    private static func takeViewportSnapshot(
+        webView: WKWebView,
+        totalStart: CFAbsoluteTime,
+        completion: @escaping (UIImage?) -> Void
+    ) {
+        let config = WKSnapshotConfiguration()
+        config.rect = CGRect(origin: .zero, size: webView.bounds.size)
+        let snapStart = ScreenshotPerf.now()
+        webView.takeSnapshot(with: config) { image, error in
+            DispatchQueue.main.async {
+                ScreenshotPerf.mark(
+                    "captureViewport.takeSnapshot.done",
+                    since: snapStart,
+                    extra: error.map { "err=\($0.localizedDescription)" } ?? "ok"
+                )
+                guard let image = image else {
+                    ScreenshotPerf.mark("captureViewport.fail", since: totalStart, extra: "nil image")
+                    completion(nil)
+                    return
                 }
+                let blankStart = ScreenshotPerf.now()
+                let blank = isMostlyBlank(image)
+                ScreenshotPerf.mark(
+                    "captureViewport.blankCheck",
+                    since: blankStart,
+                    extra: "blank=\(blank) size=\(Int(image.size.width))x\(Int(image.size.height)) scale=\(image.scale)"
+                )
+                if blank {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        let retryStart = ScreenshotPerf.now()
+                        webView.takeSnapshot(with: config) { retry, _ in
+                            DispatchQueue.main.async {
+                                ScreenshotPerf.mark("captureViewport.retrySnapshot.done", since: retryStart)
+                                ScreenshotPerf.mark("captureViewport.total", since: totalStart)
+                                completion(retry ?? image)
+                            }
+                        }
+                    }
+                    return
+                }
+                ScreenshotPerf.mark("captureViewport.total", since: totalStart)
+                completion(image)
             }
         }
     }
 
     /// Wait for navigation + DOM complete before any snapshot (avoids black/white frames).
-    private static func waitUntilPageReady(webView: WKWebView, attempt: Int, completion: @escaping () -> Void) {
+    private static func waitUntilPageReady(
+        webView: WKWebView,
+        attempt: Int,
+        settleDelay: TimeInterval = 0.35,
+        completion: @escaping () -> Void
+    ) {
         let maxAttempts = 60 // ~12s
         let loading = webView.isLoading || webView.estimatedProgress < 0.99
 
         if loading && attempt < maxAttempts {
+            if attempt == 0 || attempt % 5 == 0 {
+                ScreenshotPerf.mark(
+                    "captureViewport.waitReady.poll",
+                    extra: "attempt=\(attempt) loading=\(webView.isLoading) progress=\(String(format: "%.2f", webView.estimatedProgress))"
+                )
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                waitUntilPageReady(webView: webView, attempt: attempt + 1, completion: completion)
+                waitUntilPageReady(webView: webView, attempt: attempt + 1, settleDelay: settleDelay, completion: completion)
             }
             return
         }
@@ -106,13 +170,21 @@ enum LongScreenshotCapturer {
         webView.evaluateJavaScript(readyStateJS) { result, _ in
             let state = (result as? String) ?? ""
             if state != "complete" && attempt < maxAttempts {
+                if attempt == 0 || attempt % 5 == 0 {
+                    ScreenshotPerf.mark(
+                        "captureViewport.waitReady.dom",
+                        extra: "attempt=\(attempt) readyState=\(state)"
+                    )
+                }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    waitUntilPageReady(webView: webView, attempt: attempt + 1, completion: completion)
+                    waitUntilPageReady(webView: webView, attempt: attempt + 1, settleDelay: settleDelay, completion: completion)
                 }
                 return
             }
-            // Extra paint settle after load completes.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: completion)
+            if attempt > 0 {
+                ScreenshotPerf.mark("captureViewport.waitReady.settled", extra: "attempts=\(attempt) readyState=\(state)")
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + settleDelay, execute: completion)
         }
     }
 
@@ -247,13 +319,22 @@ enum LongScreenshotCapturer {
 
     /// Wait until in-viewport images are decoded / complete.
     private static func waitForViewportPaint(webView: WKWebView, attempt: Int, completion: @escaping () -> Void) {
-        let maxAttempts = 20 // ~4s
+        // Keep short — many pages never reach pending==0 (ads/trackers/lazy loaders).
+        let maxAttempts = 5 // ~1s
         webView.evaluateJavaScript(viewportImagesReadyJS) { result, _ in
             let ready = (result as? String) == "1"
             if ready || attempt >= maxAttempts {
-                // One more frame for CSS/layout after images.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: completion)
+                if attempt > 0 || !ready {
+                    ScreenshotPerf.mark(
+                        "captureViewport.waitPaint.settled",
+                        extra: "attempts=\(attempt) ready=\(ready)"
+                    )
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.08, execute: completion)
                 return
+            }
+            if attempt == 0 || attempt % 2 == 0 {
+                ScreenshotPerf.mark("captureViewport.waitPaint.poll", extra: "attempt=\(attempt)")
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 waitForViewportPaint(webView: webView, attempt: attempt + 1, completion: completion)
