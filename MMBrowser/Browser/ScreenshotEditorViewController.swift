@@ -209,7 +209,7 @@ final class ScreenshotEditorViewController: UIViewController {
     private let minSelection: CGFloat = 72
     private let handleSize: CGFloat = 16
     private let frameColor = UIColor.systemRed
-    private let floatingMenuHeight: CGFloat = 48
+    private let floatingMenuHeight: CGFloat = 44
     private let annotationColors: [UIColor] = [
         .systemRed, .systemOrange, .systemYellow, .systemGreen,
         .systemBlue, .systemPurple, .white, .black
@@ -347,15 +347,19 @@ final class ScreenshotEditorViewController: UIViewController {
 
     private func makeMenuButton(symbol: String, title: String, action: Selector) -> UIButton {
         let button = UIButton(type: .system)
+        let side: CGFloat = 36
         button.backgroundColor = UIColor(white: 0.22, alpha: 1)
-        button.layer.cornerRadius = 10
+        button.layer.cornerRadius = 8
         button.tintColor = .white
-        button.setTitleColor(.white, for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
-        button.setImage(UIImage(systemName: symbol), for: .normal)
-        button.setTitle(" \(title)", for: .normal)
-        button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 10, bottom: 8, right: 10)
+        let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+        button.setImage(UIImage(systemName: symbol, withConfiguration: config), for: .normal)
+        button.accessibilityLabel = title
         button.addTarget(self, action: action, for: .touchUpInside)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            button.widthAnchor.constraint(equalToConstant: side),
+            button.heightAnchor.constraint(equalToConstant: side)
+        ])
         return button
     }
 
@@ -406,7 +410,7 @@ final class ScreenshotEditorViewController: UIViewController {
     private func layoutMenuNearFrame() {
         menuStack.layoutIfNeeded()
         let contentWidth = menuStack.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).width + 16
-        let menuWidth = min(view.bounds.width - 24, max(220, contentWidth))
+        let menuWidth = min(view.bounds.width - 24, max(contentWidth, 44))
         let menuHeight = floatingMenuHeight
         let aabb = selectionAABB()
         let gap: CGFloat = 14
