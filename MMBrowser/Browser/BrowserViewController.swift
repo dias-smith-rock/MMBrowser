@@ -10,10 +10,19 @@ final class BrowserViewController: UIViewController {
     private let toolbar = BottomToolbarView()
     private let chromeHost = BrowserChromeView()
     private let chromeStack = UIStackView()
+    /// Shown only while loading AND bottom chrome is collapsed.
+    private let collapsedProgressView = UIProgressView(progressViewStyle: .bar)
 
     private var newTabController: NewTabViewController?
     private var privateNewTabController: PrivateNewTabViewController?
     private var currentContent: UIViewController?
+
+    private var chromeBottomConstraint: Constraint?
+    private var isChromeCollapsed = false
+    private var scrollAccumulator: CGFloat = 0
+    private let chromeScrollThreshold: CGFloat = 10
+    private var isPageLoading = false
+    private var pageLoadProgress: Double = 0
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -65,6 +74,12 @@ final class BrowserViewController: UIViewController {
         view.addSubview(statusBarFill)
         view.addSubview(contentContainer)
         view.addSubview(chromeHost)
+        view.addSubview(collapsedProgressView)
+
+        collapsedProgressView.progressTintColor = BrowserTheme.chromeBlue
+        collapsedProgressView.trackTintColor = .clear
+        collapsedProgressView.isHidden = true
+        collapsedProgressView.progress = 0
 
         addressBar.snp.makeConstraints { make in
             make.height.equalTo(BrowserTheme.addressBarHeight)
@@ -78,7 +93,7 @@ final class BrowserViewController: UIViewController {
         }
         chromeHost.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview()
-            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+            chromeBottomConstraint = make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).constraint
         }
         chromeStack.snp.makeConstraints { make in
             make.edges.equalToSuperview()
@@ -88,11 +103,81 @@ final class BrowserViewController: UIViewController {
             make.leading.trailing.equalToSuperview()
             make.bottom.equalTo(chromeHost.snp.top)
         }
+        collapsedProgressView.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview()
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+            make.height.equalTo(2)
+        }
+    }
+
+    /// Hides / shows the bottom address bar + toolbar while scrolling a web page.
+    private func setChromeCollapsed(_ collapsed: Bool, animated: Bool) {
+        if collapsed {
+            guard tabManager.selectedTab?.isNewTabPage != true else { return }
+            guard !addressBar.isHidden else { return }
+        }
+        guard collapsed != isChromeCollapsed else { return }
+        isChromeCollapsed = collapsed
+
+        let chromeHeight = BrowserTheme.addressBarHeight + BrowserTheme.toolbarHeight
+        let bottomInset = view.safeAreaInsets.bottom
+        let offset = collapsed ? (chromeHeight + bottomInset) : 0
+        chromeBottomConstraint?.update(offset: offset)
+
+        let animations = {
+            self.view.layoutIfNeeded()
+        }
+        if animated {
+            UIView.animate(
+                withDuration: 0.28,
+                delay: 0,
+                options: [.curveEaseInOut, .beginFromCurrentState, .allowUserInteraction],
+                animations: animations
+            )
+        } else {
+            animations()
+        }
+        // Keep only one progress UI: address bar when expanded, bottom bar when collapsed.
+        addressBar.setProgress(pageLoadProgress, isLoading: isPageLoading && !collapsed)
+        updateCollapsedProgressVisibility()
+    }
+
+    private func updateCollapsedProgressVisibility() {
+        let shouldShow = isChromeCollapsed && isPageLoading && !(tabManager.selectedTab?.isNewTabPage ?? true)
+        collapsedProgressView.isHidden = !shouldShow
+        if shouldShow {
+            collapsedProgressView.setProgress(Float(pageLoadProgress), animated: true)
+            view.bringSubviewToFront(collapsedProgressView)
+        } else if !isPageLoading {
+            collapsedProgressView.setProgress(0, animated: false)
+        }
+    }
+
+    private func applyLoadingProgress(_ progress: Double, isLoading: Bool) {
+        // WKWebView often keeps isLoading=true after estimatedProgress hits 1.0;
+        // never keep the bar visible once progress is complete.
+        let activelyLoading = isLoading && progress < 1
+        isPageLoading = activelyLoading
+        pageLoadProgress = progress
+        addressBar.setProgress(progress, isLoading: activelyLoading && !isChromeCollapsed)
+        if activelyLoading {
+            collapsedProgressView.setProgress(Float(max(progress, 0.02)), animated: true)
+        } else {
+            collapsedProgressView.setProgress(0, animated: false)
+        }
+        updateCollapsedProgressVisibility()
+    }
+
+    private func resetChromeForCurrentTab() {
+        scrollAccumulator = 0
+        setChromeCollapsed(false, animated: false)
+        applyLoadingProgress(0, isLoading: false)
     }
 
     private func showSelectedTab() {
         guard let tab = tabManager.selectedTab else { return }
         applyPrivateChrome(tab.isIncognito)
+        resetChromeForCurrentTab()
         if tab.isNewTabPage {
             addressBar.isHidden = true
             if tab.isIncognito {
@@ -114,6 +199,7 @@ final class BrowserViewController: UIViewController {
         contentContainer.backgroundColor = bg
         addressBar.setPrivateMode(isPrivate)
         toolbar.setPrivateMode(isPrivate)
+        collapsedProgressView.progressTintColor = isPrivate ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
     }
 
     private func showNewTab(for tab: BrowserTab) {
@@ -232,6 +318,7 @@ final class BrowserViewController: UIViewController {
     }
 
     private func presentTabSwitcher() {
+        setChromeCollapsed(false, animated: false)
         captureCurrentSnapshotIfNeeded()
         let switcher = TabSwitcherViewController(tabManager: tabManager)
         switcher.delegate = self
@@ -240,6 +327,7 @@ final class BrowserViewController: UIViewController {
     }
 
     private func presentMenu() {
+        setChromeCollapsed(false, animated: true)
         let menu = MenuViewController(isIncognito: tabManager.selectedTab?.isIncognito ?? false)
         menu.delegate = self
         if #available(iOS 15.0, *) {
@@ -300,24 +388,33 @@ extension BrowserViewController: TabManagerDelegate {
 
 extension BrowserViewController: AddressBarViewDelegate {
     func addressBarDidSubmit(_ text: String) {
+        setChromeCollapsed(false, animated: true)
         navigate(to: URLInputResolver.resolve(text))
     }
 
+    func addressBarDidBeginEditing() {
+        setChromeCollapsed(false, animated: true)
+    }
+
     func addressBarDidChoosePageCleaner(urlOnly: Bool) {
+        setChromeCollapsed(false, animated: true)
         tabManager.selectedTab?.webController?.enterPageCleaner(urlOnly: urlOnly)
         addressBar.setPageCleanerActive(tabManager.selectedTab?.webController?.isPageCleanerActive == true)
     }
 
     func addressBarDidExitPageCleaner() {
+        setChromeCollapsed(false, animated: true)
         tabManager.selectedTab?.webController?.exitPageCleaner()
         addressBar.setPageCleanerActive(false)
     }
 
     func addressBarDidRequestManualScreenshot() {
+        setChromeCollapsed(false, animated: true)
         tabManager.selectedTab?.webController?.screenshot()
     }
 
     func addressBarDidRequestLongScreenshot() {
+        setChromeCollapsed(false, animated: true)
         tabManager.selectedTab?.webController?.longScreenshot()
     }
 }
@@ -371,6 +468,29 @@ extension BrowserViewController: PrivateNewTabViewControllerDelegate {
 }
 
 extension BrowserViewController: WebViewControllerDelegate {
+    func webViewController(_ controller: WebViewController, didScroll deltaY: CGFloat, offsetY: CGFloat) {
+        guard tabManager.selectedTab?.webController === controller else { return }
+        guard tabManager.selectedTab?.isNewTabPage != true, !addressBar.isHidden else { return }
+
+        // Always reveal chrome near the top of the page.
+        if offsetY <= 20 {
+            scrollAccumulator = 0
+            setChromeCollapsed(false, animated: true)
+            return
+        }
+
+        scrollAccumulator += deltaY
+        if scrollAccumulator > chromeScrollThreshold {
+            // Content moving up → hide chrome
+            scrollAccumulator = 0
+            setChromeCollapsed(true, animated: true)
+        } else if scrollAccumulator < -chromeScrollThreshold {
+            // Content moving down → show chrome
+            scrollAccumulator = 0
+            setChromeCollapsed(false, animated: true)
+        }
+    }
+
     func webViewController(_ controller: WebViewController, didUpdateTitle title: String?) {
         guard let tab = tabManager.tabs.first(where: { $0.webController === controller }) else { return }
         tab.title = (title?.isEmpty == false) ? title! : (tab.url?.host ?? "Untitled")
@@ -387,7 +507,7 @@ extension BrowserViewController: WebViewControllerDelegate {
 
     func webViewController(_ controller: WebViewController, didUpdateProgress progress: Double, isLoading: Bool) {
         guard tabManager.selectedTab?.webController === controller else { return }
-        addressBar.setProgress(progress, isLoading: isLoading)
+        applyLoadingProgress(progress, isLoading: isLoading)
     }
 
     func webViewController(_ controller: WebViewController, didUpdateNavigationState canGoBack: Bool, canGoForward: Bool) {

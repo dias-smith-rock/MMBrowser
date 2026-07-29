@@ -11,6 +11,7 @@ protocol WebViewControllerDelegate: AnyObject {
     func webViewControllerDidFail(_ controller: WebViewController, error: Error)
     func webViewController(_ controller: WebViewController, present reader: UIViewController)
     func webViewController(_ controller: WebViewController, warnDangerous url: URL, proceed: @escaping () -> Void)
+    func webViewController(_ controller: WebViewController, didScroll deltaY: CGFloat, offsetY: CGFloat)
 }
 
 final class WebViewController: UIViewController {
@@ -77,6 +78,7 @@ final class WebViewController: UIViewController {
     private(set) var webView: WKWebView?
     private let isIncognito: Bool
     private var progressObservation: NSKeyValueObservation?
+    private var loadingObservation: NSKeyValueObservation?
     private var titleObservation: NSKeyValueObservation?
     private var urlObservation: NSKeyValueObservation?
     private var canGoBackObservation: NSKeyValueObservation?
@@ -97,6 +99,7 @@ final class WebViewController: UIViewController {
     var onPageCleanerActiveChanged: ((Bool) -> Void)?
     private var scriptMessageProxy: WebViewScriptProxy?
     private var pageCleanerObserver: NSObjectProtocol?
+    private var contentOffsetObservation: NSKeyValueObservation?
 
     private let desktopUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
@@ -167,7 +170,19 @@ final class WebViewController: UIViewController {
 
         progressObservation = wv.observe(\.estimatedProgress, options: [.new]) { [weak self] webView, _ in
             guard let self = self else { return }
-            self.delegate?.webViewController(self, didUpdateProgress: webView.estimatedProgress, isLoading: webView.isLoading)
+            self.delegate?.webViewController(
+                self,
+                didUpdateProgress: webView.estimatedProgress,
+                isLoading: webView.isLoading && webView.estimatedProgress < 1
+            )
+        }
+        loadingObservation = wv.observe(\.isLoading, options: [.new]) { [weak self] webView, _ in
+            guard let self = self else { return }
+            self.delegate?.webViewController(
+                self,
+                didUpdateProgress: webView.estimatedProgress,
+                isLoading: webView.isLoading && webView.estimatedProgress < 1
+            )
         }
         titleObservation = wv.observe(\.title, options: [.new]) { [weak self] webView, _ in
             guard let self = self else { return }
@@ -185,6 +200,15 @@ final class WebViewController: UIViewController {
         canGoForwardObservation = wv.observe(\.canGoForward, options: [.new]) { [weak self] webView, _ in
             guard let self = self else { return }
             self.delegate?.webViewController(self, didUpdateNavigationState: webView.canGoBack, canGoForward: webView.canGoForward)
+        }
+        contentOffsetObservation = wv.scrollView.observe(\.contentOffset, options: [.new, .old]) { [weak self] scrollView, change in
+            guard let self = self else { return }
+            guard scrollView.isDragging || scrollView.isDecelerating else { return }
+            let newY = scrollView.contentOffset.y
+            let oldY = change.oldValue?.y ?? newY
+            let delta = newY - oldY
+            guard abs(delta) > 0.5 else { return }
+            self.delegate?.webViewController(self, didScroll: delta, offsetY: newY)
         }
 
         if let pendingURL = pendingURL {
@@ -509,10 +533,12 @@ final class WebViewController: UIViewController {
 
     func cleanup() {
         progressObservation = nil
+        loadingObservation = nil
         titleObservation = nil
         urlObservation = nil
         canGoBackObservation = nil
         canGoForwardObservation = nil
+        contentOffsetObservation = nil
         if let pageCleanerObserver = pageCleanerObserver {
             NotificationCenter.default.removeObserver(pageCleanerObserver)
             self.pageCleanerObserver = nil

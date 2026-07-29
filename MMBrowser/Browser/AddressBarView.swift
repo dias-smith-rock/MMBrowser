@@ -3,6 +3,7 @@ import SnapKit
 
 protocol AddressBarViewDelegate: AnyObject {
     func addressBarDidSubmit(_ text: String)
+    func addressBarDidBeginEditing()
     func addressBarDidChoosePageCleaner(urlOnly: Bool)
     func addressBarDidExitPageCleaner()
     func addressBarDidRequestManualScreenshot()
@@ -329,6 +330,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         hideCleanerMenu()
         textField.textAlignment = .left
         textField.selectAll(nil)
+        delegate?.addressBarDidBeginEditing()
     }
 
     func textFieldDidEndEditing(_ textField: UITextField) {
