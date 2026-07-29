@@ -16,6 +16,36 @@ protocol WebViewControllerDelegate: AnyObject {
 final class WebViewController: UIViewController {
     weak var delegate: WebViewControllerDelegate?
 
+    /// Rewrites viewport meta so pinch-zoom works like Safari on restrictive pages.
+    private static let viewportZoomUnlockScript = WKUserScript(
+        source: """
+        (function() {
+          function unlock() {
+            var metas = document.querySelectorAll('meta[name="viewport"]');
+            if (!metas.length) {
+              var meta = document.createElement('meta');
+              meta.name = 'viewport';
+              meta.content = 'width=device-width, initial-scale=1, maximum-scale=10, user-scalable=yes';
+              (document.head || document.documentElement).appendChild(meta);
+              return;
+            }
+            for (var i = 0; i < metas.length; i++) {
+              var content = metas[i].getAttribute('content') || '';
+              content = content.replace(/user-scalable\\s*=\\s*no/ig, 'user-scalable=yes');
+              content = content.replace(/maximum-scale\\s*=\\s*[0-9.]+/ig, 'maximum-scale=10');
+              if (!/user-scalable\\s*=/i.test(content)) content += ', user-scalable=yes';
+              if (!/maximum-scale\\s*=/i.test(content)) content += ', maximum-scale=10';
+              metas[i].setAttribute('content', content);
+            }
+          }
+          unlock();
+          document.addEventListener('DOMContentLoaded', unlock, { once: true });
+        })();
+        """,
+        injectionTime: .atDocumentStart,
+        forMainFrameOnly: true
+    )
+
     private(set) var webView: WKWebView?
     private let isIncognito: Bool
     private var progressObservation: NSKeyValueObservation?
@@ -64,10 +94,14 @@ final class WebViewController: UIViewController {
 
     private func finishWebViewSetup(with config: WKWebViewConfiguration) {
         config.userContentController.addUserScript(YouTubeDarkMode.userScript)
+        // Unlock pinch-zoom on pages that set user-scalable=no / maximum-scale=1
+        // (UIScrollView.ignoresViewportScaleLimits is unavailable in this SDK).
+        config.userContentController.addUserScript(Self.viewportZoomUnlockScript)
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.navigationDelegate = self
         wv.uiDelegate = self
         wv.allowsBackForwardNavigationGestures = true
+        wv.scrollView.bouncesZoom = true
         wv.scrollView.contentInsetAdjustmentBehavior = .never
         view.insertSubview(wv, at: 0)
         wv.snp.makeConstraints { make in
@@ -427,6 +461,8 @@ extension WebViewController: WKNavigationDelegate {
         if !isIncognito, let url = webView.url {
             HistoryStore.shared.add(title: webView.title ?? "", url: url)
         }
+        // Some sites rewrite viewport after load; re-apply zoom unlock.
+        webView.evaluateJavaScript(Self.viewportZoomUnlockScript.source, completionHandler: nil)
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
