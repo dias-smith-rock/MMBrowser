@@ -80,7 +80,7 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
 
         if sections.isEmpty {
             cell.textLabel?.text = "No rules yet"
-            cell.detailTextLabel?.text = "Tap the wand icon in the address bar"
+            cell.detailTextLabel?.text = "Tap the wand icon, then pick 本站 or 仅此页"
             return cell
         }
 

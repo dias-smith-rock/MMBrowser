@@ -150,9 +150,10 @@ final class BrowserViewController: UIViewController {
         let web: WebViewController
         if let existing = tab.webController {
             web = existing
+            configureWebController(web)
         } else {
             web = WebViewController(isIncognito: tab.isIncognito)
-            web.delegate = self
+            configureWebController(web)
             tab.webController = web
             if let url = tab.url {
                 // load after embed
@@ -191,9 +192,10 @@ final class BrowserViewController: UIViewController {
         let web: WebViewController
         if let existing = tab.webController {
             web = existing
+            configureWebController(web)
         } else {
             web = WebViewController(isIncognito: tab.isIncognito)
-            web.delegate = self
+            configureWebController(web)
             tab.webController = web
         }
         embed(web)
@@ -217,6 +219,16 @@ final class BrowserViewController: UIViewController {
             tabCount: max(tabCount, 1),
             isPrivate: isPrivate
         )
+        addressBar.setPageCleanerActive(tabManager.selectedTab?.webController?.isPageCleanerActive == true)
+    }
+
+    private func configureWebController(_ web: WebViewController) {
+        web.delegate = self
+        web.onPageCleanerActiveChanged = { [weak self, weak web] active in
+            guard let self = self, let web = web else { return }
+            guard self.tabManager.selectedTab?.webController === web else { return }
+            self.addressBar.setPageCleanerActive(active)
+        }
     }
 
     private func presentTabSwitcher() {
@@ -291,8 +303,14 @@ extension BrowserViewController: AddressBarViewDelegate {
         navigate(to: URLInputResolver.resolve(text))
     }
 
-    func addressBarDidTapPageCleaner() {
-        tabManager.selectedTab?.webController?.enterPageCleaner()
+    func addressBarDidChoosePageCleaner(urlOnly: Bool) {
+        tabManager.selectedTab?.webController?.enterPageCleaner(urlOnly: urlOnly)
+        addressBar.setPageCleanerActive(tabManager.selectedTab?.webController?.isPageCleanerActive == true)
+    }
+
+    func addressBarDidExitPageCleaner() {
+        tabManager.selectedTab?.webController?.exitPageCleaner()
+        addressBar.setPageCleanerActive(false)
     }
 
     func addressBarDidRequestManualScreenshot() {

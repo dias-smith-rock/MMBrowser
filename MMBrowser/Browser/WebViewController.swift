@@ -64,8 +64,9 @@ final class WebViewController: UIViewController {
     private var preferDesktop = false
     private var findBar: FindInPageBar?
     private var lastFindQuery: String?
-    private var cleanerBar: PageCleanerBar?
+    private(set) var isPageCleanerActive = false
     private var cleanerURLOnly = false
+    var onPageCleanerActiveChanged: ((Bool) -> Void)?
     private var scriptMessageProxy: WebViewScriptProxy?
     private var pageCleanerObserver: NSObjectProtocol?
 
@@ -307,7 +308,7 @@ final class WebViewController: UIViewController {
     }
 
     func showFindInPage() {
-        exitPageCleaner(animated: false)
+        exitPageCleaner()
         guard findBar == nil else { findBar?.focus(); return }
         let bar = FindInPageBar()
         bar.delegate = self
@@ -321,39 +322,33 @@ final class WebViewController: UIViewController {
         bar.focus()
     }
 
-    func enterPageCleaner() {
+    func enterPageCleaner(urlOnly: Bool) {
         if let findBar = findBar {
             findBarDidDismiss(findBar)
         }
-        guard cleanerBar == nil else { return }
         guard webView?.url != nil else {
             Toast.show("No page to clean", from: self)
             return
         }
-        let bar = PageCleanerBar()
-        bar.delegate = self
-        view.addSubview(bar)
-        bar.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview()
-            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
-            make.height.equalTo(52)
-        }
-        cleanerBar = bar
-        cleanerURLOnly = false
+        cleanerURLOnly = urlOnly
+        let wasActive = isPageCleanerActive
+        isPageCleanerActive = true
         if let webView = webView {
             PageCleanerManager.setPickMode(enabled: true, on: webView)
         }
+        if !wasActive {
+            onPageCleanerActiveChanged?(true)
+        }
     }
 
-    private func exitPageCleaner(animated: Bool = true) {
-        _ = animated
-        guard let bar = cleanerBar else { return }
+    func exitPageCleaner() {
+        guard isPageCleanerActive else { return }
         if let webView = webView {
             PageCleanerManager.setPickMode(enabled: false, on: webView)
         }
         cleanerURLOnly = false
-        bar.removeFromSuperview()
-        cleanerBar = nil
+        isPageCleanerActive = false
+        onPageCleanerActiveChanged?(false)
     }
 
     func saveReadingList() {
@@ -481,7 +476,7 @@ final class WebViewController: UIViewController {
             NotificationCenter.default.removeObserver(pageCleanerObserver)
             self.pageCleanerObserver = nil
         }
-        exitPageCleaner(animated: false)
+        exitPageCleaner()
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: ImageBlockManager.disableHandlerName)
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: PageCleanerManager.handlerName)
         scriptMessageProxy = nil
@@ -514,16 +509,6 @@ private final class WebViewScriptProxy: NSObject, WKScriptMessageHandler {
         default:
             break
         }
-    }
-}
-
-extension WebViewController: PageCleanerBarDelegate {
-    func pageCleanerBar(_ bar: PageCleanerBar, didChangeScopeToURLOnly urlOnly: Bool) {
-        cleanerURLOnly = urlOnly
-    }
-
-    func pageCleanerBarDidDismiss(_ bar: PageCleanerBar) {
-        exitPageCleaner()
     }
 }
 
@@ -618,7 +603,7 @@ extension WebViewController: WKNavigationDelegate {
         // Some sites rewrite viewport after load; re-apply zoom unlock.
         webView.evaluateJavaScript(Self.viewportZoomUnlockScript.source, completionHandler: nil)
         PageCleanerManager.apply(to: webView, url: webView.url)
-        if cleanerBar != nil {
+        if isPageCleanerActive {
             PageCleanerManager.setPickMode(enabled: true, on: webView)
         }
     }

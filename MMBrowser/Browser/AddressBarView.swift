@@ -3,7 +3,8 @@ import SnapKit
 
 protocol AddressBarViewDelegate: AnyObject {
     func addressBarDidSubmit(_ text: String)
-    func addressBarDidTapPageCleaner()
+    func addressBarDidChoosePageCleaner(urlOnly: Bool)
+    func addressBarDidExitPageCleaner()
     func addressBarDidRequestManualScreenshot()
     func addressBarDidRequestLongScreenshot()
 }
@@ -20,11 +21,20 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     let textField = UITextField()
     private let progressView = UIProgressView(progressViewStyle: .bar)
     private var isPrivateMode = false
+    private var isPageCleanerActive = false
+    /// `nil` when inactive; `false` = 本站; `true` = 仅此页.
+    private var cleanerURLOnly: Bool?
 
     private let chipsContainer = UIView()
     private let longShotChip = UIButton(type: .system)
     private let manualShotChip = UIButton(type: .system)
     private var chipsVisible = false
+
+    private let cleanerMenuContainer = UIView()
+    private let cleanerSiteChip = UIButton(type: .system)
+    private let cleanerPageChip = UIButton(type: .system)
+    private let cleanerExitChip = UIButton(type: .system)
+    private var cleanerMenuVisible = false
     private var dismissTap: UITapGestureRecognizer?
 
     override init(frame: CGRect) {
@@ -92,6 +102,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         addSubview(progressView)
 
         setupChips()
+        setupCleanerMenu()
+        updatePageCleanerAppearance()
 
         container.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(12)
@@ -141,16 +153,28 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Chips draw above our bounds; include them in hit testing.
+    /// Chips / cleaner bubble draw above our bounds; include them in hit testing.
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         if super.point(inside: point, with: event) { return true }
-        guard chipsVisible, !chipsContainer.isHidden else { return false }
-        let p = convert(point, to: chipsContainer)
-        return chipsContainer.point(inside: p, with: event)
+        if chipsVisible, !chipsContainer.isHidden {
+            let p = convert(point, to: chipsContainer)
+            if chipsContainer.point(inside: p, with: event) { return true }
+        }
+        if cleanerMenuVisible, !cleanerMenuContainer.isHidden {
+            let p = convert(point, to: cleanerMenuContainer)
+            if cleanerMenuContainer.point(inside: p, with: event) { return true }
+        }
+        return false
     }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         guard isUserInteractionEnabled, !isHidden, alpha > 0.01 else { return nil }
+        if cleanerMenuVisible, !cleanerMenuContainer.isHidden {
+            let p = convert(point, to: cleanerMenuContainer)
+            if let hit = cleanerMenuContainer.hitTest(p, with: event) {
+                return hit
+            }
+        }
         if chipsVisible, !chipsContainer.isHidden {
             let p = convert(point, to: chipsContainer)
             if let hit = chipsContainer.hitTest(p, with: event) {
@@ -161,17 +185,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     private func setupChips() {
-        chipsContainer.isHidden = true
-        chipsContainer.alpha = 0
-        chipsContainer.transform = CGAffineTransform(translationX: 0, y: 6)
-        chipsContainer.backgroundColor = BrowserTheme.elevated
-        chipsContainer.layer.cornerRadius = 16
-        chipsContainer.layer.borderWidth = 1
-        chipsContainer.layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
-        chipsContainer.layer.shadowColor = UIColor.black.cgColor
-        chipsContainer.layer.shadowOpacity = 0.35
-        chipsContainer.layer.shadowRadius = 10
-        chipsContainer.layer.shadowOffset = CGSize(width: 0, height: 4)
+        styleBubbleContainer(chipsContainer)
         addSubview(chipsContainer)
 
         configureChip(longShotChip, title: "长截屏")
@@ -179,28 +193,82 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         longShotChip.addTarget(self, action: #selector(longShotTapped), for: .touchUpInside)
         manualShotChip.addTarget(self, action: #selector(manualShotTapped), for: .touchUpInside)
 
-        let stack = UIStackView(arrangedSubviews: [longShotChip, manualShotChip])
-        stack.axis = .horizontal
+        let title = makeBubbleTitleLabel("截屏模式")
+        let stack = UIStackView(arrangedSubviews: [title, longShotChip, manualShotChip])
+        stack.axis = .vertical
         stack.spacing = 8
-        stack.alignment = .center
+        stack.alignment = .fill
         chipsContainer.addSubview(stack)
 
         chipsContainer.snp.makeConstraints { make in
             make.leading.equalTo(container.snp.leading)
             make.bottom.equalTo(container.snp.top).offset(-8)
+            make.width.greaterThanOrEqualTo(132)
         }
         stack.snp.makeConstraints { make in
-            make.edges.equalToSuperview().inset(UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8))
+            make.edges.equalToSuperview().inset(UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10))
         }
+    }
+
+    private func setupCleanerMenu() {
+        styleBubbleContainer(cleanerMenuContainer)
+        addSubview(cleanerMenuContainer)
+
+        configureChip(cleanerSiteChip, title: "本站")
+        configureChip(cleanerPageChip, title: "仅此页")
+        configureChip(cleanerExitChip, title: "退出")
+        cleanerSiteChip.addTarget(self, action: #selector(cleanerSiteTapped), for: .touchUpInside)
+        cleanerPageChip.addTarget(self, action: #selector(cleanerPageTapped), for: .touchUpInside)
+        cleanerExitChip.addTarget(self, action: #selector(cleanerExitTapped), for: .touchUpInside)
+
+        let title = makeBubbleTitleLabel("清理模式")
+        let stack = UIStackView(arrangedSubviews: [title, cleanerSiteChip, cleanerPageChip, cleanerExitChip])
+        stack.axis = .vertical
+        stack.spacing = 8
+        stack.alignment = .fill
+        cleanerMenuContainer.addSubview(stack)
+
+        cleanerMenuContainer.snp.makeConstraints { make in
+            make.trailing.equalTo(container.snp.trailing)
+            make.bottom.equalTo(container.snp.top).offset(-8)
+            make.width.greaterThanOrEqualTo(132)
+        }
+        stack.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10))
+        }
+    }
+
+    private func styleBubbleContainer(_ view: UIView) {
+        view.isHidden = true
+        view.alpha = 0
+        view.transform = CGAffineTransform(translationX: 0, y: 6)
+        view.backgroundColor = BrowserTheme.elevated
+        view.layer.cornerRadius = 16
+        view.layer.borderWidth = 1
+        view.layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
+        view.layer.shadowColor = UIColor.black.cgColor
+        view.layer.shadowOpacity = 0.35
+        view.layer.shadowRadius = 10
+        view.layer.shadowOffset = CGSize(width: 0, height: 4)
+    }
+
+    private func makeBubbleTitleLabel(_ text: String) -> UILabel {
+        let label = UILabel()
+        label.text = text
+        label.textColor = BrowserTheme.textSecondary
+        label.font = .systemFont(ofSize: 12, weight: .semibold)
+        label.textAlignment = .left
+        return label
     }
 
     private func configureChip(_ button: UIButton, title: String) {
         button.setTitle(title, for: .normal)
         button.setTitleColor(BrowserTheme.textPrimary, for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        button.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
         button.backgroundColor = BrowserTheme.secondaryCard
-        button.layer.cornerRadius = 14
-        button.contentEdgeInsets = UIEdgeInsets(top: 7, left: 12, bottom: 7, right: 12)
+        button.layer.cornerRadius = 12
+        button.contentHorizontalAlignment = .center
+        button.contentEdgeInsets = UIEdgeInsets(top: 10, left: 14, bottom: 10, right: 14)
     }
 
     func setURLText(_ text: String) {
@@ -224,6 +292,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.trailing.equalTo(pageCleanerButton.snp.leading).offset(-8)
             make.centerY.equalToSuperview()
         }
+        updatePageCleanerAppearance()
+        updateCleanerChipSelection()
     }
 
     func setProgress(_ progress: Double, isLoading: Bool) {
@@ -239,8 +309,24 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         setChipsVisible(false)
     }
 
+    func hideCleanerMenu() {
+        guard cleanerMenuVisible else { return }
+        setCleanerMenuVisible(false)
+    }
+
+    func setPageCleanerActive(_ active: Bool) {
+        isPageCleanerActive = active
+        if !active {
+            cleanerURLOnly = nil
+            hideCleanerMenu()
+        }
+        updatePageCleanerAppearance()
+        updateCleanerChipSelection()
+    }
+
     func textFieldDidBeginEditing(_ textField: UITextField) {
         hideScreenshotChips()
+        hideCleanerMenu()
         textField.textAlignment = .left
         textField.selectAll(nil)
     }
@@ -251,18 +337,42 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
         hideScreenshotChips()
+        hideCleanerMenu()
         delegate?.addressBarDidSubmit(textField.text ?? "")
         textField.resignFirstResponder()
         return true
     }
 
     @objc private func pageCleanerTapped() {
+        textField.resignFirstResponder()
         hideScreenshotChips()
-        delegate?.addressBarDidTapPageCleaner()
+        setCleanerMenuVisible(!cleanerMenuVisible)
+    }
+
+    @objc private func cleanerSiteTapped() {
+        cleanerURLOnly = false
+        updateCleanerChipSelection()
+        setCleanerMenuVisible(false)
+        delegate?.addressBarDidChoosePageCleaner(urlOnly: false)
+    }
+
+    @objc private func cleanerPageTapped() {
+        cleanerURLOnly = true
+        updateCleanerChipSelection()
+        setCleanerMenuVisible(false)
+        delegate?.addressBarDidChoosePageCleaner(urlOnly: true)
+    }
+
+    @objc private func cleanerExitTapped() {
+        cleanerURLOnly = nil
+        updateCleanerChipSelection()
+        setCleanerMenuVisible(false)
+        delegate?.addressBarDidExitPageCleaner()
     }
 
     @objc private func screenshotEntryTapped() {
         textField.resignFirstResponder()
+        hideCleanerMenu()
         setChipsVisible(!chipsVisible)
     }
 
@@ -283,6 +393,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
     @objc private func backgroundTapped(_ gesture: UITapGestureRecognizer) {
         setChipsVisible(false)
+        setCleanerMenuVisible(false)
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
@@ -290,10 +401,63 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         if view === longShotChip || view === manualShotChip || view.isDescendant(of: chipsContainer) {
             return false
         }
+        if view === cleanerSiteChip || view === cleanerPageChip || view === cleanerExitChip
+            || view.isDescendant(of: cleanerMenuContainer) {
+            return false
+        }
         if view === screenshotEntry || view.isDescendant(of: screenshotEntry) {
             return false
         }
+        if view === pageCleanerButton || view.isDescendant(of: pageCleanerButton) {
+            return false
+        }
         return true
+    }
+
+    private func updatePageCleanerAppearance() {
+        let accent = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
+        pageCleanerButton.tintColor = isPageCleanerActive ? accent : BrowserTheme.textSecondary
+        pageCleanerButton.accessibilityLabel = isPageCleanerActive ? "Cleaning mode" : "Clean page"
+    }
+
+    private func updateCleanerChipSelection() {
+        let accent = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
+        applyCleanerChipStyle(cleanerSiteChip, selected: isPageCleanerActive && cleanerURLOnly == false, accent: accent)
+        applyCleanerChipStyle(cleanerPageChip, selected: isPageCleanerActive && cleanerURLOnly == true, accent: accent)
+        applyCleanerChipStyle(cleanerExitChip, selected: false, accent: accent)
+    }
+
+    private func applyCleanerChipStyle(_ button: UIButton, selected: Bool, accent: UIColor) {
+        if selected {
+            button.setTitleColor(.white, for: .normal)
+            button.backgroundColor = accent
+        } else {
+            button.setTitleColor(BrowserTheme.textPrimary, for: .normal)
+            button.backgroundColor = BrowserTheme.secondaryCard
+        }
+    }
+
+    private func setCleanerMenuVisible(_ visible: Bool) {
+        cleanerMenuVisible = visible
+        cleanerMenuContainer.isHidden = false
+        bringSubviewToFront(cleanerMenuContainer)
+        updatePageCleanerAppearance()
+
+        if visible || chipsVisible {
+            installDismissTap()
+        } else {
+            removeDismissTap()
+        }
+
+        UIView.animate(withDuration: 0.18, animations: {
+            self.cleanerMenuContainer.alpha = visible ? 1 : 0
+            self.cleanerMenuContainer.transform = visible ? .identity : CGAffineTransform(translationX: 0, y: 6)
+        }, completion: { _ in
+            if !visible {
+                self.cleanerMenuContainer.isHidden = true
+                self.cleanerMenuContainer.transform = .identity
+            }
+        })
     }
 
     private func setChipsVisible(_ visible: Bool) {
@@ -307,7 +471,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         screenshotIcon.tintColor = visible ? BrowserTheme.chromeBlue : BrowserTheme.textSecondary
         chevronIcon.tintColor = visible ? BrowserTheme.chromeBlue : BrowserTheme.textSecondary
 
-        if visible {
+        if visible || cleanerMenuVisible {
             installDismissTap()
         } else {
             removeDismissTap()
