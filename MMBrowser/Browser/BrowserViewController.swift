@@ -8,6 +8,7 @@ final class BrowserViewController: UIViewController {
     private let contentContainer = UIView()
     private let addressBar = AddressBarView()
     private let toolbar = BottomToolbarView()
+    private let chromeHost = BrowserChromeView()
     private let chromeStack = UIStackView()
 
     private var newTabController: NewTabViewController?
@@ -50,10 +51,13 @@ final class BrowserViewController: UIViewController {
         chromeStack.addArrangedSubview(addressBar)
         chromeStack.addArrangedSubview(toolbar)
 
+        chromeHost.clipsToBounds = false
+        chromeHost.addSubview(chromeStack)
+
         statusBarFill.backgroundColor = BrowserTheme.background
         view.addSubview(statusBarFill)
         view.addSubview(contentContainer)
-        view.addSubview(chromeStack)
+        view.addSubview(chromeHost)
 
         addressBar.snp.makeConstraints { make in
             make.height.equalTo(BrowserTheme.addressBarHeight)
@@ -65,14 +69,17 @@ final class BrowserViewController: UIViewController {
             make.top.leading.trailing.equalToSuperview()
             make.bottom.equalTo(view.safeAreaLayoutGuide.snp.top)
         }
-        chromeStack.snp.makeConstraints { make in
+        chromeHost.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview()
             make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+        }
+        chromeStack.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
         }
         contentContainer.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
             make.leading.trailing.equalToSuperview()
-            make.bottom.equalTo(chromeStack.snp.top)
+            make.bottom.equalTo(chromeHost.snp.top)
         }
     }
 
@@ -252,8 +259,12 @@ extension BrowserViewController: AddressBarViewDelegate {
         present(activity, animated: true)
     }
 
-    func addressBarDidTapLens() {
-        Toast.show("Coming soon", from: self)
+    func addressBarDidRequestManualScreenshot() {
+        tabManager.selectedTab?.webController?.screenshot()
+    }
+
+    func addressBarDidRequestLongScreenshot() {
+        tabManager.selectedTab?.webController?.longScreenshot()
     }
 }
 
