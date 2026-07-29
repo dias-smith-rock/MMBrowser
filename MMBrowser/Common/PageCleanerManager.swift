@@ -5,6 +5,10 @@ enum PageCleanerManager {
     static let handlerName = "mmPageCleaner"
     private static let styleID = "mm-page-cleaner"
 
+    private static let hideCSSSuffix =
+        "{display:none!important;visibility:hidden!important;"
+        + "pointer-events:none!important;}"
+
     /// Inject / refresh hide CSS for rules matching the current URL.
     static func apply(to webView: WKWebView, url: URL?) {
         guard let url = url, url.host != nil else { return }
@@ -14,7 +18,7 @@ enum PageCleanerManager {
             css = ""
         } else {
             let unique = Array(NSOrderedSet(array: selectors)) as? [String] ?? selectors
-            css = unique.map { "\($0){display:none!important;}" }.joined()
+            css = unique.map { "\($0)\(hideCSSSuffix)" }.joined()
         }
         let js = """
         (function() {
@@ -28,9 +32,23 @@ enum PageCleanerManager {
           if (!s) {
             s = document.createElement('style');
             s.id = id;
-            (document.head || document.documentElement).appendChild(s);
+            (document.documentElement || document.head).appendChild(s);
           }
           s.textContent = css;
+          // Re-hide matching nodes that sites force visible again.
+          try {
+            css.split('}').forEach(function(chunk) {
+              var idx = chunk.indexOf('{');
+              if (idx <= 0) return;
+              var sel = chunk.slice(0, idx).trim();
+              if (!sel) return;
+              document.querySelectorAll(sel).forEach(function(el) {
+                el.style.setProperty('display', 'none', 'important');
+                el.setAttribute('hidden', '');
+                el.setAttribute('data-mm-cleaned', '1');
+              });
+            });
+          } catch (e) {}
         })();
         """
         webView.evaluateJavaScript(js, completionHandler: nil)
@@ -45,22 +63,35 @@ enum PageCleanerManager {
         let js = """
         (function() {
           var sel = \(jsonString(selector));
-          try {
-            document.querySelectorAll(sel).forEach(function(el) {
-              el.style.setProperty('display', 'none', 'important');
-            });
-          } catch (e) {}
           var id = '\(styleID)';
-          var s = document.getElementById(id);
-          if (!s) {
-            s = document.createElement('style');
-            s.id = id;
-            (document.head || document.documentElement).appendChild(s);
+          var rule = sel + \(jsonString(hideCSSSuffix));
+          function inject() {
+            var s = document.getElementById(id);
+            if (!s) {
+              s = document.createElement('style');
+              s.id = id;
+              (document.documentElement || document.head).appendChild(s);
+            }
+            if ((s.textContent || '').indexOf(sel + '{') === -1) {
+              s.textContent = (s.textContent || '') + rule;
+            }
           }
-          var rule = sel + '{display:none!important;}';
-          if ((s.textContent || '').indexOf(rule) === -1) {
-            s.textContent = (s.textContent || '') + rule;
+          function hideMatches() {
+            try {
+              document.querySelectorAll(sel).forEach(function(el) {
+                el.style.setProperty('display', 'none', 'important');
+                el.style.setProperty('visibility', 'hidden', 'important');
+                el.setAttribute('hidden', '');
+                el.setAttribute('data-mm-cleaned', '1');
+              });
+            } catch (e) {}
           }
+          inject();
+          hideMatches();
+          // Sites like YouTube rebuild banners shortly after.
+          setTimeout(hideMatches, 50);
+          setTimeout(hideMatches, 300);
+          setTimeout(hideMatches, 1000);
         })();
         """
         webView.evaluateJavaScript(js, completionHandler: nil)
@@ -86,15 +117,17 @@ enum PageCleanerManager {
 
     private static let enablePickModeJS = """
     (function() {
-      if (window.__mmPageCleaner && window.__mmPageCleaner.enabled) return;
       if (window.__mmPageCleaner) {
-        window.__mmPageCleaner.enable();
-        return;
+        try { window.__mmPageCleaner.disable(); } catch (e) {}
+        window.__mmPageCleaner = null;
       }
 
       var STYLE_ID = 'mm-page-cleaner-pick-style';
+      var HIDE_STYLE_ID = 'mm-page-cleaner';
       var BTN_ID = 'mm-page-cleaner-delete-btn';
       var HIGHLIGHT = 'mm-page-cleaner-hl';
+      var HIDE_CSS = '{display:none!important;visibility:hidden!important;'
+        + 'pointer-events:none!important;}';
       var selected = null;
 
       function ensureStyle() {
@@ -110,7 +143,7 @@ enum PageCleanerManager {
           + 'font:600 13px/1 -apple-system,BlinkMacSystemFont,sans-serif!important;'
           + 'box-shadow:0 2px 8px rgba(0,0,0,0.25)!important;cursor:pointer!important;'
           + 'pointer-events:auto!important;-webkit-tap-highlight-color:transparent!important;}';
-        (document.head || document.documentElement).appendChild(s);
+        (document.documentElement || document.head).appendChild(s);
       }
 
       function cssEscape(value) {
@@ -118,39 +151,105 @@ enum PageCleanerManager {
         return String(value).replace(/[^a-zA-Z0-9_-]/g, '\\\\$&');
       }
 
+      function quoteAttr(value) {
+        return '"' + String(value).replace(/\\\\/g, '\\\\\\\\').replace(/"/g, '\\\\"') + '"';
+      }
+
+      function classNames(el) {
+        try {
+          return Array.prototype.slice.call(el.classList || []).filter(function(c) {
+            return c && c.indexOf(HIGHLIGHT) === -1;
+          });
+        } catch (e) { return []; }
+      }
+
       function isIgnorable(el) {
         if (!el || el.nodeType !== 1) return true;
         var tag = (el.tagName || '').toLowerCase();
         if (tag === 'html' || tag === 'body') return true;
-        if (el.id === BTN_ID || el.closest('#' + BTN_ID)) return true;
+        if (el.id === BTN_ID || (el.closest && el.closest('#' + BTN_ID))) return true;
         return false;
+      }
+
+      function isClickable(el) {
+        if (!el || el.nodeType !== 1) return false;
+        var tag = (el.tagName || '').toLowerCase();
+        if (tag === 'a' || tag === 'button') return true;
+        var role = (el.getAttribute('role') || '').toLowerCase();
+        if (role === 'button' || role === 'link') return true;
+        if (el.getAttribute('onclick') != null) return true;
+        if (el.tabIndex >= 0) return true;
+        return false;
+      }
+
+      /// Prefer the real control (Open App button) over inner text/svg nodes.
+      function resolveTarget(el) {
+        var cur = el;
+        var best = el;
+        for (var i = 0; i < 8 && cur && cur.nodeType === 1; i++) {
+          var tag = (cur.tagName || '').toLowerCase();
+          if (tag === 'html' || tag === 'body') break;
+          if (isClickable(cur)) return cur;
+          var cls = classNames(cur).join(' ').toLowerCase();
+          if (/open.?app|open-in-app|promo|banner|topbar|masthead/.test(cls)) best = cur;
+          if ((cur.getAttribute('aria-label') || '').toLowerCase().indexOf('open') !== -1) return cur;
+          cur = cur.parentElement;
+        }
+        return best || el;
+      }
+
+      function uniqueMatch(sel) {
+        try {
+          return document.querySelectorAll(sel).length === 1;
+        } catch (e) { return false; }
       }
 
       function buildSelector(el) {
         if (!el || el.nodeType !== 1) return '';
+        var tag = (el.tagName || '').toLowerCase();
+
+        var aria = el.getAttribute('aria-label');
+        if (aria) {
+          var ariaSel = tag + '[aria-label=' + quoteAttr(aria) + ']';
+          if (uniqueMatch(ariaSel)) return ariaSel;
+        }
+
         if (el.id && /^[A-Za-z][\\w-]*$/.test(el.id)) {
           var byId = '#' + cssEscape(el.id);
-          try {
-            if (document.querySelectorAll(byId).length === 1) return byId;
-          } catch (e) {}
+          if (uniqueMatch(byId)) return byId;
+        }
+
+        var href = el.getAttribute('href');
+        if (href && href.length < 180) {
+          var hrefSel = tag + '[href=' + quoteAttr(href) + ']';
+          if (uniqueMatch(hrefSel)) return hrefSel;
+          // Partial match for app deep links that change query params.
+          var shortHref = href.split('?')[0];
+          if (shortHref && shortHref.length > 3) {
+            var hrefPrefix = tag + '[href^=' + quoteAttr(shortHref) + ']';
+            if (uniqueMatch(hrefPrefix)) return hrefPrefix;
+          }
+        }
+
+        var text = (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim();
+        if (text && text.length <= 40 && (tag === 'button' || tag === 'a' || isClickable(el))) {
+          // Attribute fallbacks first; text matching via CSS is limited, so keep structural path.
         }
 
         var parts = [];
         var cur = el;
         var depth = 0;
-        while (cur && cur.nodeType === 1 && depth < 6) {
-          var tag = cur.tagName.toLowerCase();
-          if (tag === 'html' || tag === 'body') break;
-          var part = tag;
+        while (cur && cur.nodeType === 1 && depth < 8) {
+          var t = cur.tagName.toLowerCase();
+          if (t === 'html' || t === 'body') break;
+          var part = t;
           if (cur.id && /^[A-Za-z][\\w-]*$/.test(cur.id)) {
             parts.unshift('#' + cssEscape(cur.id));
             break;
           }
-          var cls = (cur.className && typeof cur.className === 'string')
-            ? cur.className.trim().split(/\\s+/).filter(function(c) {
-                return c && c.indexOf(HIGHLIGHT) === -1 && /^[A-Za-z][\\w-]*$/.test(c);
-              }).slice(0, 2)
-            : [];
+          var cls = classNames(cur).filter(function(c) {
+            return /^[A-Za-z_][\\w-]*$/.test(c);
+          }).slice(0, 3);
           if (cls.length) {
             part += '.' + cls.map(cssEscape).join('.');
           }
@@ -160,15 +259,12 @@ enum PageCleanerManager {
               return n.tagName === cur.tagName;
             });
             if (siblings.length > 1) {
-              var idx = siblings.indexOf(cur) + 1;
-              part += ':nth-of-type(' + idx + ')';
+              part += ':nth-of-type(' + (siblings.indexOf(cur) + 1) + ')';
             }
           }
           parts.unshift(part);
-          try {
-            var candidate = parts.join(' > ');
-            if (document.querySelectorAll(candidate).length === 1) return candidate;
-          } catch (e) {}
+          var candidate = parts.join(' > ');
+          if (uniqueMatch(candidate)) return candidate;
           cur = parent;
           depth++;
         }
@@ -177,16 +273,39 @@ enum PageCleanerManager {
 
       function labelFor(el) {
         var tag = (el.tagName || '').toLowerCase();
+        var aria = el.getAttribute('aria-label');
+        if (aria) return aria;
         if (el.id) return tag + '#' + el.id;
         var text = (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim();
         if (text) {
           if (text.length > 24) text = text.slice(0, 24) + '…';
           return tag + ' · ' + text;
         }
-        var cls = (el.className && typeof el.className === 'string')
-          ? el.className.trim().split(/\\s+/).filter(Boolean)[0]
-          : '';
+        var cls = classNames(el)[0];
         return cls ? (tag + '.' + cls) : tag;
+      }
+
+      function injectHideRule(sel) {
+        if (!sel) return;
+        var s = document.getElementById(HIDE_STYLE_ID);
+        if (!s) {
+          s = document.createElement('style');
+          s.id = HIDE_STYLE_ID;
+          (document.documentElement || document.head).appendChild(s);
+        }
+        var rule = sel + HIDE_CSS;
+        if ((s.textContent || '').indexOf(sel + '{') === -1) {
+          s.textContent = (s.textContent || '') + rule;
+        }
+      }
+
+      function hideElement(el) {
+        if (!el) return;
+        el.style.setProperty('display', 'none', 'important');
+        el.style.setProperty('visibility', 'hidden', 'important');
+        el.style.setProperty('pointer-events', 'none', 'important');
+        el.setAttribute('hidden', '');
+        el.setAttribute('data-mm-cleaned', '1');
       }
 
       function clearHighlight() {
@@ -209,11 +328,17 @@ enum PageCleanerManager {
         btn.addEventListener('click', function(e) {
           e.preventDefault();
           e.stopPropagation();
+          e.stopImmediatePropagation();
           if (!selected) return;
+          var target = selected;
+          var selector = buildSelector(target);
+          // Hide immediately in-page (don't wait for native round-trip).
+          injectHideRule(selector);
+          hideElement(target);
           var payload = {
             type: 'delete',
-            selector: buildSelector(selected),
-            label: labelFor(selected),
+            selector: selector,
+            label: labelFor(target),
             host: location.hostname || '',
             href: location.href || ''
           };
@@ -223,6 +348,18 @@ enum PageCleanerManager {
           clearHighlight();
           removeButton();
           selected = null;
+          // YouTube rebuilds the Open App chip; keep killing matches briefly.
+          if (selector) {
+            var kill = function() {
+              try {
+                document.querySelectorAll(selector).forEach(hideElement);
+              } catch (err) {}
+            };
+            setTimeout(kill, 50);
+            setTimeout(kill, 300);
+            setTimeout(kill, 1000);
+            setTimeout(kill, 2500);
+          }
         }, true);
         (document.documentElement || document.body).appendChild(btn);
         var rect = el.getBoundingClientRect();
@@ -236,13 +373,13 @@ enum PageCleanerManager {
       function onClick(e) {
         if (!api.enabled) return;
         var el = e.target;
-        if (el && el.closest) {
-          var btn = el.closest('#' + BTN_ID);
-          if (btn) return;
-        }
+        if (el && el.nodeType === 3) el = el.parentElement;
+        if (el && el.closest && el.closest('#' + BTN_ID)) return;
         while (el && el.nodeType === 1 && isIgnorable(el)) {
           el = el.parentElement;
         }
+        if (isIgnorable(el)) return;
+        el = resolveTarget(el);
         if (isIgnorable(el)) return;
         e.preventDefault();
         e.stopPropagation();

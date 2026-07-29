@@ -17,9 +17,14 @@ final class WebViewController: UIViewController {
     weak var delegate: WebViewControllerDelegate?
 
     /// Rewrites viewport meta so pinch-zoom works like Safari on restrictive pages.
+    /// Skipped on YouTube: unlocking scale there commonly breaks mobile layout width.
     private static let viewportZoomUnlockScript = WKUserScript(
         source: """
         (function() {
+          var h = (location.hostname || '').toLowerCase();
+          if (h === 'youtu.be' || h.indexOf('youtube.com') !== -1 || h.indexOf('youtube-nocookie.com') !== -1) {
+            return;
+          }
           function unlock() {
             var metas = document.querySelectorAll('meta[name="viewport"]');
             if (!metas.length) {
@@ -45,6 +50,29 @@ final class WebViewController: UIViewController {
         injectionTime: .atDocumentStart,
         forMainFrameOnly: true
     )
+
+    /// Forces YouTube (and similar) back to a sane mobile viewport if something widened it.
+    private static let youtubeViewportFixScript = """
+    (function() {
+      var h = (location.hostname || '').toLowerCase();
+      if (h !== 'youtu.be' && h.indexOf('youtube.com') === -1 && h.indexOf('youtube-nocookie.com') === -1) return;
+      var content = 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+      var metas = document.querySelectorAll('meta[name="viewport"]');
+      if (!metas.length) {
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = content;
+        (document.head || document.documentElement).appendChild(meta);
+      } else {
+        for (var i = 0; i < metas.length; i++) {
+          metas[i].setAttribute('content', content);
+        }
+      }
+      // Remove our older overflow clamp if a previous build injected it.
+      var clamp = document.getElementById('mm-overflow-clamp');
+      if (clamp && clamp.parentNode) clamp.parentNode.removeChild(clamp);
+    })();
+    """
 
     private(set) var webView: WKWebView?
     private let isIncognito: Bool
@@ -104,7 +132,15 @@ final class WebViewController: UIViewController {
         config.userContentController.addUserScript(YouTubeDarkMode.userScript)
         // Unlock pinch-zoom on pages that set user-scalable=no / maximum-scale=1
         // (UIScrollView.ignoresViewportScaleLimits is unavailable in this SDK).
+        // YouTube is excluded inside the script — unlocking breaks its mobile width.
         config.userContentController.addUserScript(Self.viewportZoomUnlockScript)
+        config.userContentController.addUserScript(
+            WKUserScript(
+                source: Self.youtubeViewportFixScript,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+        )
         let proxy = WebViewScriptProxy(target: self)
         scriptMessageProxy = proxy
         config.userContentController.add(proxy, name: PageCleanerManager.handlerName)
@@ -116,7 +152,12 @@ final class WebViewController: UIViewController {
         wv.uiDelegate = self
         wv.allowsBackForwardNavigationGestures = true
         wv.scrollView.bouncesZoom = true
+        wv.scrollView.alwaysBounceHorizontal = false
+        wv.scrollView.isDirectionalLockEnabled = true
         wv.scrollView.contentInsetAdjustmentBehavior = .never
+        if #available(iOS 14.0, *) {
+            wv.pageZoom = 1.0
+        }
         view.insertSubview(wv, at: 0)
         wv.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
@@ -600,8 +641,29 @@ extension WebViewController: WKNavigationDelegate {
         if !isIncognito, let url = webView.url {
             HistoryStore.shared.add(title: webView.title ?? "", url: url)
         }
-        // Some sites rewrite viewport after load; re-apply zoom unlock.
-        webView.evaluateJavaScript(Self.viewportZoomUnlockScript.source, completionHandler: nil)
+        // Some sites rewrite viewport after load; re-apply carefully.
+        if YouTubeDarkMode.isYouTube(webView.url) {
+            webView.evaluateJavaScript(Self.youtubeViewportFixScript, completionHandler: nil)
+            // Prevent accidental pinch from leaving YouTube zoomed wider than the screen.
+            webView.scrollView.minimumZoomScale = 1
+            webView.scrollView.maximumZoomScale = 1
+            webView.scrollView.zoomScale = 1
+            if #available(iOS 14.0, *) { webView.pageZoom = 1.0 }
+            var offset = webView.scrollView.contentOffset
+            if offset.x != 0 {
+                offset.x = 0
+                webView.scrollView.contentOffset = offset
+            }
+        } else {
+            webView.scrollView.minimumZoomScale = 1
+            webView.scrollView.maximumZoomScale = 5
+            webView.evaluateJavaScript(Self.viewportZoomUnlockScript.source, completionHandler: nil)
+            // Drop leftover clamp from older builds.
+            webView.evaluateJavaScript(
+                "(function(){var n=document.getElementById('mm-overflow-clamp');if(n&&n.parentNode)n.parentNode.removeChild(n);})();",
+                completionHandler: nil
+            )
+        }
         PageCleanerManager.apply(to: webView, url: webView.url)
         if isPageCleanerActive {
             PageCleanerManager.setPickMode(enabled: true, on: webView)
