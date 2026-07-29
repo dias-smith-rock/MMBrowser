@@ -27,7 +27,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
-        case .privacy: return 5
+        case .privacy: return 6
         case .search: return SearchEngine.all.count
         case .home: return 4
         case .about: return 2
@@ -79,6 +79,10 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.addTarget(self, action: #selector(httpsChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
             case 3:
+                cell.textLabel?.text = "Webpage Cleaner"
+                cell.detailTextLabel?.text = "Manage hidden element rules"
+                cell.accessoryType = .disclosureIndicator
+            case 4:
                 cell.textLabel?.text = "Clear Browsing Data"
                 cell.accessoryType = .disclosureIndicator
             default:
@@ -125,8 +129,10 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         switch Section(rawValue: indexPath.section)! {
         case .privacy:
             if indexPath.row == 3 {
-                navigationController?.pushViewController(ClearBrowsingDataViewController(), animated: true)
+                navigationController?.pushViewController(PageCleanerRulesViewController(), animated: true)
             } else if indexPath.row == 4 {
+                navigationController?.pushViewController(ClearBrowsingDataViewController(), animated: true)
+            } else if indexPath.row == 5 {
                 navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
             }
         case .search:

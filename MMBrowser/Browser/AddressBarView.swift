@@ -3,7 +3,7 @@ import SnapKit
 
 protocol AddressBarViewDelegate: AnyObject {
     func addressBarDidSubmit(_ text: String)
-    func addressBarDidTapShare()
+    func addressBarDidTapPageCleaner()
     func addressBarDidRequestManualScreenshot()
     func addressBarDidRequestLongScreenshot()
 }
@@ -15,7 +15,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private let screenshotEntry = UIControl()
     private let screenshotIcon = UIImageView()
     private let chevronIcon = UIImageView()
-    private let shareButton = UIButton(type: .system)
+    private let pageCleanerButton = UIButton(type: .system)
     private let privateBadge = UILabel()
     let textField = UITextField()
     private let progressView = UIProgressView(progressViewStyle: .bar)
@@ -53,9 +53,10 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         screenshotEntry.addTarget(self, action: #selector(screenshotEntryTapped), for: .touchUpInside)
         screenshotEntry.accessibilityLabel = "Screenshot"
 
-        shareButton.setImage(UIImage(systemName: "square.and.arrow.up"), for: .normal)
-        shareButton.tintColor = BrowserTheme.textSecondary
-        shareButton.addTarget(self, action: #selector(shareTapped), for: .touchUpInside)
+        pageCleanerButton.setImage(UIImage(systemName: "wand.and.stars"), for: .normal)
+        pageCleanerButton.tintColor = BrowserTheme.textSecondary
+        pageCleanerButton.accessibilityLabel = "Clean page"
+        pageCleanerButton.addTarget(self, action: #selector(pageCleanerTapped), for: .touchUpInside)
 
         privateBadge.text = "Private"
         privateBadge.font = .systemFont(ofSize: 10, weight: .bold)
@@ -87,7 +88,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         container.addSubview(screenshotEntry)
         container.addSubview(privateBadge)
         container.addSubview(textField)
-        container.addSubview(shareButton)
+        container.addSubview(pageCleanerButton)
         addSubview(progressView)
 
         setupChips()
@@ -121,14 +122,14 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.width.equalTo(12)
             make.height.equalTo(16)
         }
-        shareButton.snp.makeConstraints { make in
+        pageCleanerButton.snp.makeConstraints { make in
             make.trailing.equalToSuperview().offset(-12)
             make.centerY.equalToSuperview()
             make.size.equalTo(24)
         }
         textField.snp.makeConstraints { make in
             make.leading.equalTo(screenshotEntry.snp.trailing).offset(4)
-            make.trailing.equalTo(shareButton.snp.leading).offset(-8)
+            make.trailing.equalTo(pageCleanerButton.snp.leading).offset(-8)
             make.centerY.equalToSuperview()
         }
         progressView.snp.makeConstraints { make in
@@ -220,7 +221,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             } else {
                 make.leading.equalTo(screenshotEntry.snp.trailing).offset(4)
             }
-            make.trailing.equalTo(shareButton.snp.leading).offset(-8)
+            make.trailing.equalTo(pageCleanerButton.snp.leading).offset(-8)
             make.centerY.equalToSuperview()
         }
     }
@@ -255,9 +256,9 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         return true
     }
 
-    @objc private func shareTapped() {
+    @objc private func pageCleanerTapped() {
         hideScreenshotChips()
-        delegate?.addressBarDidTapShare()
+        delegate?.addressBarDidTapPageCleaner()
     }
 
     @objc private func screenshotEntryTapped() {

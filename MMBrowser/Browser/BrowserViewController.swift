@@ -291,10 +291,8 @@ extension BrowserViewController: AddressBarViewDelegate {
         navigate(to: URLInputResolver.resolve(text))
     }
 
-    func addressBarDidTapShare() {
-        guard let url = tabManager.selectedTab?.url else { return }
-        let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-        present(activity, animated: true)
+    func addressBarDidTapPageCleaner() {
+        tabManager.selectedTab?.webController?.enterPageCleaner()
     }
 
     func addressBarDidRequestManualScreenshot() {
@@ -481,6 +479,13 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 self.tabManager.selectedTab?.webController?.openReaderMode()
             case .findInPage:
                 self.tabManager.selectedTab?.webController?.showFindInPage()
+            case .share:
+                guard let url = self.tabManager.selectedTab?.url else {
+                    Toast.show("No page to share", from: self)
+                    return
+                }
+                let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+                self.present(activity, animated: true)
             case .desktopSite:
                 guard let tab = self.tabManager.selectedTab else { return }
                 tab.preferDesktop.toggle()

@@ -4,7 +4,7 @@ import SnapKit
 enum MenuAction: Equatable {
     case bookmarks, history, readingList, downloads, settings
     case reload, newTab, newIncognitoTab, addBookmark, addReadingList
-    case readerMode, findInPage, desktopSite, sharePDF, screenshot, longScreenshot
+    case readerMode, findInPage, share, desktopSite, sharePDF, screenshot, longScreenshot
     case placeholder(String)
 }
 
@@ -74,6 +74,7 @@ final class MenuViewController: UIViewController {
         var rows: [(String, String, MenuAction)] = [
             ("Reload", "arrow.clockwise", .reload),
             ("Find in page", "magnifyingglass", .findInPage),
+            ("Share", "square.and.arrow.up", .share),
             ("Request Desktop Site", "desktopcomputer", .desktopSite),
             ("New tab", "plus.circle", .newTab),
             ("New Incognito tab", "eye.slash", .newIncognitoTab),

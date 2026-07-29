@@ -64,7 +64,10 @@ final class WebViewController: UIViewController {
     private var preferDesktop = false
     private var findBar: FindInPageBar?
     private var lastFindQuery: String?
-    private var scriptMessageProxy: ImageRevealScriptProxy?
+    private var cleanerBar: PageCleanerBar?
+    private var cleanerURLOnly = false
+    private var scriptMessageProxy: WebViewScriptProxy?
+    private var pageCleanerObserver: NSObjectProtocol?
 
     private let desktopUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
@@ -101,9 +104,10 @@ final class WebViewController: UIViewController {
         // Unlock pinch-zoom on pages that set user-scalable=no / maximum-scale=1
         // (UIScrollView.ignoresViewportScaleLimits is unavailable in this SDK).
         config.userContentController.addUserScript(Self.viewportZoomUnlockScript)
+        let proxy = WebViewScriptProxy(target: self)
+        scriptMessageProxy = proxy
+        config.userContentController.add(proxy, name: PageCleanerManager.handlerName)
         if AppSettings.noImagesEnabled {
-            let proxy = ImageRevealScriptProxy(target: self)
-            scriptMessageProxy = proxy
             config.userContentController.add(proxy, name: ImageBlockManager.disableHandlerName)
         }
         let wv = WKWebView(frame: .zero, configuration: config)
@@ -145,11 +149,56 @@ final class WebViewController: UIViewController {
             self.pendingURL = nil
             loadPrepared(url: pendingURL, in: wv)
         }
+
+        pageCleanerObserver = NotificationCenter.default.addObserver(
+            forName: .pageCleanerRulesChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self = self, let webView = self.webView else { return }
+            PageCleanerManager.apply(to: webView, url: webView.url)
+        }
     }
 
     fileprivate func handleNoImageScriptMessage(_ message: WKScriptMessage) {
         guard message.name == ImageBlockManager.disableHandlerName else { return }
         AppSettings.noImagesEnabled = false
+    }
+
+    fileprivate func handlePageCleanerMessage(_ message: WKScriptMessage) {
+        guard message.name == PageCleanerManager.handlerName,
+              let body = message.body as? [String: Any],
+              let type = body["type"] as? String,
+              type == "delete",
+              let selector = body["selector"] as? String,
+              !selector.isEmpty,
+              let webView = webView else { return }
+
+        let label = (body["label"] as? String) ?? selector
+        let host = (body["host"] as? String)?.lowercased()
+            ?? webView.url?.host?.lowercased()
+            ?? ""
+        guard !host.isEmpty else { return }
+
+        PageCleanerManager.hideSelector(selector, on: webView)
+
+        if isIncognito {
+            Toast.show("Hidden for this session", from: self)
+            return
+        }
+
+        let urlString: String?
+        if cleanerURLOnly, let url = webView.url {
+            urlString = PageCleanerStore.canonicalURLString(url)
+        } else {
+            urlString = nil
+        }
+
+        if PageCleanerStore.shared.add(host: host, urlString: urlString, selector: selector, label: label) != nil {
+            Toast.show(urlString == nil ? "Hidden on this site" : "Hidden on this page", from: self)
+        } else {
+            Toast.show("Already hidden", from: self)
+        }
     }
 
     private func setupErrorView() {
@@ -258,6 +307,7 @@ final class WebViewController: UIViewController {
     }
 
     func showFindInPage() {
+        exitPageCleaner(animated: false)
         guard findBar == nil else { findBar?.focus(); return }
         let bar = FindInPageBar()
         bar.delegate = self
@@ -269,6 +319,41 @@ final class WebViewController: UIViewController {
         }
         findBar = bar
         bar.focus()
+    }
+
+    func enterPageCleaner() {
+        if let findBar = findBar {
+            findBarDidDismiss(findBar)
+        }
+        guard cleanerBar == nil else { return }
+        guard webView?.url != nil else {
+            Toast.show("No page to clean", from: self)
+            return
+        }
+        let bar = PageCleanerBar()
+        bar.delegate = self
+        view.addSubview(bar)
+        bar.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview()
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
+            make.height.equalTo(52)
+        }
+        cleanerBar = bar
+        cleanerURLOnly = false
+        if let webView = webView {
+            PageCleanerManager.setPickMode(enabled: true, on: webView)
+        }
+    }
+
+    private func exitPageCleaner(animated: Bool = true) {
+        _ = animated
+        guard let bar = cleanerBar else { return }
+        if let webView = webView {
+            PageCleanerManager.setPickMode(enabled: false, on: webView)
+        }
+        cleanerURLOnly = false
+        bar.removeFromSuperview()
+        cleanerBar = nil
     }
 
     func saveReadingList() {
@@ -392,7 +477,13 @@ final class WebViewController: UIViewController {
         urlObservation = nil
         canGoBackObservation = nil
         canGoForwardObservation = nil
+        if let pageCleanerObserver = pageCleanerObserver {
+            NotificationCenter.default.removeObserver(pageCleanerObserver)
+            self.pageCleanerObserver = nil
+        }
+        exitPageCleaner(animated: false)
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: ImageBlockManager.disableHandlerName)
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: PageCleanerManager.handlerName)
         scriptMessageProxy = nil
         webView?.stopLoading()
         webView?.navigationDelegate = nil
@@ -407,7 +498,7 @@ final class WebViewController: UIViewController {
 }
 
 /// Avoids retain cycle: WKUserContentController strongly retains its script message handlers.
-private final class ImageRevealScriptProxy: NSObject, WKScriptMessageHandler {
+private final class WebViewScriptProxy: NSObject, WKScriptMessageHandler {
     weak var target: WebViewController?
 
     init(target: WebViewController) {
@@ -415,7 +506,24 @@ private final class ImageRevealScriptProxy: NSObject, WKScriptMessageHandler {
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        target?.handleNoImageScriptMessage(message)
+        switch message.name {
+        case ImageBlockManager.disableHandlerName:
+            target?.handleNoImageScriptMessage(message)
+        case PageCleanerManager.handlerName:
+            target?.handlePageCleanerMessage(message)
+        default:
+            break
+        }
+    }
+}
+
+extension WebViewController: PageCleanerBarDelegate {
+    func pageCleanerBar(_ bar: PageCleanerBar, didChangeScopeToURLOnly urlOnly: Bool) {
+        cleanerURLOnly = urlOnly
+    }
+
+    func pageCleanerBarDidDismiss(_ bar: PageCleanerBar) {
+        exitPageCleaner()
     }
 }
 
@@ -494,6 +602,10 @@ extension WebViewController: WKNavigationDelegate {
         decisionHandler(.allow)
     }
 
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        PageCleanerManager.apply(to: webView, url: webView.url)
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         errorContainer.isHidden = true
         httpsFallbackAttempted = false
@@ -505,6 +617,10 @@ extension WebViewController: WKNavigationDelegate {
         }
         // Some sites rewrite viewport after load; re-apply zoom unlock.
         webView.evaluateJavaScript(Self.viewportZoomUnlockScript.source, completionHandler: nil)
+        PageCleanerManager.apply(to: webView, url: webView.url)
+        if cleanerBar != nil {
+            PageCleanerManager.setPickMode(enabled: true, on: webView)
+        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
