@@ -197,6 +197,7 @@ final class ScreenshotEditorViewController: UIViewController {
         case drawArrow(start: CGPoint)
         case moveAnnotation(index: Int, startTouch: CGPoint, startItem: ScreenshotAnnotation)
         case moveArrowEndpoint(index: Int, isStart: Bool)
+        case resizeText(index: Int, startFontSize: CGFloat, startDistance: CGFloat)
         case rotateText(index: Int, startAngle: CGFloat, startRotation: CGFloat)
         case rotateArrow(index: Int, startAngle: CGFloat, startStart: CGPoint, startEnd: CGPoint)
     }
@@ -391,7 +392,6 @@ final class ScreenshotEditorViewController: UIViewController {
                     ("textformat.size", "Size", #selector(textSizeTapped), false),
                     ("paintpalette", "Color", #selector(textColorTapped), false),
                     ("textformat", "Font", #selector(textFontTapped), false),
-                    ("rotate.right", "Rotate", #selector(textRotateTapped), annotationRotateMode),
                     ("checkmark", "Done", #selector(deselectTapped), false)
                 ]
             case .arrow:
@@ -622,6 +622,8 @@ final class ScreenshotEditorViewController: UIViewController {
             let geometry = textSelectionGeometry(text)
             for (i, handle) in cornerHandles.enumerated() {
                 handle.isHidden = false
+                // Reset transform before mutating bounds — otherwise frame/hit-testing breaks.
+                handle.transform = .identity
                 handle.bounds = CGRect(x: 0, y: 0, width: handleSize, height: handleSize)
                 handle.center = geometry.corners[i]
                 handle.transform = CGAffineTransform(rotationAngle: geometry.rotation)
@@ -646,6 +648,7 @@ final class ScreenshotEditorViewController: UIViewController {
             CGPoint(x: selectionSize.width / 2, y: selectionSize.height / 2)
         ]
         for (index, handle) in cornerHandles.enumerated() {
+            handle.transform = .identity
             handle.bounds = CGRect(x: 0, y: 0, width: handleSize, height: handleSize)
             handle.center = toCanvas(localCorners[index])
             handle.transform = CGAffineTransform(rotationAngle: selectionRotation)
@@ -734,11 +737,19 @@ final class ScreenshotEditorViewController: UIViewController {
     // MARK: - Hit testing
 
     private func handleIndex(at point: CGPoint) -> Int? {
+        // Use center distance — `frame` is unreliable while a rotation transform is applied.
+        let hitRadius: CGFloat = 28
+        var bestIndex: Int?
+        var bestDistance = CGFloat.greatestFiniteMagnitude
         for (index, handle) in cornerHandles.enumerated() {
             if handle.isHidden { continue }
-            if handle.frame.insetBy(dx: -12, dy: -12).contains(point) { return index }
+            let distance = hypot(point.x - handle.center.x, point.y - handle.center.y)
+            if distance <= hitRadius, distance < bestDistance {
+                bestDistance = distance
+                bestIndex = index
+            }
         }
-        return nil
+        return bestIndex
     }
 
     /// 0 = start, 1 = end, 2 = mid (move). Only valid while an arrow is selected.
@@ -839,7 +850,19 @@ final class ScreenshotEditorViewController: UIViewController {
                     interaction = .rotateText(index: textIndex, startAngle: angle, startRotation: text.rotation)
                     return
                 }
-                if handleIndex(at: point) != nil {
+                if let corner = handleIndex(at: point) {
+                    let center = absolutePoint(text.origin)
+                    let handleCenter = cornerHandles[corner].center
+                    let dist = hypot(handleCenter.x - center.x, handleCenter.y - center.y)
+                    interaction = .resizeText(
+                        index: textIndex,
+                        startFontSize: text.fontSize,
+                        startDistance: max(dist, 1)
+                    )
+                    return
+                }
+                // Dragging the text body moves it; corners already handled above.
+                if annotationIndex(at: point) == textIndex {
                     interaction = .moveAnnotation(
                         index: textIndex,
                         startTouch: point,
@@ -930,6 +953,17 @@ final class ScreenshotEditorViewController: UIViewController {
                     arrow.end = p
                 }
                 annotations[index] = .arrow(arrow)
+                redrawAnnotations()
+                updateSelectionOutline()
+                updateHandles()
+                layoutMenuNearFrame()
+            case .resizeText(let index, let startFontSize, let startDistance):
+                guard case .text(var text) = annotations[index] else { break }
+                let center = absolutePoint(text.origin)
+                let dist = hypot(point.x - center.x, point.y - center.y)
+                let scale = dist / startDistance
+                text.fontSize = min(max(round(startFontSize * scale), 10), 120)
+                annotations[index] = .text(text)
                 redrawAnnotations()
                 updateSelectionOutline()
                 updateHandles()
@@ -1348,11 +1382,6 @@ final class ScreenshotEditorViewController: UIViewController {
         }
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         presentSheet(sheet)
-    }
-
-    @objc private func textRotateTapped() {
-        annotationRotateMode.toggle()
-        rebuildMenu()
     }
 
     // MARK: - Arrow menu
