@@ -135,7 +135,7 @@ final class MenuViewController: UIViewController {
         button.setImage(UIImage(systemName: symbol), for: .normal)
         button.tintColor = BrowserTheme.textPrimary
         button.addTarget(self, action: #selector(actionTapped(_:)), for: .touchUpInside)
-        button.semanticContentAttribute = .forceRightToLeft
+        button.semanticContentAttribute = .forceLeftToRight
         return button
     }
 
