@@ -14,6 +14,14 @@ enum AppSettings {
         set { d.set(newValue, forKey: "https.only") }
     }
 
+    static var noImagesEnabled: Bool {
+        get { d.bool(forKey: "no.images.enabled") }
+        set {
+            d.set(newValue, forKey: "no.images.enabled")
+            NotificationCenter.default.post(name: .noImagesChanged, object: nil)
+        }
+    }
+
     static var searchEngineID: String {
         get { d.string(forKey: "search.engine") ?? SearchEngine.duckDuckGo.id }
         set { d.set(newValue, forKey: "search.engine") }
@@ -47,6 +55,7 @@ enum AppSettings {
 
 extension Notification.Name {
     static let trackerProtectionChanged = Notification.Name("mmbrowser.tp.changed")
+    static let noImagesChanged = Notification.Name("mmbrowser.noimages.changed")
     static let homeSettingsChanged = Notification.Name("mmbrowser.home.changed")
     static let searchEngineChanged = Notification.Name("mmbrowser.search.changed")
 }

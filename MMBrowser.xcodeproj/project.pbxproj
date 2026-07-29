@@ -24,6 +24,8 @@
 		7C778606C8964F36874899A1 /* NewTabViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCDC601B9D5949C3A37929EE /* NewTabViewController.swift */; };
 		7CF0C1E12B924A02BE0920B0 /* BrowserViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B7E0BA721F0467CB355866F /* BrowserViewController.swift */; };
 		7F319ABC1AF74FABA37DAF1D /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3B6BD940BB54D82A4066522 /* AppSettings.swift */; };
+		81A1B2C3D4E54678A9B0C1D2 /* PrivateNewTabViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A1B2C3D4E54678A9B0C1D3 /* PrivateNewTabViewController.swift */; };
+		82A1B2C3D4E54678A9B0C1D2 /* ImageBlockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82A1B2C3D4E54678A9B0C1D3 /* ImageBlockManager.swift */; };
 		8059335243A34AE1899FAA49 /* ReadingListViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F39F6791D34673BFA63E0B /* ReadingListViewController.swift */; };
 		80CC8EC8F5864BAC97BF1E8E /* DiscoverMock.swift in Sources */ = {isa = PBXBuildFile; fileRef = F327BEAC2D914DAB9242A59E /* DiscoverMock.swift */; };
 		813C7A167C0B42138866E92D /* MenuViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D98DC3B0A2D148BEBE182F6C /* MenuViewController.swift */; };
@@ -94,6 +96,8 @@
 		D3B6BD940BB54D82A4066522 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		D98DC3B0A2D148BEBE182F6C /* MenuViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuViewController.swift; sourceTree = "<group>"; };
 		DCDC601B9D5949C3A37929EE /* NewTabViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTabViewController.swift; sourceTree = "<group>"; };
+		81A1B2C3D4E54678A9B0C1D3 /* PrivateNewTabViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateNewTabViewController.swift; sourceTree = "<group>"; };
+		82A1B2C3D4E54678A9B0C1D3 /* ImageBlockManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageBlockManager.swift; sourceTree = "<group>"; };
 		DD046D8ACFAE4B96AF0715F6 /* BookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkStore.swift; sourceTree = "<group>"; };
 		DD4B7DF4CC5F48C390C9325C /* AdBlockManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdBlockManager.swift; sourceTree = "<group>"; };
 		E0348F54E284419696A84A8F /* ReadingListStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingListStore.swift; sourceTree = "<group>"; };
@@ -168,6 +172,7 @@
 				F327BEAC2D914DAB9242A59E /* DiscoverMock.swift */,
 				4CFD381780DE41D3B96A4B5A /* GoogleLogoView.swift */,
 				DCDC601B9D5949C3A37929EE /* NewTabViewController.swift */,
+				81A1B2C3D4E54678A9B0C1D3 /* PrivateNewTabViewController.swift */,
 			);
 			path = NewTab;
 			sourceTree = "<group>";
@@ -291,6 +296,7 @@
 			isa = PBXGroup;
 			children = (
 				DD4B7DF4CC5F48C390C9325C /* AdBlockManager.swift */,
+				82A1B2C3D4E54678A9B0C1D3 /* ImageBlockManager.swift */,
 				D3B6BD940BB54D82A4066522 /* AppSettings.swift */,
 				3979F26B75FD439E9108F7A7 /* LetterAvatarView.swift */,
 				1779FCB4C5AF48C29F8F9FFA /* Theme.swift */,
@@ -436,6 +442,7 @@
 				C8E41A2B7F6D4A1E9B3C5D70 /* ScreenshotEditorViewController.swift in Sources */,
 				E926465A783245B4904A71AD /* YouTubeDarkMode.swift in Sources */,
 				E465FC0279854A2096A2DF80 /* AdBlockManager.swift in Sources */,
+				82A1B2C3D4E54678A9B0C1D2 /* ImageBlockManager.swift in Sources */,
 				7F319ABC1AF74FABA37DAF1D /* AppSettings.swift in Sources */,
 				5F551AC16CAD4143A1593E53 /* LetterAvatarView.swift in Sources */,
 				47C017E84DF14D329312A9B6 /* Theme.swift in Sources */,
@@ -453,6 +460,7 @@
 				80CC8EC8F5864BAC97BF1E8E /* DiscoverMock.swift in Sources */,
 				B2BA9449476846B08EE4A1BD /* GoogleLogoView.swift in Sources */,
 				7C778606C8964F36874899A1 /* NewTabViewController.swift in Sources */,
+				81A1B2C3D4E54678A9B0C1D2 /* PrivateNewTabViewController.swift in Sources */,
 				C5CC3025D67544A09B52DB05 /* OnboardingViewController.swift in Sources */,
 				81FD47C9E67B4DE0B05CED50 /* ClearBrowsingDataViewController.swift in Sources */,
 				72902D8D6B914EADAB7C35DF /* DangerousSiteGuard.swift in Sources */,

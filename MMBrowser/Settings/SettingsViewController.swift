@@ -27,7 +27,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
-        case .privacy: return 4
+        case .privacy: return 5
         case .search: return SearchEngine.all.count
         case .home: return 4
         case .about: return 2
@@ -48,6 +48,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         cell.backgroundColor = BrowserTheme.card
         cell.textLabel?.textColor = .white
         cell.detailTextLabel?.textColor = BrowserTheme.textSecondary
+        cell.detailTextLabel?.text = nil
         cell.accessoryView = nil
         cell.accessoryType = .none
         cell.selectionStyle = .default
@@ -63,13 +64,21 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.addTarget(self, action: #selector(tpChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
             case 1:
+                cell.textLabel?.text = "Block Images"
+                cell.detailTextLabel?.text = "No-image mode for all tabs"
+                cell.selectionStyle = .none
+                let sw = UISwitch()
+                sw.isOn = AppSettings.noImagesEnabled
+                sw.addTarget(self, action: #selector(noImagesChanged(_:)), for: .valueChanged)
+                cell.accessoryView = sw
+            case 2:
                 cell.textLabel?.text = "HTTPS First"
                 cell.selectionStyle = .none
                 let sw = UISwitch()
                 sw.isOn = AppSettings.httpsOnly
                 sw.addTarget(self, action: #selector(httpsChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
-            case 2:
+            case 3:
                 cell.textLabel?.text = "Clear Browsing Data"
                 cell.accessoryType = .disclosureIndicator
             default:
@@ -115,9 +124,9 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         tableView.deselectRow(at: indexPath, animated: true)
         switch Section(rawValue: indexPath.section)! {
         case .privacy:
-            if indexPath.row == 2 {
+            if indexPath.row == 3 {
                 navigationController?.pushViewController(ClearBrowsingDataViewController(), animated: true)
-            } else if indexPath.row == 3 {
+            } else if indexPath.row == 4 {
                 navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
             }
         case .search:
@@ -141,6 +150,11 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         AppSettings.trackerProtectionEnabled = sw.isOn
         onRequestRebuildWebViews?()
         Toast.show(sw.isOn ? "Tracker protection on" : "Tracker protection off", from: self)
+    }
+    @objc private func noImagesChanged(_ sw: UISwitch) {
+        AppSettings.noImagesEnabled = sw.isOn
+        onRequestRebuildWebViews?()
+        Toast.show(sw.isOn ? "Block images on" : "Block images off", from: self)
     }
     @objc private func httpsChanged(_ sw: UISwitch) { AppSettings.httpsOnly = sw.isOn }
     @objc private func shortcutsChanged(_ sw: UISwitch) { AppSettings.showShortcuts = sw.isOn }

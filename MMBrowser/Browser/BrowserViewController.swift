@@ -12,6 +12,7 @@ final class BrowserViewController: UIViewController {
     private let chromeStack = UIStackView()
 
     private var newTabController: NewTabViewController?
+    private var privateNewTabController: PrivateNewTabViewController?
     private var currentContent: UIViewController?
 
     override func viewDidLoad() {
@@ -24,9 +25,15 @@ final class BrowserViewController: UIViewController {
             DispatchQueue.main.async { self.presentOnboarding() }
         }
         NotificationCenter.default.addObserver(self, selector: #selector(trackerChanged), name: .trackerProtectionChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(noImagesChanged), name: .noImagesChanged, object: nil)
     }
 
     @objc private func trackerChanged() {
+        tabManager.invalidateAllWebViews()
+        showSelectedTab()
+    }
+
+    @objc private func noImagesChanged() {
         tabManager.invalidateAllWebViews()
         showSelectedTab()
     }
@@ -85,14 +92,28 @@ final class BrowserViewController: UIViewController {
 
     private func showSelectedTab() {
         guard let tab = tabManager.selectedTab else { return }
+        applyPrivateChrome(tab.isIncognito)
         if tab.isNewTabPage {
             addressBar.isHidden = true
-            showNewTab(for: tab)
+            if tab.isIncognito {
+                showPrivateNewTab()
+            } else {
+                showNewTab(for: tab)
+            }
         } else {
             addressBar.isHidden = false
             showWeb(for: tab)
         }
         refreshToolbar()
+    }
+
+    private func applyPrivateChrome(_ isPrivate: Bool) {
+        let bg = isPrivate ? BrowserTheme.privateBackground : BrowserTheme.background
+        view.backgroundColor = bg
+        statusBarFill.backgroundColor = bg
+        contentContainer.backgroundColor = bg
+        addressBar.setPrivateMode(isPrivate)
+        toolbar.setPrivateMode(isPrivate)
     }
 
     private func showNewTab(for tab: BrowserTab) {
@@ -106,6 +127,20 @@ final class BrowserViewController: UIViewController {
         }
         ntp.reloadContinue(from: tabManager.recentBrowsedTabs(limit: 1))
         ntp.reloadShortcuts()
+        embed(ntp)
+        addressBar.setURLText("")
+        addressBar.setProgress(0, isLoading: false)
+    }
+
+    private func showPrivateNewTab() {
+        let ntp: PrivateNewTabViewController
+        if let existing = privateNewTabController {
+            ntp = existing
+        } else {
+            ntp = PrivateNewTabViewController()
+            ntp.delegate = self
+            privateNewTabController = ntp
+        }
         embed(ntp)
         addressBar.setURLText("")
         addressBar.setProgress(0, isLoading: false)
@@ -174,10 +209,13 @@ final class BrowserViewController: UIViewController {
 
     func refreshToolbar() {
         let wv = tabManager.selectedTab?.webController?.webView
+        let isPrivate = tabManager.selectedTab?.isIncognito ?? false
+        let tabCount = isPrivate ? tabManager.incognitoTabs.count : tabManager.normalTabs.count
         toolbar.update(
             canGoBack: wv?.canGoBack ?? false,
             canGoForward: wv?.canGoForward ?? false,
-            tabCount: tabManager.tabs.count
+            tabCount: max(tabCount, 1),
+            isPrivate: isPrivate
         )
     }
 
@@ -190,7 +228,7 @@ final class BrowserViewController: UIViewController {
     }
 
     private func presentMenu() {
-        let menu = MenuViewController()
+        let menu = MenuViewController(isIncognito: tabManager.selectedTab?.isIncognito ?? false)
         menu.delegate = self
         if #available(iOS 15.0, *) {
             if let sheet = menu.sheetPresentationController {
@@ -272,7 +310,8 @@ extension BrowserViewController: BottomToolbarViewDelegate {
     func toolbarDidTapBack() { tabManager.selectedTab?.webController?.goBack() }
     func toolbarDidTapForward() { tabManager.selectedTab?.webController?.goForward() }
     func toolbarDidTapNewTab() {
-        _ = tabManager.addTab(incognito: false, select: true)
+        let privateMode = tabManager.selectedTab?.isIncognito ?? false
+        _ = tabManager.addTab(incognito: privateMode, select: true)
         showSelectedTab()
     }
     func toolbarDidTapTabs() { presentTabSwitcher() }
@@ -304,6 +343,17 @@ extension BrowserViewController: NewTabViewControllerDelegate {
     }
 }
 
+extension BrowserViewController: PrivateNewTabViewControllerDelegate {
+    func privateNewTabDidSubmit(_ text: String) {
+        navigate(to: URLInputResolver.resolve(text))
+    }
+
+    func privateNewTabDidRequestClosePrivate() {
+        tabManager.closeAllIncognitoTabs()
+        showSelectedTab()
+    }
+}
+
 extension BrowserViewController: WebViewControllerDelegate {
     func webViewController(_ controller: WebViewController, didUpdateTitle title: String?) {
         guard let tab = tabManager.tabs.first(where: { $0.webController === controller }) else { return }
@@ -326,7 +376,7 @@ extension BrowserViewController: WebViewControllerDelegate {
 
     func webViewController(_ controller: WebViewController, didUpdateNavigationState canGoBack: Bool, canGoForward: Bool) {
         guard tabManager.selectedTab?.webController === controller else { return }
-        toolbar.update(canGoBack: canGoBack, canGoForward: canGoForward, tabCount: tabManager.tabs.count)
+        refreshToolbar()
     }
 
     func webViewController(_ controller: WebViewController, requestNewTabFor url: URL) {
@@ -394,6 +444,10 @@ extension BrowserViewController: MenuViewControllerDelegate {
             case .readingList:
                 self.openReadingList()
             case .downloads:
+                if self.tabManager.selectedTab?.isIncognito == true {
+                    Toast.show("Downloads are disabled in Private Browsing", from: self)
+                    return
+                }
                 self.openDownloads()
             case .settings:
                 self.openSettings()
@@ -406,13 +460,22 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 _ = self.tabManager.addTab(incognito: true, select: true)
                 self.showSelectedTab()
             case .addBookmark:
-                guard let tab = self.tabManager.selectedTab, let url = tab.url else {
+                guard let tab = self.tabManager.selectedTab else { return }
+                if tab.isIncognito {
+                    Toast.show("Not available in Private Browsing", from: self)
+                    return
+                }
+                guard let url = tab.url else {
                     Toast.show("No page to bookmark", from: self)
                     return
                 }
                 BookmarkStore.shared.add(title: tab.title, url: url)
                 Toast.show("Bookmark added", from: self)
             case .addReadingList:
+                if self.tabManager.selectedTab?.isIncognito == true {
+                    Toast.show("Not available in Private Browsing", from: self)
+                    return
+                }
                 self.tabManager.selectedTab?.webController?.saveReadingList()
             case .readerMode:
                 self.tabManager.selectedTab?.webController?.openReaderMode()

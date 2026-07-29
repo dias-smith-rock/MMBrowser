@@ -46,15 +46,49 @@ final class TabManager {
         delegate?.tabManagerDidUpdate(self)
     }
 
+    func recentBrowsedTabs(limit: Int = 1) -> [BrowserTab] {
+        tabs
+            .filter { !$0.isIncognito && !$0.isNewTabPage && $0.url != nil }
+            .sorted { $0.lastAccessed > $1.lastAccessed }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    /// Closes every private tab and wipes their WebViews / snapshots.
+    func closeAllIncognitoTabs() {
+        let privateTabs = incognitoTabs
+        guard !privateTabs.isEmpty else { return }
+        for tab in privateTabs {
+            tab.webController?.cleanup()
+            tab.webController = nil
+            tab.snapshot = nil
+        }
+        tabs.removeAll { $0.isIncognito }
+        if tabs.isEmpty {
+            tabs = [BrowserTab(isIncognito: false)]
+            selectedIndex = 0
+            delegate?.tabManager(self, didSelect: tabs[0])
+        } else {
+            selectedIndex = min(selectedIndex, tabs.count - 1)
+            if let selected = selectedTab {
+                selected.lastAccessed = Date()
+                delegate?.tabManager(self, didSelect: selected)
+            }
+        }
+        delegate?.tabManagerDidUpdate(self)
+    }
+
     func closeTab(id: UUID) {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
         let closing = tabs[index]
+        let wasIncognito = closing.isIncognito
         closing.webController?.cleanup()
         closing.webController = nil
+        closing.snapshot = nil
         tabs.remove(at: index)
 
         if tabs.isEmpty {
-            let replacement = BrowserTab(isIncognito: closing.isIncognito)
+            let replacement = BrowserTab(isIncognito: false)
             tabs = [replacement]
             selectedIndex = 0
             delegate?.tabManager(self, didSelect: replacement)
@@ -65,15 +99,16 @@ final class TabManager {
                 delegate?.tabManager(self, didSelect: selected)
             }
         }
-        delegate?.tabManagerDidUpdate(self)
-    }
 
-    func recentBrowsedTabs(limit: Int = 1) -> [BrowserTab] {
-        tabs
-            .filter { !$0.isNewTabPage && $0.url != nil }
-            .sorted { $0.lastAccessed > $1.lastAccessed }
-            .prefix(limit)
-            .map { $0 }
+        // Last private tab closed — ensure no leftover private WebViews/snapshots.
+        if wasIncognito, incognitoTabs.isEmpty {
+            for tab in tabs where tab.isIncognito {
+                tab.webController?.cleanup()
+                tab.webController = nil
+                tab.snapshot = nil
+            }
+        }
+        delegate?.tabManagerDidUpdate(self)
     }
 
     func tabs(matching query: String, incognito: Bool) -> [BrowserTab] {

@@ -59,7 +59,7 @@ final class BottomToolbarView: UIView {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func update(canGoBack: Bool, canGoForward: Bool, tabCount: Int) {
+    func update(canGoBack: Bool, canGoForward: Bool, tabCount: Int, isPrivate: Bool = false) {
         backButton.isEnabled = canGoBack
         forwardButton.isEnabled = canGoForward
         backButton.alpha = canGoBack ? 1 : 0.35
@@ -69,6 +69,15 @@ final class BottomToolbarView: UIView {
         tabsBadgeLabel.snp.updateConstraints { make in
             make.width.greaterThanOrEqualTo(width)
         }
+        setPrivateMode(isPrivate)
+    }
+
+    func setPrivateMode(_ isPrivate: Bool) {
+        backgroundColor = isPrivate ? BrowserTheme.privateBackground : BrowserTheme.background
+        let tint = isPrivate ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
+        [backButton, forwardButton, plusButton, tabsButton, menuButton].forEach { $0.tintColor = tint }
+        tabsBadgeLabel.textColor = tint
+        tabsBadgeLabel.layer.borderColor = tint.cgColor
     }
 
     private func configure(_ button: UIButton, systemName: String, action: Selector) {

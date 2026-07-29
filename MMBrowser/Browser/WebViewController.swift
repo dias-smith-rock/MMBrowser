@@ -64,6 +64,7 @@ final class WebViewController: UIViewController {
     private var preferDesktop = false
     private var findBar: FindInPageBar?
     private var lastFindQuery: String?
+    private var scriptMessageProxy: ImageRevealScriptProxy?
 
     private let desktopUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
@@ -88,7 +89,10 @@ final class WebViewController: UIViewController {
         if isIncognito { config.websiteDataStore = .nonPersistent() }
         config.allowsInlineMediaPlayback = true
         AdBlockManager.shared.apply(to: config) { [weak self] in
-            self?.finishWebViewSetup(with: config)
+            guard let self = self else { return }
+            ImageBlockManager.shared.apply(to: config) {
+                self.finishWebViewSetup(with: config)
+            }
         }
     }
 
@@ -97,6 +101,11 @@ final class WebViewController: UIViewController {
         // Unlock pinch-zoom on pages that set user-scalable=no / maximum-scale=1
         // (UIScrollView.ignoresViewportScaleLimits is unavailable in this SDK).
         config.userContentController.addUserScript(Self.viewportZoomUnlockScript)
+        if AppSettings.noImagesEnabled {
+            let proxy = ImageRevealScriptProxy(target: self)
+            scriptMessageProxy = proxy
+            config.userContentController.add(proxy, name: ImageBlockManager.disableHandlerName)
+        }
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.navigationDelegate = self
         wv.uiDelegate = self
@@ -136,6 +145,11 @@ final class WebViewController: UIViewController {
             self.pendingURL = nil
             loadPrepared(url: pendingURL, in: wv)
         }
+    }
+
+    fileprivate func handleNoImageScriptMessage(_ message: WKScriptMessage) {
+        guard message.name == ImageBlockManager.disableHandlerName else { return }
+        AppSettings.noImagesEnabled = false
     }
 
     private func setupErrorView() {
@@ -258,6 +272,10 @@ final class WebViewController: UIViewController {
     }
 
     func saveReadingList() {
+        guard !isIncognito else {
+            Toast.show("Not available in Private Browsing", from: self)
+            return
+        }
         guard let webView = webView, let url = webView.url else {
             Toast.show("No page to save", from: self)
             return
@@ -346,6 +364,10 @@ final class WebViewController: UIViewController {
     }
 
     func downloadCurrentIfFile() {
+        guard !isIncognito else {
+            Toast.show("Downloads are disabled in Private Browsing", from: self)
+            return
+        }
         guard let url = webView?.url else { return }
         let ext = url.pathExtension.lowercased()
         let fileLike = ["pdf", "zip", "png", "jpg", "jpeg", "gif", "mp3", "mp4", "mov", "dmg", "pkg", "csv", "txt"].contains(ext)
@@ -370,6 +392,8 @@ final class WebViewController: UIViewController {
         urlObservation = nil
         canGoBackObservation = nil
         canGoForwardObservation = nil
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: ImageBlockManager.disableHandlerName)
+        scriptMessageProxy = nil
         webView?.stopLoading()
         webView?.navigationDelegate = nil
         webView?.uiDelegate = nil
@@ -380,6 +404,19 @@ final class WebViewController: UIViewController {
     }
 
     deinit { cleanup() }
+}
+
+/// Avoids retain cycle: WKUserContentController strongly retains its script message handlers.
+private final class ImageRevealScriptProxy: NSObject, WKScriptMessageHandler {
+    weak var target: WebViewController?
+
+    init(target: WebViewController) {
+        self.target = target
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        target?.handleNoImageScriptMessage(message)
+    }
 }
 
 extension WebViewController: FindInPageBarDelegate {
@@ -433,6 +470,11 @@ extension WebViewController: WKNavigationDelegate {
 
             let ext = url.pathExtension.lowercased()
             if ["pdf", "zip", "dmg", "pkg"].contains(ext), navigationAction.navigationType == .linkActivated {
+                if self.isIncognito {
+                    Toast.show("Downloads are disabled in Private Browsing", from: self)
+                    decisionHandler(.cancel)
+                    return
+                }
                 DownloadManager.shared.download(from: url, suggestedName: url.lastPathComponent) { [weak self] result in
                     if case .success(let item) = result {
                         if let self = self { Toast.show("Downloaded \(item.fileName)", from: self) }

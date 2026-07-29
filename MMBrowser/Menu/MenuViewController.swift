@@ -1,7 +1,7 @@
 import UIKit
 import SnapKit
 
-enum MenuAction {
+enum MenuAction: Equatable {
     case bookmarks, history, readingList, downloads, settings
     case reload, newTab, newIncognitoTab, addBookmark, addReadingList
     case readerMode, findInPage, desktopSite, sharePDF, screenshot, longScreenshot
@@ -14,12 +14,20 @@ protocol MenuViewControllerDelegate: AnyObject {
 
 final class MenuViewController: UIViewController {
     weak var delegate: MenuViewControllerDelegate?
+    private let isIncognito: Bool
     private let scrollView = UIScrollView()
     private let content = UIView()
 
+    init(isIncognito: Bool = false) {
+        self.isIncognito = isIncognito
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = BrowserTheme.elevated
+        view.backgroundColor = isIncognito ? BrowserTheme.privateElevated : BrowserTheme.elevated
         modalPresentationStyle = .pageSheet
 
         view.addSubview(scrollView)
@@ -30,7 +38,7 @@ final class MenuViewController: UIViewController {
             make.width.equalTo(scrollView)
         }
 
-        let icons: [(String, String, MenuAction)] = [
+        var icons: [(String, String, MenuAction)] = [
             ("star", "Bookmarks", .bookmarks),
             ("clock", "History", .history),
             ("book", "Reading list", .readingList),
@@ -38,6 +46,10 @@ final class MenuViewController: UIViewController {
             ("doc.text", "Reader", .readerMode),
             ("gear", "Settings", .settings)
         ]
+        // Library icons still open existing libraries; private session cannot *add* to them.
+        if isIncognito {
+            icons = icons.filter { $0.2 != .downloads }
+        }
 
         let iconScroll = UIScrollView()
         iconScroll.showsHorizontalScrollIndicator = false
@@ -59,7 +71,7 @@ final class MenuViewController: UIViewController {
             make.height.equalToSuperview()
         }
 
-        let rows: [(String, String, MenuAction)] = [
+        var rows: [(String, String, MenuAction)] = [
             ("Reload", "arrow.clockwise", .reload),
             ("Find in page", "magnifyingglass", .findInPage),
             ("Request Desktop Site", "desktopcomputer", .desktopSite),
@@ -71,6 +83,9 @@ final class MenuViewController: UIViewController {
             ("Screenshot", "camera", .screenshot),
             ("Long screenshot", "camera.viewfinder", .longScreenshot)
         ]
+        if isIncognito {
+            rows.removeAll { $0.2 == .addBookmark || $0.2 == .addReadingList }
+        }
 
         var previous: UIView = iconScroll
         for (index, row) in rows.enumerated() {
@@ -93,7 +108,7 @@ final class MenuViewController: UIViewController {
         box.backgroundColor = BrowserTheme.secondaryCard
         box.layer.cornerRadius = 14
         let image = UIImageView(image: UIImage(systemName: symbol))
-        image.tintColor = BrowserTheme.textPrimary
+        image.tintColor = isIncognito ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
         image.contentMode = .scaleAspectFit
         let label = UILabel()
         label.text = title
@@ -133,7 +148,7 @@ final class MenuViewController: UIViewController {
         button.contentHorizontalAlignment = .left
         button.contentEdgeInsets = UIEdgeInsets(top: 0, left: 14, bottom: 0, right: 14)
         button.setImage(UIImage(systemName: symbol), for: .normal)
-        button.tintColor = BrowserTheme.textPrimary
+        button.tintColor = isIncognito ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
         button.addTarget(self, action: #selector(actionTapped(_:)), for: .touchUpInside)
         button.semanticContentAttribute = .forceLeftToRight
         return button

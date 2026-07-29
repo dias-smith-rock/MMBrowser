@@ -16,8 +16,10 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private let screenshotIcon = UIImageView()
     private let chevronIcon = UIImageView()
     private let shareButton = UIButton(type: .system)
+    private let privateBadge = UILabel()
     let textField = UITextField()
     private let progressView = UIProgressView(progressViewStyle: .bar)
+    private var isPrivateMode = false
 
     private let chipsContainer = UIView()
     private let longShotChip = UIButton(type: .system)
@@ -55,6 +57,15 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         shareButton.tintColor = BrowserTheme.textSecondary
         shareButton.addTarget(self, action: #selector(shareTapped), for: .touchUpInside)
 
+        privateBadge.text = "Private"
+        privateBadge.font = .systemFont(ofSize: 10, weight: .bold)
+        privateBadge.textColor = BrowserTheme.privateAccent
+        privateBadge.textAlignment = .center
+        privateBadge.backgroundColor = BrowserTheme.privateAccent.withAlphaComponent(0.18)
+        privateBadge.layer.cornerRadius = 8
+        privateBadge.clipsToBounds = true
+        privateBadge.isHidden = true
+
         textField.textColor = BrowserTheme.textPrimary
         textField.tintColor = BrowserTheme.chromeBlue
         textField.font = .systemFont(ofSize: 15, weight: .medium)
@@ -74,6 +85,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         progressView.isHidden = true
 
         container.addSubview(screenshotEntry)
+        container.addSubview(privateBadge)
         container.addSubview(textField)
         container.addSubview(shareButton)
         addSubview(progressView)
@@ -91,6 +103,12 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.centerY.equalToSuperview()
             make.height.equalTo(32)
             make.width.equalTo(44)
+        }
+        privateBadge.snp.makeConstraints { make in
+            make.leading.equalTo(screenshotEntry.snp.trailing).offset(4)
+            make.centerY.equalToSuperview()
+            make.height.equalTo(20)
+            make.width.equalTo(52)
         }
         screenshotIcon.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(4)
@@ -186,6 +204,25 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
     func setURLText(_ text: String) {
         textField.text = text
+    }
+
+    func setPrivateMode(_ isPrivate: Bool) {
+        isPrivateMode = isPrivate
+        backgroundColor = isPrivate ? BrowserTheme.privateBackground : BrowserTheme.background
+        container.backgroundColor = isPrivate ? BrowserTheme.privateElevated : BrowserTheme.elevated
+        privateBadge.isHidden = !isPrivate
+        let accent = isPrivate ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
+        textField.tintColor = accent
+        progressView.progressTintColor = accent
+        textField.snp.remakeConstraints { make in
+            if isPrivate {
+                make.leading.equalTo(privateBadge.snp.trailing).offset(6)
+            } else {
+                make.leading.equalTo(screenshotEntry.snp.trailing).offset(4)
+            }
+            make.trailing.equalTo(shareButton.snp.leading).offset(-8)
+            make.centerY.equalToSuperview()
+        }
     }
 
     func setProgress(_ progress: Double, isLoading: Bool) {
