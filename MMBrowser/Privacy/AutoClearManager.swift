@@ -3,7 +3,9 @@ import WebKit
 
 /// Clears selected browsing data when the app backgrounds / exits, per Clear Option settings.
 enum AutoClearManager {
-    static func performScheduledClear(completion: (() -> Void)? = nil) {
+    /// - Parameter runSessionCleanup: When true, also posts `.clearOptionSessionCleanup` (close tabs).
+    ///   Pass `false` on cold launch so onboarding / first UI is not dismissed.
+    static func performScheduledClear(runSessionCleanup: Bool = true, completion: (() -> Void)? = nil) {
         let clearHistory = AppSettings.autoClearHistory
         let clearCookies = AppSettings.autoClearCookies
         let clearLocalStorage = AppSettings.autoClearLocalStorage
@@ -33,19 +35,22 @@ enum AutoClearManager {
             ])
         }
 
-        guard !types.isEmpty else {
-            NotificationCenter.default.post(name: .clearOptionSessionCleanup, object: nil)
+        let finish = {
+            if runSessionCleanup {
+                NotificationCenter.default.post(name: .clearOptionSessionCleanup, object: nil)
+            }
             completion?()
+        }
+
+        guard !types.isEmpty else {
+            finish()
             return
         }
 
         let store = WKWebsiteDataStore.default()
         store.fetchDataRecords(ofTypes: types) { records in
             store.removeData(ofTypes: types, for: records) {
-                DispatchQueue.main.async {
-                    NotificationCenter.default.post(name: .clearOptionSessionCleanup, object: nil)
-                    completion?()
-                }
+                DispatchQueue.main.async(execute: finish)
             }
         }
     }

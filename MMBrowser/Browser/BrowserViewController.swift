@@ -18,11 +18,14 @@ final class BrowserViewController: UIViewController {
     private var currentContent: UIViewController?
 
     private var chromeBottomConstraint: Constraint?
+    private var contentTopConstraint: Constraint?
     private var isChromeCollapsed = false
     private var scrollAccumulator: CGFloat = 0
     private let chromeScrollThreshold: CGFloat = 10
     private var isPageLoading = false
     private var pageLoadProgress: Double = 0
+
+    private var didAttemptOnboarding = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -30,9 +33,6 @@ final class BrowserViewController: UIViewController {
         tabManager.delegate = self
         setupChrome()
         showSelectedTab()
-        if !AppSettings.didShowOnboarding {
-            DispatchQueue.main.async { self.presentOnboarding() }
-        }
         NotificationCenter.default.addObserver(self, selector: #selector(trackerChanged), name: .trackerProtectionChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(noImagesChanged), name: .noImagesChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .shortsFocusChanged, object: nil)
@@ -44,9 +44,26 @@ final class BrowserViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSettingsChanged), name: .clearOptionSettingsChanged, object: nil)
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard !didAttemptOnboarding else { return }
+        didAttemptOnboarding = true
+        #if DEBUG
+        presentOnboarding()
+        #else
+        if !AppSettings.didShowOnboarding {
+            presentOnboarding()
+        }
+        #endif
+    }
+
     @objc private func handleClearOptionSessionCleanup() {
         guard AppSettings.closeAllTabsOnExit else { return }
-        // Dismiss overlays so we can reset to a fresh New Tab cleanly.
+        // Never dismiss first-run onboarding / other setup sheets on session cleanup.
+        #if !DEBUG
+        if !AppSettings.didShowOnboarding { return }
+        #endif
+        if presentedViewController is OnboardingViewController { return }
         presentedViewController?.dismiss(animated: false)
         tabManager.closeAllTabsAndReset()
         showSelectedTab()
@@ -126,7 +143,7 @@ final class BrowserViewController: UIViewController {
             make.edges.equalToSuperview()
         }
         contentContainer.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
+            contentTopConstraint = make.top.equalTo(view.safeAreaLayoutGuide.snp.top).constraint
             make.leading.trailing.equalToSuperview()
             make.bottom.equalTo(chromeHost.snp.top)
         }
@@ -138,6 +155,7 @@ final class BrowserViewController: UIViewController {
     }
 
     /// Hides / shows the bottom address bar + toolbar while scrolling a web page.
+    /// When collapsed, the page extends under the status bar / Dynamic Island for a fuller view.
     private func setChromeCollapsed(_ collapsed: Bool, animated: Bool) {
         if collapsed {
             guard tabManager.selectedTab?.isNewTabPage != true else { return }
@@ -151,7 +169,18 @@ final class BrowserViewController: UIViewController {
         let offset = collapsed ? (chromeHeight + bottomInset) : 0
         chromeBottomConstraint?.update(offset: offset)
 
+        contentTopConstraint?.deactivate()
+        contentContainer.snp.prepareConstraints { make in
+            if collapsed {
+                contentTopConstraint = make.top.equalToSuperview().constraint
+            } else {
+                contentTopConstraint = make.top.equalTo(view.safeAreaLayoutGuide.snp.top).constraint
+            }
+        }
+        contentTopConstraint?.activate()
+
         let animations = {
+            self.statusBarFill.alpha = collapsed ? 0 : 1
             self.view.layoutIfNeeded()
         }
         if animated {
@@ -167,6 +196,12 @@ final class BrowserViewController: UIViewController {
         // Keep only one progress UI: address bar when expanded, bottom bar when collapsed.
         addressBar.setProgress(pageLoadProgress, isLoading: isPageLoading && !collapsed)
         updateCollapsedProgressVisibility()
+        setNeedsStatusBarAppearanceUpdate()
+    }
+
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        // When chrome is collapsed, content draws under the status bar — prefer light icons.
+        isChromeCollapsed ? .lightContent : .default
     }
 
     private func updateCollapsedProgressVisibility() {

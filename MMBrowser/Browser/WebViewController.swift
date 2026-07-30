@@ -186,9 +186,10 @@ final class WebViewController: UIViewController {
             wv.pageZoom = 1.0
         }
         view.insertSubview(wv, at: 0)
+        // Edge-to-edge inside the browser chrome container. Top safe-area / Dynamic Island
+        // usage is controlled by BrowserViewController collapsing the chrome.
         wv.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
-            make.leading.trailing.bottom.equalToSuperview()
+            make.edges.equalToSuperview()
         }
         webView = wv
         setupNavigationSwipeGestures(on: wv)

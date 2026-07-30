@@ -16,8 +16,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         FilterUpdateManager.shared.prepare()
         AdBlockManager.shared.prepare()
         MediaPlaybackSupport.configureAudioSessionIfNeeded()
-        // Cover crash / force-quit: re-run Clear Option cleanup before browsing resumes.
-        AutoClearManager.performScheduledClear()
+        // Cover crash / force-quit: clear data only — do not close tabs / dismiss UI on launch.
+        AutoClearManager.performScheduledClear(runSessionCleanup: false)
         return true
     }
 

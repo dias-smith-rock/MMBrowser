@@ -5,7 +5,24 @@ final class OnboardingViewController: UIViewController {
     var onFinished: (() -> Void)?
     private let pageControl = UIPageControl()
     private let scrollView = UIScrollView()
-    private var engineStack: UIStackView?
+
+    private let pageCopy: [(title: String, body: String, image: String)] = [
+        (
+            "Privacy & Security",
+            "Spoof or deny location so sites don’t get your real GPS. Turn on App Lock with Face ID, PIN, or pattern to keep your browsing private.",
+            "onboarding_privacy"
+        ),
+        (
+            "Fast & Clean",
+            "Block ads and trackers, hide images when you need speed, clean cluttered pages, and auto-clear history and junk when you leave the app.",
+            "onboarding_cleaner"
+        ),
+        (
+            "Easy to Use",
+            "Capture long screenshots of full pages, and use two-finger gestures—like a checkmark to bookmark or a circle to reload—for quicker actions.",
+            "onboarding_focus"
+        )
+    ]
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -16,7 +33,7 @@ final class OnboardingViewController: UIViewController {
         scrollView.delegate = self
         view.addSubview(scrollView)
 
-        pageControl.numberOfPages = 3
+        pageControl.numberOfPages = pageCopy.count
         pageControl.currentPage = 0
         pageControl.currentPageIndicatorTintColor = BrowserTheme.chromeBlue
         pageControl.pageIndicatorTintColor = BrowserTheme.textSecondary
@@ -48,58 +65,27 @@ final class OnboardingViewController: UIViewController {
 
         view.layoutIfNeeded()
         let width = UIScreen.main.bounds.width
-        scrollView.contentSize = CGSize(width: width * 3, height: 1)
-        addPage(
-            at: 0,
-            title: "Private by default",
-            body: "Block ads and trackers on the open web. Your browsing data stays on this device. Location is denied by default—sites that use GPS-like APIs won’t get your coordinates. Network IP geo-detection still needs a VPN or proxy to change."
-        )
-        addPage(
-            at: 1,
-            title: "Cleaner pages",
-            body: "Fewer banners and trackers mean faster loads and less clutter—especially when you watch video in the browser."
-        )
-        let third = addPage(
-            at: 2,
-            title: "Focus Mode",
-            body: "Hide YouTube Shorts shelves and open Shorts as normal videos. Choose your default search engine below."
-        )
-        let engineLabel = UILabel()
-        engineLabel.text = "Default search engine"
-        engineLabel.textColor = .white
-        engineLabel.font = .systemFont(ofSize: 15, weight: .semibold)
-        engineLabel.textAlignment = .center
-        let stack = UIStackView()
-        stack.axis = .vertical
-        stack.spacing = 10
-        for engine in SearchEngine.all {
-            let btn = UIButton(type: .system)
-            btn.setTitle(engine.name, for: .normal)
-            btn.setTitleColor(.white, for: .normal)
-            btn.backgroundColor = BrowserTheme.card
-            btn.layer.cornerRadius = 12
-            btn.tag = SearchEngine.all.firstIndex(of: engine) ?? 0
-            btn.addTarget(self, action: #selector(engineTapped(_:)), for: .touchUpInside)
-            btn.snp.makeConstraints { $0.height.equalTo(44) }
-            stack.addArrangedSubview(btn)
-        }
-        engineStack = stack
-        let wrap = UIStackView(arrangedSubviews: [engineLabel, stack])
-        wrap.axis = .vertical
-        wrap.spacing = 12
-        third.addSubview(wrap)
-        wrap.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(28)
-            make.bottom.equalToSuperview().offset(-24)
+        scrollView.contentSize = CGSize(width: width * CGFloat(pageCopy.count), height: 1)
+
+        for (index, page) in pageCopy.enumerated() {
+            addPage(at: index, title: page.title, body: page.body, imageName: page.image)
         }
     }
 
     @discardableResult
-    private func addPage(at index: Int, title: String, body: String) -> UIView {
+    private func addPage(at index: Int, title: String, body: String, imageName: String) -> UIView {
         let width = UIScreen.main.bounds.width
         let page = UIView()
         scrollView.addSubview(page)
-        page.frame = CGRect(x: width * CGFloat(index), y: 0, width: width, height: 420)
+        page.snp.makeConstraints { make in
+            make.top.bottom.equalTo(scrollView.frameLayoutGuide)
+            make.height.equalTo(scrollView.frameLayoutGuide)
+            make.width.equalTo(width)
+            make.leading.equalTo(scrollView.contentLayoutGuide).offset(width * CGFloat(index))
+            if index == pageCopy.count - 1 {
+                make.trailing.equalTo(scrollView.contentLayoutGuide)
+            }
+        }
 
         let titleLabel = UILabel()
         titleLabel.text = title
@@ -115,22 +101,31 @@ final class OnboardingViewController: UIViewController {
         bodyLabel.textAlignment = .center
         bodyLabel.numberOfLines = 0
 
-        let stack = UIStackView(arrangedSubviews: [titleLabel, bodyLabel])
+        let imageView = UIImageView(image: UIImage(named: imageName))
+        imageView.contentMode = .scaleAspectFit
+        imageView.clipsToBounds = true
+        imageView.layer.cornerRadius = 20
+        imageView.setContentHuggingPriority(.defaultLow, for: .vertical)
+        imageView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+
+        let textStack = UIStackView(arrangedSubviews: [titleLabel, bodyLabel])
+        textStack.axis = .vertical
+        textStack.spacing = 12
+
+        let stack = UIStackView(arrangedSubviews: [textStack, imageView])
         stack.axis = .vertical
-        stack.spacing = 16
+        stack.spacing = 20
+        stack.alignment = .fill
         page.addSubview(stack)
         stack.snp.makeConstraints { make in
-            make.centerX.equalToSuperview()
-            make.top.equalToSuperview().offset(48)
+            make.top.equalToSuperview().offset(28)
             make.leading.trailing.equalToSuperview().inset(28)
+            make.bottom.equalToSuperview().offset(-12)
+        }
+        imageView.snp.makeConstraints { make in
+            make.height.greaterThanOrEqualTo(180)
         }
         return page
-    }
-
-    @objc private func engineTapped(_ sender: UIButton) {
-        let engine = SearchEngine.all[sender.tag]
-        SearchEngineManager.setCurrent(engine)
-        Toast.show("Search: \(engine.name)", from: self)
     }
 
     @objc private func startTapped() {
