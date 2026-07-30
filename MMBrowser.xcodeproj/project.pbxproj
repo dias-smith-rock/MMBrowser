@@ -62,6 +62,16 @@
 		09FB7CC9808A4DD0A7C8E3AC /* MediaPlaybackSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F17FA7E6B9649618EC381DB /* MediaPlaybackSupport.swift */; };
 		7327DB1D31CC49F6AF6A888E /* FilterUpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0783DF19A0FE4061AF8CB2FF /* FilterUpdateManager.swift */; };
 		857A72CB4CB84D79A56A5CAE /* DefaultFilterManifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 148219CAF76C4E93AD37C016 /* DefaultFilterManifest.json */; };
+		A1B2C3D4E5F6010101010101 /* AppLockSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020201 /* AppLockSettings.swift */; };
+		A1B2C3D4E5F6010101010102 /* AppLockSecretStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020202 /* AppLockSecretStore.swift */; };
+		A1B2C3D4E5F6010101010103 /* AppLockBiometrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020203 /* AppLockBiometrics.swift */; };
+		A1B2C3D4E5F6010101010104 /* AppLockCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020204 /* AppLockCoordinator.swift */; };
+		A1B2C3D4E5F6010101010105 /* AppLockViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020205 /* AppLockViewController.swift */; };
+		A1B2C3D4E5F6010101010106 /* PatternLockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020206 /* PatternLockView.swift */; };
+		A1B2C3D4E5F6010101010107 /* AppLockSetupViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020207 /* AppLockSetupViewController.swift */; };
+		A1B2C3D4E5F6010101010108 /* AppLockPromptViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020208 /* AppLockPromptViewController.swift */; };
+		A1B2C3D4E5F6010101010109 /* AppLockSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020209 /* AppLockSettingsViewController.swift */; };
+		A1B2C3D4E5F6010101010110 /* PasscodeKeypadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020210 /* PasscodeKeypadView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -124,6 +134,16 @@
 		2F17FA7E6B9649618EC381DB /* MediaPlaybackSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPlaybackSupport.swift; sourceTree = "<group>"; };
 		0783DF19A0FE4061AF8CB2FF /* FilterUpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterUpdateManager.swift; sourceTree = "<group>"; };
 		148219CAF76C4E93AD37C016 /* DefaultFilterManifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = DefaultFilterManifest.json; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020201 /* AppLockSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockSettings.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020202 /* AppLockSecretStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockSecretStore.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020203 /* AppLockBiometrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockBiometrics.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020204 /* AppLockCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockCoordinator.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020205 /* AppLockViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockViewController.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020206 /* PatternLockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PatternLockView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020207 /* AppLockSetupViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockSetupViewController.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020208 /* AppLockPromptViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockPromptViewController.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020209 /* AppLockSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockSettingsViewController.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020210 /* PasscodeKeypadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasscodeKeypadView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -239,6 +259,7 @@
 				5D058F2F1254470E81555A52 /* SceneDelegate.swift */,
 				12BD4B168F4A48569EA59EC0 /* ViewController.swift */,
 				A247BF95D5D44368ACE4C974 /* Browser */,
+				A1B2C3D4E5F6030303030301 /* AppLock */,
 				D1A5510B1493499DB371F870 /* Common */,
 				01E11A63E266468B846C126C /* Downloads */,
 				6373D704B4A94440ABBCB90E /* Library */,
@@ -267,6 +288,23 @@
 				B67A0C2C8812465E960FEC7A /* TabSwitcherViewController.swift */,
 			);
 			path = Tabs;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6030303030301 /* AppLock */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6020202020201 /* AppLockSettings.swift */,
+				A1B2C3D4E5F6020202020202 /* AppLockSecretStore.swift */,
+				A1B2C3D4E5F6020202020203 /* AppLockBiometrics.swift */,
+				A1B2C3D4E5F6020202020204 /* AppLockCoordinator.swift */,
+				A1B2C3D4E5F6020202020205 /* AppLockViewController.swift */,
+				A1B2C3D4E5F6020202020206 /* PatternLockView.swift */,
+				A1B2C3D4E5F6020202020207 /* AppLockSetupViewController.swift */,
+				A1B2C3D4E5F6020202020208 /* AppLockPromptViewController.swift */,
+				A1B2C3D4E5F6020202020209 /* AppLockSettingsViewController.swift */,
+				A1B2C3D4E5F6020202020210 /* PasscodeKeypadView.swift */,
+			);
+			path = AppLock;
 			sourceTree = "<group>";
 		};
 		A247BF95D5D44368ACE4C974 /* Browser */ = {
@@ -517,6 +555,16 @@
 				05EE9C9F5639484BA9BA6FF2 /* TabManager.swift in Sources */,
 				E275E26CE7D145A49D4259E8 /* TabSwitcherViewController.swift in Sources */,
 				3E002237DEF54CE88D630EE4 /* ViewController.swift in Sources */,
+				A1B2C3D4E5F6010101010101 /* AppLockSettings.swift in Sources */,
+				A1B2C3D4E5F6010101010102 /* AppLockSecretStore.swift in Sources */,
+				A1B2C3D4E5F6010101010103 /* AppLockBiometrics.swift in Sources */,
+				A1B2C3D4E5F6010101010104 /* AppLockCoordinator.swift in Sources */,
+				A1B2C3D4E5F6010101010105 /* AppLockViewController.swift in Sources */,
+				A1B2C3D4E5F6010101010106 /* PatternLockView.swift in Sources */,
+				A1B2C3D4E5F6010101010107 /* AppLockSetupViewController.swift in Sources */,
+				A1B2C3D4E5F6010101010108 /* AppLockPromptViewController.swift in Sources */,
+				A1B2C3D4E5F6010101010109 /* AppLockSettingsViewController.swift in Sources */,
+				A1B2C3D4E5F6010101010110 /* PasscodeKeypadView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

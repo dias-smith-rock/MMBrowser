@@ -33,7 +33,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
-        case .privacy: return 6
+        case .privacy: return 7
         case .youtube: return 2
         case .media: return 2
         case .search: return SearchEngine.all.count
@@ -101,10 +101,14 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.addTarget(self, action: #selector(httpsChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
             case 3:
+                cell.textLabel?.text = "App Lock"
+                cell.detailTextLabel?.text = AppLockSettings.isEnabled ? "On" : "Off"
+                cell.accessoryType = .disclosureIndicator
+            case 4:
                 cell.textLabel?.text = "Webpage Cleaner"
                 cell.detailTextLabel?.text = "Manage hidden element rules"
                 cell.accessoryType = .disclosureIndicator
-            case 4:
+            case 5:
                 cell.textLabel?.text = "Clear Browsing Data"
                 cell.accessoryType = .disclosureIndicator
             default:
@@ -194,10 +198,12 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         switch Section(rawValue: indexPath.section)! {
         case .privacy:
             if indexPath.row == 3 {
-                navigationController?.pushViewController(PageCleanerRulesViewController(), animated: true)
+                navigationController?.pushViewController(AppLockSettingsViewController(), animated: true)
             } else if indexPath.row == 4 {
-                navigationController?.pushViewController(ClearBrowsingDataViewController(), animated: true)
+                navigationController?.pushViewController(PageCleanerRulesViewController(), animated: true)
             } else if indexPath.row == 5 {
+                navigationController?.pushViewController(ClearBrowsingDataViewController(), animated: true)
+            } else if indexPath.row == 6 {
                 navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
             }
         case .search:

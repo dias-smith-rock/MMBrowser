@@ -716,6 +716,7 @@ extension WebViewController: WKNavigationDelegate {
         if !isIncognito, let url = webView.url {
             HistoryStore.shared.add(title: webView.title ?? "", url: url)
         }
+        AppLockCoordinator.shared.noteWebpageFinished(url: webView.url)
         // Some sites rewrite viewport after load; re-apply carefully.
         if YouTubeDarkMode.isYouTube(webView.url) {
             webView.evaluateJavaScript(Self.youtubeViewportFixScript, completionHandler: nil)
