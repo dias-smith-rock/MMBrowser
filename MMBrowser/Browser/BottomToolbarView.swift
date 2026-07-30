@@ -19,6 +19,8 @@ final class BottomToolbarView: UIView {
     private let menuButton = UIButton(type: .system)
     private let tabsBadgeLabel = UILabel()
     private var isPrivateMode = false
+    private var canGoBack = false
+    private var canGoForward = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -29,10 +31,10 @@ final class BottomToolbarView: UIView {
         configure(menuButton, action: #selector(menuTapped))
 
         tabsButton.addTarget(self, action: #selector(tabsTapped), for: .touchUpInside)
-        tabsBadgeLabel.font = .systemFont(ofSize: 12, weight: .semibold)
+        tabsBadgeLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         tabsBadgeLabel.textAlignment = .center
-        tabsBadgeLabel.layer.borderWidth = 1.5
-        tabsBadgeLabel.layer.cornerRadius = 4
+        tabsBadgeLabel.layer.borderWidth = 1.6
+        tabsBadgeLabel.layer.cornerRadius = 5
         tabsBadgeLabel.clipsToBounds = true
         tabsButton.addSubview(tabsBadgeLabel)
 
@@ -49,8 +51,8 @@ final class BottomToolbarView: UIView {
         }
         tabsBadgeLabel.snp.makeConstraints { make in
             make.center.equalToSuperview()
-            make.width.greaterThanOrEqualTo(20)
-            make.height.equalTo(18)
+            make.width.greaterThanOrEqualTo(22)
+            make.height.equalTo(22)
         }
 
         applyTheme()
@@ -62,12 +64,10 @@ final class BottomToolbarView: UIView {
     required init?(coder: NSCoder) { fatalError() }
 
     func update(canGoBack: Bool, canGoForward: Bool, tabCount: Int, isPrivate: Bool = false) {
-        backButton.isEnabled = canGoBack
-        forwardButton.isEnabled = canGoForward
-        backButton.alpha = canGoBack ? 1 : 0.35
-        forwardButton.alpha = canGoForward ? 1 : 0.35
+        self.canGoBack = canGoBack
+        self.canGoForward = canGoForward
         tabsBadgeLabel.text = "\(min(tabCount, 99))"
-        let width = tabCount >= 10 ? 26 : 20
+        let width = tabCount >= 10 ? 28 : 22
         tabsBadgeLabel.snp.updateConstraints { make in
             make.width.greaterThanOrEqualTo(width)
         }
@@ -82,13 +82,29 @@ final class BottomToolbarView: UIView {
     @objc private func applyTheme() {
         backgroundColor = isPrivateMode ? BrowserTheme.privateBackground : BrowserTheme.background
         let tint = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
-        backButton.setImage(ThemeManager.shared.image(for: .toolbarBack), for: .normal)
-        forwardButton.setImage(ThemeManager.shared.image(for: .toolbarForward), for: .normal)
-        plusButton.setImage(ThemeManager.shared.image(for: .toolbarNewTab), for: .normal)
-        menuButton.setImage(ThemeManager.shared.image(for: .toolbarMenu), for: .normal)
-        [backButton, forwardButton, plusButton, tabsButton, menuButton].forEach { $0.tintColor = tint }
+        let pointSize: CGFloat = 22
+        backButton.setImage(ThemeManager.shared.image(for: .toolbarBack, pointSize: pointSize), for: .normal)
+        forwardButton.setImage(ThemeManager.shared.image(for: .toolbarForward, pointSize: pointSize), for: .normal)
+        plusButton.setImage(ThemeManager.shared.image(for: .toolbarNewTab, pointSize: pointSize), for: .normal)
+        menuButton.setImage(ThemeManager.shared.image(for: .toolbarMenu, pointSize: pointSize), for: .normal)
+        [backButton, forwardButton, plusButton, tabsButton, menuButton].forEach {
+            $0.tintColor = tint
+            $0.imageView?.contentMode = .scaleAspectFit
+        }
         tabsBadgeLabel.textColor = tint
         tabsBadgeLabel.layer.borderColor = tint.cgColor
+        applyNavigationEnabledState()
+    }
+
+    /// Soften unavailable back/forward without UIButton's disabled gray (keeps theme tint).
+    private func applyNavigationEnabledState() {
+        backButton.isEnabled = true
+        forwardButton.isEnabled = true
+        backButton.isUserInteractionEnabled = canGoBack
+        forwardButton.isUserInteractionEnabled = canGoForward
+        let disabledAlpha: CGFloat = ThemeManager.shared.current.isLight ? 0.4 : 0.35
+        backButton.alpha = canGoBack ? 1 : disabledAlpha
+        forwardButton.alpha = canGoForward ? 1 : disabledAlpha
     }
 
     private func configure(_ button: UIButton, action: Selector) {

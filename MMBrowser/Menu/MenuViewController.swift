@@ -115,7 +115,7 @@ final class MenuViewController: UIViewController {
         let box = UIView()
         box.backgroundColor = BrowserTheme.secondaryCard
         box.layer.cornerRadius = 14
-        let image = UIImageView(image: ThemeManager.shared.image(for: key))
+        let image = UIImageView(image: ThemeManager.shared.image(for: key, pointSize: 22))
         image.tintColor = isIncognito ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
         image.contentMode = .scaleAspectFit
         let label = UILabel()
@@ -155,7 +155,7 @@ final class MenuViewController: UIViewController {
         button.titleLabel?.font = .systemFont(ofSize: 16)
         button.contentHorizontalAlignment = .left
         button.contentEdgeInsets = UIEdgeInsets(top: 0, left: 14, bottom: 0, right: 14)
-        button.setImage(ThemeManager.shared.image(for: key), for: .normal)
+        button.setImage(ThemeManager.shared.image(for: key, pointSize: 18), for: .normal)
         button.tintColor = isIncognito ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
         button.addTarget(self, action: #selector(actionTapped(_:)), for: .touchUpInside)
         button.semanticContentAttribute = .forceLeftToRight

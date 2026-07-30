@@ -29,32 +29,44 @@ final class ThemeManager {
     }
 
     /// Resolves an icon: prefers asset when configured and present; falls back to symbol / default pack.
+    /// Asset bitmaps are scaled to `pointSize` so they match SF Symbol toolbar weight.
     func image(
         for key: ThemeIconKey,
-        configuration: UIImage.SymbolConfiguration? = nil
+        configuration: UIImage.SymbolConfiguration? = nil,
+        pointSize: CGFloat = 22
     ) -> UIImage? {
+        let config = configuration ?? UIImage.SymbolConfiguration(pointSize: pointSize, weight: .semibold)
         let ref = current.icons[key] ?? BuiltinThemePacks.defaultPack.icons[key]
         guard let ref = ref else { return nil }
         switch ref {
         case .symbol(let name):
-            if let configuration = configuration {
-                return UIImage(systemName: name, withConfiguration: configuration)
-            }
-            return UIImage(systemName: name)
+            return UIImage(systemName: name, withConfiguration: config)
         case .asset(let name):
             if let asset = UIImage(named: name) {
-                return asset.withRenderingMode(.alwaysTemplate)
+                return scaledTemplate(asset, pointSize: pointSize)
             }
             // Asset missing → try same key from default pack as symbol fallback.
             if let fallback = BuiltinThemePacks.defaultPack.icons[key],
                case .symbol(let symbol) = fallback {
-                if let configuration = configuration {
-                    return UIImage(systemName: symbol, withConfiguration: configuration)
-                }
-                return UIImage(systemName: symbol)
+                return UIImage(systemName: symbol, withConfiguration: config)
             }
             return nil
         }
+    }
+
+    private func scaledTemplate(_ image: UIImage, pointSize: CGFloat) -> UIImage {
+        let src = image.withRenderingMode(.alwaysOriginal)
+        let maxSide = max(src.size.width, src.size.height)
+        guard maxSide > 0 else { return image.withRenderingMode(.alwaysTemplate) }
+        let ratio = pointSize / maxSide
+        let size = CGSize(width: max(1, src.size.width * ratio), height: max(1, src.size.height * ratio))
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = UIScreen.main.scale
+        format.opaque = false
+        let rendered = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            src.draw(in: CGRect(origin: .zero, size: size))
+        }
+        return rendered.withRenderingMode(.alwaysTemplate)
     }
 
     /// Convenience for menu rows that still pass legacy SF Symbol strings.

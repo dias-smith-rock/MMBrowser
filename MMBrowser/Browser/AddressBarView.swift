@@ -337,11 +337,11 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         backgroundColor = isPrivateMode ? BrowserTheme.privateBackground : BrowserTheme.background
         container.backgroundColor = isPrivateMode ? BrowserTheme.privateElevated : BrowserTheme.elevated
         let accent = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
-        let shotConfig = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
-        screenshotIcon.image = ThemeManager.shared.image(for: .addressScreenshot, configuration: shotConfig)
+        let shotConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
+        screenshotIcon.image = ThemeManager.shared.image(for: .addressScreenshot, configuration: shotConfig, pointSize: 16)
             ?? UIImage(systemName: "camera", withConfiguration: shotConfig)
         screenshotIcon.tintColor = BrowserTheme.textSecondary
-        pageCleanerButton.setImage(ThemeManager.shared.image(for: .addressCleaner), for: .normal)
+        pageCleanerButton.setImage(ThemeManager.shared.image(for: .addressCleaner, pointSize: 18), for: .normal)
         shieldButton.tintColor = BrowserTheme.textSecondary
         shieldBadge.backgroundColor = accent
         privateBadge.textColor = BrowserTheme.privateAccent
