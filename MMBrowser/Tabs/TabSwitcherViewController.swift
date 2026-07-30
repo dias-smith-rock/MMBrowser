@@ -10,13 +10,12 @@ final class TabSwitcherViewController: UIViewController {
     weak var delegate: TabSwitcherViewControllerDelegate?
 
     private let tabManager: TabManager
-    private var showingIncognito = false
     private var collectionView: UICollectionView!
     private let topBar = UIView()
-    private let modeControl = UISegmentedControl(items: [" incognito ", " tabs ", " grid "])
+    private let countBadge = UILabel()
     private let doneButton = UIButton(type: .system)
     private let addButton = UIButton(type: .system)
-    private let searchField = UITextField()
+    private let moreButton = UIButton(type: .system)
     private var searchQuery = ""
 
     init(tabManager: TabManager) {
@@ -27,7 +26,14 @@ final class TabSwitcherViewController: UIViewController {
     required init?(coder: NSCoder) { fatalError() }
 
     private var displayedTabs: [BrowserTab] {
-        tabManager.tabs(matching: searchQuery, incognito: showingIncognito)
+        let q = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let base = tabManager.tabs
+        guard !q.isEmpty else { return base }
+        return base.filter {
+            $0.title.lowercased().contains(q)
+                || ($0.url?.absoluteString.lowercased().contains(q) ?? false)
+                || $0.groupName.lowercased().contains(q)
+        }
     }
 
     override func viewDidLoad() {
@@ -36,31 +42,37 @@ final class TabSwitcherViewController: UIViewController {
         setupTop()
         setupCollection()
         setupBottom()
-        modeControl.selectedSegmentIndex = 1
         reload()
     }
 
     private func setupTop() {
         view.addSubview(topBar)
+
         let search = UIButton(type: .system)
         search.setImage(UIImage(systemName: "magnifyingglass"), for: .normal)
         search.tintColor = BrowserTheme.textPrimary
         search.addTarget(self, action: #selector(searchPlaceholder), for: .touchUpInside)
 
-        modeControl.selectedSegmentTintColor = UIColor(white: 0.85, alpha: 1)
-        modeControl.setTitleTextAttributes([.foregroundColor: UIColor.black], for: .selected)
-        modeControl.setTitleTextAttributes([.foregroundColor: BrowserTheme.textSecondary], for: .normal)
-        modeControl.addTarget(self, action: #selector(modeChanged), for: .valueChanged)
-        // Update middle title to count
-        modeControl.setTitle(" \(tabManager.tabs.count) ", forSegmentAt: 1)
+        countBadge.textAlignment = .center
+        countBadge.font = .monospacedDigitSystemFont(ofSize: 15, weight: .semibold)
+        countBadge.textColor = .black
+        countBadge.backgroundColor = UIColor(white: 0.85, alpha: 1)
+        countBadge.layer.cornerRadius = 14
+        countBadge.clipsToBounds = true
+        countBadge.adjustsFontSizeToFitWidth = true
+        countBadge.baselineAdjustment = .alignCenters
+        // Optical vertical centering for single digits in a short pill.
+        countBadge.contentMode = .center
 
-        let more = UIButton(type: .system)
-        more.setImage(UIImage(systemName: "ellipsis"), for: .normal)
-        more.tintColor = BrowserTheme.textPrimary
+        moreButton.setImage(UIImage(systemName: "ellipsis"), for: .normal)
+        moreButton.tintColor = BrowserTheme.textPrimary
+        moreButton.accessibilityLabel = "More"
+        moreButton.showsMenuAsPrimaryAction = true
+        moreButton.menu = makeMoreMenu()
 
         topBar.addSubview(search)
-        topBar.addSubview(modeControl)
-        topBar.addSubview(more)
+        topBar.addSubview(countBadge)
+        topBar.addSubview(moreButton)
         topBar.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
             make.leading.trailing.equalToSuperview()
@@ -69,14 +81,28 @@ final class TabSwitcherViewController: UIViewController {
         search.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(16)
             make.centerY.equalToSuperview()
+            make.size.equalTo(36)
         }
-        more.snp.makeConstraints { make in
+        moreButton.snp.makeConstraints { make in
             make.trailing.equalToSuperview().offset(-16)
             make.centerY.equalToSuperview()
+            make.size.equalTo(36)
         }
-        modeControl.snp.makeConstraints { make in
+        countBadge.snp.makeConstraints { make in
             make.center.equalToSuperview()
+            make.height.equalTo(28)
+            make.width.equalTo(countBadge.snp.height).multipliedBy(1.35)
         }
+    }
+
+    private func makeMoreMenu() -> UIMenu {
+        let closeOthers = UIAction(title: "Close Other Tabs", image: UIImage(systemName: "xmark.rectangle")) { [weak self] _ in
+            self?.closeOtherTabs()
+        }
+        let closeAll = UIAction(title: "Close All Tabs", image: UIImage(systemName: "xmark.circle"), attributes: .destructive) { [weak self] _ in
+            self?.closeAllTabs()
+        }
+        return UIMenu(title: "", children: [closeOthers, closeAll])
     }
 
     private func setupCollection() {
@@ -123,21 +149,47 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func reload() {
-        modeControl.setTitle(" \(displayedTabs.count) ", forSegmentAt: 1)
+        let count = displayedTabs.count
+        countBadge.text = "\(count)"
+        // Widen pill for multi-digit counts while keeping the glyph centered.
+        let widthMultiplier: CGFloat = count >= 100 ? 2.0 : (count >= 10 ? 1.65 : 1.35)
+        countBadge.snp.remakeConstraints { make in
+            make.center.equalToSuperview()
+            make.height.equalTo(28)
+            make.width.equalTo(countBadge.snp.height).multipliedBy(widthMultiplier)
+        }
+        moreButton.menu = makeMoreMenu()
         collectionView.reloadData()
     }
 
-    @objc private func modeChanged() {
-        showingIncognito = modeControl.selectedSegmentIndex == 0
-        reload()
-    }
-
     @objc private func addTapped() {
-        delegate?.tabSwitcherDidRequestNewTab(incognito: showingIncognito)
+        // Match current selected tab privacy; default new tabs are normal unless opened from private flow.
+        let incognito = tabManager.selectedTab?.isIncognito ?? false
+        delegate?.tabSwitcherDidRequestNewTab(incognito: incognito)
     }
 
     @objc private func doneTapped() {
         delegate?.tabSwitcherDidClose()
+    }
+
+    private func closeOtherTabs() {
+        guard let selected = tabManager.selectedTab else { return }
+        let others = tabManager.tabs.filter { $0.id != selected.id }
+        for tab in others {
+            tabManager.closeTab(id: tab.id)
+        }
+        reload()
+    }
+
+    private func closeAllTabs() {
+        let ids = tabManager.tabs.map(\.id)
+        for id in ids {
+            tabManager.closeTab(id: id)
+        }
+        reload()
+        if tabManager.tabs.isEmpty {
+            delegate?.tabSwitcherDidClose()
+        }
     }
 
     private func promptMoveGroup(for tab: BrowserTab) {
@@ -149,6 +201,10 @@ final class TabSwitcherViewController: UIViewController {
             }))
         }
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let pop = alert.popoverPresentationController {
+            pop.sourceView = view
+            pop.sourceRect = CGRect(x: view.bounds.midX, y: 80, width: 1, height: 1)
+        }
         present(alert, animated: true)
     }
 
@@ -214,59 +270,54 @@ final class TabGridCell: UICollectionViewCell {
     override init(frame: CGRect) {
         super.init(frame: frame)
         card.backgroundColor = BrowserTheme.card
-        card.layer.cornerRadius = 14
+        card.layer.cornerRadius = 16
         card.clipsToBounds = true
+        contentView.addSubview(card)
 
-        titleLabel.font = .systemFont(ofSize: 13, weight: .medium)
+        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = BrowserTheme.textPrimary
-
         closeButton.setImage(UIImage(systemName: "xmark"), for: .normal)
         closeButton.tintColor = BrowserTheme.textSecondary
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
 
         preview.contentMode = .scaleAspectFill
         preview.clipsToBounds = true
-        preview.backgroundColor = BrowserTheme.elevated
-
-        placeholder.text = "New Tab"
+        placeholder.text = "Page"
         placeholder.textColor = BrowserTheme.textSecondary
-        placeholder.font = .systemFont(ofSize: 14, weight: .medium)
         placeholder.textAlignment = .center
 
-        contentView.addSubview(card)
         card.addSubview(titleLabel)
         card.addSubview(closeButton)
         card.addSubview(preview)
-        preview.addSubview(placeholder)
-        let long = UILongPressGestureRecognizer(target: self, action: #selector(longPressed))
-        contentView.addGestureRecognizer(long)
+        card.addSubview(placeholder)
 
-        card.snp.makeConstraints { make in make.edges.equalToSuperview() }
+        card.snp.makeConstraints { $0.edges.equalToSuperview() }
         titleLabel.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(10)
-            make.top.equalToSuperview().offset(10)
+            make.top.leading.equalToSuperview().offset(10)
             make.trailing.equalTo(closeButton.snp.leading).offset(-6)
         }
         closeButton.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-8)
-            make.centerY.equalTo(titleLabel)
-            make.size.equalTo(24)
+            make.top.equalToSuperview().offset(6)
+            make.trailing.equalToSuperview().offset(-6)
+            make.size.equalTo(28)
         }
         preview.snp.makeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(8)
+            make.top.equalToSuperview().offset(36)
             make.leading.trailing.bottom.equalToSuperview()
         }
-        placeholder.snp.makeConstraints { make in make.center.equalToSuperview() }
+        placeholder.snp.makeConstraints { $0.center.equalTo(preview) }
+
+        let long = UILongPressGestureRecognizer(target: self, action: #selector(longPressed(_:)))
+        card.addGestureRecognizer(long)
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
     func configure(tab: BrowserTab, selected: Bool) {
-        titleLabel.text = tab.groupName == "Default" ? tab.title : "[\(tab.groupName)] \(tab.title)"
+        titleLabel.text = tab.title
         preview.image = tab.snapshot
         placeholder.isHidden = tab.snapshot != nil
-        placeholder.text = tab.isNewTabPage ? "New Tab" : (tab.url?.host ?? "Page")
-        card.layer.borderWidth = selected ? 3 : 0
+        card.layer.borderWidth = selected ? 2 : 0
         card.layer.borderColor = BrowserTheme.chromeBlue.cgColor
     }
 

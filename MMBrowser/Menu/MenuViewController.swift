@@ -39,12 +39,12 @@ final class MenuViewController: UIViewController {
         }
 
         var icons: [(String, String, MenuAction)] = [
+            ("gear", "Settings", .settings),
             ("star", "Bookmarks", .bookmarks),
             ("clock", "History", .history),
             ("book", "Reading list", .readingList),
             ("arrow.down.circle", "Downloads", .downloads),
-            ("doc.text", "Reader", .readerMode),
-            ("gear", "Settings", .settings)
+            ("doc.text", "Reader", .readerMode)
         ]
         // Library icons still open existing libraries; private session cannot *add* to them.
         if isIncognito {
@@ -76,7 +76,6 @@ final class MenuViewController: UIViewController {
             ("Find in page", "magnifyingglass", .findInPage),
             ("Share", "square.and.arrow.up", .share),
             ("Request Desktop Site", "desktopcomputer", .desktopSite),
-            ("New tab", "plus.circle", .newTab),
             ("New Incognito tab", "eye.slash", .newIncognitoTab),
             ("Add to bookmarks", "star", .addBookmark),
             ("Add to reading list", "book", .addReadingList),
