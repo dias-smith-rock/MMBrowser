@@ -8,6 +8,7 @@ protocol AddressBarViewDelegate: AnyObject {
     func addressBarDidExitPageCleaner()
     func addressBarDidRequestManualScreenshot()
     func addressBarDidRequestLongScreenshot()
+    func addressBarDidTapShield(blockCount: Int)
 }
 
 final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDelegate {
@@ -80,8 +81,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         shieldButton.isHidden = true
         shieldButton.contentEdgeInsets = .zero
         shieldButton.imageView?.contentMode = .scaleAspectFit
-        // Keep hit target close to the visible glyph (avoid default 44pt expansion).
         shieldButton.isPointerInteractionEnabled = false
+        shieldButton.addTarget(self, action: #selector(shieldTapped), for: .touchUpInside)
 
         shieldBadge.font = .systemFont(ofSize: 9, weight: .bold)
         shieldBadge.textColor = .white
@@ -452,6 +453,13 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         return true
     }
 
+    @objc private func shieldTapped() {
+        textField.resignFirstResponder()
+        hideScreenshotChips()
+        hideCleanerMenu()
+        delegate?.addressBarDidTapShield(blockCount: blockCount)
+    }
+
     @objc private func pageCleanerTapped() {
         textField.resignFirstResponder()
         hideScreenshotChips()
@@ -518,6 +526,9 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             return false
         }
         if view === pageCleanerButton || view.isDescendant(of: pageCleanerButton) {
+            return false
+        }
+        if view === shieldButton || view.isDescendant(of: shieldButton) {
             return false
         }
         return true

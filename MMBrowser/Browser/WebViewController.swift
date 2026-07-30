@@ -797,4 +797,159 @@ extension WebViewController: WKUIDelegate {
         }
         return nil
     }
+
+    @available(iOS 13.0, *)
+    func webView(
+        _ webView: WKWebView,
+        contextMenuConfigurationForElement elementInfo: WKContextMenuElementInfo,
+        completionHandler: @escaping (UIContextMenuConfiguration?) -> Void
+    ) {
+        // Plain text / non-link: keep system selection + Copy menu.
+        guard let linkURL = elementInfo.linkURL else {
+            completionHandler(nil)
+            return
+        }
+
+        let href = linkURL.absoluteString
+        completionHandler(
+            UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+                guard let self = self else { return nil }
+
+                var actions: [UIMenuElement] = []
+
+                actions.append(UIAction(title: "Open Link", image: UIImage(systemName: "safari")) { [weak self] _ in
+                    self?.webView?.load(URLRequest(url: linkURL))
+                })
+
+                actions.append(UIAction(title: "Copy Text", image: UIImage(systemName: "doc.on.doc")) { [weak self] _ in
+                    self?.copyVisibleText(forLinkHREF: href)
+                })
+
+                actions.append(UIAction(title: "Select Text", image: UIImage(systemName: "selection.pin.in.out")) { [weak self] _ in
+                    self?.selectVisibleText(forLinkHREF: href)
+                })
+
+                actions.append(UIAction(title: "Copy Link", image: UIImage(systemName: "link")) { [weak self] _ in
+                    UIPasteboard.general.string = href
+                    if let self = self {
+                        Toast.show("Link copied", from: self)
+                    }
+                })
+
+                actions.append(UIAction(title: "Share...", image: UIImage(systemName: "square.and.arrow.up")) { [weak self] _ in
+                    self?.shareURL(linkURL)
+                })
+
+                if !self.isIncognito {
+                    actions.append(UIAction(title: "Add to Reading List", image: UIImage(systemName: "eyeglasses")) { [weak self] _ in
+                        self?.addLinkToReadingList(linkURL)
+                    })
+                }
+
+                return UIMenu(title: "", children: actions)
+            }
+        )
+    }
+
+    /// Prefer matching `<a href>`, fall back to nearest text-bearing ancestor.
+    private static func linkTextJS(href: String, select: Bool) -> String {
+        let escaped = href
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "'", with: "\\'")
+            .replacingOccurrences(of: "\n", with: "\\n")
+        let selectFlag = select ? "true" : "false"
+        return """
+        (function() {
+          var href = '\(escaped)';
+          var wantSelect = \(selectFlag);
+          function visibleText(el) {
+            if (!el) return '';
+            var t = (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim();
+            if (t) return t;
+            var img = el.querySelector && el.querySelector('img[alt]');
+            if (img && img.alt) return String(img.alt).trim();
+            return '';
+          }
+          function findAnchor() {
+            var nodes = document.querySelectorAll('a[href]');
+            for (var i = 0; i < nodes.length; i++) {
+              var a = nodes[i];
+              try {
+                if (a.href === href || a.getAttribute('href') === href) return a;
+              } catch (e) {}
+            }
+            // Absolute vs relative mismatch: compare without hash.
+            var target = href.split('#')[0];
+            for (var j = 0; j < nodes.length; j++) {
+              var b = nodes[j];
+              try {
+                if ((b.href || '').split('#')[0] === target) return b;
+              } catch (e2) {}
+            }
+            return null;
+          }
+          var el = findAnchor();
+          if (!el) return '';
+          if (wantSelect) {
+            try {
+              var range = document.createRange();
+              range.selectNodeContents(el);
+              var sel = window.getSelection();
+              sel.removeAllRanges();
+              sel.addRange(range);
+            } catch (err) {}
+          }
+          return visibleText(el);
+        })();
+        """
+    }
+
+    private func copyVisibleText(forLinkHREF href: String) {
+        guard let webView = webView else { return }
+        webView.evaluateJavaScript(Self.linkTextJS(href: href, select: false)) { [weak self] result, _ in
+            guard let self = self else { return }
+            let text = (result as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if text.isEmpty {
+                Toast.show("No text to copy", from: self)
+                return
+            }
+            UIPasteboard.general.string = text
+            Toast.show("Copied", from: self)
+        }
+    }
+
+    private func selectVisibleText(forLinkHREF href: String) {
+        guard let webView = webView else { return }
+        webView.evaluateJavaScript(Self.linkTextJS(href: href, select: true)) { [weak self] result, _ in
+            guard let self = self else { return }
+            let text = (result as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if text.isEmpty {
+                Toast.show("Nothing to select", from: self)
+            } else {
+                // Selection handles should now be visible; tip for expanding + Copy.
+                Toast.show("Drag handles to adjust, then Copy", from: self)
+            }
+        }
+    }
+
+    private func shareURL(_ url: URL) {
+        let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        if let pop = activity.popoverPresentationController {
+            pop.sourceView = view
+            pop.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+            pop.permittedArrowDirections = []
+        }
+        present(activity, animated: true)
+    }
+
+    private func addLinkToReadingList(_ url: URL) {
+        guard !isIncognito else {
+            Toast.show("Not available in Private Browsing", from: self)
+            return
+        }
+        let title = url.host ?? "Saved"
+        ReadingListStore.shared.add(title: title, url: url, pdfData: nil)
+        Toast.show("Saved to Reading List", from: self)
+    }
 }
+

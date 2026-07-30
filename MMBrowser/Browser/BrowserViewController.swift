@@ -426,6 +426,38 @@ extension BrowserViewController: AddressBarViewDelegate {
         setChromeCollapsed(false, animated: true)
         tabManager.selectedTab?.webController?.longScreenshot()
     }
+
+    func addressBarDidTapShield(blockCount: Int) {
+        let tpOn = AppSettings.trackerProtectionEnabled
+        let shortsOn = AppSettings.hideShortsEnabled
+        let ytOn = AppSettings.youtubeAdShieldEnabled
+
+        var lines: [String] = []
+        if blockCount > 0 {
+            lines.append("Blocked \(blockCount) ads & trackers on this page.")
+        } else {
+            lines.append("No ads or trackers blocked on this page yet.")
+        }
+        lines.append("")
+        lines.append("Block Ads & Trackers: \(tpOn ? "On" : "Off")")
+        lines.append("Hide Shorts: \(shortsOn ? "On" : "Off")")
+        lines.append("Fewer YouTube Ads: \(ytOn ? "On" : "Off")")
+
+        let alert = UIAlertController(
+            title: "Privacy Protection",
+            message: lines.joined(separator: "\n"),
+            preferredStyle: .actionSheet
+        )
+        alert.addAction(UIAlertAction(title: "Settings", style: .default) { [weak self] _ in
+            self?.openSettings()
+        })
+        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+        if let pop = alert.popoverPresentationController {
+            pop.sourceView = addressBar
+            pop.sourceRect = addressBar.bounds
+        }
+        present(alert, animated: true)
+    }
 }
 
 extension BrowserViewController: BottomToolbarViewDelegate {
