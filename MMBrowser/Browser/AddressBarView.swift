@@ -18,7 +18,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private let screenshotIcon = UIImageView()
     private let chevronIcon = UIImageView()
     private let pageCleanerButton = UIButton(type: .system)
-    private let shieldButton = UIButton(type: .system)
+    private let shieldButton = UIButton(type: .custom)
+    private let shieldBadge = UILabel()
     private let privateBadge = UILabel()
     let textField = UITextField()
     private let progressView = UIProgressView(progressViewStyle: .bar)
@@ -72,13 +73,24 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         pageCleanerButton.accessibilityLabel = "Clean page"
         pageCleanerButton.addTarget(self, action: #selector(pageCleanerTapped), for: .touchUpInside)
 
-        let shieldConfig = UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+        let shieldConfig = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
         shieldButton.setImage(UIImage(systemName: "shield.lefthalf.filled", withConfiguration: shieldConfig), for: .normal)
         shieldButton.tintColor = BrowserTheme.textSecondary
-        shieldButton.titleLabel?.font = .systemFont(ofSize: 11, weight: .bold)
-        shieldButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
         shieldButton.accessibilityLabel = "Ads and trackers blocked"
         shieldButton.isHidden = true
+        shieldButton.contentEdgeInsets = .zero
+        shieldButton.imageView?.contentMode = .scaleAspectFit
+        // Keep hit target close to the visible glyph (avoid default 44pt expansion).
+        shieldButton.isPointerInteractionEnabled = false
+
+        shieldBadge.font = .systemFont(ofSize: 9, weight: .bold)
+        shieldBadge.textColor = .white
+        shieldBadge.textAlignment = .center
+        shieldBadge.backgroundColor = BrowserTheme.chromeBlue
+        shieldBadge.layer.cornerRadius = 7
+        shieldBadge.clipsToBounds = true
+        shieldBadge.isHidden = true
+        shieldBadge.isUserInteractionEnabled = false
 
         privateBadge.text = "Private"
         privateBadge.font = .systemFont(ofSize: 10, weight: .bold)
@@ -111,6 +123,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         container.addSubview(privateBadge)
         container.addSubview(textField)
         container.addSubview(shieldButton)
+        container.addSubview(shieldBadge)
         container.addSubview(pageCleanerButton)
         addSubview(progressView)
 
@@ -149,19 +162,24 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.height.equalTo(16)
         }
         pageCleanerButton.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-12)
+            make.trailing.equalToSuperview().offset(-10)
             make.centerY.equalToSuperview()
-            make.size.equalTo(24)
+            make.size.equalTo(22)
         }
         shieldButton.snp.makeConstraints { make in
-            make.trailing.equalTo(pageCleanerButton.snp.leading).offset(-4)
+            make.trailing.equalTo(pageCleanerButton.snp.leading).offset(-8)
             make.centerY.equalToSuperview()
-            make.height.equalTo(24)
-            make.width.greaterThanOrEqualTo(24)
+            make.size.equalTo(22)
+        }
+        shieldBadge.snp.makeConstraints { make in
+            make.top.equalTo(shieldButton).offset(-4)
+            make.trailing.equalTo(shieldButton).offset(6)
+            make.height.equalTo(14)
+            make.width.greaterThanOrEqualTo(14)
         }
         textField.snp.makeConstraints { make in
             make.leading.equalTo(screenshotEntry.snp.trailing).offset(4)
-            make.trailing.equalTo(shieldButton.snp.leading).offset(-8)
+            make.trailing.equalTo(shieldButton.snp.leading).offset(-6)
             make.centerY.equalToSuperview()
         }
         progressView.snp.makeConstraints { make in
@@ -199,6 +217,13 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             let p = convert(point, to: chipsContainer)
             if let hit = chipsContainer.hitTest(p, with: event) {
                 return hit
+            }
+        }
+        // Prefer the compact shield hit box before the large text field swallows taps near the trailing edge.
+        if !shieldButton.isHidden {
+            let shieldPoint = convert(point, to: shieldButton)
+            if shieldButton.bounds.insetBy(dx: -4, dy: -4).contains(shieldPoint) {
+                return shieldButton
             }
         }
         return super.hitTest(point, with: event)
@@ -309,7 +334,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             } else {
                 make.leading.equalTo(screenshotEntry.snp.trailing).offset(4)
             }
-            make.trailing.equalTo(shieldButton.snp.leading).offset(-8)
+            make.trailing.equalTo(rightmostTrailingAnchor()).offset(-6)
             make.centerY.equalToSuperview()
         }
         updatePageCleanerAppearance()
@@ -355,30 +380,55 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         updateShieldAppearance()
     }
 
+    private func rightmostTrailingAnchor() -> ConstraintItem {
+        if !shieldButton.isHidden {
+            return shieldButton.snp.leading
+        }
+        return pageCleanerButton.snp.leading
+    }
+
     private func updateShieldAppearance() {
         let show = AppSettings.trackerProtectionEnabled || AppSettings.hideShortsEnabled || AppSettings.youtubeAdShieldEnabled
         guard show else {
             shieldButton.isHidden = true
+            shieldBadge.isHidden = true
+            refreshTextFieldTrailing()
             return
         }
         shieldButton.isHidden = false
         let accent = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
         if blockCount > 0 {
-            shieldButton.setTitle(blockCount > 99 ? "99+" : "\(blockCount)", for: .normal)
             shieldButton.tintColor = accent
+            shieldBadge.isHidden = false
+            let text = blockCount > 99 ? "99+" : "\(blockCount)"
+            shieldBadge.text = " \(text) "
+            shieldBadge.backgroundColor = accent
             shieldButton.accessibilityValue = "\(blockCount) blocked"
         } else if focusActive {
-            shieldButton.setTitle(nil, for: .normal)
+            shieldBadge.isHidden = true
             shieldButton.tintColor = accent
             shieldButton.accessibilityValue = "Focus mode on"
         } else if AppSettings.trackerProtectionEnabled {
-            shieldButton.setTitle(nil, for: .normal)
+            shieldBadge.isHidden = true
             shieldButton.tintColor = accent.withAlphaComponent(0.85)
             shieldButton.accessibilityValue = "Protection on"
         } else {
-            shieldButton.setTitle(nil, for: .normal)
+            shieldBadge.isHidden = true
             shieldButton.tintColor = BrowserTheme.textSecondary
             shieldButton.accessibilityValue = nil
+        }
+        refreshTextFieldTrailing()
+    }
+
+    private func refreshTextFieldTrailing() {
+        textField.snp.remakeConstraints { make in
+            if isPrivateMode {
+                make.leading.equalTo(privateBadge.snp.trailing).offset(6)
+            } else {
+                make.leading.equalTo(screenshotEntry.snp.trailing).offset(4)
+            }
+            make.trailing.equalTo(rightmostTrailingAnchor()).offset(-6)
+            make.centerY.equalToSuperview()
         }
     }
 
