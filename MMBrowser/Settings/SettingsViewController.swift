@@ -37,7 +37,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .youtube: return 2
         case .media: return 2
         case .search: return SearchEngine.all.count
-        case .home: return 4
+        case .home: return 1
         case .about: return 3
         }
     }
@@ -155,27 +155,9 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             cell.accessoryType = engine.id == AppSettings.searchEngineID ? .checkmark : .none
             cell.tintColor = BrowserTheme.chromeBlue
         case .home:
-            switch indexPath.row {
-            case 0:
-                cell.textLabel?.text = "Show Shortcuts"
-                let sw = UISwitch(); sw.isOn = AppSettings.showShortcuts
-                sw.addTarget(self, action: #selector(shortcutsChanged(_:)), for: .valueChanged)
-                cell.accessoryView = sw; cell.selectionStyle = .none
-            case 1:
-                cell.textLabel?.text = "Show Continue"
-                let sw = UISwitch(); sw.isOn = AppSettings.showContinue
-                sw.addTarget(self, action: #selector(continueChanged(_:)), for: .valueChanged)
-                cell.accessoryView = sw; cell.selectionStyle = .none
-            case 2:
-                cell.textLabel?.text = "Show Discover"
-                let sw = UISwitch(); sw.isOn = AppSettings.showDiscover
-                sw.addTarget(self, action: #selector(discoverChanged(_:)), for: .valueChanged)
-                cell.accessoryView = sw; cell.selectionStyle = .none
-            default:
-                cell.textLabel?.text = "Wallpaper"
-                cell.detailTextLabel?.text = ["Default", "Deep Blue", "Forest", "Midnight"][AppSettings.homeWallpaperIndex % 4]
-                cell.accessoryType = .disclosureIndicator
-            }
+            cell.textLabel?.text = "Wallpaper"
+            cell.detailTextLabel?.text = ["Default", "Deep Blue", "Forest", "Midnight"][AppSettings.homeWallpaperIndex % 4]
+            cell.accessoryType = .disclosureIndicator
         case .about:
             switch indexPath.row {
             case 0:
@@ -210,10 +192,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             SearchEngineManager.setCurrent(SearchEngine.all[indexPath.row])
             tableView.reloadSections(IndexSet(integer: indexPath.section), with: .none)
         case .home:
-            if indexPath.row == 3 {
-                AppSettings.homeWallpaperIndex = (AppSettings.homeWallpaperIndex + 1) % 4
-                tableView.reloadRows(at: [indexPath], with: .none)
-            }
+            AppSettings.homeWallpaperIndex = (AppSettings.homeWallpaperIndex + 1) % 4
+            tableView.reloadRows(at: [indexPath], with: .none)
         case .about:
             if indexPath.row == 1 {
                 let alert = UIAlertController(
@@ -278,8 +258,5 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         Toast.show(sw.isOn ? "Block images on" : "Block images off", from: self)
     }
     @objc private func httpsChanged(_ sw: UISwitch) { AppSettings.httpsOnly = sw.isOn }
-    @objc private func shortcutsChanged(_ sw: UISwitch) { AppSettings.showShortcuts = sw.isOn }
-    @objc private func continueChanged(_ sw: UISwitch) { AppSettings.showContinue = sw.isOn }
-    @objc private func discoverChanged(_ sw: UISwitch) { AppSettings.showDiscover = sw.isOn }
     @objc private func close() { dismiss(animated: true) }
 }

@@ -59,21 +59,6 @@ enum AppSettings {
         set { d.set(newValue, forKey: "search.engine") }
     }
 
-    static var showShortcuts: Bool {
-        get { d.object(forKey: "home.shortcuts") == nil ? true : d.bool(forKey: "home.shortcuts") }
-        set { d.set(newValue, forKey: "home.shortcuts"); NotificationCenter.default.post(name: .homeSettingsChanged, object: nil) }
-    }
-
-    static var showContinue: Bool {
-        get { d.object(forKey: "home.continue") == nil ? true : d.bool(forKey: "home.continue") }
-        set { d.set(newValue, forKey: "home.continue"); NotificationCenter.default.post(name: .homeSettingsChanged, object: nil) }
-    }
-
-    static var showDiscover: Bool {
-        get { d.object(forKey: "home.discover") == nil ? true : d.bool(forKey: "home.discover") }
-        set { d.set(newValue, forKey: "home.discover"); NotificationCenter.default.post(name: .homeSettingsChanged, object: nil) }
-    }
-
     static var homeWallpaperIndex: Int {
         get { d.integer(forKey: "home.wallpaper") }
         set { d.set(newValue, forKey: "home.wallpaper"); NotificationCenter.default.post(name: .homeSettingsChanged, object: nil) }

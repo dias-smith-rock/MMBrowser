@@ -72,6 +72,8 @@
 		A1B2C3D4E5F6010101010108 /* AppLockPromptViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020208 /* AppLockPromptViewController.swift */; };
 		A1B2C3D4E5F6010101010109 /* AppLockSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020209 /* AppLockSettingsViewController.swift */; };
 		A1B2C3D4E5F6010101010110 /* PasscodeKeypadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020210 /* PasscodeKeypadView.swift */; };
+		A1B2C3D4E5F6010101010120 /* NavigationDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020220 /* NavigationDirectory.swift */; };
+		A1B2C3D4E5F6010101010121 /* FaviconImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020221 /* FaviconImageView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -144,6 +146,8 @@
 		A1B2C3D4E5F6020202020208 /* AppLockPromptViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockPromptViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020209 /* AppLockSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockSettingsViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020210 /* PasscodeKeypadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasscodeKeypadView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020220 /* NavigationDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationDirectory.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020221 /* FaviconImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaviconImageView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -209,6 +213,8 @@
 				F327BEAC2D914DAB9242A59E /* DiscoverMock.swift */,
 				4CFD381780DE41D3B96A4B5A /* GoogleLogoView.swift */,
 				DCDC601B9D5949C3A37929EE /* NewTabViewController.swift */,
+				A1B2C3D4E5F6020202020221 /* FaviconImageView.swift */,
+				A1B2C3D4E5F6020202020220 /* NavigationDirectory.swift */,
 				81A1B2C3D4E54678A9B0C1D3 /* PrivateNewTabViewController.swift */,
 			);
 			path = NewTab;
@@ -538,6 +544,8 @@
 				80CC8EC8F5864BAC97BF1E8E /* DiscoverMock.swift in Sources */,
 				B2BA9449476846B08EE4A1BD /* GoogleLogoView.swift in Sources */,
 				7C778606C8964F36874899A1 /* NewTabViewController.swift in Sources */,
+				A1B2C3D4E5F6010101010121 /* FaviconImageView.swift in Sources */,
+				A1B2C3D4E5F6010101010120 /* NavigationDirectory.swift in Sources */,
 				81A1B2C3D4E54678A9B0C1D2 /* PrivateNewTabViewController.swift in Sources */,
 				C5CC3025D67544A09B52DB05 /* OnboardingViewController.swift in Sources */,
 				81FD47C9E67B4DE0B05CED50 /* ClearBrowsingDataViewController.swift in Sources */,
