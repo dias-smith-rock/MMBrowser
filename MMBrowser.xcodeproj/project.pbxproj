@@ -81,6 +81,8 @@
 		A1B2C3D4E5F6010101010141 /* ShapeRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020241 /* ShapeRecognizer.swift */; };
 		A1B2C3D4E5F6010101010142 /* DrawingGestureController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020242 /* DrawingGestureController.swift */; };
 		A1B2C3D4E5F6010101010143 /* GestureSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020243 /* GestureSettingsViewController.swift */; };
+		A1B2C3D4E5F6010101010150 /* AutoClearManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020250 /* AutoClearManager.swift */; };
+		A1B2C3D4E5F6010101010151 /* ClearOptionSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020251 /* ClearOptionSettingsViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -162,6 +164,8 @@
 		A1B2C3D4E5F6020202020241 /* ShapeRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShapeRecognizer.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020242 /* DrawingGestureController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingGestureController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020243 /* GestureSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GestureSettingsViewController.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020250 /* AutoClearManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoClearManager.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020251 /* ClearOptionSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClearOptionSettingsViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -219,6 +223,7 @@
 				A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */,
 				A1B2C3D4E5F6020202020232 /* LocationMapPickerViewController.swift */,
 				A1B2C3D4E5F6020202020243 /* GestureSettingsViewController.swift */,
+				A1B2C3D4E5F6020202020251 /* ClearOptionSettingsViewController.swift */,
 				B1C2D3E4F5A64789B0C1D2E9 /* PageCleanerRulesViewController.swift */,
 			);
 			path = Settings;
@@ -362,6 +367,7 @@
 			isa = PBXGroup;
 			children = (
 				60184C61D54C43279DFD80C9 /* ClearBrowsingDataViewController.swift */,
+				A1B2C3D4E5F6020202020250 /* AutoClearManager.swift */,
 				456119D548A6467F851BB6EE /* DangerousSiteGuard.swift */,
 				E8CC67E16AD54E6D8184917D /* PrivacyInfoViewController.swift */,
 			);
@@ -595,6 +601,8 @@
 				A1B2C3D4E5F6010101010141 /* ShapeRecognizer.swift in Sources */,
 				A1B2C3D4E5F6010101010142 /* DrawingGestureController.swift in Sources */,
 				A1B2C3D4E5F6010101010143 /* GestureSettingsViewController.swift in Sources */,
+				A1B2C3D4E5F6010101010150 /* AutoClearManager.swift in Sources */,
+				A1B2C3D4E5F6010101010151 /* ClearOptionSettingsViewController.swift in Sources */,
 				225CD882697F4D4E83068A67 /* BrowserTab.swift in Sources */,
 				05EE9C9F5639484BA9BA6FF2 /* TabManager.swift in Sources */,
 				E275E26CE7D145A49D4259E8 /* TabSwitcherViewController.swift in Sources */,

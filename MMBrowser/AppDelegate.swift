@@ -16,7 +16,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         FilterUpdateManager.shared.prepare()
         AdBlockManager.shared.prepare()
         MediaPlaybackSupport.configureAudioSessionIfNeeded()
+        // Cover crash / force-quit: re-run Clear Option cleanup before browsing resumes.
+        AutoClearManager.performScheduledClear()
         return true
+    }
+
+    func applicationDidEnterBackground(_ application: UIApplication) {
+        AutoClearManager.performScheduledClear()
+    }
+
+    func applicationWillTerminate(_ application: UIApplication) {
+        AutoClearManager.performScheduledClear()
     }
 
     // MARK: UISceneSession Lifecycle

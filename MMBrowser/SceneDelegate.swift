@@ -25,5 +25,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func sceneDidEnterBackground(_ scene: UIScene) {
         AppLockCoordinator.shared.applicationDidEnterBackground()
+        AutoClearManager.performScheduledClear()
     }
 }

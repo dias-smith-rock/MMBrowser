@@ -45,6 +45,14 @@ final class MenuViewController: UIViewController {
             ("arrow.down.circle", "Downloads", .downloads),
             ("doc.text", "Reader", .readerMode)
         ]
+        // Show History only when it is retained (auto-clear History is off).
+        if !AppSettings.autoClearHistory {
+            if let bookmarksIndex = icons.firstIndex(where: { $0.2 == .bookmarks }) {
+                icons.insert(("clock", "History", .history), at: bookmarksIndex + 1)
+            } else {
+                icons.insert(("clock", "History", .history), at: 1)
+            }
+        }
         // Library icons still open existing libraries; private session cannot *add* to them.
         if isIncognito {
             icons = icons.filter { $0.2 != .downloads }

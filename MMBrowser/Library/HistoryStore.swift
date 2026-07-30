@@ -21,6 +21,7 @@ final class HistoryStore {
     }
 
     func add(title: String, url: URL) {
+        if AppSettings.autoClearHistory { return }
         if url.absoluteString.hasPrefix("about:") { return }
         let item = HistoryItem(id: UUID(), title: title.isEmpty ? url.host ?? url.absoluteString : title, urlString: url.absoluteString, date: Date())
         items.removeAll { $0.urlString == item.urlString }

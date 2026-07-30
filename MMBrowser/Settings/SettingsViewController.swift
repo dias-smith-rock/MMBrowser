@@ -3,7 +3,7 @@ import SnapKit
 
 final class SettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
-    private enum Section: Int, CaseIterable { case privacy, youtube, media, gestures, search, home, about }
+    private enum Section: Int, CaseIterable { case privacy, clearOption, youtube, media, gestures, search, home, about }
     var onRequestRebuildWebViews: (() -> Void)?
 
     override func viewDidLoad() {
@@ -39,6 +39,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
         case .privacy: return 8
+        case .clearOption: return 1
         case .youtube: return 2
         case .media: return 2
         case .gestures: return 1
@@ -51,6 +52,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .privacy: return "Privacy & Security"
+        case .clearOption: return "Clear Option"
         case .youtube: return "Focus & Video"
         case .media: return "Media"
         case .gestures: return "Gestures"
@@ -64,6 +66,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         switch Section(rawValue: section)! {
         case .privacy:
             return "Location Deny/Spoof only affects GPS-like browser APIs—not your network IP."
+        case .clearOption:
+            return "Choose what is removed automatically when you leave the app. Turn History auto-clear off to keep history and show it in the menu."
         case .youtube:
             return "Fewer YouTube interruptions is best-effort and may stop working when the site changes. Shorts Focus hides Shorts shelves and redirects Shorts links."
         case .media:
@@ -130,6 +134,10 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 cell.textLabel?.text = "Privacy Explained"
                 cell.accessoryType = .disclosureIndicator
             }
+        case .clearOption:
+            cell.textLabel?.text = "Clear Option"
+            cell.detailTextLabel?.text = AppSettings.clearOptionSummary
+            cell.accessoryType = .disclosureIndicator
         case .youtube:
             if indexPath.row == 0 {
                 cell.textLabel?.text = "Hide Shorts"
@@ -214,6 +222,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             } else if indexPath.row == 7 {
                 navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
             }
+        case .clearOption:
+            navigationController?.pushViewController(ClearOptionSettingsViewController(), animated: true)
         case .gestures:
             navigationController?.pushViewController(GestureSettingsViewController(), animated: true)
         case .search:

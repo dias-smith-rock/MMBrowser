@@ -5,13 +5,14 @@ import SnapKit
 final class ClearBrowsingDataViewController: UIViewController {
     private let historySwitch = UISwitch()
     private let cookiesSwitch = UISwitch()
+    private let localStorageSwitch = UISwitch()
     private let cacheSwitch = UISwitch()
 
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Clear Data"
         view.backgroundColor = BrowserTheme.background
-        [historySwitch, cookiesSwitch, cacheSwitch].forEach { $0.isOn = true }
+        [historySwitch, cookiesSwitch, localStorageSwitch, cacheSwitch].forEach { $0.isOn = true }
 
         let stack = UIStackView()
         stack.axis = .vertical
@@ -23,7 +24,8 @@ final class ClearBrowsingDataViewController: UIViewController {
         }
 
         stack.addArrangedSubview(row("Browsing History", historySwitch))
-        stack.addArrangedSubview(row("Cookies & Site Data", cookiesSwitch))
+        stack.addArrangedSubview(row("Cookies", cookiesSwitch))
+        stack.addArrangedSubview(row("Local Storage", localStorageSwitch))
         stack.addArrangedSubview(row("Cached Files", cacheSwitch))
 
         let button = UIButton(type: .system)
@@ -66,7 +68,15 @@ final class ClearBrowsingDataViewController: UIViewController {
         if historySwitch.isOn { HistoryStore.shared.clear() }
         var types = Set<String>()
         if cookiesSwitch.isOn {
-            types.formUnion([WKWebsiteDataTypeCookies, WKWebsiteDataTypeLocalStorage, WKWebsiteDataTypeSessionStorage, WKWebsiteDataTypeIndexedDBDatabases])
+            types.insert(WKWebsiteDataTypeCookies)
+        }
+        if localStorageSwitch.isOn {
+            types.formUnion([
+                WKWebsiteDataTypeLocalStorage,
+                WKWebsiteDataTypeSessionStorage,
+                WKWebsiteDataTypeIndexedDBDatabases,
+                WKWebsiteDataTypeWebSQLDatabases
+            ])
         }
         if cacheSwitch.isOn {
             types.formUnion([WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache])

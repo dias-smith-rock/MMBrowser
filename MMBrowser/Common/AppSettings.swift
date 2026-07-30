@@ -136,6 +136,36 @@ enum AppSettings {
             NotificationCenter.default.post(name: .gestureSettingsChanged, object: nil)
         }
     }
+
+    // MARK: - Clear Option (auto-clear on exit). Defaults on for privacy.
+
+    static var autoClearCache: Bool {
+        get { d.object(forKey: "clear.auto.cache") == nil ? true : d.bool(forKey: "clear.auto.cache") }
+        set { d.set(newValue, forKey: "clear.auto.cache") }
+    }
+
+    static var autoClearCookies: Bool {
+        get { d.object(forKey: "clear.auto.cookies") == nil ? true : d.bool(forKey: "clear.auto.cookies") }
+        set { d.set(newValue, forKey: "clear.auto.cookies") }
+    }
+
+    /// When true, history is not retained and the menu History entry is hidden.
+    static var autoClearHistory: Bool {
+        get { d.object(forKey: "clear.auto.history") == nil ? true : d.bool(forKey: "clear.auto.history") }
+        set { d.set(newValue, forKey: "clear.auto.history") }
+    }
+
+    static var autoClearLocalStorage: Bool {
+        get { d.object(forKey: "clear.auto.localStorage") == nil ? true : d.bool(forKey: "clear.auto.localStorage") }
+        set { d.set(newValue, forKey: "clear.auto.localStorage") }
+    }
+
+    static var clearOptionSummary: String {
+        let on = [autoClearCache, autoClearCookies, autoClearHistory, autoClearLocalStorage].filter { $0 }.count
+        if on == 0 { return "Off" }
+        if on == 4 { return "All on exit" }
+        return "\(on) of 4 on exit"
+    }
 }
 
 extension Notification.Name {
