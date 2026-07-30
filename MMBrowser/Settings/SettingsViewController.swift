@@ -3,7 +3,7 @@ import SnapKit
 
 final class SettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
-    private enum Section: Int, CaseIterable { case privacy, youtube, media, search, home, about }
+    private enum Section: Int, CaseIterable { case privacy, youtube, media, gestures, search, home, about }
     var onRequestRebuildWebViews: (() -> Void)?
 
     override func viewDidLoad() {
@@ -26,6 +26,11 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         NotificationCenter.default.addObserver(self, selector: #selector(filterStatusChanged), name: .filterStatusChanged, object: nil)
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        tableView.reloadData()
+    }
+
     @objc private func filterStatusChanged() {
         tableView.reloadSections(IndexSet(integer: Section.about.rawValue), with: .none)
     }
@@ -36,6 +41,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .privacy: return 8
         case .youtube: return 2
         case .media: return 2
+        case .gestures: return 1
         case .search: return SearchEngine.all.count
         case .home: return 1
         case .about: return 3
@@ -47,6 +53,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .privacy: return "Privacy & Security"
         case .youtube: return "Focus & Video"
         case .media: return "Media"
+        case .gestures: return "Gestures"
         case .search: return "Search Engine"
         case .home: return "Home Page"
         case .about: return "About"
@@ -61,6 +68,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             return "Fewer YouTube interruptions is best-effort and may stop working when the site changes. Shorts Focus hides Shorts shelves and redirects Shorts links."
         case .media:
             return "Background audio keeps supported video sites playing when you leave the app. Picture in Picture requires system support."
+        case .gestures:
+            return "Draw shapes with two fingers, or swipe left/right with one finger."
         default:
             return nil
         }
@@ -155,6 +164,10 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.addTarget(self, action: #selector(pipChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
             }
+        case .gestures:
+            cell.textLabel?.text = "Gestures"
+            cell.detailTextLabel?.text = GestureActionMap.summary
+            cell.accessoryType = .disclosureIndicator
         case .search:
             let engine = SearchEngine.all[indexPath.row]
             cell.textLabel?.text = engine.name
@@ -201,6 +214,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             } else if indexPath.row == 7 {
                 navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
             }
+        case .gestures:
+            navigationController?.pushViewController(GestureSettingsViewController(), animated: true)
         case .search:
             SearchEngineManager.setCurrent(SearchEngine.all[indexPath.row])
             tableView.reloadSections(IndexSet(integer: indexPath.section), with: .none)

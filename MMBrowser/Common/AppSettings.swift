@@ -118,6 +118,24 @@ enum AppSettings {
             return String(format: "Spoof · %.2f, %.2f", spoofLatitude, spoofLongitude)
         }
     }
+
+    /// One-finger left/right swipe → back/forward. Default on.
+    static var navigationSwipeEnabled: Bool {
+        get { d.object(forKey: "gesture.navSwipe.enabled") == nil ? true : d.bool(forKey: "gesture.navSwipe.enabled") }
+        set {
+            d.set(newValue, forKey: "gesture.navSwipe.enabled")
+            NotificationCenter.default.post(name: .gestureSettingsChanged, object: nil)
+        }
+    }
+
+    /// Two-finger drawing gestures. Default on.
+    static var drawingGesturesEnabled: Bool {
+        get { d.object(forKey: "gesture.drawing.enabled") == nil ? true : d.bool(forKey: "gesture.drawing.enabled") }
+        set {
+            d.set(newValue, forKey: "gesture.drawing.enabled")
+            NotificationCenter.default.post(name: .gestureSettingsChanged, object: nil)
+        }
+    }
 }
 
 extension Notification.Name {
@@ -129,4 +147,5 @@ extension Notification.Name {
     static let youtubeAdShieldChanged = Notification.Name("mmbrowser.yt.adshield.changed")
     static let mediaPlaybackSettingsChanged = Notification.Name("mmbrowser.media.changed")
     static let locationPrivacyChanged = Notification.Name("mmbrowser.location.changed")
+    static let gestureSettingsChanged = Notification.Name("mmbrowser.gesture.changed")
 }

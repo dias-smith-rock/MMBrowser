@@ -564,6 +564,12 @@ extension BrowserViewController: WebViewControllerDelegate {
         Toast.show("YouTube filter degraded — try updating filters in Settings", from: self)
     }
 
+    func webViewController(_ controller: WebViewController, didTriggerGestureAction action: GestureBrowserAction) {
+        guard tabManager.selectedTab?.webController === controller else { return }
+        guard let menuAction = action.menuAction else { return }
+        performMenuAction(menuAction)
+    }
+
     func webViewController(_ controller: WebViewController, didUpdateNavigationState canGoBack: Bool, canGoForward: Bool) {
         guard tabManager.selectedTab?.webController === controller else { return }
         refreshToolbar()
@@ -631,73 +637,77 @@ extension BrowserViewController: TabSwitcherViewControllerDelegate {
 extension BrowserViewController: MenuViewControllerDelegate {
     func menuDidSelect(_ action: MenuAction) {
         dismiss(animated: true) { [weak self] in
-            guard let self = self else { return }
-            switch action {
-            case .bookmarks:
-                self.openLibraryList(isBookmarks: true)
-            case .history:
-                self.openLibraryList(isBookmarks: false)
-            case .readingList:
-                self.openReadingList()
-            case .downloads:
-                if self.tabManager.selectedTab?.isIncognito == true {
-                    Toast.show("Downloads are disabled in Private Browsing", from: self)
-                    return
-                }
-                self.openDownloads()
-            case .settings:
-                self.openSettings()
-            case .reload:
-                self.tabManager.selectedTab?.webController?.reload()
-            case .newTab:
-                _ = self.tabManager.addTab(incognito: false, select: true)
-                self.showSelectedTab()
-            case .newIncognitoTab:
-                _ = self.tabManager.addTab(incognito: true, select: true)
-                self.showSelectedTab()
-            case .addBookmark:
-                guard let tab = self.tabManager.selectedTab else { return }
-                if tab.isIncognito {
-                    Toast.show("Not available in Private Browsing", from: self)
-                    return
-                }
-                guard let url = tab.url else {
-                    Toast.show("No page to bookmark", from: self)
-                    return
-                }
-                BookmarkStore.shared.add(title: tab.title, url: url)
-                Toast.show("Bookmark added", from: self)
-            case .addReadingList:
-                if self.tabManager.selectedTab?.isIncognito == true {
-                    Toast.show("Not available in Private Browsing", from: self)
-                    return
-                }
-                self.tabManager.selectedTab?.webController?.saveReadingList()
-            case .readerMode:
-                self.tabManager.selectedTab?.webController?.openReaderMode()
-            case .findInPage:
-                self.tabManager.selectedTab?.webController?.showFindInPage()
-            case .share:
-                guard let url = self.tabManager.selectedTab?.url else {
-                    Toast.show("No page to share", from: self)
-                    return
-                }
-                let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-                self.present(activity, animated: true)
-            case .desktopSite:
-                guard let tab = self.tabManager.selectedTab else { return }
-                tab.preferDesktop.toggle()
-                tab.webController?.setPreferDesktop(tab.preferDesktop)
-                Toast.show(tab.preferDesktop ? "Desktop site" : "Mobile site", from: self)
-            case .sharePDF:
-                self.tabManager.selectedTab?.webController?.sharePDF()
-            case .screenshot:
-                self.tabManager.selectedTab?.webController?.screenshot()
-            case .longScreenshot:
-                self.tabManager.selectedTab?.webController?.longScreenshot()
-            case .placeholder(let name):
-                Toast.show("\(name) coming soon", from: self)
+            self?.performMenuAction(action)
+        }
+    }
+
+    func performMenuAction(_ action: MenuAction) {
+        switch action {
+        case .bookmarks:
+            openLibraryList(isBookmarks: true)
+        case .history:
+            openLibraryList(isBookmarks: false)
+        case .readingList:
+            openReadingList()
+        case .downloads:
+            if tabManager.selectedTab?.isIncognito == true {
+                Toast.show("Downloads are disabled in Private Browsing", from: self)
+                return
             }
+            openDownloads()
+        case .settings:
+            openSettings()
+        case .reload:
+            tabManager.selectedTab?.webController?.reload()
+            Toast.show("Reloaded", from: self)
+        case .newTab:
+            _ = tabManager.addTab(incognito: false, select: true)
+            showSelectedTab()
+        case .newIncognitoTab:
+            _ = tabManager.addTab(incognito: true, select: true)
+            showSelectedTab()
+        case .addBookmark:
+            guard let tab = tabManager.selectedTab else { return }
+            if tab.isIncognito {
+                Toast.show("Not available in Private Browsing", from: self)
+                return
+            }
+            guard let url = tab.url else {
+                Toast.show("No page to bookmark", from: self)
+                return
+            }
+            BookmarkStore.shared.add(title: tab.title, url: url)
+            Toast.show("Bookmark added", from: self)
+        case .addReadingList:
+            if tabManager.selectedTab?.isIncognito == true {
+                Toast.show("Not available in Private Browsing", from: self)
+                return
+            }
+            tabManager.selectedTab?.webController?.saveReadingList()
+        case .readerMode:
+            tabManager.selectedTab?.webController?.openReaderMode()
+        case .findInPage:
+            tabManager.selectedTab?.webController?.showFindInPage()
+        case .share:
+            guard let url = tabManager.selectedTab?.url else {
+                Toast.show("No page to share", from: self)
+                return
+            }
+            let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            present(activity, animated: true)
+        case .desktopSite:
+            guard let tab = tabManager.selectedTab else { return }
+            tab.preferDesktop.toggle()
+            tab.webController?.setPreferDesktop(tab.preferDesktop)
+            Toast.show(tab.preferDesktop ? "Desktop site" : "Mobile site", from: self)
+        case .sharePDF:
+            tabManager.selectedTab?.webController?.sharePDF()
+        case .screenshot:
+            tabManager.selectedTab?.webController?.screenshot()
+        case .longScreenshot:
+            tabManager.selectedTab?.webController?.longScreenshot()
+        case .placeholder(let name):
+            Toast.show("\(name) coming soon", from: self)
         }
     }
 

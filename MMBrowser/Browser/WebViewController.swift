@@ -14,6 +14,7 @@ protocol WebViewControllerDelegate: AnyObject {
     func webViewController(_ controller: WebViewController, didScroll deltaY: CGFloat, offsetY: CGFloat)
     func webViewController(_ controller: WebViewController, didUpdateBlockCount count: Int)
     func webViewControllerDidReportYouTubeDegraded(_ controller: WebViewController)
+    func webViewController(_ controller: WebViewController, didTriggerGestureAction action: GestureBrowserAction)
 }
 
 final class WebViewController: UIViewController {
@@ -102,6 +103,9 @@ final class WebViewController: UIViewController {
     private var scriptMessageProxy: WebViewScriptProxy?
     private var pageCleanerObserver: NSObjectProtocol?
     private var contentOffsetObservation: NSKeyValueObservation?
+    private let drawingGestures = DrawingGestureController()
+    private var navigationPan: UIPanGestureRecognizer?
+    private var gestureSettingsObserver: NSObjectProtocol?
 
     private let desktopUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
@@ -188,6 +192,7 @@ final class WebViewController: UIViewController {
         }
         webView = wv
         setupNavigationSwipeGestures(on: wv)
+        setupDrawingGestures()
 
         progressObservation = wv.observe(\.estimatedProgress, options: [.new]) { [weak self] webView, _ in
             guard let self = self else { return }
@@ -382,10 +387,33 @@ final class WebViewController: UIViewController {
         pan.delegate = self
         pan.maximumNumberOfTouches = 1
         pan.cancelsTouchesInView = false
+        pan.isEnabled = AppSettings.navigationSwipeEnabled
         view.addGestureRecognizer(pan)
+        navigationPan = pan
+    }
+
+    private func setupDrawingGestures() {
+        drawingGestures.delegate = self
+        drawingGestures.attach(to: view)
+        if gestureSettingsObserver == nil {
+            gestureSettingsObserver = NotificationCenter.default.addObserver(
+                forName: .gestureSettingsChanged,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                self?.refreshGestureSettings()
+            }
+        }
+        refreshGestureSettings()
+    }
+
+    private func refreshGestureSettings() {
+        navigationPan?.isEnabled = AppSettings.navigationSwipeEnabled
+        drawingGestures.refreshEnabled()
     }
 
     @objc private func handleNavigationPan(_ gesture: UIPanGestureRecognizer) {
+        guard AppSettings.navigationSwipeEnabled else { return }
         guard gesture.state == .ended else { return }
         let translation = gesture.translation(in: view)
         let velocity = gesture.velocity(in: view)
@@ -607,6 +635,11 @@ final class WebViewController: UIViewController {
         canGoBackObservation = nil
         canGoForwardObservation = nil
         contentOffsetObservation = nil
+        if let gestureSettingsObserver = gestureSettingsObserver {
+            NotificationCenter.default.removeObserver(gestureSettingsObserver)
+            self.gestureSettingsObserver = nil
+        }
+        drawingGestures.detach()
         if let pageCleanerObserver = pageCleanerObserver {
             NotificationCenter.default.removeObserver(pageCleanerObserver)
             self.pageCleanerObserver = nil
@@ -648,6 +681,12 @@ private final class WebViewScriptProxy: NSObject, WKScriptMessageHandler {
         default:
             break
         }
+    }
+}
+
+extension WebViewController: DrawingGestureControllerDelegate {
+    func drawingGestureController(_ controller: DrawingGestureController, didRecognize shape: GestureShape, action: GestureBrowserAction) {
+        delegate?.webViewController(self, didTriggerGestureAction: action)
     }
 }
 

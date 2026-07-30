@@ -77,6 +77,10 @@
 		A1B2C3D4E5F6010101010130 /* GeolocationSpoof.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020230 /* GeolocationSpoof.swift */; };
 		A1B2C3D4E5F6010101010131 /* LocationSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */; };
 		A1B2C3D4E5F6010101010132 /* LocationMapPickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020232 /* LocationMapPickerViewController.swift */; };
+		A1B2C3D4E5F6010101010140 /* GestureActionMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020240 /* GestureActionMap.swift */; };
+		A1B2C3D4E5F6010101010141 /* ShapeRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020241 /* ShapeRecognizer.swift */; };
+		A1B2C3D4E5F6010101010142 /* DrawingGestureController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020242 /* DrawingGestureController.swift */; };
+		A1B2C3D4E5F6010101010143 /* GestureSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020243 /* GestureSettingsViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -154,6 +158,10 @@
 		A1B2C3D4E5F6020202020230 /* GeolocationSpoof.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeolocationSpoof.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSettingsViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020232 /* LocationMapPickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationMapPickerViewController.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020240 /* GestureActionMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GestureActionMap.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020241 /* ShapeRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShapeRecognizer.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020242 /* DrawingGestureController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingGestureController.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020243 /* GestureSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GestureSettingsViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -210,6 +218,7 @@
 				8DD96938CCB3479484E2D530 /* SettingsViewController.swift */,
 				A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */,
 				A1B2C3D4E5F6020202020232 /* LocationMapPickerViewController.swift */,
+				A1B2C3D4E5F6020202020243 /* GestureSettingsViewController.swift */,
 				B1C2D3E4F5A64789B0C1D2E9 /* PageCleanerRulesViewController.swift */,
 			);
 			path = Settings;
@@ -274,6 +283,7 @@
 				12BD4B168F4A48569EA59EC0 /* ViewController.swift */,
 				A247BF95D5D44368ACE4C974 /* Browser */,
 				A1B2C3D4E5F6030303030301 /* AppLock */,
+				A1B2C3D4E5F6030303030302 /* Gestures */,
 				D1A5510B1493499DB371F870 /* Common */,
 				01E11A63E266468B846C126C /* Downloads */,
 				6373D704B4A94440ABBCB90E /* Library */,
@@ -319,6 +329,16 @@
 				A1B2C3D4E5F6020202020210 /* PasscodeKeypadView.swift */,
 			);
 			path = AppLock;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6030303030302 /* Gestures */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6020202020240 /* GestureActionMap.swift */,
+				A1B2C3D4E5F6020202020241 /* ShapeRecognizer.swift */,
+				A1B2C3D4E5F6020202020242 /* DrawingGestureController.swift */,
+			);
+			path = Gestures;
 			sourceTree = "<group>";
 		};
 		A247BF95D5D44368ACE4C974 /* Browser */ = {
@@ -571,6 +591,10 @@
 				DDC66117ECB14AA7AB16EF37 /* SettingsViewController.swift in Sources */,
 				A1B2C3D4E5F6010101010131 /* LocationSettingsViewController.swift in Sources */,
 				A1B2C3D4E5F6010101010132 /* LocationMapPickerViewController.swift in Sources */,
+				A1B2C3D4E5F6010101010140 /* GestureActionMap.swift in Sources */,
+				A1B2C3D4E5F6010101010141 /* ShapeRecognizer.swift in Sources */,
+				A1B2C3D4E5F6010101010142 /* DrawingGestureController.swift in Sources */,
+				A1B2C3D4E5F6010101010143 /* GestureSettingsViewController.swift in Sources */,
 				225CD882697F4D4E83068A67 /* BrowserTab.swift in Sources */,
 				05EE9C9F5639484BA9BA6FF2 /* TabManager.swift in Sources */,
 				E275E26CE7D145A49D4259E8 /* TabSwitcherViewController.swift in Sources */,
