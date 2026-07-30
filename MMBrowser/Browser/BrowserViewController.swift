@@ -35,6 +35,10 @@ final class BrowserViewController: UIViewController {
         }
         NotificationCenter.default.addObserver(self, selector: #selector(trackerChanged), name: .trackerProtectionChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(noImagesChanged), name: .noImagesChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .shortsFocusChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .youtubeAdShieldChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .mediaPlaybackSettingsChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .filterManifestUpdated, object: nil)
     }
 
     @objc private func trackerChanged() {
@@ -43,6 +47,11 @@ final class BrowserViewController: UIViewController {
     }
 
     @objc private func noImagesChanged() {
+        tabManager.invalidateAllWebViews()
+        showSelectedTab()
+    }
+
+    @objc private func rebuildWebViews() {
         tabManager.invalidateAllWebViews()
         showSelectedTab()
     }
@@ -502,12 +511,24 @@ extension BrowserViewController: WebViewControllerDelegate {
         tab.isNewTabPage = false
         if tabManager.selectedTab?.id == tab.id {
             addressBar.setURLText(url?.host ?? url?.absoluteString ?? "")
+            addressBar.setBlockCount(0)
+            addressBar.setFocusIndicator(active: AppSettings.hideShortsEnabled && YouTubeDarkMode.isYouTube(url))
         }
     }
 
     func webViewController(_ controller: WebViewController, didUpdateProgress progress: Double, isLoading: Bool) {
         guard tabManager.selectedTab?.webController === controller else { return }
         applyLoadingProgress(progress, isLoading: isLoading)
+    }
+
+    func webViewController(_ controller: WebViewController, didUpdateBlockCount count: Int) {
+        guard tabManager.selectedTab?.webController === controller else { return }
+        addressBar.setBlockCount(count)
+    }
+
+    func webViewControllerDidReportYouTubeDegraded(_ controller: WebViewController) {
+        guard tabManager.selectedTab?.webController === controller else { return }
+        Toast.show("YouTube filter degraded — try updating filters in Settings", from: self)
     }
 
     func webViewController(_ controller: WebViewController, didUpdateNavigationState canGoBack: Bool, canGoForward: Bool) {

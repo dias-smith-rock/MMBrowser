@@ -12,6 +12,8 @@ protocol WebViewControllerDelegate: AnyObject {
     func webViewController(_ controller: WebViewController, present reader: UIViewController)
     func webViewController(_ controller: WebViewController, warnDangerous url: URL, proceed: @escaping () -> Void)
     func webViewController(_ controller: WebViewController, didScroll deltaY: CGFloat, offsetY: CGFloat)
+    func webViewController(_ controller: WebViewController, didUpdateBlockCount count: Int)
+    func webViewControllerDidReportYouTubeDegraded(_ controller: WebViewController)
 }
 
 final class WebViewController: UIViewController {
@@ -122,7 +124,8 @@ final class WebViewController: UIViewController {
         didSetupWebView = true
         let config = WKWebViewConfiguration()
         if isIncognito { config.websiteDataStore = .nonPersistent() }
-        config.allowsInlineMediaPlayback = true
+        MediaPlaybackSupport.configureAudioSessionIfNeeded()
+        MediaPlaybackSupport.apply(to: config)
         AdBlockManager.shared.apply(to: config) { [weak self] in
             guard let self = self else { return }
             ImageBlockManager.shared.apply(to: config) {
@@ -133,6 +136,12 @@ final class WebViewController: UIViewController {
 
     private func finishWebViewSetup(with config: WKWebViewConfiguration) {
         config.userContentController.addUserScript(YouTubeDarkMode.userScript)
+        if YouTubeShortsFocus.isEnabled {
+            config.userContentController.addUserScript(YouTubeShortsFocus.userScript)
+        }
+        if YouTubeAdShield.isEffectivelyEnabled {
+            config.userContentController.addUserScript(YouTubeAdShield.userScript)
+        }
         // Unlock pinch-zoom on pages that set user-scalable=no / maximum-scale=1
         // (UIScrollView.ignoresViewportScaleLimits is unavailable in this SDK).
         // YouTube is excluded inside the script — unlocking breaks its mobile width.
@@ -147,6 +156,13 @@ final class WebViewController: UIViewController {
         let proxy = WebViewScriptProxy(target: self)
         scriptMessageProxy = proxy
         config.userContentController.add(proxy, name: PageCleanerManager.handlerName)
+        if AppSettings.trackerProtectionEnabled {
+            config.userContentController.add(proxy, name: AdBlockManager.blockCountHandlerName)
+        }
+        if YouTubeAdShield.isEffectivelyEnabled {
+            config.userContentController.add(proxy, name: YouTubeAdShield.handlerName)
+            config.userContentController.add(proxy, name: YouTubeAdShield.degradedHandlerName)
+        }
         if AppSettings.noImagesEnabled {
             config.userContentController.add(proxy, name: ImageBlockManager.disableHandlerName)
         }
@@ -229,6 +245,29 @@ final class WebViewController: UIViewController {
     fileprivate func handleNoImageScriptMessage(_ message: WKScriptMessage) {
         guard message.name == ImageBlockManager.disableHandlerName else { return }
         AppSettings.noImagesEnabled = false
+    }
+
+    fileprivate func handleBlockCountMessage(_ message: WKScriptMessage) {
+        guard message.name == AdBlockManager.blockCountHandlerName else { return }
+        let count: Int
+        if let body = message.body as? [String: Any], let n = body["count"] as? Int {
+            count = n
+        } else if let n = message.body as? Int {
+            count = n
+        } else {
+            return
+        }
+        delegate?.webViewController(self, didUpdateBlockCount: count)
+    }
+
+    fileprivate func handleYouTubeAdShieldMessage(_ message: WKScriptMessage) {
+        if message.name == YouTubeAdShield.degradedHandlerName {
+            FilterUpdateManager.shared.markYouTubeDegraded()
+            delegate?.webViewControllerDidReportYouTubeDegraded(self)
+            return
+        }
+        guard message.name == YouTubeAdShield.handlerName else { return }
+        // Skip events are informational; block-count UI is driven by cosmetic detector.
     }
 
     fileprivate func handlePageCleanerMessage(_ message: WKScriptMessage) {
@@ -573,6 +612,10 @@ private final class WebViewScriptProxy: NSObject, WKScriptMessageHandler {
             target?.handleNoImageScriptMessage(message)
         case PageCleanerManager.handlerName:
             target?.handlePageCleanerMessage(message)
+        case AdBlockManager.blockCountHandlerName:
+            target?.handleBlockCountMessage(message)
+        case YouTubeAdShield.handlerName, YouTubeAdShield.degradedHandlerName:
+            target?.handleYouTubeAdShieldMessage(message)
         default:
             break
         }
@@ -625,6 +668,12 @@ extension WebViewController: WKNavigationDelegate {
             let allowed = ["http", "https", "about", "blob", "data", "file"]
             if !scheme.isEmpty && !allowed.contains(scheme) {
                 decisionHandler(.cancel)
+                return
+            }
+
+            if let redirected = YouTubeShortsFocus.redirectTarget(for: url), redirected != url {
+                decisionHandler(.cancel)
+                load(url: redirected)
                 return
             }
 

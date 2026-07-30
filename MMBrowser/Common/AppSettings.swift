@@ -9,6 +9,38 @@ enum AppSettings {
         set { d.set(newValue, forKey: "tp.enabled"); NotificationCenter.default.post(name: .trackerProtectionChanged, object: nil) }
     }
 
+    static var hideShortsEnabled: Bool {
+        get { d.object(forKey: "shorts.hide") == nil ? true : d.bool(forKey: "shorts.hide") }
+        set {
+            d.set(newValue, forKey: "shorts.hide")
+            NotificationCenter.default.post(name: .shortsFocusChanged, object: nil)
+        }
+    }
+
+    static var youtubeAdShieldEnabled: Bool {
+        get { d.object(forKey: "yt.adshield") == nil ? true : d.bool(forKey: "yt.adshield") }
+        set {
+            d.set(newValue, forKey: "yt.adshield")
+            NotificationCenter.default.post(name: .youtubeAdShieldChanged, object: nil)
+        }
+    }
+
+    static var backgroundAudioEnabled: Bool {
+        get { d.object(forKey: "media.bgAudio") == nil ? true : d.bool(forKey: "media.bgAudio") }
+        set {
+            d.set(newValue, forKey: "media.bgAudio")
+            NotificationCenter.default.post(name: .mediaPlaybackSettingsChanged, object: nil)
+        }
+    }
+
+    static var pictureInPictureEnabled: Bool {
+        get { d.object(forKey: "media.pip") == nil ? true : d.bool(forKey: "media.pip") }
+        set {
+            d.set(newValue, forKey: "media.pip")
+            NotificationCenter.default.post(name: .mediaPlaybackSettingsChanged, object: nil)
+        }
+    }
+
     static var httpsOnly: Bool {
         get { d.bool(forKey: "https.only") }
         set { d.set(newValue, forKey: "https.only") }
@@ -58,4 +90,7 @@ extension Notification.Name {
     static let noImagesChanged = Notification.Name("mmbrowser.noimages.changed")
     static let homeSettingsChanged = Notification.Name("mmbrowser.home.changed")
     static let searchEngineChanged = Notification.Name("mmbrowser.search.changed")
+    static let shortsFocusChanged = Notification.Name("mmbrowser.shorts.changed")
+    static let youtubeAdShieldChanged = Notification.Name("mmbrowser.yt.adshield.changed")
+    static let mediaPlaybackSettingsChanged = Notification.Name("mmbrowser.media.changed")
 }

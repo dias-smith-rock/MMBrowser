@@ -12,10 +12,16 @@ final class PrivacyInfoViewController: UIViewController {
         text.font = .systemFont(ofSize: 16)
         text.isEditable = false
         text.text = """
-        MMBrowser helps reduce cross-site tracking and local browsing traces.
+        MMBrowser is a private browser for cleaner browsing and video on the open web.
 
-        Tracker Protection
-        Blocks known ad/tracker network requests (including AdSense and common analytics) using WebKit content rules. You can turn this off anytime in Settings.
+        Block Ads & Trackers
+        Blocks known ad and tracker network requests and hides common page banners using WebKit content rules. You can turn this off anytime in Settings.
+
+        Focus Mode (Hide Shorts)
+        Hides YouTube Shorts shelves and redirects Shorts links to the classic watch page when possible.
+
+        Fewer YouTube Video Ads
+        Best-effort filter that may reduce pre-roll and mid-roll interruptions in the browser. It is experimental and may stop working when the site changes. This is not a guarantee of an ad-free experience and is not affiliated with YouTube.
 
         Clear Browsing Data
         Removes history and/or website cookies, storage, and caches from this device.
@@ -24,7 +30,7 @@ final class PrivacyInfoViewController: UIViewController {
         Prefers secure connections when you type a domain without a scheme.
 
         Limits
-        No browser can fully prevent fingerprinting on the open web. MMBrowser focuses on practical tracking reduction and local data control—not impossible absolute anonymity.
+        No browser can fully prevent fingerprinting on the open web. MMBrowser focuses on practical tracking reduction, cleaner pages, and local data control—not impossible absolute anonymity. Filter updates may be downloaded so protections can recover after site changes.
         """
         view.addSubview(text)
         text.snp.makeConstraints { make in

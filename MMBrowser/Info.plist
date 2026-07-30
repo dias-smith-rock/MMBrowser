@@ -26,5 +26,9 @@
 	</dict>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>MMBrowser needs access to save screenshots to your photo library.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 </dict>
 </plist>

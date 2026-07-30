@@ -57,6 +57,11 @@
 		F2B1B57129974773A3C8B6AF /* PrivacyInfoViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8CC67E16AD54E6D8184917D /* PrivacyInfoViewController.swift */; };
 		F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B4BFF2E376570F7159D72FDE /* Pods_MMBrowser.framework */; };
 		F5FAA4028A4D495EA2A0FB69 /* BookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD046D8ACFAE4B96AF0715F6 /* BookmarkStore.swift */; };
+		2407C85515E24617A4EF10BA /* YouTubeShortsFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B4B9A76DFE4E32A1FD3ADD /* YouTubeShortsFocus.swift */; };
+		C718289B0C194FE69766C497 /* YouTubeAdShield.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */; };
+		09FB7CC9808A4DD0A7C8E3AC /* MediaPlaybackSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F17FA7E6B9649618EC381DB /* MediaPlaybackSupport.swift */; };
+		7327DB1D31CC49F6AF6A888E /* FilterUpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0783DF19A0FE4061AF8CB2FF /* FilterUpdateManager.swift */; };
+		857A72CB4CB84D79A56A5CAE /* DefaultFilterManifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 148219CAF76C4E93AD37C016 /* DefaultFilterManifest.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -114,6 +119,11 @@
 		F1EE201BBF964C068F934786 /* YouTubeDarkMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeDarkMode.swift; sourceTree = "<group>"; };
 		F327BEAC2D914DAB9242A59E /* DiscoverMock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverMock.swift; sourceTree = "<group>"; };
 		FE55FD77142842FAB1482D62 /* BookmarksViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarksViewController.swift; sourceTree = "<group>"; };
+		80B4B9A76DFE4E32A1FD3ADD /* YouTubeShortsFocus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeShortsFocus.swift; sourceTree = "<group>"; };
+		06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeAdShield.swift; sourceTree = "<group>"; };
+		2F17FA7E6B9649618EC381DB /* MediaPlaybackSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPlaybackSupport.swift; sourceTree = "<group>"; };
+		0783DF19A0FE4061AF8CB2FF /* FilterUpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterUpdateManager.swift; sourceTree = "<group>"; };
+		148219CAF76C4E93AD37C016 /* DefaultFilterManifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = DefaultFilterManifest.json; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -241,6 +251,7 @@
 				78F642641055498AB60FC483 /* Search */,
 				4B8AD1CCCE0342199FE0F972 /* Settings */,
 				8D2C0966F9C84573AE71F8B7 /* Tabs */,
+				1AEDF1FC46E749B68C202044 /* Resources */,
 				84E6B61C29CD5680001723AE /* Assets.xcassets */,
 				84E6B61E29CD5680001723AE /* LaunchScreen.storyboard */,
 				84E6B62129CD5680001723AE /* Info.plist */,
@@ -268,6 +279,9 @@
 				857CEEC48A6442E486F25CB1 /* LongScreenshotCapturer.swift */,
 				B7D30F1A6E5C492D8A2B4C61 /* ScreenshotEditorViewController.swift */,
 				F1EE201BBF964C068F934786 /* YouTubeDarkMode.swift */,
+				2F17FA7E6B9649618EC381DB /* MediaPlaybackSupport.swift */,
+				06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */,
+				80B4B9A76DFE4E32A1FD3ADD /* YouTubeShortsFocus.swift */,
 			);
 			path = Browser;
 			sourceTree = "<group>";
@@ -303,6 +317,7 @@
 			isa = PBXGroup;
 			children = (
 				DD4B7DF4CC5F48C390C9325C /* AdBlockManager.swift */,
+				0783DF19A0FE4061AF8CB2FF /* FilterUpdateManager.swift */,
 				82A1B2C3D4E54678A9B0C1D3 /* ImageBlockManager.swift */,
 				B1C2D3E4F5A64789B0C1D2E5 /* PageCleanerManager.swift */,
 				B1C2D3E4F5A64789B0C1D2E3 /* PageCleanerStore.swift */,
@@ -322,6 +337,14 @@
 				D98DC3B0A2D148BEBE182F6C /* MenuViewController.swift */,
 			);
 			path = Menu;
+			sourceTree = "<group>";
+		};
+		1AEDF1FC46E749B68C202044 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				148219CAF76C4E93AD37C016 /* DefaultFilterManifest.json */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -385,6 +408,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				84E6B62029CD5680001723AE /* LaunchScreen.storyboard in Resources */,
+				857A72CB4CB84D79A56A5CAE /* DefaultFilterManifest.json in Resources */,
 				84E6B61D29CD5680001723AE /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -450,6 +474,10 @@
 				A72010760AE142E88DC802F8 /* LongScreenshotCapturer.swift in Sources */,
 				C8E41A2B7F6D4A1E9B3C5D70 /* ScreenshotEditorViewController.swift in Sources */,
 				E926465A783245B4904A71AD /* YouTubeDarkMode.swift in Sources */,
+				2407C85515E24617A4EF10BA /* YouTubeShortsFocus.swift in Sources */,
+				C718289B0C194FE69766C497 /* YouTubeAdShield.swift in Sources */,
+				09FB7CC9808A4DD0A7C8E3AC /* MediaPlaybackSupport.swift in Sources */,
+				7327DB1D31CC49F6AF6A888E /* FilterUpdateManager.swift in Sources */,
 				E465FC0279854A2096A2DF80 /* AdBlockManager.swift in Sources */,
 				82A1B2C3D4E54678A9B0C1D2 /* ImageBlockManager.swift in Sources */,
 				B1C2D3E4F5A64789B0C1D2E4 /* PageCleanerStore.swift in Sources */,

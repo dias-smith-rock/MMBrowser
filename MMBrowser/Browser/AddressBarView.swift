@@ -18,6 +18,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private let screenshotIcon = UIImageView()
     private let chevronIcon = UIImageView()
     private let pageCleanerButton = UIButton(type: .system)
+    private let shieldButton = UIButton(type: .system)
     private let privateBadge = UILabel()
     let textField = UITextField()
     private let progressView = UIProgressView(progressViewStyle: .bar)
@@ -25,6 +26,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private var isPageCleanerActive = false
     /// `nil` when inactive; `false` = 本站; `true` = 仅此页.
     private var cleanerURLOnly: Bool?
+    private var blockCount = 0
+    private var focusActive = false
 
     private let chipsContainer = UIView()
     private let longShotChip = UIButton(type: .system)
@@ -69,6 +72,14 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         pageCleanerButton.accessibilityLabel = "Clean page"
         pageCleanerButton.addTarget(self, action: #selector(pageCleanerTapped), for: .touchUpInside)
 
+        let shieldConfig = UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+        shieldButton.setImage(UIImage(systemName: "shield.lefthalf.filled", withConfiguration: shieldConfig), for: .normal)
+        shieldButton.tintColor = BrowserTheme.textSecondary
+        shieldButton.titleLabel?.font = .systemFont(ofSize: 11, weight: .bold)
+        shieldButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
+        shieldButton.accessibilityLabel = "Ads and trackers blocked"
+        shieldButton.isHidden = true
+
         privateBadge.text = "Private"
         privateBadge.font = .systemFont(ofSize: 10, weight: .bold)
         privateBadge.textColor = BrowserTheme.privateAccent
@@ -99,12 +110,14 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         container.addSubview(screenshotEntry)
         container.addSubview(privateBadge)
         container.addSubview(textField)
+        container.addSubview(shieldButton)
         container.addSubview(pageCleanerButton)
         addSubview(progressView)
 
         setupChips()
         setupCleanerMenu()
         updatePageCleanerAppearance()
+        updateShieldAppearance()
 
         container.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(12)
@@ -140,9 +153,15 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.centerY.equalToSuperview()
             make.size.equalTo(24)
         }
+        shieldButton.snp.makeConstraints { make in
+            make.trailing.equalTo(pageCleanerButton.snp.leading).offset(-4)
+            make.centerY.equalToSuperview()
+            make.height.equalTo(24)
+            make.width.greaterThanOrEqualTo(24)
+        }
         textField.snp.makeConstraints { make in
             make.leading.equalTo(screenshotEntry.snp.trailing).offset(4)
-            make.trailing.equalTo(pageCleanerButton.snp.leading).offset(-8)
+            make.trailing.equalTo(shieldButton.snp.leading).offset(-8)
             make.centerY.equalToSuperview()
         }
         progressView.snp.makeConstraints { make in
@@ -290,11 +309,12 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             } else {
                 make.leading.equalTo(screenshotEntry.snp.trailing).offset(4)
             }
-            make.trailing.equalTo(pageCleanerButton.snp.leading).offset(-8)
+            make.trailing.equalTo(shieldButton.snp.leading).offset(-8)
             make.centerY.equalToSuperview()
         }
         updatePageCleanerAppearance()
         updateCleanerChipSelection()
+        updateShieldAppearance()
     }
 
     func setProgress(_ progress: Double, isLoading: Bool) {
@@ -323,6 +343,43 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         }
         updatePageCleanerAppearance()
         updateCleanerChipSelection()
+    }
+
+    func setBlockCount(_ count: Int) {
+        blockCount = max(0, count)
+        updateShieldAppearance()
+    }
+
+    func setFocusIndicator(active: Bool) {
+        focusActive = active
+        updateShieldAppearance()
+    }
+
+    private func updateShieldAppearance() {
+        let show = AppSettings.trackerProtectionEnabled || AppSettings.hideShortsEnabled || AppSettings.youtubeAdShieldEnabled
+        guard show else {
+            shieldButton.isHidden = true
+            return
+        }
+        shieldButton.isHidden = false
+        let accent = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
+        if blockCount > 0 {
+            shieldButton.setTitle(blockCount > 99 ? "99+" : "\(blockCount)", for: .normal)
+            shieldButton.tintColor = accent
+            shieldButton.accessibilityValue = "\(blockCount) blocked"
+        } else if focusActive {
+            shieldButton.setTitle(nil, for: .normal)
+            shieldButton.tintColor = accent
+            shieldButton.accessibilityValue = "Focus mode on"
+        } else if AppSettings.trackerProtectionEnabled {
+            shieldButton.setTitle(nil, for: .normal)
+            shieldButton.tintColor = accent.withAlphaComponent(0.85)
+            shieldButton.accessibilityValue = "Protection on"
+        } else {
+            shieldButton.setTitle(nil, for: .normal)
+            shieldButton.tintColor = BrowserTheme.textSecondary
+            shieldButton.accessibilityValue = nil
+        }
     }
 
     func textFieldDidBeginEditing(_ textField: UITextField) {
