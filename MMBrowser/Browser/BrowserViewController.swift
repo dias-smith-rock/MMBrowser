@@ -40,6 +40,23 @@ final class BrowserViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .mediaPlaybackSettingsChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .filterManifestUpdated, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .locationPrivacyChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSessionCleanup), name: .clearOptionSessionCleanup, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSettingsChanged), name: .clearOptionSettingsChanged, object: nil)
+    }
+
+    @objc private func handleClearOptionSessionCleanup() {
+        guard AppSettings.closeAllTabsOnExit else { return }
+        // Dismiss overlays so we can reset to a fresh New Tab cleanly.
+        presentedViewController?.dismiss(animated: false)
+        tabManager.closeAllTabsAndReset()
+        showSelectedTab()
+        refreshToolbar()
+    }
+
+    @objc private func handleClearOptionSettingsChanged() {
+        if !AppSettings.showTabsPreviewImages {
+            tabManager.clearAllSnapshots()
+        }
     }
 
     @objc private func trackerChanged() {
@@ -350,12 +367,14 @@ final class BrowserViewController: UIViewController {
     }
 
     private func captureCurrentSnapshotIfNeeded() {
+        guard AppSettings.showTabsPreviewImages else { return }
         guard let tab = tabManager.selectedTab else { return }
         if tab.isNewTabPage {
             tab.snapshot = nil
             return
         }
         tab.webController?.captureSnapshot { image in
+            guard AppSettings.showTabsPreviewImages else { return }
             tab.snapshot = image
         }
     }

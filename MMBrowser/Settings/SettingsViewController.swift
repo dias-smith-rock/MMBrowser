@@ -3,7 +3,7 @@ import SnapKit
 
 final class SettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
-    private enum Section: Int, CaseIterable { case privacy, clearOption, youtube, media, gestures, search, home, about }
+    private enum Section: Int, CaseIterable { case privacy, clearOption, tools, youtube, media, gestures, search, home, about }
     var onRequestRebuildWebViews: (() -> Void)?
 
     override func viewDidLoad() {
@@ -38,8 +38,9 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
-        case .privacy: return 8
+        case .privacy: return 6
         case .clearOption: return 1
+        case .tools: return 1
         case .youtube: return 2
         case .media: return 2
         case .gestures: return 1
@@ -53,6 +54,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         switch Section(rawValue: section)! {
         case .privacy: return "Privacy & Security"
         case .clearOption: return "Clear Option"
+        case .tools: return "Tools"
         case .youtube: return "Focus & Video"
         case .media: return "Media"
         case .gestures: return "Gestures"
@@ -68,6 +70,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             return "Location Deny/Spoof only affects GPS-like browser APIs—not your network IP."
         case .clearOption:
             return "Choose what is removed automatically when you leave the app. Turn History auto-clear off to keep history and show it in the menu."
+        case .tools:
+            return "Hide page elements and save rules for sites you visit often."
         case .youtube:
             return "Fewer YouTube interruptions is best-effort and may stop working when the site changes. Shorts Focus hides Shorts shelves and redirects Shorts links."
         case .media:
@@ -123,13 +127,6 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 cell.textLabel?.text = "App Lock"
                 cell.detailTextLabel?.text = AppLockSettings.isEnabled ? "On" : "Off"
                 cell.accessoryType = .disclosureIndicator
-            case 5:
-                cell.textLabel?.text = "Webpage Cleaner"
-                cell.detailTextLabel?.text = "Manage hidden element rules"
-                cell.accessoryType = .disclosureIndicator
-            case 6:
-                cell.textLabel?.text = "Clear Browsing Data"
-                cell.accessoryType = .disclosureIndicator
             default:
                 cell.textLabel?.text = "Privacy Explained"
                 cell.accessoryType = .disclosureIndicator
@@ -137,6 +134,10 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .clearOption:
             cell.textLabel?.text = "Clear Option"
             cell.detailTextLabel?.text = AppSettings.clearOptionSummary
+            cell.accessoryType = .disclosureIndicator
+        case .tools:
+            cell.textLabel?.text = "Webpage Cleaner"
+            cell.detailTextLabel?.text = "Manage hidden element rules"
             cell.accessoryType = .disclosureIndicator
         case .youtube:
             if indexPath.row == 0 {
@@ -216,22 +217,19 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             } else if indexPath.row == 4 {
                 navigationController?.pushViewController(AppLockSettingsViewController(), animated: true)
             } else if indexPath.row == 5 {
-                navigationController?.pushViewController(PageCleanerRulesViewController(), animated: true)
-            } else if indexPath.row == 6 {
-                navigationController?.pushViewController(ClearBrowsingDataViewController(), animated: true)
-            } else if indexPath.row == 7 {
                 navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
             }
         case .clearOption:
             navigationController?.pushViewController(ClearOptionSettingsViewController(), animated: true)
+        case .tools:
+            navigationController?.pushViewController(PageCleanerRulesViewController(), animated: true)
         case .gestures:
             navigationController?.pushViewController(GestureSettingsViewController(), animated: true)
         case .search:
             SearchEngineManager.setCurrent(SearchEngine.all[indexPath.row])
             tableView.reloadSections(IndexSet(integer: indexPath.section), with: .none)
         case .home:
-            AppSettings.homeWallpaperIndex = (AppSettings.homeWallpaperIndex + 1) % 4
-            tableView.reloadRows(at: [indexPath], with: .none)
+            presentWallpaperPicker(at: indexPath)
         case .about:
             if indexPath.row == 1 {
                 let alert = UIAlertController(
@@ -297,4 +295,25 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     }
     @objc private func httpsChanged(_ sw: UISwitch) { AppSettings.httpsOnly = sw.isOn }
     @objc private func close() { dismiss(animated: true) }
+
+    private func presentWallpaperPicker(at indexPath: IndexPath) {
+        let names = ["Default", "Deep Blue", "Forest", "Midnight"]
+        let sheet = UIAlertController(title: "Wallpaper", message: nil, preferredStyle: .actionSheet)
+        for (index, name) in names.enumerated() {
+            let current = index == AppSettings.homeWallpaperIndex % names.count
+            let title = current ? "✓ \(name)" : name
+            sheet.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
+                guard let self = self else { return }
+                AppSettings.homeWallpaperIndex = index
+                self.tableView.reloadRows(at: [indexPath], with: .none)
+                Toast.show("Wallpaper: \(name)", from: self)
+            })
+        }
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let pop = sheet.popoverPresentationController {
+            pop.sourceView = tableView
+            pop.sourceRect = tableView.rectForRow(at: indexPath)
+        }
+        present(sheet, animated: true)
+    }
 }

@@ -34,6 +34,7 @@ enum AutoClearManager {
         }
 
         guard !types.isEmpty else {
+            NotificationCenter.default.post(name: .clearOptionSessionCleanup, object: nil)
             completion?()
             return
         }
@@ -41,7 +42,10 @@ enum AutoClearManager {
         let store = WKWebsiteDataStore.default()
         store.fetchDataRecords(ofTypes: types) { records in
             store.removeData(ofTypes: types, for: records) {
-                DispatchQueue.main.async { completion?() }
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .clearOptionSessionCleanup, object: nil)
+                    completion?()
+                }
             }
         }
     }

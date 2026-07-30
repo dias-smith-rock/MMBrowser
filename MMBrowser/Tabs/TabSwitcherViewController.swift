@@ -439,8 +439,13 @@ final class TabGridCell: UICollectionViewCell {
 
     func configure(tab: BrowserTab, selected: Bool) {
         titleLabel.text = tab.title
-        preview.image = tab.snapshot
-        placeholder.isHidden = tab.snapshot != nil
+        if AppSettings.showTabsPreviewImages, let snapshot = tab.snapshot {
+            preview.image = snapshot
+            placeholder.isHidden = true
+        } else {
+            preview.image = nil
+            placeholder.isHidden = false
+        }
         card.layer.borderWidth = selected ? 2 : 0
         card.layer.borderColor = BrowserTheme.chromeBlue.cgColor
     }

@@ -111,6 +111,25 @@ final class TabManager {
         delegate?.tabManagerDidUpdate(self)
     }
 
+    /// Close every tab and leave a single fresh New Tab (used by Close All Tabs on Exit).
+    func closeAllTabsAndReset() {
+        for tab in tabs {
+            tab.webController?.cleanup()
+            tab.webController = nil
+            tab.snapshot = nil
+        }
+        let fresh = BrowserTab(isIncognito: false)
+        tabs = [fresh]
+        selectedIndex = 0
+        delegate?.tabManager(self, didSelect: fresh)
+        delegate?.tabManagerDidUpdate(self)
+    }
+
+    func clearAllSnapshots() {
+        for tab in tabs { tab.snapshot = nil }
+        delegate?.tabManagerDidUpdate(self)
+    }
+
     func tabs(matching query: String, incognito: Bool) -> [BrowserTab] {
         let base = incognito ? incognitoTabs : normalTabs
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

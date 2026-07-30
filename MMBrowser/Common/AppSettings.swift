@@ -162,9 +162,30 @@ enum AppSettings {
 
     static var clearOptionSummary: String {
         let on = [autoClearCache, autoClearCookies, autoClearHistory, autoClearLocalStorage].filter { $0 }.count
-        if on == 0 { return "Off" }
-        if on == 4 { return "All on exit" }
-        return "\(on) of 4 on exit"
+        var parts: [String] = []
+        if on == 0 { parts.append("Clear off") }
+        else if on == 4 { parts.append("Clear all") }
+        else { parts.append("Clear \(on)/4") }
+        if closeAllTabsOnExit { parts.append("Close tabs") }
+        return parts.joined(separator: " · ")
+    }
+
+    /// Close every tab when leaving the app (leave one fresh New Tab). Default on.
+    static var closeAllTabsOnExit: Bool {
+        get { d.object(forKey: "clear.closeTabsOnExit") == nil ? true : d.bool(forKey: "clear.closeTabsOnExit") }
+        set {
+            d.set(newValue, forKey: "clear.closeTabsOnExit")
+            NotificationCenter.default.post(name: .clearOptionSettingsChanged, object: nil)
+        }
+    }
+
+    /// Show webpage snapshots on tab cards. Default on.
+    static var showTabsPreviewImages: Bool {
+        get { d.object(forKey: "clear.showTabPreviews") == nil ? true : d.bool(forKey: "clear.showTabPreviews") }
+        set {
+            d.set(newValue, forKey: "clear.showTabPreviews")
+            NotificationCenter.default.post(name: .clearOptionSettingsChanged, object: nil)
+        }
     }
 }
 
@@ -178,4 +199,7 @@ extension Notification.Name {
     static let mediaPlaybackSettingsChanged = Notification.Name("mmbrowser.media.changed")
     static let locationPrivacyChanged = Notification.Name("mmbrowser.location.changed")
     static let gestureSettingsChanged = Notification.Name("mmbrowser.gesture.changed")
+    static let clearOptionSettingsChanged = Notification.Name("mmbrowser.clearOption.changed")
+    /// Posted after scheduled clear so the browser can close tabs if configured.
+    static let clearOptionSessionCleanup = Notification.Name("mmbrowser.clearOption.sessionCleanup")
 }
