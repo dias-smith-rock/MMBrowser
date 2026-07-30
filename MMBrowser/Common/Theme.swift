@@ -1,22 +1,71 @@
 import UIKit
 
 enum BrowserTheme {
-    static let background = UIColor(red: 0.13, green: 0.13, blue: 0.13, alpha: 1)
-    static let elevated = UIColor(red: 0.18, green: 0.18, blue: 0.18, alpha: 1)
-    static let card = UIColor(red: 0.20, green: 0.20, blue: 0.20, alpha: 1)
-    static let secondaryCard = UIColor(red: 0.24, green: 0.24, blue: 0.24, alpha: 1)
-    /// Distinct chrome for private browsing.
-    static let privateBackground = UIColor(red: 0.08, green: 0.07, blue: 0.12, alpha: 1)
-    static let privateElevated = UIColor(red: 0.14, green: 0.12, blue: 0.20, alpha: 1)
-    static let privateAccent = UIColor(red: 0.65, green: 0.55, blue: 0.95, alpha: 1)
-    static let chromeBlue = UIColor(red: 0.54, green: 0.71, blue: 0.98, alpha: 1)
-    static let textPrimary = UIColor.white
-    static let textSecondary = UIColor(white: 0.72, alpha: 1)
+    private static var c: ThemeColors { ThemeManager.shared.colors }
+
+    static var background: UIColor { c.background }
+    static var elevated: UIColor { c.elevated }
+    static var card: UIColor { c.card }
+    static var secondaryCard: UIColor { c.secondaryCard }
+    /// Distinct chrome for private browsing — derived from the active theme pack.
+    static var privateBackground: UIColor { c.privateBackground }
+    static var privateElevated: UIColor { c.privateElevated }
+    static var privateAccent: UIColor { c.privateAccent }
+    static var chromeBlue: UIColor { c.accent }
+    static var textPrimary: UIColor { c.textPrimary }
+    static var textSecondary: UIColor { c.textSecondary }
     static let toolbarHeight: CGFloat = 52
     static let addressBarHeight: CGFloat = 44
 
-    /// Applies opaque dark chrome so presented sheets don't fall back to the system white nav bar.
+    static var preferredUserInterfaceStyle: UIUserInterfaceStyle {
+        ThemeManager.shared.current.userInterfaceStyle
+    }
+
+    /// NTP wallpapers: Default = theme background; others tint that base (light/dark adaptive).
+    static func homeWallpaperColor(at index: Int = AppSettings.homeWallpaperIndex) -> UIColor {
+        let colors = homeWallpaperColors
+        return colors[index % colors.count]
+    }
+
+    static var homeWallpaperColors: [UIColor] {
+        let base = background
+        let isLight = ThemeManager.shared.current.isLight
+        if isLight {
+            return [
+                base,
+                blend(base, ThemeHex.color("6B8FD4"), amount: 0.22),
+                blend(base, ThemeHex.color("5FA86E"), amount: 0.18),
+                blend(base, ThemeHex.color("6B5A78"), amount: 0.16)
+            ]
+        }
+        return [
+            base,
+            blend(base, ThemeHex.color("1A2A4A"), amount: 0.55),
+            blend(base, ThemeHex.color("152818"), amount: 0.55),
+            blend(base, ThemeHex.color("0C0C14"), amount: 0.70)
+        ]
+    }
+
+    private static func blend(_ a: UIColor, _ b: UIColor, amount: CGFloat) -> UIColor {
+        let t = min(max(amount, 0), 1)
+        var ar: CGFloat = 0, ag: CGFloat = 0, ab: CGFloat = 0, aa: CGFloat = 0
+        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
+        a.getRed(&ar, green: &ag, blue: &ab, alpha: &aa)
+        b.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+        return UIColor(
+            red: ar + (br - ar) * t,
+            green: ag + (bg - ag) * t,
+            blue: ab + (bb - ab) * t,
+            alpha: aa + (ba - aa) * t
+        )
+    }
+
+    /// Applies opaque chrome so presented sheets match the active theme.
     static func applyDarkNavigationBar(to navigationBar: UINavigationBar) {
+        applyNavigationBar(to: navigationBar)
+    }
+
+    static func applyNavigationBar(to navigationBar: UINavigationBar) {
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = background
@@ -29,7 +78,7 @@ enum BrowserTheme {
         if #available(iOS 15.0, *) {
             navigationBar.compactScrollEdgeAppearance = appearance
         }
-        navigationBar.barStyle = .black
+        navigationBar.barStyle = ThemeManager.shared.current.isLight ? .default : .black
         navigationBar.isTranslucent = false
         navigationBar.tintColor = chromeBlue
         navigationBar.titleTextAttributes = [.foregroundColor: textPrimary]

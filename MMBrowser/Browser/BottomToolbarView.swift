@@ -18,22 +18,19 @@ final class BottomToolbarView: UIView {
     private let tabsButton = UIButton(type: .system)
     private let menuButton = UIButton(type: .system)
     private let tabsBadgeLabel = UILabel()
+    private var isPrivateMode = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        backgroundColor = BrowserTheme.background
 
-        configure(backButton, systemName: "chevron.left", action: #selector(backTapped))
-        configure(forwardButton, systemName: "chevron.right", action: #selector(forwardTapped))
-        configure(plusButton, systemName: "plus", action: #selector(plusTapped))
-        configure(menuButton, systemName: "ellipsis", action: #selector(menuTapped))
+        configure(backButton, action: #selector(backTapped))
+        configure(forwardButton, action: #selector(forwardTapped))
+        configure(plusButton, action: #selector(plusTapped))
+        configure(menuButton, action: #selector(menuTapped))
 
-        tabsButton.tintColor = BrowserTheme.textPrimary
         tabsButton.addTarget(self, action: #selector(tabsTapped), for: .touchUpInside)
         tabsBadgeLabel.font = .systemFont(ofSize: 12, weight: .semibold)
-        tabsBadgeLabel.textColor = BrowserTheme.textPrimary
         tabsBadgeLabel.textAlignment = .center
-        tabsBadgeLabel.layer.borderColor = BrowserTheme.textPrimary.cgColor
         tabsBadgeLabel.layer.borderWidth = 1.5
         tabsBadgeLabel.layer.cornerRadius = 4
         tabsBadgeLabel.clipsToBounds = true
@@ -55,7 +52,12 @@ final class BottomToolbarView: UIView {
             make.width.greaterThanOrEqualTo(20)
             make.height.equalTo(18)
         }
+
+        applyTheme()
+        NotificationCenter.default.addObserver(self, selector: #selector(applyTheme), name: .themeDidChange, object: nil)
     }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
 
     required init?(coder: NSCoder) { fatalError() }
 
@@ -73,15 +75,23 @@ final class BottomToolbarView: UIView {
     }
 
     func setPrivateMode(_ isPrivate: Bool) {
-        backgroundColor = isPrivate ? BrowserTheme.privateBackground : BrowserTheme.background
-        let tint = isPrivate ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
+        isPrivateMode = isPrivate
+        applyTheme()
+    }
+
+    @objc private func applyTheme() {
+        backgroundColor = isPrivateMode ? BrowserTheme.privateBackground : BrowserTheme.background
+        let tint = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
+        backButton.setImage(ThemeManager.shared.image(for: .toolbarBack), for: .normal)
+        forwardButton.setImage(ThemeManager.shared.image(for: .toolbarForward), for: .normal)
+        plusButton.setImage(ThemeManager.shared.image(for: .toolbarNewTab), for: .normal)
+        menuButton.setImage(ThemeManager.shared.image(for: .toolbarMenu), for: .normal)
         [backButton, forwardButton, plusButton, tabsButton, menuButton].forEach { $0.tintColor = tint }
         tabsBadgeLabel.textColor = tint
         tabsBadgeLabel.layer.borderColor = tint.cgColor
     }
 
-    private func configure(_ button: UIButton, systemName: String, action: Selector) {
-        button.setImage(UIImage(systemName: systemName), for: .normal)
+    private func configure(_ button: UIButton, action: Selector) {
         button.tintColor = BrowserTheme.textPrimary
         button.addTarget(self, action: action, for: .touchUpInside)
     }

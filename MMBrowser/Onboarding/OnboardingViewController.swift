@@ -41,7 +41,7 @@ final class OnboardingViewController: UIViewController {
 
         let start = UIButton(type: .system)
         start.setTitle("Get Started", for: .normal)
-        start.setTitleColor(.black, for: .normal)
+        start.setTitleColor(Self.contrastingLabel(on: BrowserTheme.chromeBlue), for: .normal)
         start.backgroundColor = BrowserTheme.chromeBlue
         start.layer.cornerRadius = 14
         start.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
@@ -89,7 +89,7 @@ final class OnboardingViewController: UIViewController {
 
         let titleLabel = UILabel()
         titleLabel.text = title
-        titleLabel.textColor = .white
+        titleLabel.textColor = BrowserTheme.textPrimary
         titleLabel.font = .systemFont(ofSize: 28, weight: .bold)
         titleLabel.textAlignment = .center
         titleLabel.numberOfLines = 0
@@ -131,6 +131,13 @@ final class OnboardingViewController: UIViewController {
     @objc private func startTapped() {
         AppSettings.didShowOnboarding = true
         onFinished?()
+    }
+
+    private static func contrastingLabel(on background: UIColor) -> UIColor {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        guard background.getRed(&r, green: &g, blue: &b, alpha: &a) else { return .white }
+        let luminance = 0.299 * r + 0.587 * g + 0.114 * b
+        return luminance > 0.62 ? BrowserTheme.textPrimary : .white
     }
 }
 

@@ -30,6 +30,7 @@ final class BrowserViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = BrowserTheme.background
+        overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         tabManager.delegate = self
         setupChrome()
         showSelectedTab()
@@ -42,6 +43,15 @@ final class BrowserViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .locationPrivacyChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSessionCleanup), name: .clearOptionSessionCleanup, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSettingsChanged), name: .clearOptionSettingsChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeDidChange, object: nil)
+    }
+
+    @objc private func themeChanged() {
+        overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        let isPrivate = tabManager.selectedTab?.isIncognito == true
+        applyPrivateChrome(isPrivate)
+        newTabController?.applyHomeSettings()
+        privateNewTabController?.applyTheme()
     }
 
     override func viewDidAppear(_ animated: Bool) {

@@ -9,7 +9,7 @@ struct SearchEngine: Equatable {
     static let duckDuckGo = SearchEngine(id: "ddg", name: "DuckDuckGo", queryURL: "https://duckduckgo.com/?q=%@", homeURL: "https://duckduckgo.com")
     static let google = SearchEngine(id: "google", name: "Google", queryURL: "https://www.google.com/search?q=%@", homeURL: "https://www.google.com")
     static let bing = SearchEngine(id: "bing", name: "Bing", queryURL: "https://www.bing.com/search?q=%@", homeURL: "https://www.bing.com")
-    static let sogou = SearchEngine(id: "sogou", name: "搜狗", queryURL: "https://www.sogou.com/web?query=%@", homeURL: "https://www.sogou.com")
+    static let sogou = SearchEngine(id: "sogou", name: "Sogou", queryURL: "https://www.sogou.com/web?query=%@", homeURL: "https://www.sogou.com")
 
     static let all: [SearchEngine] = [.duckDuckGo, .google, .bing, .sogou]
 

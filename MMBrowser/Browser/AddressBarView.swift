@@ -26,7 +26,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private let progressView = UIProgressView(progressViewStyle: .bar)
     private var isPrivateMode = false
     private var isPageCleanerActive = false
-    /// `nil` when inactive; `false` = 本站; `true` = 仅此页.
+    /// `nil` when inactive; `false` = this site; `true` = this page only.
     private var cleanerURLOnly: Bool?
     private var blockCount = 0
     private var focusActive = false
@@ -52,9 +52,6 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         container.layer.cornerRadius = 22
         addSubview(container)
 
-        let shotConfig = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
-        screenshotIcon.image = UIImage(systemName: "camera", withConfiguration: shotConfig)
-        screenshotIcon.tintColor = BrowserTheme.textSecondary
         screenshotIcon.contentMode = .scaleAspectFit
         screenshotIcon.isUserInteractionEnabled = false
 
@@ -69,8 +66,6 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         screenshotEntry.addTarget(self, action: #selector(screenshotEntryTapped), for: .touchUpInside)
         screenshotEntry.accessibilityLabel = "Screenshot"
 
-        pageCleanerButton.setImage(UIImage(systemName: "wand.and.stars"), for: .normal)
-        pageCleanerButton.tintColor = BrowserTheme.textSecondary
         pageCleanerButton.accessibilityLabel = "Clean page"
         pageCleanerButton.addTarget(self, action: #selector(pageCleanerTapped), for: .touchUpInside)
 
@@ -130,8 +125,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
         setupChips()
         setupCleanerMenu()
-        updatePageCleanerAppearance()
-        updateShieldAppearance()
+        applyTheme()
+        NotificationCenter.default.addObserver(self, selector: #selector(applyTheme), name: .themeDidChange, object: nil)
 
         container.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(12)
@@ -192,6 +187,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
     required init?(coder: NSCoder) { fatalError() }
 
+    deinit { NotificationCenter.default.removeObserver(self) }
+
     /// Chips / cleaner bubble draw above our bounds; include them in hit testing.
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         if super.point(inside: point, with: event) { return true }
@@ -234,12 +231,12 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         styleBubbleContainer(chipsContainer)
         addSubview(chipsContainer)
 
-        configureChip(longShotChip, title: "长截屏")
-        configureChip(manualShotChip, title: "手动截图")
+        configureChip(longShotChip, title: "Long screenshot")
+        configureChip(manualShotChip, title: "Manual capture")
         longShotChip.addTarget(self, action: #selector(longShotTapped), for: .touchUpInside)
         manualShotChip.addTarget(self, action: #selector(manualShotTapped), for: .touchUpInside)
 
-        let title = makeBubbleTitleLabel("截屏模式")
+        let title = makeBubbleTitleLabel("Screenshot mode")
         let stack = UIStackView(arrangedSubviews: [title, longShotChip, manualShotChip])
         stack.axis = .vertical
         stack.spacing = 8
@@ -260,14 +257,14 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         styleBubbleContainer(cleanerMenuContainer)
         addSubview(cleanerMenuContainer)
 
-        configureChip(cleanerSiteChip, title: "本站")
-        configureChip(cleanerPageChip, title: "仅此页")
-        configureChip(cleanerExitChip, title: "退出")
+        configureChip(cleanerSiteChip, title: "This site")
+        configureChip(cleanerPageChip, title: "This page")
+        configureChip(cleanerExitChip, title: "Exit")
         cleanerSiteChip.addTarget(self, action: #selector(cleanerSiteTapped), for: .touchUpInside)
         cleanerPageChip.addTarget(self, action: #selector(cleanerPageTapped), for: .touchUpInside)
         cleanerExitChip.addTarget(self, action: #selector(cleanerExitTapped), for: .touchUpInside)
 
-        let title = makeBubbleTitleLabel("清理模式")
+        let title = makeBubbleTitleLabel("Cleaner mode")
         let stack = UIStackView(arrangedSubviews: [title, cleanerSiteChip, cleanerPageChip, cleanerExitChip])
         stack.axis = .vertical
         stack.spacing = 8
@@ -323,12 +320,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
     func setPrivateMode(_ isPrivate: Bool) {
         isPrivateMode = isPrivate
-        backgroundColor = isPrivate ? BrowserTheme.privateBackground : BrowserTheme.background
-        container.backgroundColor = isPrivate ? BrowserTheme.privateElevated : BrowserTheme.elevated
         privateBadge.isHidden = !isPrivate
-        let accent = isPrivate ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
-        textField.tintColor = accent
-        progressView.progressTintColor = accent
         textField.snp.remakeConstraints { make in
             if isPrivate {
                 make.leading.equalTo(privateBadge.snp.trailing).offset(6)
@@ -337,6 +329,31 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             }
             make.trailing.equalTo(rightmostTrailingAnchor()).offset(-6)
             make.centerY.equalToSuperview()
+        }
+        applyTheme()
+    }
+
+    @objc private func applyTheme() {
+        backgroundColor = isPrivateMode ? BrowserTheme.privateBackground : BrowserTheme.background
+        container.backgroundColor = isPrivateMode ? BrowserTheme.privateElevated : BrowserTheme.elevated
+        let accent = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
+        let shotConfig = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+        screenshotIcon.image = ThemeManager.shared.image(for: .addressScreenshot, configuration: shotConfig)
+            ?? UIImage(systemName: "camera", withConfiguration: shotConfig)
+        screenshotIcon.tintColor = BrowserTheme.textSecondary
+        pageCleanerButton.setImage(ThemeManager.shared.image(for: .addressCleaner), for: .normal)
+        shieldButton.tintColor = BrowserTheme.textSecondary
+        shieldBadge.backgroundColor = accent
+        privateBadge.textColor = BrowserTheme.privateAccent
+        privateBadge.backgroundColor = BrowserTheme.privateAccent.withAlphaComponent(0.18)
+        textField.textColor = BrowserTheme.textPrimary
+        textField.tintColor = accent
+        progressView.progressTintColor = accent
+        chipsContainer.backgroundColor = BrowserTheme.elevated
+        cleanerMenuContainer.backgroundColor = BrowserTheme.elevated
+        [longShotChip, manualShotChip, cleanerSiteChip, cleanerPageChip, cleanerExitChip].forEach {
+            $0.setTitleColor(BrowserTheme.textPrimary, for: .normal)
+            $0.backgroundColor = BrowserTheme.secondaryCard
         }
         updatePageCleanerAppearance()
         updateCleanerChipSelection()

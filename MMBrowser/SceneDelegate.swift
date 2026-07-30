@@ -7,10 +7,16 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
         let window = UIWindow(windowScene: windowScene)
+        window.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         window.rootViewController = BrowserViewController()
         window.makeKeyAndVisible()
         self.window = window
         AppLockCoordinator.shared.attach(to: windowScene)
+        NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeDidChange, object: nil)
+    }
+
+    @objc private func themeChanged() {
+        window?.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {}

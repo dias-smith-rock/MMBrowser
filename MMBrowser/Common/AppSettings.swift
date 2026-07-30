@@ -64,6 +64,11 @@ enum AppSettings {
         set { d.set(newValue, forKey: "home.wallpaper"); NotificationCenter.default.post(name: .homeSettingsChanged, object: nil) }
     }
 
+    static var themePackID: String {
+        get { d.string(forKey: "theme.pack.id") ?? "default" }
+        set { d.set(newValue, forKey: "theme.pack.id") }
+    }
+
     static var didShowOnboarding: Bool {
         get { d.bool(forKey: "onboarding.done") }
         set { d.set(newValue, forKey: "onboarding.done") }

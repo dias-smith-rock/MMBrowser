@@ -29,6 +29,7 @@ final class MenuViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = isIncognito ? BrowserTheme.privateElevated : BrowserTheme.elevated
         modalPresentationStyle = .pageSheet
+        overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
 
         view.addSubview(scrollView)
         scrollView.addSubview(content)
@@ -38,19 +39,19 @@ final class MenuViewController: UIViewController {
             make.width.equalTo(scrollView)
         }
 
-        var icons: [(String, String, MenuAction)] = [
-            ("gear", "Settings", .settings),
-            ("star", "Bookmarks", .bookmarks),
-            ("book", "Reading list", .readingList),
-            ("arrow.down.circle", "Downloads", .downloads),
-            ("doc.text", "Reader", .readerMode)
+        var icons: [(ThemeIconKey, String, MenuAction)] = [
+            (.menuSettings, "Settings", .settings),
+            (.menuBookmarks, "Bookmarks", .bookmarks),
+            (.menuReadingList, "Reading list", .readingList),
+            (.menuDownloads, "Downloads", .downloads),
+            (.menuReader, "Reader", .readerMode)
         ]
         // Show History only when it is retained (auto-clear History is off).
         if !AppSettings.autoClearHistory {
             if let bookmarksIndex = icons.firstIndex(where: { $0.2 == .bookmarks }) {
-                icons.insert(("clock", "History", .history), at: bookmarksIndex + 1)
+                icons.insert((.menuHistory, "History", .history), at: bookmarksIndex + 1)
             } else {
-                icons.insert(("clock", "History", .history), at: 1)
+                icons.insert((.menuHistory, "History", .history), at: 1)
             }
         }
         // Library icons still open existing libraries; private session cannot *add* to them.
@@ -65,8 +66,8 @@ final class MenuViewController: UIViewController {
         iconStack.spacing = 12
         iconScroll.addSubview(iconStack)
         content.addSubview(iconScroll)
-        for (symbol, title, action) in icons {
-            iconStack.addArrangedSubview(makeIconItem(symbol: symbol, title: title, action: action))
+        for (key, title, action) in icons {
+            iconStack.addArrangedSubview(makeIconItem(key: key, title: title, action: action))
         }
         iconScroll.snp.makeConstraints { make in
             make.top.equalToSuperview().offset(20)
@@ -78,17 +79,17 @@ final class MenuViewController: UIViewController {
             make.height.equalToSuperview()
         }
 
-        var rows: [(String, String, MenuAction)] = [
-            ("Reload", "arrow.clockwise", .reload),
-            ("Find in page", "magnifyingglass", .findInPage),
-            ("Share", "square.and.arrow.up", .share),
-            ("Request Desktop Site", "desktopcomputer", .desktopSite),
-            ("New Incognito tab", "eye.slash", .newIncognitoTab),
-            ("Add to bookmarks", "star", .addBookmark),
-            ("Add to reading list", "book", .addReadingList),
-            ("Share as PDF", "doc.richtext", .sharePDF),
-            ("Screenshot", "camera", .screenshot),
-            ("Long screenshot", "camera.viewfinder", .longScreenshot)
+        var rows: [(String, ThemeIconKey, MenuAction)] = [
+            ("Reload", .menuReload, .reload),
+            ("Find in page", .menuFind, .findInPage),
+            ("Share", .menuShare, .share),
+            ("Request Desktop Site", .menuDesktop, .desktopSite),
+            ("New Incognito tab", .menuIncognito, .newIncognitoTab),
+            ("Add to bookmarks", .menuAddBookmark, .addBookmark),
+            ("Add to reading list", .menuAddReadingList, .addReadingList),
+            ("Share as PDF", .menuSharePDF, .sharePDF),
+            ("Screenshot", .menuScreenshot, .screenshot),
+            ("Long screenshot", .menuLongScreenshot, .longScreenshot)
         ]
         if isIncognito {
             rows.removeAll { $0.2 == .addBookmark || $0.2 == .addReadingList }
@@ -96,7 +97,7 @@ final class MenuViewController: UIViewController {
 
         var previous: UIView = iconScroll
         for (index, row) in rows.enumerated() {
-            let button = makeRow(title: row.0, symbol: row.1, action: row.2)
+            let button = makeRow(title: row.0, key: row.1, action: row.2)
             content.addSubview(button)
             button.snp.makeConstraints { make in
                 make.top.equalTo(previous.snp.bottom).offset(index == 0 ? 16 : 4)
@@ -108,13 +109,13 @@ final class MenuViewController: UIViewController {
         }
     }
 
-    private func makeIconItem(symbol: String, title: String, action: MenuAction) -> UIView {
+    private func makeIconItem(key: ThemeIconKey, title: String, action: MenuAction) -> UIView {
         let container = UIView()
         container.snp.makeConstraints { make in make.width.equalTo(76) }
         let box = UIView()
         box.backgroundColor = BrowserTheme.secondaryCard
         box.layer.cornerRadius = 14
-        let image = UIImageView(image: UIImage(systemName: symbol))
+        let image = UIImageView(image: ThemeManager.shared.image(for: key))
         image.tintColor = isIncognito ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
         image.contentMode = .scaleAspectFit
         let label = UILabel()
@@ -145,7 +146,7 @@ final class MenuViewController: UIViewController {
         return container
     }
 
-    private func makeRow(title: String, symbol: String, action: MenuAction) -> UIButton {
+    private func makeRow(title: String, key: ThemeIconKey, action: MenuAction) -> UIButton {
         let button = MenuActionButton(action: action)
         button.backgroundColor = BrowserTheme.secondaryCard
         button.layer.cornerRadius = 12
@@ -154,7 +155,7 @@ final class MenuViewController: UIViewController {
         button.titleLabel?.font = .systemFont(ofSize: 16)
         button.contentHorizontalAlignment = .left
         button.contentEdgeInsets = UIEdgeInsets(top: 0, left: 14, bottom: 0, right: 14)
-        button.setImage(UIImage(systemName: symbol), for: .normal)
+        button.setImage(ThemeManager.shared.image(for: key), for: .normal)
         button.tintColor = isIncognito ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
         button.addTarget(self, action: #selector(actionTapped(_:)), for: .touchUpInside)
         button.semanticContentAttribute = .forceLeftToRight

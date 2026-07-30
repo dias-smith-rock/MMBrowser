@@ -382,7 +382,7 @@ final class WebViewController: UIViewController {
     func goForward() { if webView?.canGoForward == true { webView?.goForward() } }
     func reload() { webView?.reload() }
 
-    /// 右滑 → 上一页，左滑 → 下一页（全页滑动，不仅限边缘）。
+    /// Swipe right → back, swipe left → forward (full-page, not edge-only).
     private func setupNavigationSwipeGestures(on webView: WKWebView) {
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handleNavigationPan(_:)))
         pan.delegate = self

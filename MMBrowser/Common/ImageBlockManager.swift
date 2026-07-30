@@ -16,7 +16,7 @@ final class ImageBlockManager {
         set { AppSettings.noImagesEnabled = newValue }
     }
 
-    /// Document-start script: gate imgs/videos and overlay a centered “关闭无图模式” chip.
+    /// Document-start script: gate imgs/videos and overlay a centered “Turn off No Images” chip.
     static let placeholderUserScript = WKUserScript(
         source: placeholderJS,
         injectionTime: .atDocumentStart,
@@ -91,7 +91,7 @@ final class ImageBlockManager {
       window.__mmImageBlockInstalled = true;
 
       var STYLE_ID = 'mm-noimg-style';
-      var CHIP_TEXT = '关闭无图模式';
+      var CHIP_TEXT = 'Turn off No Images';
       var MIN_W = 120;
       var MIN_H = 44;
       var VIDEO_MIN_H = 120;

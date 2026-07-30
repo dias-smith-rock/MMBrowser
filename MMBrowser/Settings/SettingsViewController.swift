@@ -9,14 +9,9 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Settings"
-        view.backgroundColor = BrowserTheme.background
         navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(close))
-        if let navigationBar = navigationController?.navigationBar {
-            BrowserTheme.applyDarkNavigationBar(to: navigationBar)
-        }
+        applyChrome()
 
-        tableView.overrideUserInterfaceStyle = .dark
-        tableView.backgroundColor = BrowserTheme.background
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
@@ -24,15 +19,34 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         tableView.snp.makeConstraints { $0.edges.equalToSuperview() }
 
         NotificationCenter.default.addObserver(self, selector: #selector(filterStatusChanged), name: .filterStatusChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeDidChange, object: nil)
     }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        applyChrome()
         tableView.reloadData()
     }
 
     @objc private func filterStatusChanged() {
         tableView.reloadSections(IndexSet(integer: Section.about.rawValue), with: .none)
+    }
+
+    @objc private func themeChanged() {
+        applyChrome()
+        tableView.reloadData()
+    }
+
+    private func applyChrome() {
+        view.backgroundColor = BrowserTheme.background
+        tableView.backgroundColor = BrowserTheme.background
+        tableView.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        if let navigationBar = navigationController?.navigationBar {
+            BrowserTheme.applyNavigationBar(to: navigationBar)
+        }
     }
 
     func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
@@ -59,7 +73,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .media: return "Media"
         case .gestures: return "Gestures"
         case .search: return "Search Engine"
-        case .home: return "Home Page"
+        case .home: return "Appearance"
         case .about: return "About"
         }
     }
@@ -86,7 +100,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell") ?? UITableViewCell(style: .subtitle, reuseIdentifier: "cell")
         cell.backgroundColor = BrowserTheme.card
-        cell.textLabel?.textColor = .white
+        cell.textLabel?.textColor = BrowserTheme.textPrimary
         cell.detailTextLabel?.textColor = BrowserTheme.textSecondary
         cell.detailTextLabel?.text = nil
         cell.accessoryView = nil
@@ -183,8 +197,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             cell.accessoryType = engine.id == AppSettings.searchEngineID ? .checkmark : .none
             cell.tintColor = BrowserTheme.chromeBlue
         case .home:
-            cell.textLabel?.text = "Wallpaper"
-            cell.detailTextLabel?.text = ["Default", "Deep Blue", "Forest", "Midnight"][AppSettings.homeWallpaperIndex % 4]
+            cell.textLabel?.text = "Appearance"
+            cell.detailTextLabel?.text = ThemeManager.shared.current.name
             cell.accessoryType = .disclosureIndicator
         case .about:
             switch indexPath.row {
@@ -229,7 +243,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             SearchEngineManager.setCurrent(SearchEngine.all[indexPath.row])
             tableView.reloadSections(IndexSet(integer: indexPath.section), with: .none)
         case .home:
-            presentWallpaperPicker(at: indexPath)
+            navigationController?.pushViewController(AppearanceSettingsViewController(), animated: true)
         case .about:
             if indexPath.row == 1 {
                 let alert = UIAlertController(
@@ -295,25 +309,4 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     }
     @objc private func httpsChanged(_ sw: UISwitch) { AppSettings.httpsOnly = sw.isOn }
     @objc private func close() { dismiss(animated: true) }
-
-    private func presentWallpaperPicker(at indexPath: IndexPath) {
-        let names = ["Default", "Deep Blue", "Forest", "Midnight"]
-        let sheet = UIAlertController(title: "Wallpaper", message: nil, preferredStyle: .actionSheet)
-        for (index, name) in names.enumerated() {
-            let current = index == AppSettings.homeWallpaperIndex % names.count
-            let title = current ? "✓ \(name)" : name
-            sheet.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
-                guard let self = self else { return }
-                AppSettings.homeWallpaperIndex = index
-                self.tableView.reloadRows(at: [indexPath], with: .none)
-                Toast.show("Wallpaper: \(name)", from: self)
-            })
-        }
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        if let pop = sheet.popoverPresentationController {
-            pop.sourceView = tableView
-            pop.sourceRect = tableView.rectForRow(at: indexPath)
-        }
-        present(sheet, animated: true)
-    }
 }

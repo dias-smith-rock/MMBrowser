@@ -148,7 +148,7 @@ final class AppLockSetupViewController: UIViewController {
                 }
                 AppLockSettings.isEnabled = true
                 AppLockSettings.setupPromptCompleted = true
-                finish(success: true, toast: "密码设置成功")
+                finish(success: true, toast: "Passcode set")
             } else {
                 showError("Passcodes Did Not Match")
                 mode = .createPIN
@@ -185,7 +185,7 @@ final class AppLockSetupViewController: UIViewController {
                 }
                 AppLockSettings.isEnabled = true
                 AppLockSettings.setupPromptCompleted = true
-                finish(success: true, toast: "密码设置成功")
+                finish(success: true, toast: "Passcode set")
             } else {
                 showError("Patterns Did Not Match")
                 patternView.flashError()

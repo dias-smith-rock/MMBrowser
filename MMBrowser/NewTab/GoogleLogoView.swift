@@ -16,8 +16,9 @@ final class GoogleLogoView: UIView {
 
         label.textAlignment = .left
         label.font = .systemFont(ofSize: 34, weight: .bold)
-        label.textColor = .white
         label.text = "MMBrowser"
+        applyTheme()
+        NotificationCenter.default.addObserver(self, selector: #selector(applyTheme), name: .themeDidChange, object: nil)
 
         stack.axis = .horizontal
         stack.alignment = .center
@@ -38,4 +39,10 @@ final class GoogleLogoView: UIView {
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    @objc func applyTheme() {
+        label.textColor = BrowserTheme.textPrimary
+    }
 }

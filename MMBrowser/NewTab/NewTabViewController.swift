@@ -19,27 +19,32 @@ final class NewTabViewController: UIViewController {
     private let settingsButton = UIButton(type: .system)
     private let logoView = GoogleLogoView()
     private let searchContainer = UIView()
+    private let searchIcon = UIImageView()
     private let searchField = UITextField()
     private let directoryStack = UIStackView()
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = BrowserTheme.background
         setupLayout()
         buildDirectory()
         applyHomeSettings()
         NotificationCenter.default.addObserver(self, selector: #selector(applyHomeSettings), name: .homeSettingsChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(engineChanged), name: .searchEngineChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(applyHomeSettings), name: .themeDidChange, object: nil)
     }
 
+    deinit { NotificationCenter.default.removeObserver(self) }
+
     @objc func applyHomeSettings() {
-        let colors: [UIColor] = [
-            BrowserTheme.background,
-            UIColor(red: 0.08, green: 0.12, blue: 0.22, alpha: 1),
-            UIColor(red: 0.07, green: 0.14, blue: 0.10, alpha: 1),
-            UIColor(red: 0.05, green: 0.05, blue: 0.08, alpha: 1)
-        ]
-        view.backgroundColor = colors[AppSettings.homeWallpaperIndex % colors.count]
+        view.backgroundColor = BrowserTheme.homeWallpaperColor()
+        settingsButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
+        settingsButton.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.45).cgColor
+        searchContainer.backgroundColor = BrowserTheme.elevated
+        searchIcon.tintColor = BrowserTheme.chromeBlue
+        searchField.textColor = BrowserTheme.textPrimary
+        searchField.tintColor = BrowserTheme.chromeBlue
+        logoView.applyTheme()
+        buildDirectory()
         engineChanged()
     }
 
@@ -83,7 +88,7 @@ final class NewTabViewController: UIViewController {
         searchContainer.backgroundColor = BrowserTheme.elevated
         searchContainer.layer.cornerRadius = 28
 
-        let searchIcon = UIImageView(image: UIImage(systemName: "magnifyingglass"))
+        searchIcon.image = UIImage(systemName: "magnifyingglass")
         searchIcon.tintColor = BrowserTheme.chromeBlue
         searchIcon.contentMode = .scaleAspectFit
 

@@ -14,48 +14,39 @@ final class PrivateNewTabViewController: UIViewController, UITextFieldDelegate {
     private let titleLabel = UILabel()
     private let subtitleLabel = UILabel()
     private let searchField = UITextField()
+    private let searchBox = UIView()
     private let closePrivateButton = UIButton(type: .system)
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = BrowserTheme.privateBackground
 
         iconView.image = UIImage(systemName: "eye.slash.fill")
-        iconView.tintColor = BrowserTheme.privateAccent
         iconView.contentMode = .scaleAspectFit
 
         titleLabel.text = "Private Browsing"
-        titleLabel.textColor = .white
         titleLabel.font = .systemFont(ofSize: 28, weight: .bold)
         titleLabel.textAlignment = .center
 
         subtitleLabel.text = "History, cookies, and site data from this session won’t be kept after you close all private tabs. Bookmarks, reading list, and downloads stay blocked."
-        subtitleLabel.textColor = BrowserTheme.textSecondary
         subtitleLabel.font = .systemFont(ofSize: 14)
         subtitleLabel.numberOfLines = 0
         subtitleLabel.textAlignment = .center
 
-        let searchBox = UIView()
-        searchBox.backgroundColor = BrowserTheme.privateElevated
         searchBox.layer.cornerRadius = 22
-        searchField.textColor = .white
-        searchField.tintColor = BrowserTheme.privateAccent
         searchField.font = .systemFont(ofSize: 16)
         searchField.returnKeyType = .go
         searchField.autocapitalizationType = .none
         searchField.autocorrectionType = .no
         searchField.keyboardType = .webSearch
         searchField.delegate = self
-        searchField.attributedPlaceholder = NSAttributedString(
-            string: "Search or type URL",
-            attributes: [.foregroundColor: BrowserTheme.textSecondary]
-        )
         searchBox.addSubview(searchField)
 
         closePrivateButton.setTitle("Close Private Tabs", for: .normal)
-        closePrivateButton.setTitleColor(BrowserTheme.privateAccent, for: .normal)
         closePrivateButton.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
         closePrivateButton.addTarget(self, action: #selector(closePrivateTapped), for: .touchUpInside)
+
+        applyTheme()
+        NotificationCenter.default.addObserver(self, selector: #selector(applyTheme), name: .themeDidChange, object: nil)
 
         view.addSubview(iconView)
         view.addSubview(titleLabel)
@@ -89,6 +80,23 @@ final class PrivateNewTabViewController: UIViewController, UITextFieldDelegate {
             make.top.equalTo(searchBox.snp.bottom).offset(24)
             make.centerX.equalToSuperview()
         }
+    }
+
+    deinit { NotificationCenter.default.removeObserver(self) }
+
+    @objc func applyTheme() {
+        view.backgroundColor = BrowserTheme.privateBackground
+        iconView.tintColor = BrowserTheme.privateAccent
+        titleLabel.textColor = BrowserTheme.textPrimary
+        subtitleLabel.textColor = BrowserTheme.textSecondary
+        searchBox.backgroundColor = BrowserTheme.privateElevated
+        searchField.textColor = BrowserTheme.textPrimary
+        searchField.tintColor = BrowserTheme.privateAccent
+        searchField.attributedPlaceholder = NSAttributedString(
+            string: "Search or type URL",
+            attributes: [.foregroundColor: BrowserTheme.textSecondary]
+        )
+        closePrivateButton.setTitleColor(BrowserTheme.privateAccent, for: .normal)
     }
 
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {

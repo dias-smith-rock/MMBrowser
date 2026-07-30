@@ -16,6 +16,10 @@
 		39B5B31AA5B34064830D0554 /* DownloadsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EF1A8CF7C4FDF9609AC37 /* DownloadsViewController.swift */; };
 		3E002237DEF54CE88D630EE4 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12BD4B168F4A48569EA59EC0 /* ViewController.swift */; };
 		47C017E84DF14D329312A9B6 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1779FCB4C5AF48C29F8F9FFA /* Theme.swift */; };
+		A1B2C3D4E5F6010101010160 /* ThemePack.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020260 /* ThemePack.swift */; };
+		A1B2C3D4E5F6010101010161 /* BuiltinThemePacks.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020261 /* BuiltinThemePacks.swift */; };
+		A1B2C3D4E5F6010101010162 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020262 /* ThemeManager.swift */; };
+		A1B2C3D4E5F6010101010163 /* AppearanceSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020263 /* AppearanceSettingsViewController.swift */; };
 		48C0A4946FCF422DB594031C /* ReadingListStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0348F54E284419696A84A8F /* ReadingListStore.swift */; };
 		511134C2A659495F886AAE3C /* FindInPageScript.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D72133D7604D248E81F8DE /* FindInPageScript.swift */; };
 		5F0B0037046543C181F800BC /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D058F2F1254470E81555A52 /* SceneDelegate.swift */; };
@@ -94,6 +98,10 @@
 		12BD4B168F4A48569EA59EC0 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		148219CAF76C4E93AD37C016 /* DefaultFilterManifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = DefaultFilterManifest.json; sourceTree = "<group>"; };
 		1779FCB4C5AF48C29F8F9FFA /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020260 /* ThemePack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePack.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020261 /* BuiltinThemePacks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuiltinThemePacks.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020262 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020263 /* AppearanceSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsViewController.swift; sourceTree = "<group>"; };
 		1BEF9DC2EA4A4FECB9B302B7 /* HistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryStore.swift; sourceTree = "<group>"; };
 		2647202205AE48D0A2EE427F /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManager.swift; sourceTree = "<group>"; };
 		2F17FA7E6B9649618EC381DB /* MediaPlaybackSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPlaybackSupport.swift; sourceTree = "<group>"; };
@@ -228,6 +236,7 @@
 			isa = PBXGroup;
 			children = (
 				8DD96938CCB3479484E2D530 /* SettingsViewController.swift */,
+				A1B2C3D4E5F6020202020263 /* AppearanceSettingsViewController.swift */,
 				A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */,
 				A1B2C3D4E5F6020202020232 /* LocationMapPickerViewController.swift */,
 				A1B2C3D4E5F6020202020243 /* GestureSettingsViewController.swift */,
@@ -298,6 +307,7 @@
 				A1B2C3D4E5F6030303030301 /* AppLock */,
 				A1B2C3D4E5F6030303030302 /* Gestures */,
 				D1A5510B1493499DB371F870 /* Common */,
+				A1B2C3D4E5F6030303030310 /* Theme */,
 				01E11A63E266468B846C126C /* Downloads */,
 				6373D704B4A94440ABBCB90E /* Library */,
 				E5F51385C860408AB5A76649 /* Menu */,
@@ -416,6 +426,16 @@
 				72957411D4864AC0B8541064 /* URLInputResolver.swift */,
 			);
 			path = Common;
+			sourceTree = "<group>";
+		};
+		A1B2C3D4E5F6030303030310 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D4E5F6020202020260 /* ThemePack.swift */,
+				A1B2C3D4E5F6020202020261 /* BuiltinThemePacks.swift */,
+				A1B2C3D4E5F6020202020262 /* ThemeManager.swift */,
+			);
+			path = Theme;
 			sourceTree = "<group>";
 		};
 		E5F51385C860408AB5A76649 /* Menu */ = {
@@ -566,6 +586,10 @@
 				A1B2C3D4E5F6010101010130 /* GeolocationSpoof.swift in Sources */,
 				5F551AC16CAD4143A1593E53 /* LetterAvatarView.swift in Sources */,
 				47C017E84DF14D329312A9B6 /* Theme.swift in Sources */,
+				A1B2C3D4E5F6010101010160 /* ThemePack.swift in Sources */,
+				A1B2C3D4E5F6010101010161 /* BuiltinThemePacks.swift in Sources */,
+				A1B2C3D4E5F6010101010162 /* ThemeManager.swift in Sources */,
+				A1B2C3D4E5F6010101010163 /* AppearanceSettingsViewController.swift in Sources */,
 				90F8BD6BD7DB43AF80342259 /* Toast.swift in Sources */,
 				E1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift in Sources */,
 				C58A1413B374481F93E6D824 /* URLInputResolver.swift in Sources */,

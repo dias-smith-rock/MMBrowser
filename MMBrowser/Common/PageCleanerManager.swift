@@ -324,7 +324,7 @@ enum PageCleanerManager {
         var btn = document.createElement('button');
         btn.id = BTN_ID;
         btn.type = 'button';
-        btn.textContent = '删除';
+        btn.textContent = 'Delete';
         btn.addEventListener('click', function(e) {
           e.preventDefault();
           e.stopPropagation();
