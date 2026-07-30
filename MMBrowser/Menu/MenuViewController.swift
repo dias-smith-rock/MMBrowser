@@ -41,7 +41,6 @@ final class MenuViewController: UIViewController {
         var icons: [(String, String, MenuAction)] = [
             ("gear", "Settings", .settings),
             ("star", "Bookmarks", .bookmarks),
-            ("clock", "History", .history),
             ("book", "Reading list", .readingList),
             ("arrow.down.circle", "Downloads", .downloads),
             ("doc.text", "Reader", .readerMode)

@@ -52,7 +52,7 @@ final class OnboardingViewController: UIViewController {
         addPage(
             at: 0,
             title: "Private by default",
-            body: "Block ads and trackers on the open web. Your browsing data stays on this device."
+            body: "Block ads and trackers on the open web. Your browsing data stays on this device. Location is denied by default—sites that use GPS-like APIs won’t get your coordinates. Network IP geo-detection still needs a VPN or proxy to change."
         )
         addPage(
             at: 1,

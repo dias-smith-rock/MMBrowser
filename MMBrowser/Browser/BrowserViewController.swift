@@ -39,6 +39,7 @@ final class BrowserViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .youtubeAdShieldChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .mediaPlaybackSettingsChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .filterManifestUpdated, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .locationPrivacyChanged, object: nil)
     }
 
     @objc private func trackerChanged() {
@@ -617,6 +618,12 @@ extension BrowserViewController: TabSwitcherViewControllerDelegate {
         dismiss(animated: true) {
             _ = self.tabManager.addTab(incognito: incognito, select: true)
             self.showSelectedTab()
+        }
+    }
+
+    func tabSwitcherDidRequestOpenURLInNewTab(_ url: URL) {
+        dismiss(animated: true) {
+            self.openURLInNewTab(url, incognito: false)
         }
     }
 }

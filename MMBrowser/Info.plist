@@ -28,6 +28,8 @@
 	<string>MMBrowser needs access to save screenshots to your photo library.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>MMBrowser uses Face ID to unlock the app.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>MMBrowser uses your location only when Location is set to Ask and a website requests it.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

@@ -4,6 +4,7 @@ import SnapKit
 protocol TabSwitcherViewControllerDelegate: AnyObject {
     func tabSwitcherDidClose()
     func tabSwitcherDidRequestNewTab(incognito: Bool)
+    func tabSwitcherDidRequestOpenURLInNewTab(_ url: URL)
 }
 
 final class TabSwitcherViewController: UIViewController {
@@ -11,11 +12,16 @@ final class TabSwitcherViewController: UIViewController {
 
     private let tabManager: TabManager
     private var collectionView: UICollectionView!
+    private var collectionHeightConstraint: Constraint?
     private let topBar = UIView()
     private let countBadge = UILabel()
     private let doneButton = UIButton(type: .system)
     private let addButton = UIButton(type: .system)
     private let moreButton = UIButton(type: .system)
+    private let mainScroll = UIScrollView()
+    private let contentStack = UIStackView()
+    private let bookmarksSection = UIStackView()
+    private let readingSection = UIStackView()
     private var searchQuery = ""
 
     init(tabManager: TabManager) {
@@ -40,9 +46,14 @@ final class TabSwitcherViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = BrowserTheme.background
         setupTop()
-        setupCollection()
+        setupMainScroll()
         setupBottom()
         reload()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateCollectionHeight()
     }
 
     private func setupTop() {
@@ -61,8 +72,6 @@ final class TabSwitcherViewController: UIViewController {
         countBadge.clipsToBounds = true
         countBadge.adjustsFontSizeToFitWidth = true
         countBadge.baselineAdjustment = .alignCenters
-        // Optical vertical centering for single digits in a short pill.
-        countBadge.contentMode = .center
 
         moreButton.setImage(UIImage(systemName: "ellipsis"), for: .normal)
         moreButton.tintColor = BrowserTheme.textPrimary
@@ -105,22 +114,62 @@ final class TabSwitcherViewController: UIViewController {
         return UIMenu(title: "", children: [closeOthers, closeAll])
     }
 
-    private func setupCollection() {
+    private func setupMainScroll() {
+        mainScroll.alwaysBounceVertical = true
+        mainScroll.showsVerticalScrollIndicator = false
+        view.addSubview(mainScroll)
+
+        contentStack.axis = .vertical
+        contentStack.spacing = 20
+        contentStack.alignment = .fill
+        mainScroll.addSubview(contentStack)
+
         let layout = UICollectionViewFlowLayout()
         layout.minimumLineSpacing = 12
         layout.minimumInteritemSpacing = 12
-        layout.sectionInset = UIEdgeInsets(top: 12, left: 12, bottom: 12, right: 12)
+        layout.sectionInset = UIEdgeInsets(top: 12, left: 12, bottom: 4, right: 12)
         collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
         collectionView.backgroundColor = .clear
+        collectionView.isScrollEnabled = false
         collectionView.dataSource = self
         collectionView.delegate = self
         collectionView.register(TabGridCell.self, forCellWithReuseIdentifier: TabGridCell.reuseID)
-        view.addSubview(collectionView)
-        collectionView.snp.makeConstraints { make in
+
+        configureListSection(bookmarksSection, title: "Bookmarks")
+        configureListSection(readingSection, title: "Reading list")
+
+        contentStack.addArrangedSubview(collectionView)
+        contentStack.addArrangedSubview(bookmarksSection)
+        contentStack.addArrangedSubview(readingSection)
+
+        mainScroll.snp.makeConstraints { make in
             make.top.equalTo(topBar.snp.bottom)
             make.leading.trailing.equalToSuperview()
             make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).offset(-72)
         }
+        contentStack.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
+            make.width.equalTo(mainScroll)
+        }
+        collectionView.snp.makeConstraints { make in
+            collectionHeightConstraint = make.height.equalTo(200).constraint
+        }
+    }
+
+    private func configureListSection(_ section: UIStackView, title: String) {
+        section.axis = .vertical
+        section.spacing = 8
+        section.alignment = .fill
+        section.isLayoutMarginsRelativeArrangement = true
+        section.layoutMargins = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
+        section.isHidden = true
+
+        let header = UILabel()
+        header.text = title
+        header.font = .systemFont(ofSize: 16, weight: .semibold)
+        header.textColor = BrowserTheme.textPrimary
+        header.tag = 9001
+        section.addArrangedSubview(header)
     }
 
     private func setupBottom() {
@@ -151,7 +200,6 @@ final class TabSwitcherViewController: UIViewController {
     private func reload() {
         let count = displayedTabs.count
         countBadge.text = "\(count)"
-        // Widen pill for multi-digit counts while keeping the glyph centered.
         let widthMultiplier: CGFloat = count >= 100 ? 2.0 : (count >= 10 ? 1.65 : 1.35)
         countBadge.snp.remakeConstraints { make in
             make.center.equalToSuperview()
@@ -160,10 +208,86 @@ final class TabSwitcherViewController: UIViewController {
         }
         moreButton.menu = makeMoreMenu()
         collectionView.reloadData()
+        updateCollectionHeight()
+        rebuildLibrarySections()
+    }
+
+    private func updateCollectionHeight() {
+        let width = collectionView.bounds.width > 0 ? collectionView.bounds.width : view.bounds.width
+        guard width > 0 else { return }
+        let itemWidth = (width - 36) / 2
+        let itemHeight = itemWidth * 1.25
+        let rows = max(1, Int(ceil(Double(max(displayedTabs.count, 1)) / 2.0)))
+        let height = CGFloat(rows) * itemHeight + CGFloat(max(0, rows - 1)) * 12 + 16
+        collectionHeightConstraint?.update(offset: height)
+    }
+
+    private func rebuildLibrarySections() {
+        rebuildSection(
+            bookmarksSection,
+            items: BookmarkStore.shared.items.map { ($0.title, $0.urlString, $0.url) }
+        )
+        rebuildSection(
+            readingSection,
+            items: ReadingListStore.shared.items.map { ($0.title, $0.urlString, $0.url) }
+        )
+    }
+
+    private func rebuildSection(_ section: UIStackView, items: [(String, String, URL?)]) {
+        // Keep header (tag 9001), remove rows.
+        section.arrangedSubviews.forEach { view in
+            if view.tag != 9001 {
+                section.removeArrangedSubview(view)
+                view.removeFromSuperview()
+            }
+        }
+
+        let visible = items.filter { $0.2 != nil }
+        section.isHidden = visible.isEmpty
+        guard !visible.isEmpty else { return }
+
+        for item in visible.prefix(12) {
+            section.addArrangedSubview(makeLibraryRow(title: item.0, subtitle: item.1, url: item.2!))
+        }
+    }
+
+    private func makeLibraryRow(title: String, subtitle: String, url: URL) -> UIView {
+        let row = UIButton(type: .system)
+        row.backgroundColor = BrowserTheme.card
+        row.layer.cornerRadius = 12
+        row.contentHorizontalAlignment = .left
+        row.contentEdgeInsets = UIEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
+
+        let titleLabel = UILabel()
+        titleLabel.text = title
+        titleLabel.textColor = BrowserTheme.textPrimary
+        titleLabel.font = .systemFont(ofSize: 15, weight: .medium)
+        titleLabel.numberOfLines = 1
+
+        let subtitleLabel = UILabel()
+        subtitleLabel.text = URL(string: subtitle)?.host ?? subtitle
+        subtitleLabel.textColor = BrowserTheme.textSecondary
+        subtitleLabel.font = .systemFont(ofSize: 12)
+        subtitleLabel.numberOfLines = 1
+
+        let stack = UIStackView(arrangedSubviews: [titleLabel, subtitleLabel])
+        stack.axis = .vertical
+        stack.spacing = 2
+        stack.isUserInteractionEnabled = false
+        row.addSubview(stack)
+        stack.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(UIEdgeInsets(top: 10, left: 12, bottom: 10, right: 12))
+        }
+        row.snp.makeConstraints { $0.height.greaterThanOrEqualTo(52) }
+
+        row.addAction(UIAction { [weak self] _ in
+            self?.delegate?.tabSwitcherDidRequestOpenURLInNewTab(url)
+        }, for: .touchUpInside)
+
+        return row
     }
 
     @objc private func addTapped() {
-        // Match current selected tab privacy; default new tabs are normal unless opened from private flow.
         let incognito = tabManager.selectedTab?.isIncognito ?? false
         delegate?.tabSwitcherDidRequestNewTab(incognito: incognito)
     }

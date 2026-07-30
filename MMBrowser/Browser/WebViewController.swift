@@ -142,6 +142,9 @@ final class WebViewController: UIViewController {
         if YouTubeAdShield.isEffectivelyEnabled {
             config.userContentController.addUserScript(YouTubeAdShield.userScript)
         }
+        if let geoScript = GeolocationSpoof.userScript() {
+            config.userContentController.addUserScript(geoScript)
+        }
         // Unlock pinch-zoom on pages that set user-scalable=no / maximum-scale=1
         // (UIScrollView.ignoresViewportScaleLimits is unavailable in this SDK).
         // YouTube is excluded inside the script — unlocking breaks its mobile width.

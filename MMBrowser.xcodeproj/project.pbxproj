@@ -74,6 +74,9 @@
 		A1B2C3D4E5F6010101010110 /* PasscodeKeypadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020210 /* PasscodeKeypadView.swift */; };
 		A1B2C3D4E5F6010101010120 /* NavigationDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020220 /* NavigationDirectory.swift */; };
 		A1B2C3D4E5F6010101010121 /* FaviconImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020221 /* FaviconImageView.swift */; };
+		A1B2C3D4E5F6010101010130 /* GeolocationSpoof.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020230 /* GeolocationSpoof.swift */; };
+		A1B2C3D4E5F6010101010131 /* LocationSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */; };
+		A1B2C3D4E5F6010101010132 /* LocationMapPickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020232 /* LocationMapPickerViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -148,6 +151,9 @@
 		A1B2C3D4E5F6020202020210 /* PasscodeKeypadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasscodeKeypadView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020220 /* NavigationDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationDirectory.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020221 /* FaviconImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaviconImageView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020230 /* GeolocationSpoof.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeolocationSpoof.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSettingsViewController.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020232 /* LocationMapPickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationMapPickerViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -202,6 +208,8 @@
 			isa = PBXGroup;
 			children = (
 				8DD96938CCB3479484E2D530 /* SettingsViewController.swift */,
+				A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */,
+				A1B2C3D4E5F6020202020232 /* LocationMapPickerViewController.swift */,
 				B1C2D3E4F5A64789B0C1D2E9 /* PageCleanerRulesViewController.swift */,
 			);
 			path = Settings;
@@ -366,6 +374,7 @@
 				B1C2D3E4F5A64789B0C1D2E5 /* PageCleanerManager.swift */,
 				B1C2D3E4F5A64789B0C1D2E3 /* PageCleanerStore.swift */,
 				D3B6BD940BB54D82A4066522 /* AppSettings.swift */,
+				A1B2C3D4E5F6020202020230 /* GeolocationSpoof.swift */,
 				3979F26B75FD439E9108F7A7 /* LetterAvatarView.swift */,
 				1779FCB4C5AF48C29F8F9FFA /* Theme.swift */,
 				37FC46822386450BA067F7F5 /* Toast.swift */,
@@ -528,6 +537,7 @@
 				B1C2D3E4F5A64789B0C1D2E6 /* PageCleanerManager.swift in Sources */,
 				B1C2D3E4F5A64789B0C1D2EA /* PageCleanerRulesViewController.swift in Sources */,
 				7F319ABC1AF74FABA37DAF1D /* AppSettings.swift in Sources */,
+				A1B2C3D4E5F6010101010130 /* GeolocationSpoof.swift in Sources */,
 				5F551AC16CAD4143A1593E53 /* LetterAvatarView.swift in Sources */,
 				47C017E84DF14D329312A9B6 /* Theme.swift in Sources */,
 				90F8BD6BD7DB43AF80342259 /* Toast.swift in Sources */,
@@ -559,6 +569,8 @@
 				5F0B0037046543C181F800BC /* SceneDelegate.swift in Sources */,
 				1F1ED11741F74753815644DF /* SearchEngineManager.swift in Sources */,
 				DDC66117ECB14AA7AB16EF37 /* SettingsViewController.swift in Sources */,
+				A1B2C3D4E5F6010101010131 /* LocationSettingsViewController.swift in Sources */,
+				A1B2C3D4E5F6010101010132 /* LocationMapPickerViewController.swift in Sources */,
 				225CD882697F4D4E83068A67 /* BrowserTab.swift in Sources */,
 				05EE9C9F5639484BA9BA6FF2 /* TabManager.swift in Sources */,
 				E275E26CE7D145A49D4259E8 /* TabSwitcherViewController.swift in Sources */,

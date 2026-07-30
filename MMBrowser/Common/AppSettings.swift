@@ -68,6 +68,56 @@ enum AppSettings {
         get { d.bool(forKey: "onboarding.done") }
         set { d.set(newValue, forKey: "onboarding.done") }
     }
+
+    /// Default Deny — privacy browser does not expose GPS-like location unless user opts in.
+    static var locationPrivacyMode: LocationPrivacyMode {
+        get {
+            LocationPrivacyMode(rawValue: d.string(forKey: "location.mode") ?? "") ?? .deny
+        }
+        set { d.set(newValue.rawValue, forKey: "location.mode") }
+    }
+
+    static var spoofPresetID: String {
+        get { d.string(forKey: "location.spoof.preset") ?? SpoofLocationPreset.all[0].id }
+        set { d.set(newValue, forKey: "location.spoof.preset") }
+    }
+
+    static var spoofLatitude: Double {
+        get {
+            if d.object(forKey: "location.spoof.lat") == nil {
+                return SpoofLocationPreset.all[0].latitude
+            }
+            return d.double(forKey: "location.spoof.lat")
+        }
+        set { d.set(newValue, forKey: "location.spoof.lat") }
+    }
+
+    static var spoofLongitude: Double {
+        get {
+            if d.object(forKey: "location.spoof.lon") == nil {
+                return SpoofLocationPreset.all[0].longitude
+            }
+            return d.double(forKey: "location.spoof.lon")
+        }
+        set { d.set(newValue, forKey: "location.spoof.lon") }
+    }
+
+    static var spoofTimeZoneIdentifier: String {
+        get { d.string(forKey: "location.spoof.tz") ?? SpoofLocationPreset.all[0].timeZoneIdentifier }
+        set { d.set(newValue, forKey: "location.spoof.tz") }
+    }
+
+    static var locationSummary: String {
+        switch locationPrivacyMode {
+        case .deny: return "Deny"
+        case .ask: return "Ask"
+        case .spoof:
+            if let preset = SpoofLocationPreset.all.first(where: { $0.id == spoofPresetID }) {
+                return "Spoof · \(preset.name)"
+            }
+            return String(format: "Spoof · %.2f, %.2f", spoofLatitude, spoofLongitude)
+        }
+    }
 }
 
 extension Notification.Name {
@@ -78,4 +128,5 @@ extension Notification.Name {
     static let shortsFocusChanged = Notification.Name("mmbrowser.shorts.changed")
     static let youtubeAdShieldChanged = Notification.Name("mmbrowser.yt.adshield.changed")
     static let mediaPlaybackSettingsChanged = Notification.Name("mmbrowser.media.changed")
+    static let locationPrivacyChanged = Notification.Name("mmbrowser.location.changed")
 }

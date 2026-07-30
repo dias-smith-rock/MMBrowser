@@ -17,6 +17,9 @@ final class PrivacyInfoViewController: UIViewController {
         Block Ads & Trackers
         Blocks known ad and tracker network requests and hides common page banners using WebKit content rules. You can turn this off anytime in Settings.
 
+        Location
+        By default, MMBrowser denies GPS-like location to websites. You can Spoof a virtual city (and matching timezone when possible) for sites that use the browser Geolocation API. Changing virtual location only affects sites that ask the browser for coordinates. Sites that detect your network IP cannot be changed without a VPN or proxy.
+
         Focus Mode (Hide Shorts)
         Hides YouTube Shorts shelves and redirects Shorts links to the classic watch page when possible.
 
@@ -30,7 +33,7 @@ final class PrivacyInfoViewController: UIViewController {
         Prefers secure connections when you type a domain without a scheme.
 
         Limits
-        No browser can fully prevent fingerprinting on the open web. MMBrowser focuses on practical tracking reduction, cleaner pages, and local data control—not impossible absolute anonymity. Filter updates may be downloaded so protections can recover after site changes.
+        No browser can fully prevent fingerprinting on the open web. MMBrowser focuses on practical tracking reduction, cleaner pages, and local data control—not impossible absolute anonymity. Filter updates may be downloaded so protections can recover after site changes. Virtual location does not change your public IP.
         """
         view.addSubview(text)
         text.snp.makeConstraints { make in
