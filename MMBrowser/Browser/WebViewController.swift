@@ -172,7 +172,8 @@ final class WebViewController: UIViewController {
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.navigationDelegate = self
         wv.uiDelegate = self
-        wv.allowsBackForwardNavigationGestures = true
+        // Full-page swipe handles back/forward; keep edge peek disabled to avoid double triggers.
+        wv.allowsBackForwardNavigationGestures = false
         wv.scrollView.bouncesZoom = true
         wv.scrollView.alwaysBounceHorizontal = false
         wv.scrollView.isDirectionalLockEnabled = true
@@ -186,6 +187,7 @@ final class WebViewController: UIViewController {
             make.leading.trailing.bottom.equalToSuperview()
         }
         webView = wv
+        setupNavigationSwipeGestures(on: wv)
 
         progressObservation = wv.observe(\.estimatedProgress, options: [.new]) { [weak self] webView, _ in
             guard let self = self else { return }
@@ -373,6 +375,30 @@ final class WebViewController: UIViewController {
     func goBack() { if webView?.canGoBack == true { webView?.goBack() } }
     func goForward() { if webView?.canGoForward == true { webView?.goForward() } }
     func reload() { webView?.reload() }
+
+    /// 右滑 → 上一页，左滑 → 下一页（全页滑动，不仅限边缘）。
+    private func setupNavigationSwipeGestures(on webView: WKWebView) {
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(handleNavigationPan(_:)))
+        pan.delegate = self
+        pan.maximumNumberOfTouches = 1
+        pan.cancelsTouchesInView = false
+        view.addGestureRecognizer(pan)
+    }
+
+    @objc private func handleNavigationPan(_ gesture: UIPanGestureRecognizer) {
+        guard gesture.state == .ended else { return }
+        let translation = gesture.translation(in: view)
+        let velocity = gesture.velocity(in: view)
+        let dx = translation.x
+        let dy = translation.y
+        // Require a clear horizontal swipe so vertical scrolling isn't treated as navigation.
+        guard abs(dx) > abs(dy) * 1.8, abs(dx) > 70 || abs(velocity.x) > 700 else { return }
+        if dx > 0 {
+            goBack()
+        } else {
+            goForward()
+        }
+    }
 
     func setPreferDesktop(_ enabled: Bool) {
         preferDesktop = enabled
@@ -622,6 +648,17 @@ private final class WebViewScriptProxy: NSObject, WKScriptMessageHandler {
         default:
             break
         }
+    }
+}
+
+extension WebViewController: UIGestureRecognizerDelegate {
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        true
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        if touch.view is UIControl { return false }
+        return true
     }
 }
 
