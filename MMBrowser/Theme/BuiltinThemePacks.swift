@@ -135,11 +135,11 @@ enum BuiltinThemePacks {
             privateElevated: ThemeHex.color("1E2219")
         ),
         icons: icons(overrides: [
-            .toolbarBack: .symbol("arrow.left"),
-            .toolbarForward: .symbol("arrow.right"),
-            .toolbarNewTab: .symbol("plus.circle"),
-            .toolbarTabs: .symbol("rectangle.on.rectangle"),
-            .toolbarMenu: .symbol("list.bullet"),
+            .toolbarBack: .asset("theme_steady_back"),
+            .toolbarForward: .asset("theme_steady_forward"),
+            .toolbarNewTab: .asset("theme_steady_newtab"),
+            .toolbarTabs: .asset("theme_steady_tabs"),
+            .toolbarMenu: .asset("theme_steady_menu"),
             .addressCleaner: .symbol("wand.and.rays")
         ])
     )

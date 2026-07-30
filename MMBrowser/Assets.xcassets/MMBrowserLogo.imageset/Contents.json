@@ -1,0 +1,23 @@
+{
+  "images": [
+    {
+      "filename": "MMBrowserLogo.png",
+      "idiom": "universal",
+      "scale": "1x"
+    },
+    {
+      "filename": "MMBrowserLogo@2x.png",
+      "idiom": "universal",
+      "scale": "2x"
+    },
+    {
+      "filename": "MMBrowserLogo@3x.png",
+      "idiom": "universal",
+      "scale": "3x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}
