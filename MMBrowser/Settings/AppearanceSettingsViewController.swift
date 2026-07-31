@@ -2,11 +2,24 @@ import UIKit
 import SnapKit
 
 final class AppearanceSettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+    enum FocusSection {
+        case theme
+        case wallpaper
+    }
+
     private enum Section: Int, CaseIterable { case theme, wallpaper }
 
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private let packs = BuiltinThemePacks.all
     private let wallpaperNames = ["Default", "Deep Blue", "Forest", "Midnight"]
+    private let focus: FocusSection
+
+    init(focus: FocusSection = .theme) {
+        self.focus = focus
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -19,6 +32,13 @@ final class AppearanceSettingsViewController: UIViewController, UITableViewDataS
         tableView.snp.makeConstraints { $0.edges.equalToSuperview() }
 
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeDidChange, object: nil)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        let section = focus == .theme ? Section.theme.rawValue : Section.wallpaper.rawValue
+        let indexPath = IndexPath(row: 0, section: section)
+        tableView.scrollToRow(at: indexPath, at: .top, animated: true)
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }

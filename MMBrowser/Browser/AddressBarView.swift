@@ -4,10 +4,15 @@ import SnapKit
 protocol AddressBarViewDelegate: AnyObject {
     func addressBarDidSubmit(_ text: String)
     func addressBarDidBeginEditing()
+    func addressBarDidTapReload()
+    func addressBarDidTapRichMenu()
+    func addressBarCanSwipeToPreviousTab() -> Bool
+    func addressBarCanSwipeToNextTab() -> Bool
+    func addressBarTitleForAdjacentTab(offset: Int) -> String?
+    func addressBarDidSwipeToPreviousTab()
+    func addressBarDidSwipeToNextTab()
     func addressBarDidChoosePageCleaner(urlOnly: Bool)
     func addressBarDidExitPageCleaner()
-    func addressBarDidRequestManualScreenshot()
-    func addressBarDidRequestLongScreenshot()
     func addressBarDidTapShield(blockCount: Int)
 }
 
@@ -15,10 +20,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     weak var delegate: AddressBarViewDelegate?
 
     private let container = UIView()
-    private let screenshotEntry = UIControl()
-    private let screenshotIcon = UIImageView()
-    private let chevronIcon = UIImageView()
-    private let pageCleanerButton = UIButton(type: .system)
+    private let reloadButton = UIButton(type: .system)
+    private let richMenuButton = UIButton(type: .system)
     private let shieldButton = UIButton(type: .custom)
     private let shieldBadge = UILabel()
     private let privateBadge = UILabel()
@@ -31,17 +34,15 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private var blockCount = 0
     private var focusActive = false
 
-    private let chipsContainer = UIView()
-    private let longShotChip = UIButton(type: .system)
-    private let manualShotChip = UIButton(type: .system)
-    private var chipsVisible = false
-
     private let cleanerMenuContainer = UIView()
     private let cleanerSiteChip = UIButton(type: .system)
     private let cleanerPageChip = UIButton(type: .system)
     private let cleanerExitChip = UIButton(type: .system)
     private var cleanerMenuVisible = false
     private var dismissTap: UITapGestureRecognizer?
+    private var tabSwipe: UIPanGestureRecognizer?
+    private let swipeClip = UIView()
+    private let peekLabel = UILabel()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -52,22 +53,11 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         container.layer.cornerRadius = 22
         addSubview(container)
 
-        screenshotIcon.contentMode = .scaleAspectFit
-        screenshotIcon.isUserInteractionEnabled = false
+        reloadButton.accessibilityLabel = "Reload"
+        reloadButton.addTarget(self, action: #selector(reloadTapped), for: .touchUpInside)
 
-        let chevronConfig = UIImage.SymbolConfiguration(pointSize: 9, weight: .bold)
-        chevronIcon.image = UIImage(systemName: "chevron.up.chevron.down", withConfiguration: chevronConfig)
-        chevronIcon.tintColor = BrowserTheme.textSecondary
-        chevronIcon.contentMode = .scaleAspectFit
-        chevronIcon.isUserInteractionEnabled = false
-
-        screenshotEntry.addSubview(screenshotIcon)
-        screenshotEntry.addSubview(chevronIcon)
-        screenshotEntry.addTarget(self, action: #selector(screenshotEntryTapped), for: .touchUpInside)
-        screenshotEntry.accessibilityLabel = "Screenshot"
-
-        pageCleanerButton.accessibilityLabel = "Clean page"
-        pageCleanerButton.addTarget(self, action: #selector(pageCleanerTapped), for: .touchUpInside)
+        richMenuButton.accessibilityLabel = "Page menu"
+        richMenuButton.addTarget(self, action: #selector(richMenuTapped), for: .touchUpInside)
 
         let shieldConfig = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
         shieldButton.setImage(UIImage(systemName: "shield.lefthalf.filled", withConfiguration: shieldConfig), for: .normal)
@@ -76,7 +66,6 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         shieldButton.isHidden = true
         shieldButton.contentEdgeInsets = .zero
         shieldButton.imageView?.contentMode = .scaleAspectFit
-        shieldButton.isPointerInteractionEnabled = false
         shieldButton.addTarget(self, action: #selector(shieldTapped), for: .touchUpInside)
 
         shieldBadge.font = .systemFont(ofSize: 9, weight: .bold)
@@ -115,17 +104,27 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         progressView.trackTintColor = .clear
         progressView.isHidden = true
 
-        container.addSubview(screenshotEntry)
+        swipeClip.clipsToBounds = true
+        swipeClip.isUserInteractionEnabled = true
+        peekLabel.font = .systemFont(ofSize: 15, weight: .medium)
+        peekLabel.textAlignment = .center
+        peekLabel.isUserInteractionEnabled = false
+        peekLabel.alpha = 0
+
+        container.addSubview(reloadButton)
         container.addSubview(privateBadge)
-        container.addSubview(textField)
+        container.addSubview(swipeClip)
+        swipeClip.addSubview(textField)
+        swipeClip.addSubview(peekLabel)
         container.addSubview(shieldButton)
         container.addSubview(shieldBadge)
-        container.addSubview(pageCleanerButton)
+        container.addSubview(richMenuButton)
         addSubview(progressView)
 
-        setupChips()
         setupCleanerMenu()
+        setupTabSwipe()
         applyTheme()
+        refreshTextFieldConstraints()
         NotificationCenter.default.addObserver(self, selector: #selector(applyTheme), name: .themeDidChange, object: nil)
 
         container.snp.makeConstraints { make in
@@ -134,36 +133,24 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.top.equalToSuperview().offset(4)
             make.height.equalTo(40)
         }
-        screenshotEntry.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(8)
+        reloadButton.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(10)
             make.centerY.equalToSuperview()
-            make.height.equalTo(32)
-            make.width.equalTo(44)
+            make.size.equalTo(22)
         }
         privateBadge.snp.makeConstraints { make in
-            make.leading.equalTo(screenshotEntry.snp.trailing).offset(4)
+            make.leading.equalTo(reloadButton.snp.trailing).offset(6)
             make.centerY.equalToSuperview()
             make.height.equalTo(20)
             make.width.equalTo(52)
         }
-        screenshotIcon.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(4)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(18)
-        }
-        chevronIcon.snp.makeConstraints { make in
-            make.leading.equalTo(screenshotIcon.snp.trailing).offset(2)
-            make.centerY.equalToSuperview()
-            make.width.equalTo(12)
-            make.height.equalTo(16)
-        }
-        pageCleanerButton.snp.makeConstraints { make in
+        richMenuButton.snp.makeConstraints { make in
             make.trailing.equalToSuperview().offset(-10)
             make.centerY.equalToSuperview()
             make.size.equalTo(22)
         }
         shieldButton.snp.makeConstraints { make in
-            make.trailing.equalTo(pageCleanerButton.snp.leading).offset(-8)
+            make.trailing.equalTo(richMenuButton.snp.leading).offset(-8)
             make.centerY.equalToSuperview()
             make.size.equalTo(22)
         }
@@ -173,10 +160,16 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.height.equalTo(14)
             make.width.greaterThanOrEqualTo(14)
         }
+        swipeClip.snp.makeConstraints { make in
+            make.leading.equalTo(reloadButton.snp.trailing).offset(8)
+            make.trailing.equalTo(richMenuButton.snp.leading).offset(-8)
+            make.top.bottom.equalToSuperview()
+        }
         textField.snp.makeConstraints { make in
-            make.leading.equalTo(screenshotEntry.snp.trailing).offset(4)
-            make.trailing.equalTo(shieldButton.snp.leading).offset(-6)
-            make.centerY.equalToSuperview()
+            make.edges.equalToSuperview()
+        }
+        peekLabel.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
         }
         progressView.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview()
@@ -189,13 +182,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
     deinit { NotificationCenter.default.removeObserver(self) }
 
-    /// Chips / cleaner bubble draw above our bounds; include them in hit testing.
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         if super.point(inside: point, with: event) { return true }
-        if chipsVisible, !chipsContainer.isHidden {
-            let p = convert(point, to: chipsContainer)
-            if chipsContainer.point(inside: p, with: event) { return true }
-        }
         if cleanerMenuVisible, !cleanerMenuContainer.isHidden {
             let p = convert(point, to: cleanerMenuContainer)
             if cleanerMenuContainer.point(inside: p, with: event) { return true }
@@ -211,13 +199,6 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
                 return hit
             }
         }
-        if chipsVisible, !chipsContainer.isHidden {
-            let p = convert(point, to: chipsContainer)
-            if let hit = chipsContainer.hitTest(p, with: event) {
-                return hit
-            }
-        }
-        // Prefer the compact shield hit box before the large text field swallows taps near the trailing edge.
         if !shieldButton.isHidden {
             let shieldPoint = convert(point, to: shieldButton)
             if shieldButton.bounds.insetBy(dx: -4, dy: -4).contains(shieldPoint) {
@@ -227,30 +208,13 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         return super.hitTest(point, with: event)
     }
 
-    private func setupChips() {
-        styleBubbleContainer(chipsContainer)
-        addSubview(chipsContainer)
-
-        configureChip(longShotChip, title: "Long screenshot")
-        configureChip(manualShotChip, title: "Manual capture")
-        longShotChip.addTarget(self, action: #selector(longShotTapped), for: .touchUpInside)
-        manualShotChip.addTarget(self, action: #selector(manualShotTapped), for: .touchUpInside)
-
-        let title = makeBubbleTitleLabel("Screenshot mode")
-        let stack = UIStackView(arrangedSubviews: [title, longShotChip, manualShotChip])
-        stack.axis = .vertical
-        stack.spacing = 8
-        stack.alignment = .fill
-        chipsContainer.addSubview(stack)
-
-        chipsContainer.snp.makeConstraints { make in
-            make.leading.equalTo(container.snp.leading)
-            make.bottom.equalTo(container.snp.top).offset(-8)
-            make.width.greaterThanOrEqualTo(132)
-        }
-        stack.snp.makeConstraints { make in
-            make.edges.equalToSuperview().inset(UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10))
-        }
+    private func setupTabSwipe() {
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(handleTabSwipe(_:)))
+        pan.delegate = self
+        pan.cancelsTouchesInView = true
+        pan.maximumNumberOfTouches = 1
+        container.addGestureRecognizer(pan)
+        tabSwipe = pan
     }
 
     private func setupCleanerMenu() {
@@ -321,15 +285,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     func setPrivateMode(_ isPrivate: Bool) {
         isPrivateMode = isPrivate
         privateBadge.isHidden = !isPrivate
-        textField.snp.remakeConstraints { make in
-            if isPrivate {
-                make.leading.equalTo(privateBadge.snp.trailing).offset(6)
-            } else {
-                make.leading.equalTo(screenshotEntry.snp.trailing).offset(4)
-            }
-            make.trailing.equalTo(rightmostTrailingAnchor()).offset(-6)
-            make.centerY.equalToSuperview()
-        }
+        refreshTextFieldConstraints()
         applyTheme()
     }
 
@@ -337,25 +293,23 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         backgroundColor = isPrivateMode ? BrowserTheme.privateBackground : BrowserTheme.background
         container.backgroundColor = isPrivateMode ? BrowserTheme.privateElevated : BrowserTheme.elevated
         let accent = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
-        let shotConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
-        screenshotIcon.image = ThemeManager.shared.image(for: .addressScreenshot, configuration: shotConfig, pointSize: 16)
-            ?? UIImage(systemName: "camera", withConfiguration: shotConfig)
-        screenshotIcon.tintColor = BrowserTheme.textSecondary
-        pageCleanerButton.setImage(ThemeManager.shared.image(for: .addressCleaner, pointSize: 18), for: .normal)
+        reloadButton.setImage(ThemeManager.shared.image(for: .menuReload, pointSize: 16), for: .normal)
+        reloadButton.tintColor = BrowserTheme.textSecondary
+        richMenuButton.setImage(UIImage(systemName: "ellipsis"), for: .normal)
+        richMenuButton.tintColor = BrowserTheme.textSecondary
         shieldButton.tintColor = BrowserTheme.textSecondary
         shieldBadge.backgroundColor = accent
         privateBadge.textColor = BrowserTheme.privateAccent
         privateBadge.backgroundColor = BrowserTheme.privateAccent.withAlphaComponent(0.18)
         textField.textColor = BrowserTheme.textPrimary
         textField.tintColor = accent
+        peekLabel.textColor = BrowserTheme.textSecondary
         progressView.progressTintColor = accent
-        chipsContainer.backgroundColor = BrowserTheme.elevated
         cleanerMenuContainer.backgroundColor = BrowserTheme.elevated
-        [longShotChip, manualShotChip, cleanerSiteChip, cleanerPageChip, cleanerExitChip].forEach {
+        [cleanerSiteChip, cleanerPageChip, cleanerExitChip].forEach {
             $0.setTitleColor(BrowserTheme.textPrimary, for: .normal)
             $0.backgroundColor = BrowserTheme.secondaryCard
         }
-        updatePageCleanerAppearance()
         updateCleanerChipSelection()
         updateShieldAppearance()
     }
@@ -368,14 +322,15 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         }
     }
 
-    func hideScreenshotChips() {
-        guard chipsVisible else { return }
-        setChipsVisible(false)
-    }
-
     func hideCleanerMenu() {
         guard cleanerMenuVisible else { return }
         setCleanerMenuVisible(false)
+    }
+
+    /// Opens the cleaner mode bubble (used when Webpage Cleaner is chosen from the rich menu).
+    func presentCleanerMenu() {
+        textField.resignFirstResponder()
+        setCleanerMenuVisible(true)
     }
 
     func setPageCleanerActive(_ active: Bool) {
@@ -384,7 +339,6 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             cleanerURLOnly = nil
             hideCleanerMenu()
         }
-        updatePageCleanerAppearance()
         updateCleanerChipSelection()
     }
 
@@ -402,7 +356,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         if !shieldButton.isHidden {
             return shieldButton.snp.leading
         }
-        return pageCleanerButton.snp.leading
+        return richMenuButton.snp.leading
     }
 
     private func updateShieldAppearance() {
@@ -410,7 +364,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         guard show else {
             shieldButton.isHidden = true
             shieldBadge.isHidden = true
-            refreshTextFieldTrailing()
+            refreshTextFieldConstraints()
             return
         }
         shieldButton.isHidden = false
@@ -435,23 +389,29 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             shieldButton.tintColor = BrowserTheme.textSecondary
             shieldButton.accessibilityValue = nil
         }
-        refreshTextFieldTrailing()
+        refreshTextFieldConstraints()
     }
 
-    private func refreshTextFieldTrailing() {
-        textField.snp.remakeConstraints { make in
+    private func refreshTextFieldConstraints() {
+        swipeClip.snp.remakeConstraints { make in
             if isPrivateMode {
                 make.leading.equalTo(privateBadge.snp.trailing).offset(6)
             } else {
-                make.leading.equalTo(screenshotEntry.snp.trailing).offset(4)
+                make.leading.equalTo(reloadButton.snp.trailing).offset(8)
             }
             make.trailing.equalTo(rightmostTrailingAnchor()).offset(-6)
-            make.centerY.equalToSuperview()
+            make.top.bottom.equalToSuperview()
+        }
+        textField.snp.remakeConstraints { make in
+            make.edges.equalToSuperview()
+        }
+        peekLabel.snp.remakeConstraints { make in
+            make.edges.equalToSuperview()
         }
     }
 
     func textFieldDidBeginEditing(_ textField: UITextField) {
-        hideScreenshotChips()
+        resetSwipeVisuals(animated: false)
         hideCleanerMenu()
         textField.textAlignment = .left
         textField.selectAll(nil)
@@ -463,24 +423,28 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        hideScreenshotChips()
         hideCleanerMenu()
         delegate?.addressBarDidSubmit(textField.text ?? "")
         textField.resignFirstResponder()
         return true
     }
 
-    @objc private func shieldTapped() {
+    @objc private func reloadTapped() {
         textField.resignFirstResponder()
-        hideScreenshotChips()
         hideCleanerMenu()
-        delegate?.addressBarDidTapShield(blockCount: blockCount)
+        delegate?.addressBarDidTapReload()
     }
 
-    @objc private func pageCleanerTapped() {
+    @objc private func richMenuTapped() {
         textField.resignFirstResponder()
-        hideScreenshotChips()
-        setCleanerMenuVisible(!cleanerMenuVisible)
+        hideCleanerMenu()
+        delegate?.addressBarDidTapRichMenu()
+    }
+
+    @objc private func shieldTapped() {
+        textField.resignFirstResponder()
+        hideCleanerMenu()
+        delegate?.addressBarDidTapShield(blockCount: blockCount)
     }
 
     @objc private func cleanerSiteTapped() {
@@ -504,57 +468,175 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         delegate?.addressBarDidExitPageCleaner()
     }
 
-    @objc private func screenshotEntryTapped() {
-        textField.resignFirstResponder()
-        hideCleanerMenu()
-        setChipsVisible(!chipsVisible)
-    }
+    @objc private func handleTabSwipe(_ gesture: UIPanGestureRecognizer) {
+        guard !textField.isFirstResponder else {
+            resetSwipeVisuals(animated: true)
+            return
+        }
 
-    @objc private func longShotTapped() {
-        setChipsVisible(false)
-        // Defer so dismiss animation / gesture cleanup doesn't cancel presentation.
-        DispatchQueue.main.async { [weak self] in
-            self?.delegate?.addressBarDidRequestLongScreenshot()
+        let translation = gesture.translation(in: container)
+        let velocity = gesture.velocity(in: container)
+        let width = max(swipeClip.bounds.width, 1)
+
+        switch gesture.state {
+        case .began:
+            hideCleanerMenu()
+            peekLabel.textColor = BrowserTheme.textSecondary
+            updateSwipeVisuals(dx: 0, width: width)
+
+        case .changed:
+            updateSwipeVisuals(dx: translation.x, width: width)
+
+        case .ended, .cancelled, .failed:
+            let dx = translation.x
+            let canPrevious = delegate?.addressBarCanSwipeToPreviousTab() == true
+            let canNext = delegate?.addressBarCanSwipeToNextTab() == true
+            // Swipe left → previous; swipe right → next.
+            let towardPrevious = dx < 0
+            let canCommitDirection = towardPrevious ? canPrevious : canNext
+            let distanceOK = abs(dx) > width * 0.28 || abs(velocity.x) > 520
+            let mostlyHorizontal = abs(dx) > abs(translation.y) * 1.2
+            let shouldCommit = gesture.state == .ended
+                && canCommitDirection
+                && mostlyHorizontal
+                && distanceOK
+                && abs(dx) > 8
+
+            if shouldCommit {
+                let target = towardPrevious ? -width : width
+                UIView.animate(withDuration: 0.18, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
+                    self.applySwipeOffset(target, width: width, peekAlpha: 1)
+                } completion: { _ in
+                    if towardPrevious {
+                        self.delegate?.addressBarDidSwipeToPreviousTab()
+                    } else {
+                        self.delegate?.addressBarDidSwipeToNextTab()
+                    }
+                    self.resetSwipeVisuals(animated: false)
+                    // Settle the new URL in from the opposite side.
+                    let enterFrom = towardPrevious ? width * 0.35 : -width * 0.35
+                    self.textField.transform = CGAffineTransform(translationX: enterFrom, y: 0)
+                    self.textField.alpha = 0.35
+                    UIView.animate(
+                        withDuration: 0.22,
+                        delay: 0,
+                        usingSpringWithDamping: 0.88,
+                        initialSpringVelocity: 0.4,
+                        options: [.allowUserInteraction]
+                    ) {
+                        self.textField.transform = .identity
+                        self.textField.alpha = 1
+                    }
+                }
+            } else {
+                UIView.animate(
+                    withDuration: 0.28,
+                    delay: 0,
+                    usingSpringWithDamping: 0.82,
+                    initialSpringVelocity: 0.3,
+                    options: [.allowUserInteraction]
+                ) {
+                    self.resetSwipeVisuals(animated: false)
+                }
+            }
+
+        default:
+            break
         }
     }
 
-    @objc private func manualShotTapped() {
-        setChipsVisible(false)
-        DispatchQueue.main.async { [weak self] in
-            self?.delegate?.addressBarDidRequestManualScreenshot()
+    private func updateSwipeVisuals(dx: CGFloat, width: CGFloat) {
+        let canPrevious = delegate?.addressBarCanSwipeToPreviousTab() == true
+        let canNext = delegate?.addressBarCanSwipeToNextTab() == true
+        var offset = dx
+
+        if offset < 0, !canPrevious {
+            offset = rubberBand(offset, limit: width)
+        } else if offset > 0, !canNext {
+            offset = rubberBand(offset, limit: width)
+        } else {
+            // Soft clamp so it doesn't overshoot too far while dragging.
+            let maxPull = width * 0.95
+            offset = max(-maxPull, min(maxPull, offset))
+        }
+
+        let towardPrevious = offset < 0
+        let canShowPeek = towardPrevious ? canPrevious : canNext
+        if canShowPeek, abs(offset) > 1 {
+            let adjacentOffset = towardPrevious ? -1 : 1
+            peekLabel.text = delegate?.addressBarTitleForAdjacentTab(offset: adjacentOffset)
+            let progress = min(1, abs(offset) / (width * 0.55))
+            applySwipeOffset(offset, width: width, peekAlpha: progress)
+        } else {
+            peekLabel.text = nil
+            applySwipeOffset(offset, width: width, peekAlpha: 0)
+        }
+    }
+
+    private func applySwipeOffset(_ offset: CGFloat, width: CGFloat, peekAlpha: CGFloat) {
+        textField.transform = CGAffineTransform(translationX: offset, y: 0)
+        textField.alpha = max(0.25, 1 - abs(offset) / (width * 0.9))
+        // Peek enters from the opposite edge of the drag.
+        let peekStart = offset >= 0 ? -width : width
+        peekLabel.transform = CGAffineTransform(translationX: peekStart + offset, y: 0)
+        peekLabel.alpha = peekAlpha
+    }
+
+    private func rubberBand(_ dx: CGFloat, limit: CGFloat) -> CGFloat {
+        let sign: CGFloat = dx < 0 ? -1 : 1
+        let x = abs(dx)
+        let dim = max(limit, 1)
+        return sign * (1 - (1 / ((x * 0.55 / dim) + 1))) * dim * 0.35
+    }
+
+    private func resetSwipeVisuals(animated: Bool) {
+        let updates = {
+            self.textField.transform = .identity
+            self.textField.alpha = 1
+            self.peekLabel.transform = .identity
+            self.peekLabel.alpha = 0
+            self.peekLabel.text = nil
+        }
+        if animated {
+            UIView.animate(withDuration: 0.2, animations: updates)
+        } else {
+            updates()
         }
     }
 
     @objc private func backgroundTapped(_ gesture: UITapGestureRecognizer) {
-        setChipsVisible(false)
         setCleanerMenuVisible(false)
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
         guard let view = touch.view else { return true }
-        if view === longShotChip || view === manualShotChip || view.isDescendant(of: chipsContainer) {
-            return false
+        if gestureRecognizer === tabSwipe {
+            if view === reloadButton || view.isDescendant(of: reloadButton) { return false }
+            if view === richMenuButton || view.isDescendant(of: richMenuButton) { return false }
+            if view === shieldButton || view.isDescendant(of: shieldButton) { return false }
+            if view === textField || view.isDescendant(of: textField) { return !textField.isFirstResponder }
+            return true
         }
         if view === cleanerSiteChip || view === cleanerPageChip || view === cleanerExitChip
             || view.isDescendant(of: cleanerMenuContainer) {
             return false
         }
-        if view === screenshotEntry || view.isDescendant(of: screenshotEntry) {
-            return false
-        }
-        if view === pageCleanerButton || view.isDescendant(of: pageCleanerButton) {
-            return false
-        }
-        if view === shieldButton || view.isDescendant(of: shieldButton) {
-            return false
-        }
+        if view === reloadButton || view === richMenuButton || view === shieldButton { return false }
         return true
     }
 
-    private func updatePageCleanerAppearance() {
-        let accent = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
-        pageCleanerButton.tintColor = isPageCleanerActive ? accent : BrowserTheme.textSecondary
-        pageCleanerButton.accessibilityLabel = isPageCleanerActive ? "Cleaning mode" : "Clean page"
+    override func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === tabSwipe,
+              let pan = gestureRecognizer as? UIPanGestureRecognizer else {
+            return super.gestureRecognizerShouldBegin(gestureRecognizer)
+        }
+        guard !textField.isFirstResponder else { return false }
+        let v = pan.velocity(in: container)
+        let t = pan.translation(in: container)
+        if abs(v.x) + abs(v.y) > 8 {
+            return abs(v.x) > abs(v.y) * 1.15
+        }
+        return abs(t.x) > abs(t.y) * 1.15 && abs(t.x) > 2
     }
 
     private func updateCleanerChipSelection() {
@@ -578,9 +660,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         cleanerMenuVisible = visible
         cleanerMenuContainer.isHidden = false
         bringSubviewToFront(cleanerMenuContainer)
-        updatePageCleanerAppearance()
 
-        if visible || chipsVisible {
+        if visible {
             installDismissTap()
         } else {
             removeDismissTap()
@@ -593,34 +674,6 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             if !visible {
                 self.cleanerMenuContainer.isHidden = true
                 self.cleanerMenuContainer.transform = .identity
-            }
-        })
-    }
-
-    private func setChipsVisible(_ visible: Bool) {
-        chipsVisible = visible
-        chipsContainer.isHidden = false
-        bringSubviewToFront(chipsContainer)
-
-        let chevronConfig = UIImage.SymbolConfiguration(pointSize: 9, weight: .bold)
-        let chevronName = visible ? "chevron.up" : "chevron.up.chevron.down"
-        chevronIcon.image = UIImage(systemName: chevronName, withConfiguration: chevronConfig)
-        screenshotIcon.tintColor = visible ? BrowserTheme.chromeBlue : BrowserTheme.textSecondary
-        chevronIcon.tintColor = visible ? BrowserTheme.chromeBlue : BrowserTheme.textSecondary
-
-        if visible || cleanerMenuVisible {
-            installDismissTap()
-        } else {
-            removeDismissTap()
-        }
-
-        UIView.animate(withDuration: 0.18, animations: {
-            self.chipsContainer.alpha = visible ? 1 : 0
-            self.chipsContainer.transform = visible ? .identity : CGAffineTransform(translationX: 0, y: 6)
-        }, completion: { _ in
-            if !visible {
-                self.chipsContainer.isHidden = true
-                self.chipsContainer.transform = .identity
             }
         })
     }
@@ -649,7 +702,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 }
 
-/// Forwards hits to children that draw outside the chrome bounds (e.g. screenshot chips).
+/// Forwards hits to children that draw outside the chrome bounds (e.g. cleaner menu).
 final class BrowserChromeView: UIView {
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         if super.point(inside: point, with: event) { return true }
@@ -678,7 +731,6 @@ final class BrowserChromeView: UIView {
         return nil
     }
 
-    /// UIStackView ignores points outside its bounds, so walk arranged subviews manually.
     private func forwardHit(in view: UIView, from parent: UIView, point: CGPoint, event: UIEvent?) -> UIView? {
         let local = parent.convert(point, to: view)
         if let stack = view as? UIStackView {

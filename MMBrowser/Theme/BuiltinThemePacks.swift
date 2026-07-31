@@ -14,7 +14,7 @@ enum BuiltinThemePacks {
         .toolbarForward: .symbol("chevron.right"),
         .toolbarNewTab: .symbol("plus"),
         .toolbarTabs: .symbol("square.on.square"),
-        .toolbarMenu: .symbol("ellipsis"),
+        .toolbarMenu: .symbol("line.3.horizontal"),
         .addressScreenshot: .symbol("camera"),
         .addressCleaner: .symbol("wand.and.stars"),
         .menuSettings: .symbol("gear"),

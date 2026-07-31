@@ -486,6 +486,30 @@ final class BrowserViewController: UIViewController {
         }
     }
 
+    private func presentPageRichMenu() {
+        setChromeCollapsed(false, animated: true)
+        let tab = tabManager.selectedTab
+        let context = PageRichMenuContext(
+            url: tab?.url,
+            title: tab?.title ?? "",
+            isIncognito: tab?.isIncognito ?? false,
+            preferDesktop: tab?.preferDesktop ?? false,
+            adBlockerEnabled: AppSettings.trackerProtectionEnabled,
+            hasLoadablePage: tab?.isNewTabPage != true && tab?.url != nil
+        )
+        let menu = PageRichMenuViewController(context: context)
+        menu.delegate = self
+        if #available(iOS 15.0, *) {
+            if let sheet = menu.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.prefersGrabberVisible = true
+            }
+        }
+        present(menu, animated: true) { [weak self] in
+            MediaPlaybackSupport.resumeMediaIfNeeded(in: self?.tabManager.selectedTab?.webController?.webView)
+        }
+    }
+
     private func captureCurrentSnapshotIfNeeded() {
         guard AppSettings.showTabsPreviewImages else { return }
         guard let tab = tabManager.selectedTab else { return }
@@ -554,6 +578,45 @@ extension BrowserViewController: AddressBarViewDelegate {
         setChromeCollapsed(false, animated: true)
     }
 
+    func addressBarDidTapReload() {
+        setChromeCollapsed(false, animated: true)
+        tabManager.selectedTab?.webController?.reload()
+    }
+
+    func addressBarDidTapRichMenu() {
+        presentPageRichMenu()
+    }
+
+    func addressBarCanSwipeToPreviousTab() -> Bool {
+        tabManager.selectedIndex > 0
+    }
+
+    func addressBarCanSwipeToNextTab() -> Bool {
+        tabManager.selectedIndex < tabManager.tabs.count - 1
+    }
+
+    func addressBarTitleForAdjacentTab(offset: Int) -> String? {
+        let index = tabManager.selectedIndex + offset
+        guard tabManager.tabs.indices.contains(index) else { return nil }
+        let tab = tabManager.tabs[index]
+        if let host = tab.url?.host, !host.isEmpty { return host }
+        if tab.isNewTabPage { return "New Tab" }
+        let title = tab.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return title.isEmpty ? "Tab" : title
+    }
+
+    func addressBarDidSwipeToPreviousTab() {
+        if tabManager.selectAdjacentTab(offset: -1) {
+            showSelectedTab()
+        }
+    }
+
+    func addressBarDidSwipeToNextTab() {
+        if tabManager.selectAdjacentTab(offset: 1) {
+            showSelectedTab()
+        }
+    }
+
     func addressBarDidChoosePageCleaner(urlOnly: Bool) {
         setChromeCollapsed(false, animated: true)
         tabManager.selectedTab?.webController?.enterPageCleaner(urlOnly: urlOnly)
@@ -564,16 +627,6 @@ extension BrowserViewController: AddressBarViewDelegate {
         setChromeCollapsed(false, animated: true)
         tabManager.selectedTab?.webController?.exitPageCleaner()
         addressBar.setPageCleanerActive(false)
-    }
-
-    func addressBarDidRequestManualScreenshot() {
-        setChromeCollapsed(false, animated: true)
-        tabManager.selectedTab?.webController?.screenshot()
-    }
-
-    func addressBarDidRequestLongScreenshot() {
-        setChromeCollapsed(false, animated: true)
-        tabManager.selectedTab?.webController?.longScreenshot()
     }
 
     func addressBarDidTapShield(blockCount: Int) {
@@ -819,6 +872,18 @@ extension BrowserViewController: MenuViewControllerDelegate {
             openDownloads()
         case .settings:
             openSettings()
+        case .accountLogin:
+            Toast.show("Sign-in coming soon", from: self)
+        case .setDefaultBrowser:
+            openDefaultBrowserSettings()
+        case .passwords:
+            Toast.show("Passwords coming soon", from: self)
+        case .backgroundGallery:
+            openAppearance(focus: .wallpaper)
+        case .theme:
+            openAppearance(focus: .theme)
+        case .feedback:
+            openFeedback()
         case .reload:
             tabManager.selectedTab?.webController?.reload()
             Toast.show("Reloaded", from: self)
@@ -871,9 +936,110 @@ extension BrowserViewController: MenuViewControllerDelegate {
             tabManager.selectedTab?.webController?.screenshot()
         case .longScreenshot:
             tabManager.selectedTab?.webController?.longScreenshot()
+        case .pageCleaner:
+            addressBar.presentCleanerMenu()
+        case .copyURL:
+            guard let url = tabManager.selectedTab?.url else {
+                Toast.show("No URL to copy", from: self)
+                return
+            }
+            UIPasteboard.general.string = url.absoluteString
+            Toast.show("URL copied", from: self)
+        case .aboutSite:
+            presentAboutSite()
+        case .addToHomepage:
+            guard let tab = tabManager.selectedTab else { return }
+            if tab.isIncognito {
+                Toast.show("Not available in Private Browsing", from: self)
+                return
+            }
+            guard let url = tab.url else {
+                Toast.show("No page to add", from: self)
+                return
+            }
+            if ShortcutStore.shared.contains(url: url) {
+                Toast.show("Already on Home", from: self)
+            } else {
+                let title = tab.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                ShortcutStore.shared.add(title: title.isEmpty ? (url.host ?? "Site") : title, url: url)
+                Toast.show("Added to Home", from: self)
+            }
+        case .printPage:
+            tabManager.selectedTab?.webController?.printPage()
+        case .translate:
+            guard let url = tabManager.selectedTab?.url else {
+                Toast.show("No page to translate", from: self)
+                return
+            }
+            let encoded = url.absoluteString.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? url.absoluteString
+            guard let translateURL = URL(string: "https://translate.google.com/translate?sl=auto&tl=en&u=\(encoded)") else { return }
+            navigate(to: translateURL)
+        case .changeTextSize:
+            presentTextSizePicker()
+        case .adBlocker:
+            AppSettings.trackerProtectionEnabled.toggle()
+            let on = AppSettings.trackerProtectionEnabled
+            Toast.show(on ? "Ad blocker on" : "Ad blocker off", from: self)
+            tabManager.invalidateAllWebViews()
+            showSelectedTab()
         case .placeholder(let name):
             Toast.show("\(name) coming soon", from: self)
         }
+    }
+
+    private func presentAboutSite() {
+        guard let tab = tabManager.selectedTab, let url = tab.url else {
+            Toast.show("No site info", from: self)
+            return
+        }
+        let host = url.host ?? url.absoluteString
+        let message = [
+            "Title: \(tab.title.isEmpty ? "—" : tab.title)",
+            "URL: \(url.absoluteString)"
+        ].joined(separator: "\n")
+        let alert = UIAlertController(title: host, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Copy URL", style: .default) { _ in
+            UIPasteboard.general.string = url.absoluteString
+            Toast.show("URL copied", from: self)
+        })
+        if var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            components.path = "/"
+            components.query = nil
+            components.fragment = nil
+            if let home = components.url {
+                alert.addAction(UIAlertAction(title: "Open Site Home", style: .default) { [weak self] _ in
+                    self?.navigate(to: home)
+                })
+            }
+        }
+        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func presentTextSizePicker() {
+        guard let web = tabManager.selectedTab?.webController else {
+            Toast.show("No page loaded", from: self)
+            return
+        }
+        let alert = UIAlertController(title: "Change text size", message: nil, preferredStyle: .actionSheet)
+        let options: [(String, CGFloat)] = [
+            ("Smaller", 0.85),
+            ("Default", 1.0),
+            ("Larger", 1.25),
+            ("Largest", 1.5)
+        ]
+        for (title, zoom) in options {
+            alert.addAction(UIAlertAction(title: title, style: .default) { _ in
+                web.setPageZoom(zoom)
+                Toast.show(title, from: self)
+            })
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let pop = alert.popoverPresentationController {
+            pop.sourceView = addressBar
+            pop.sourceRect = addressBar.bounds
+        }
+        present(alert, animated: true)
     }
 
     private func openSettings() {
@@ -886,6 +1052,38 @@ extension BrowserViewController: MenuViewControllerDelegate {
         nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         BrowserTheme.applyNavigationBar(to: nav.navigationBar)
         present(nav, animated: true)
+    }
+
+    private func openAppearance(focus: AppearanceSettingsViewController.FocusSection) {
+        let appearance = AppearanceSettingsViewController(focus: focus)
+        let nav = UINavigationController(rootViewController: appearance)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        present(nav, animated: true)
+    }
+
+    private func openDefaultBrowserSettings() {
+        // Open the app’s Settings page; user can set Default Browser App there.
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+            Toast.show("Set MMBrowser as Default Browser App in Settings", from: self)
+        }
+    }
+
+    private func openFeedback() {
+        let address = "feedback@mmbrowser.app"
+        var components = URLComponents()
+        components.scheme = "mailto"
+        components.path = address
+        components.queryItems = [
+            URLQueryItem(name: "subject", value: "MMBrowser Feedback")
+        ]
+        if let url = components.url, UIApplication.shared.canOpenURL(url) {
+            UIApplication.shared.open(url)
+        } else {
+            UIPasteboard.general.string = address
+            Toast.show("Feedback email copied", from: self)
+        }
     }
 
     private func openReadingList() {
@@ -903,5 +1101,13 @@ extension BrowserViewController: MenuViewControllerDelegate {
         nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         BrowserTheme.applyNavigationBar(to: nav.navigationBar)
         present(nav, animated: true)
+    }
+}
+
+extension BrowserViewController: PageRichMenuViewControllerDelegate {
+    func pageRichMenuDidSelect(_ action: MenuAction) {
+        dismiss(animated: true) { [weak self] in
+            self?.performMenuAction(action)
+        }
     }
 }

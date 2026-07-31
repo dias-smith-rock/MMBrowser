@@ -34,6 +34,7 @@
 		8059335243A34AE1899FAA49 /* ReadingListViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8F39F6791D34673BFA63E0B /* ReadingListViewController.swift */; };
 		80CC8EC8F5864BAC97BF1E8E /* DiscoverMock.swift in Sources */ = {isa = PBXBuildFile; fileRef = F327BEAC2D914DAB9242A59E /* DiscoverMock.swift */; };
 		813C7A167C0B42138866E92D /* MenuViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D98DC3B0A2D148BEBE182F6C /* MenuViewController.swift */; };
+		A1B2C3D4E5F6090909090961 /* PageRichMenuViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6090909090960 /* PageRichMenuViewController.swift */; };
 		81A1B2C3D4E54678A9B0C1D2 /* PrivateNewTabViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81A1B2C3D4E54678A9B0C1D3 /* PrivateNewTabViewController.swift */; };
 		81FD47C9E67B4DE0B05CED50 /* ClearBrowsingDataViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60184C61D54C43279DFD80C9 /* ClearBrowsingDataViewController.swift */; };
 		82A1B2C3D4E54678A9B0C1D2 /* ImageBlockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82A1B2C3D4E54678A9B0C1D3 /* ImageBlockManager.swift */; };
@@ -163,6 +164,7 @@
 		D201F70CA9F44BF2B13F17C2 /* OnboardingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingViewController.swift; sourceTree = "<group>"; };
 		D3B6BD940BB54D82A4066522 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		D98DC3B0A2D148BEBE182F6C /* MenuViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuViewController.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6090909090960 /* PageRichMenuViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRichMenuViewController.swift; sourceTree = "<group>"; };
 		DCDC601B9D5949C3A37929EE /* NewTabViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewTabViewController.swift; sourceTree = "<group>"; };
 		DD046D8ACFAE4B96AF0715F6 /* BookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkStore.swift; sourceTree = "<group>"; };
 		DD4B7DF4CC5F48C390C9325C /* AdBlockManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdBlockManager.swift; sourceTree = "<group>"; };
@@ -442,6 +444,7 @@
 			isa = PBXGroup;
 			children = (
 				D98DC3B0A2D148BEBE182F6C /* MenuViewController.swift */,
+				A1B2C3D4E5F6090909090960 /* PageRichMenuViewController.swift */,
 			);
 			path = Menu;
 			sourceTree = "<group>";
@@ -601,6 +604,7 @@
 				C6FE3A5ACA2542BD8010DE3F /* HistoryViewController.swift in Sources */,
 				6B4C522E50E446F0926CDF34 /* ShortcutStore.swift in Sources */,
 				813C7A167C0B42138866E92D /* MenuViewController.swift in Sources */,
+				A1B2C3D4E5F6090909090961 /* PageRichMenuViewController.swift in Sources */,
 				80CC8EC8F5864BAC97BF1E8E /* DiscoverMock.swift in Sources */,
 				B2BA9449476846B08EE4A1BD /* GoogleLogoView.swift in Sources */,
 				7C778606C8964F36874899A1 /* NewTabViewController.swift in Sources */,

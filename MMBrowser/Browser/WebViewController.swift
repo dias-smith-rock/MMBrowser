@@ -567,6 +567,27 @@ final class WebViewController: UIViewController {
         }
     }
 
+    func printPage() {
+        guard let webView = webView else { return }
+        let info = UIPrintInfo(dictionary: nil)
+        let pageTitle = webView.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        info.jobName = pageTitle.isEmpty ? (webView.url?.host ?? "Page") : pageTitle
+        info.outputType = .general
+        let controller = UIPrintInteractionController.shared
+        controller.printInfo = info
+        controller.printFormatter = webView.viewPrintFormatter()
+        controller.present(animated: true)
+    }
+
+    func setPageZoom(_ zoom: CGFloat) {
+        guard let webView = webView else { return }
+        if #available(iOS 14.0, *) {
+            webView.pageZoom = max(0.5, min(zoom, 3.0))
+        } else {
+            Toast.show("Text size requires iOS 14+", from: self)
+        }
+    }
+
     func screenshot() {
         guard let webView = webView else { return }
         ScreenshotPerf.beginSession("manual_screenshot")

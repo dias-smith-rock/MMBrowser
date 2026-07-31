@@ -46,6 +46,18 @@ final class TabManager {
         delegate?.tabManagerDidUpdate(self)
     }
 
+    /// Swipe between tabs in list order. Returns whether selection changed.
+    @discardableResult
+    func selectAdjacentTab(offset: Int) -> Bool {
+        let newIndex = selectedIndex + offset
+        guard tabs.indices.contains(newIndex), newIndex != selectedIndex else { return false }
+        selectedIndex = newIndex
+        tabs[newIndex].lastAccessed = Date()
+        delegate?.tabManager(self, didSelect: tabs[newIndex])
+        delegate?.tabManagerDidUpdate(self)
+        return true
+    }
+
     func recentBrowsedTabs(limit: Int = 1) -> [BrowserTab] {
         tabs
             .filter { !$0.isIncognito && !$0.isNewTabPage && $0.url != nil }

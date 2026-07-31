@@ -29,8 +29,13 @@ final class ShortcutStore {
     }
 
     func add(title: String, url: URL) {
+        if items.contains(where: { $0.urlString == url.absoluteString }) { return }
         items.append(ShortcutItem(id: UUID(), title: title, urlString: url.absoluteString))
         save()
+    }
+
+    func contains(url: URL) -> Bool {
+        items.contains { $0.urlString == url.absoluteString }
     }
 
     func remove(id: UUID) {
