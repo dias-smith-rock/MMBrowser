@@ -75,6 +75,7 @@
 		C58A1413B374481F93E6D824 /* URLInputResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72957411D4864AC0B8541064 /* URLInputResolver.swift */; };
 		C5CC3025D67544A09B52DB05 /* OnboardingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D201F70CA9F44BF2B13F17C2 /* OnboardingViewController.swift */; };
 		C6FE3A5ACA2542BD8010DE3F /* HistoryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A238E7FC51408BA0111F44 /* HistoryViewController.swift */; };
+		A1B2C3D4E5F6090909090971 /* LibrarySheetViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6090909090970 /* LibrarySheetViewController.swift */; };
 		C718289B0C194FE69766C497 /* YouTubeAdShield.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */; };
 		C8E41A2B7F6D4A1E9B3C5D70 /* ScreenshotEditorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7D30F1A6E5C492D8A2B4C61 /* ScreenshotEditorViewController.swift */; };
 		DAC6847DF1C5402ABCCBABC5 /* BottomToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54722AEC801542858ECEB795 /* BottomToolbarView.swift */; };
@@ -92,6 +93,7 @@
 
 /* Begin PBXFileReference section */
 		00A238E7FC51408BA0111F44 /* HistoryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewController.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6090909090970 /* LibrarySheetViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarySheetViewController.swift; sourceTree = "<group>"; };
 		06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeAdShield.swift; sourceTree = "<group>"; };
 		0783DF19A0FE4061AF8CB2FF /* FilterUpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterUpdateManager.swift; sourceTree = "<group>"; };
 		094FFB3CDC234AA8BFFC8140 /* BrowserTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTab.swift; sourceTree = "<group>"; };
@@ -268,6 +270,7 @@
 				FE55FD77142842FAB1482D62 /* BookmarksViewController.swift */,
 				1BEF9DC2EA4A4FECB9B302B7 /* HistoryStore.swift */,
 				00A238E7FC51408BA0111F44 /* HistoryViewController.swift */,
+				A1B2C3D4E5F6090909090970 /* LibrarySheetViewController.swift */,
 				66D0F5E3C1654B9BAEB7C43B /* ShortcutStore.swift */,
 			);
 			path = Library;
@@ -602,6 +605,7 @@
 				7037106A32B340B980EF47E4 /* BookmarksViewController.swift in Sources */,
 				8AFBF11FF64E4A1DB67FB6B5 /* HistoryStore.swift in Sources */,
 				C6FE3A5ACA2542BD8010DE3F /* HistoryViewController.swift in Sources */,
+				A1B2C3D4E5F6090909090971 /* LibrarySheetViewController.swift in Sources */,
 				6B4C522E50E446F0926CDF34 /* ShortcutStore.swift in Sources */,
 				813C7A167C0B42138866E92D /* MenuViewController.swift in Sources */,
 				A1B2C3D4E5F6090909090961 /* PageRichMenuViewController.swift in Sources */,

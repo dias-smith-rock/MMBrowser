@@ -111,7 +111,7 @@ enum BuiltinThemePacks {
             .toolbarForward: .asset("theme_cute_forward"),
             .toolbarNewTab: .asset("theme_cute_newtab"),
             .toolbarTabs: .asset("theme_cute_tabs"),
-            .toolbarMenu: .asset("theme_cute_menu"),
+            .toolbarMenu: .symbol("line.3.horizontal"),
             .addressScreenshot: .symbol("camera.fill"),
             .addressCleaner: .symbol("sparkles"),
             .menuIncognito: .symbol("eye.slash.fill"),
@@ -139,7 +139,7 @@ enum BuiltinThemePacks {
             .toolbarForward: .asset("theme_steady_forward"),
             .toolbarNewTab: .asset("theme_steady_newtab"),
             .toolbarTabs: .asset("theme_steady_tabs"),
-            .toolbarMenu: .asset("theme_steady_menu"),
+            .toolbarMenu: .symbol("line.3.horizontal"),
             .addressCleaner: .symbol("wand.and.rays")
         ])
     )
@@ -164,7 +164,7 @@ enum BuiltinThemePacks {
             .toolbarForward: .asset("theme_feminine_forward"),
             .toolbarNewTab: .asset("theme_feminine_newtab"),
             .toolbarTabs: .asset("theme_feminine_tabs"),
-            .toolbarMenu: .asset("theme_feminine_menu"),
+            .toolbarMenu: .symbol("line.3.horizontal"),
             .addressScreenshot: .symbol("camera.macro"),
             .addressCleaner: .symbol("leaf.fill"),
             .menuBookmarks: .symbol("heart.fill"),

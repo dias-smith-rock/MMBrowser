@@ -526,34 +526,28 @@ final class BrowserViewController: UIViewController {
     }
 
     private func openLibraryList(isBookmarks: Bool) {
-        let root: UIViewController
-        if isBookmarks {
-            let list = BookmarksViewController()
-            if let tab = tabManager.selectedTab,
-               !tab.isIncognito,
-               !tab.isNewTabPage,
-               let url = tab.url {
-                list.currentPageURL = url
-                list.currentPageTitle = tab.title
-            }
-            list.onSelectURL = { [weak self] url in
-                self?.dismiss(animated: true) {
-                    self?.navigate(to: url)
-                }
-            }
-            root = list
-        } else {
-            let list = HistoryViewController()
-            list.onSelectURL = { [weak self] url in
-                self?.dismiss(animated: true) {
-                    self?.navigate(to: url)
-                }
-            }
-            root = list
+        let sheet = LibrarySheetViewController(initialMode: isBookmarks ? .bookmarks : .history)
+        if let tab = tabManager.selectedTab,
+           !tab.isIncognito,
+           !tab.isNewTabPage,
+           let url = tab.url {
+            sheet.currentPageURL = url
+            sheet.currentPageTitle = tab.title
         }
-        let nav = UINavigationController(rootViewController: root)
+        sheet.onSelectURL = { [weak self] url in
+            self?.dismiss(animated: true) {
+                self?.navigate(to: url)
+            }
+        }
+        let nav = UINavigationController(rootViewController: sheet)
         nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        if #available(iOS 15.0, *) {
+            if let sheetPC = nav.sheetPresentationController {
+                sheetPC.detents = [.large()]
+                sheetPC.prefersGrabberVisible = true
+            }
+        }
         present(nav, animated: true)
     }
 }

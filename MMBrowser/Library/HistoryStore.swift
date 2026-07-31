@@ -40,6 +40,23 @@ final class HistoryStore {
         save()
     }
 
+    func remove(ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        items.removeAll { ids.contains($0.id) }
+        save()
+    }
+
+    /// Removes history entries for a host, optionally limited to one local calendar day.
+    func remove(host: String, onDayOf day: Date? = nil, calendar: Calendar = .current) {
+        let key = host.lowercased()
+        items.removeAll { item in
+            guard Self.hostKey(for: item.urlString) == key else { return false }
+            guard let day else { return true }
+            return calendar.isDate(item.date, inSameDayAs: day)
+        }
+        save()
+    }
+
     /// Removes every history entry whose local calendar day matches `day`.
     func remove(onDayOf day: Date, calendar: Calendar = .current) {
         let start = calendar.startOfDay(for: day)
@@ -55,6 +72,28 @@ final class HistoryStore {
             let dayItems = (grouped[day] ?? []).sorted { $0.date > $1.date }
             return (day, dayItems)
         }
+    }
+
+    /// Day → domain groups (newest hosts first by latest visit inside group).
+    func sectionsByDayThenHost(calendar: Calendar = .current) -> [(day: Date, groups: [(host: String, items: [HistoryItem])])] {
+        sectionsByDay(calendar: calendar).map { day, dayItems in
+            let byHost = Dictionary(grouping: dayItems) { Self.hostKey(for: $0.urlString) }
+            let groups = byHost.keys.sorted { a, b in
+                let aDate = byHost[a]?.first?.date ?? .distantPast
+                let bDate = byHost[b]?.first?.date ?? .distantPast
+                return aDate > bDate
+            }.map { host in
+                (host, (byHost[host] ?? []).sorted { $0.date > $1.date })
+            }
+            return (day, groups)
+        }
+    }
+
+    static func hostKey(for urlString: String) -> String {
+        guard let url = URL(string: urlString), let host = url.host, !host.isEmpty else {
+            return urlString
+        }
+        return host.lowercased()
     }
 
     private func load() {

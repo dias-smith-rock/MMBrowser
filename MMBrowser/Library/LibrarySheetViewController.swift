@@ -1,0 +1,556 @@
+import UIKit
+import SnapKit
+
+/// Combined Bookmarks + History sheet with domain grouping.
+final class LibrarySheetViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, UISearchResultsUpdating {
+    enum Mode: Int {
+        case bookmarks = 0
+        case history = 1
+    }
+
+    var onSelectURL: ((URL) -> Void)?
+    var currentPageTitle: String?
+    var currentPageURL: URL?
+
+    private var mode: Mode
+    private let tableView = UITableView(frame: .zero, style: .plain)
+    private let segment = UISegmentedControl(items: [
+        UIImage(systemName: "bookmark") ?? "B",
+        UIImage(systemName: "clock") ?? "H"
+    ])
+    private let searchController = UISearchController(searchResultsController: nil)
+    private var query = ""
+
+    private var bookmarkGroups: [(host: String, items: [BookmarkItem])] = []
+    private var historyDays: [(day: Date, groups: [(host: String, items: [HistoryItem])])] = []
+    /// Expanded keys: bookmarks `"b|host"` / history `"h|dayInterval|host"`.
+    private var expanded = Set<String>()
+
+    private lazy var dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.doesRelativeDateFormatting = true
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        return f
+    }()
+
+    private lazy var timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .none
+        f.timeStyle = .short
+        return f
+    }()
+
+    init(initialMode: Mode = .history) {
+        self.mode = initialMode
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = BrowserTheme.background
+        overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "xmark"),
+            style: .plain,
+            target: self,
+            action: #selector(close)
+        )
+        navigationItem.rightBarButtonItems = [
+            UIBarButtonItem(image: UIImage(systemName: "trash"), style: .plain, target: self, action: #selector(clearAll)),
+            UIBarButtonItem(image: UIImage(systemName: "magnifyingglass"), style: .plain, target: self, action: #selector(toggleSearch))
+        ]
+        if let navigationBar = navigationController?.navigationBar {
+            BrowserTheme.applyNavigationBar(to: navigationBar)
+        }
+
+        segment.selectedSegmentIndex = mode.rawValue
+        segment.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
+        segment.selectedSegmentTintColor = BrowserTheme.secondaryCard
+        navigationItem.titleView = makeTitleStack()
+
+        searchController.searchResultsUpdater = self
+        searchController.obscuresBackgroundDuringPresentation = false
+        searchController.searchBar.placeholder = "Search"
+        searchController.searchBar.searchTextField.textColor = BrowserTheme.textPrimary
+        definesPresentationContext = true
+
+        tableView.backgroundColor = BrowserTheme.background
+        tableView.separatorColor = BrowserTheme.textSecondary.withAlphaComponent(0.18)
+        tableView.separatorInset = UIEdgeInsets(top: 0, left: 56, bottom: 0, right: 0)
+        tableView.dataSource = self
+        tableView.delegate = self
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 56
+        tableView.register(LibraryDomainCell.self, forCellReuseIdentifier: LibraryDomainCell.reuseID)
+        tableView.register(LibraryPageCell.self, forCellReuseIdentifier: LibraryPageCell.reuseID)
+        tableView.tableFooterView = UIView()
+        view.addSubview(tableView)
+        tableView.snp.makeConstraints { $0.edges.equalToSuperview() }
+
+        reloadData()
+        updateChrome()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        reloadData()
+        tableView.reloadData()
+        updateChrome()
+    }
+
+    // MARK: - Chrome
+
+    private func makeTitleStack() -> UIView {
+        let title = UILabel()
+        title.text = mode == .bookmarks ? "Bookmarks" : "History"
+        title.font = .systemFont(ofSize: 17, weight: .semibold)
+        title.textColor = BrowserTheme.textPrimary
+        title.textAlignment = .center
+        title.tag = 1001
+
+        let wrap = UIStackView(arrangedSubviews: [title, segment])
+        wrap.axis = .vertical
+        wrap.spacing = 8
+        wrap.alignment = .fill
+        wrap.bounds = CGRect(x: 0, y: 0, width: 220, height: 64)
+        segment.snp.makeConstraints { make in
+            make.height.equalTo(32)
+        }
+        return wrap
+    }
+
+    private func updateChrome() {
+        if let stack = navigationItem.titleView as? UIStackView,
+           let title = stack.arrangedSubviews.first as? UILabel {
+            title.text = mode == .bookmarks ? "Bookmarks" : "History"
+        } else {
+            title = mode == .bookmarks ? "Bookmarks" : "History"
+        }
+        let hasData = mode == .bookmarks ? !bookmarkGroups.isEmpty : !historyDays.isEmpty
+        navigationItem.rightBarButtonItems?.first?.isEnabled = hasData
+    }
+
+    // MARK: - Data
+
+    private func reloadData() {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if mode == .bookmarks {
+            let groups = BookmarkStore.shared.groupsByHost()
+            if q.isEmpty {
+                bookmarkGroups = groups
+            } else {
+                bookmarkGroups = groups.compactMap { pair -> (host: String, items: [BookmarkItem])? in
+                    let filtered = pair.items.filter {
+                        $0.title.lowercased().contains(q)
+                            || $0.urlString.lowercased().contains(q)
+                            || pair.host.contains(q)
+                    }
+                    guard !filtered.isEmpty else { return nil }
+                    return (host: pair.host, items: filtered)
+                }
+            }
+        } else {
+            let days = HistoryStore.shared.sectionsByDayThenHost()
+            if q.isEmpty {
+                historyDays = days
+            } else {
+                historyDays = days.compactMap { dayPair -> (day: Date, groups: [(host: String, items: [HistoryItem])])? in
+                    let filteredGroups: [(host: String, items: [HistoryItem])] = dayPair.groups.compactMap { group in
+                        let filtered = group.items.filter {
+                            $0.title.lowercased().contains(q)
+                                || $0.urlString.lowercased().contains(q)
+                                || group.host.contains(q)
+                        }
+                        guard !filtered.isEmpty else { return nil }
+                        return (host: group.host, items: filtered)
+                    }
+                    guard !filteredGroups.isEmpty else { return nil }
+                    return (day: dayPair.day, groups: filteredGroups)
+                }
+            }
+        }
+    }
+
+    private func expandKey(day: Date?, host: String) -> String {
+        if let day {
+            return "h|\(day.timeIntervalSince1970)|\(host)"
+        }
+        return "b|\(host)"
+    }
+
+    // MARK: - Rows
+
+    private enum Row {
+        case domain(host: String, count: Int, expanded: Bool, day: Date?)
+        case bookmark(BookmarkItem)
+        case history(HistoryItem)
+    }
+
+    private func rows(in section: Int) -> [Row] {
+        if mode == .bookmarks {
+            guard section == 0 else { return [] }
+            var result: [Row] = []
+            for group in bookmarkGroups {
+                let key = expandKey(day: nil, host: group.host)
+                let isExpanded = expanded.contains(key)
+                result.append(.domain(host: group.host, count: group.items.count, expanded: isExpanded, day: nil))
+                if isExpanded {
+                    result.append(contentsOf: group.items.map { .bookmark($0) })
+                }
+            }
+            return result
+        } else {
+            guard historyDays.indices.contains(section) else { return [] }
+            let day = historyDays[section]
+            var result: [Row] = []
+            for group in day.groups {
+                let key = expandKey(day: day.day, host: group.host)
+                let isExpanded = expanded.contains(key)
+                result.append(.domain(host: group.host, count: group.items.count, expanded: isExpanded, day: day.day))
+                if isExpanded {
+                    result.append(contentsOf: group.items.map { .history($0) })
+                }
+            }
+            return result
+        }
+    }
+
+    // MARK: - Table
+
+    func numberOfSections(in tableView: UITableView) -> Int {
+        if mode == .bookmarks {
+            return bookmarkGroups.isEmpty ? 0 : 1
+        }
+        return historyDays.count
+    }
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        rows(in: section).count
+    }
+
+    func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
+        guard mode == .history, historyDays.indices.contains(section) else { return nil }
+        return dayFormatter.string(from: historyDays[section].day)
+    }
+
+    func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
+        BrowserTheme.styleSectionHeaderFooter(view)
+        if let header = view as? UITableViewHeaderFooterView {
+            header.textLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+        }
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let row = rows(in: indexPath.section)[indexPath.row]
+        switch row {
+        case let .domain(host, count, isExpanded, day):
+            let cell = tableView.dequeueReusableCell(withIdentifier: LibraryDomainCell.reuseID, for: indexPath) as! LibraryDomainCell
+            cell.configure(host: host, count: count, expanded: isExpanded)
+            cell.onDelete = { [weak self] in
+                self?.deleteDomain(host: host, day: day)
+            }
+            return cell
+        case let .bookmark(item):
+            let cell = tableView.dequeueReusableCell(withIdentifier: LibraryPageCell.reuseID, for: indexPath) as! LibraryPageCell
+            cell.configure(title: item.title, urlString: item.urlString, timeText: nil, host: BookmarkStore.hostKey(forURLString: item.urlString))
+            cell.onDelete = { [weak self] in
+                BookmarkStore.shared.remove(id: item.id)
+                self?.reloadAfterMutation()
+            }
+            return cell
+        case let .history(item):
+            let cell = tableView.dequeueReusableCell(withIdentifier: LibraryPageCell.reuseID, for: indexPath) as! LibraryPageCell
+            cell.configure(
+                title: item.title,
+                urlString: item.urlString,
+                timeText: timeFormatter.string(from: item.date),
+                host: HistoryStore.hostKey(for: item.urlString)
+            )
+            cell.onDelete = { [weak self] in
+                HistoryStore.shared.remove(id: item.id)
+                self?.reloadAfterMutation()
+            }
+            return cell
+        }
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        let row = rows(in: indexPath.section)[indexPath.row]
+        switch row {
+        case let .domain(host, _, _, day):
+            let key = expandKey(day: day, host: host)
+            if expanded.contains(key) {
+                expanded.remove(key)
+            } else {
+                expanded.insert(key)
+            }
+            tableView.reloadSections(IndexSet(integer: indexPath.section), with: .automatic)
+        case let .bookmark(item):
+            if let url = item.url { onSelectURL?(url) }
+        case let .history(item):
+            if let url = item.url { onSelectURL?(url) }
+        }
+    }
+
+    // MARK: - Actions
+
+    @objc private func close() { dismiss(animated: true) }
+
+    @objc private func segmentChanged() {
+        mode = Mode(rawValue: segment.selectedSegmentIndex) ?? .history
+        query = ""
+        searchController.isActive = false
+        navigationItem.searchController = nil
+        expanded.removeAll()
+        reloadData()
+        tableView.reloadData()
+        updateChrome()
+    }
+
+    @objc private func toggleSearch() {
+        if navigationItem.searchController == nil {
+            navigationItem.searchController = searchController
+            navigationItem.hidesSearchBarWhenScrolling = false
+            searchController.isActive = true
+        } else {
+            searchController.isActive = false
+            navigationItem.searchController = nil
+            query = ""
+            reloadData()
+            tableView.reloadData()
+            updateChrome()
+        }
+    }
+
+    func updateSearchResults(for searchController: UISearchController) {
+        query = searchController.searchBar.text ?? ""
+        reloadData()
+        tableView.reloadData()
+        updateChrome()
+    }
+
+    @objc private func clearAll() {
+        if mode == .bookmarks {
+            let alert = UIAlertController(
+                title: "Clear All Bookmarks?",
+                message: "Every bookmark will be removed.",
+                preferredStyle: .actionSheet
+            )
+            alert.addAction(UIAlertAction(title: "Clear All", style: .destructive) { [weak self] _ in
+                BookmarkStore.shared.clear()
+                self?.expanded.removeAll()
+                self?.reloadAfterMutation()
+            })
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            present(alert, animated: true)
+        } else {
+            let alert = UIAlertController(
+                title: "Clear All History?",
+                message: "Every browsing history entry will be removed.",
+                preferredStyle: .actionSheet
+            )
+            alert.addAction(UIAlertAction(title: "Clear All", style: .destructive) { [weak self] _ in
+                HistoryStore.shared.clear()
+                self?.expanded.removeAll()
+                self?.reloadAfterMutation()
+            })
+            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            present(alert, animated: true)
+        }
+    }
+
+    private func deleteDomain(host: String, day: Date?) {
+        let count: Int = {
+            if mode == .bookmarks {
+                return bookmarkGroups.first(where: { $0.host == host })?.items.count ?? 0
+            }
+            guard let day else { return 0 }
+            return historyDays.first(where: { Calendar.current.isDate($0.day, inSameDayAs: day) })?
+                .groups.first(where: { $0.host == host })?.items.count ?? 0
+        }()
+        let alert = UIAlertController(
+            title: "Delete \(host)?",
+            message: count == 1 ? "1 entry will be deleted." : "\(count) entries will be deleted.",
+            preferredStyle: .actionSheet
+        )
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            guard let self = self else { return }
+            if self.mode == .bookmarks {
+                BookmarkStore.shared.remove(host: host)
+            } else {
+                HistoryStore.shared.remove(host: host, onDayOf: day)
+            }
+            self.expanded.remove(self.expandKey(day: day, host: host))
+            self.reloadAfterMutation()
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func reloadAfterMutation() {
+        reloadData()
+        tableView.reloadData()
+        updateChrome()
+    }
+}
+
+// MARK: - Cells
+
+private final class LibraryDomainCell: UITableViewCell {
+    static let reuseID = "LibraryDomainCell"
+    var onDelete: (() -> Void)?
+
+    private let avatar = LetterAvatarView()
+    private let hostLabel = UILabel()
+    private let countLabel = UILabel()
+    private let chevron = UIImageView()
+    private let deleteButton = UIButton(type: .system)
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        selectionStyle = .default
+        backgroundColor = BrowserTheme.background
+        contentView.backgroundColor = BrowserTheme.background
+
+        hostLabel.font = .systemFont(ofSize: 16, weight: .medium)
+        hostLabel.textColor = BrowserTheme.textPrimary
+        hostLabel.lineBreakMode = .byTruncatingMiddle
+
+        countLabel.font = .systemFont(ofSize: 14, weight: .regular)
+        countLabel.textColor = BrowserTheme.textSecondary
+        countLabel.setContentHuggingPriority(.required, for: .horizontal)
+
+        chevron.tintColor = BrowserTheme.textSecondary
+        chevron.contentMode = .scaleAspectFit
+
+        deleteButton.setImage(UIImage(systemName: "xmark"), for: .normal)
+        deleteButton.tintColor = BrowserTheme.textSecondary
+        deleteButton.addTarget(self, action: #selector(deleteTapped), for: .touchUpInside)
+
+        contentView.addSubview(avatar)
+        contentView.addSubview(hostLabel)
+        contentView.addSubview(countLabel)
+        contentView.addSubview(chevron)
+        contentView.addSubview(deleteButton)
+
+        avatar.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(16)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(28)
+        }
+        hostLabel.snp.makeConstraints { make in
+            make.leading.equalTo(avatar.snp.trailing).offset(12)
+            make.centerY.equalToSuperview()
+        }
+        countLabel.snp.makeConstraints { make in
+            make.leading.equalTo(hostLabel.snp.trailing).offset(8)
+            make.centerY.equalToSuperview()
+        }
+        chevron.snp.makeConstraints { make in
+            make.leading.equalTo(countLabel.snp.trailing).offset(6)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(12)
+            make.trailing.lessThanOrEqualTo(deleteButton.snp.leading).offset(-8)
+        }
+        deleteButton.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().offset(-12)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(32)
+        }
+        contentView.snp.makeConstraints { make in
+            make.height.greaterThanOrEqualTo(52)
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func configure(host: String, count: Int, expanded: Bool) {
+        avatar.configure(title: host, colorSeed: host)
+        hostLabel.text = host
+        countLabel.text = "\(count)"
+        chevron.image = UIImage(systemName: expanded ? "chevron.up" : "chevron.down")
+    }
+
+    @objc private func deleteTapped() { onDelete?() }
+}
+
+private final class LibraryPageCell: UITableViewCell {
+    static let reuseID = "LibraryPageCell"
+    var onDelete: (() -> Void)?
+
+    private let avatar = LetterAvatarView()
+    private let titleLabel = UILabel()
+    private let urlLabel = UILabel()
+    private let timeLabel = UILabel()
+    private let deleteButton = UIButton(type: .system)
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        selectionStyle = .default
+        backgroundColor = BrowserTheme.background
+        contentView.backgroundColor = BrowserTheme.background
+
+        titleLabel.font = .systemFont(ofSize: 15, weight: .medium)
+        titleLabel.textColor = BrowserTheme.textPrimary
+        titleLabel.lineBreakMode = .byTruncatingTail
+
+        urlLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        urlLabel.textColor = BrowserTheme.textSecondary
+        urlLabel.lineBreakMode = .byTruncatingMiddle
+
+        timeLabel.font = .systemFont(ofSize: 12, weight: .regular)
+        timeLabel.textColor = BrowserTheme.textSecondary
+        timeLabel.setContentHuggingPriority(.required, for: .horizontal)
+
+        deleteButton.setImage(UIImage(systemName: "xmark"), for: .normal)
+        deleteButton.tintColor = BrowserTheme.textSecondary
+        deleteButton.addTarget(self, action: #selector(deleteTapped), for: .touchUpInside)
+
+        let textStack = UIStackView(arrangedSubviews: [titleLabel, urlLabel])
+        textStack.axis = .vertical
+        textStack.spacing = 2
+
+        contentView.addSubview(avatar)
+        contentView.addSubview(textStack)
+        contentView.addSubview(timeLabel)
+        contentView.addSubview(deleteButton)
+
+        avatar.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(16)
+            make.top.equalToSuperview().offset(12)
+            make.size.equalTo(28)
+        }
+        textStack.snp.makeConstraints { make in
+            make.leading.equalTo(avatar.snp.trailing).offset(12)
+            make.top.equalToSuperview().offset(10)
+            make.bottom.equalToSuperview().offset(-10)
+            make.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-8)
+        }
+        timeLabel.snp.makeConstraints { make in
+            make.trailing.equalTo(deleteButton.snp.leading).offset(-4)
+            make.centerY.equalToSuperview()
+        }
+        deleteButton.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().offset(-12)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(32)
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func configure(title: String, urlString: String, timeText: String?, host: String) {
+        avatar.configure(title: title.isEmpty ? host : title, colorSeed: host)
+        titleLabel.text = title.isEmpty ? host : title
+        urlLabel.text = urlString
+        timeLabel.text = timeText
+        timeLabel.isHidden = timeText == nil
+    }
+
+    @objc private func deleteTapped() { onDelete?() }
+}

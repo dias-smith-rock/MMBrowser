@@ -110,6 +110,39 @@ final class BookmarkStore {
         save()
     }
 
+    func remove(host: String) {
+        let key = host.lowercased()
+        items.removeAll { Self.hostKey(forURLString: $0.urlString) == key }
+        save()
+    }
+
+    func clear() {
+        items = []
+        save()
+    }
+
+    /// Groups bookmarks by host. Order follows current sort (first item in each group).
+    func groupsByHost() -> [(host: String, items: [BookmarkItem])] {
+        var order: [String] = []
+        var map: [String: [BookmarkItem]] = [:]
+        for item in items {
+            let host = Self.hostKey(forURLString: item.urlString)
+            if map[host] == nil {
+                order.append(host)
+                map[host] = []
+            }
+            map[host, default: []].append(item)
+        }
+        return order.map { ($0, map[$0] ?? []) }
+    }
+
+    static func hostKey(forURLString string: String) -> String {
+        guard let url = URL(string: string), let host = url.host, !host.isEmpty else {
+            return string.lowercased()
+        }
+        return host.lowercased()
+    }
+
     func moveItem(from source: Int, to destination: Int) {
         guard items.indices.contains(source) else { return }
         // Switching to manual order when the user reorders.

@@ -86,7 +86,11 @@ final class BottomToolbarView: UIView {
         backButton.setImage(ThemeManager.shared.image(for: .toolbarBack, pointSize: pointSize), for: .normal)
         forwardButton.setImage(ThemeManager.shared.image(for: .toolbarForward, pointSize: pointSize), for: .normal)
         plusButton.setImage(ThemeManager.shared.image(for: .toolbarNewTab, pointSize: pointSize), for: .normal)
-        menuButton.setImage(ThemeManager.shared.image(for: .toolbarMenu, pointSize: pointSize), for: .normal)
+        menuButton.setImage(
+            UIImage(systemName: "line.3.horizontal", withConfiguration: UIImage.SymbolConfiguration(pointSize: pointSize, weight: .semibold)),
+            for: .normal
+        )
+        menuButton.accessibilityLabel = "Menu"
         [backButton, forwardButton, plusButton, tabsButton, menuButton].forEach {
             $0.tintColor = tint
             $0.imageView?.contentMode = .scaleAspectFit
