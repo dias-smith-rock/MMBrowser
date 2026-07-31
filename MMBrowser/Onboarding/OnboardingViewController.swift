@@ -19,7 +19,7 @@ final class OnboardingViewController: UIViewController {
         ),
         (
             "Easy to Use",
-            "Capture long screenshots of full pages, and use two-finger gestures—like a checkmark to bookmark or a circle to reload—for quicker actions.",
+            "Capture long screenshots of full pages, and use one-finger Hook → / Hook ← to go back and forward, or Hook ○ to bookmark.",
             "onboarding_focus"
         )
     ]

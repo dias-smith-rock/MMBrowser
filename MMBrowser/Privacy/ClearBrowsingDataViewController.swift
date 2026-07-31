@@ -11,7 +11,7 @@ final class ClearBrowsingDataViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Clear Data"
-        view.backgroundColor = BrowserTheme.background
+        BrowserTheme.applyScreenChrome(to: self)
         [historySwitch, cookiesSwitch, localStorageSwitch, cacheSwitch].forEach { $0.isOn = true }
 
         let stack = UIStackView()
@@ -49,7 +49,7 @@ final class ClearBrowsingDataViewController: UIViewController {
         box.layer.cornerRadius = 12
         let label = UILabel()
         label.text = title
-        label.textColor = .white
+        label.textColor = BrowserTheme.textPrimary
         box.addSubview(label)
         box.addSubview(sw)
         label.snp.makeConstraints { make in

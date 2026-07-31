@@ -7,10 +7,9 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Downloads"
-        view.backgroundColor = BrowserTheme.background
+        BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Close", style: .plain, target: self, action: #selector(close))
         items = DownloadManager.shared.items
-        tableView.backgroundColor = BrowserTheme.background
         tableView.dataSource = self
         tableView.delegate = self
         view.addSubview(tableView)
@@ -25,7 +24,7 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
         let item = items[indexPath.row]
         cell.textLabel?.text = item.fileName
         cell.detailTextLabel?.text = item.sourceURL
-        cell.textLabel?.textColor = .white
+        cell.textLabel?.textColor = BrowserTheme.textPrimary
         cell.detailTextLabel?.textColor = BrowserTheme.textSecondary
         cell.backgroundColor = BrowserTheme.background
         return cell

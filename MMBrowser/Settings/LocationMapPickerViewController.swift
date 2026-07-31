@@ -14,10 +14,9 @@ final class LocationMapPickerViewController: UIViewController, MKMapViewDelegate
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Choose on Map"
-        view.backgroundColor = BrowserTheme.background
-        overrideUserInterfaceStyle = .dark
+        BrowserTheme.applyScreenChrome(to: self)
         if let navigationBar = navigationController?.navigationBar {
-            BrowserTheme.applyDarkNavigationBar(to: navigationBar)
+            BrowserTheme.applyNavigationBar(to: navigationBar)
         }
 
         selected = initialCoordinate
@@ -36,7 +35,7 @@ final class LocationMapPickerViewController: UIViewController, MKMapViewDelegate
         )
 
         mapView.delegate = self
-        mapView.overrideUserInterfaceStyle = .dark
+        mapView.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         mapView.pointOfInterestFilter = .excludingAll
         mapView.showsUserLocation = false
         mapView.addAnnotation(pin)
@@ -48,7 +47,7 @@ final class LocationMapPickerViewController: UIViewController, MKMapViewDelegate
         mapView.addGestureRecognizer(tap)
 
         coordinateLabel.font = .monospacedDigitSystemFont(ofSize: 15, weight: .medium)
-        coordinateLabel.textColor = .white
+        coordinateLabel.textColor = BrowserTheme.textPrimary
         coordinateLabel.textAlignment = .center
         coordinateLabel.numberOfLines = 2
         updateCoordinateLabel()

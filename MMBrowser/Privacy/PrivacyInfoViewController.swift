@@ -5,10 +5,10 @@ final class PrivacyInfoViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Privacy"
-        view.backgroundColor = BrowserTheme.background
+        BrowserTheme.applyScreenChrome(to: self)
         let text = UITextView()
         text.backgroundColor = .clear
-        text.textColor = BrowserTheme.textSecondary
+        text.textColor = BrowserTheme.textPrimary
         text.font = .systemFont(ofSize: 16)
         text.isEditable = false
         text.text = """

@@ -332,34 +332,48 @@ enum PageCleanerManager {
           if (!selected) return;
           var target = selected;
           var selector = buildSelector(target);
-          // Hide immediately in-page (don't wait for native round-trip).
-          injectHideRule(selector);
-          hideElement(target);
+          var rect = target.getBoundingClientRect();
+          var vw = Math.max(window.innerWidth || 1, 1);
+          var vh = Math.max(window.innerHeight || 1, 1);
+          // Clear pick chrome first so the snapshot is clean; hide after native captures.
+          clearHighlight();
+          removeButton();
+          selected = null;
           var payload = {
             type: 'delete',
             selector: selector,
             label: labelFor(target),
             host: location.hostname || '',
-            href: location.href || ''
+            href: location.href || '',
+            rect: {
+              x: rect.left / vw,
+              y: rect.top / vh,
+              w: rect.width / vw,
+              h: rect.height / vh
+            }
           };
           if (window.webkit && webkit.messageHandlers && webkit.messageHandlers.mmPageCleaner) {
             webkit.messageHandlers.mmPageCleaner.postMessage(payload);
           }
-          clearHighlight();
-          removeButton();
-          selected = null;
-          // YouTube rebuilds the Open App chip; keep killing matches briefly.
-          if (selector) {
+          // Safety net if native never hides (handler missing / crash).
+          setTimeout(function() {
+            if (!selector) return;
+            try {
+              if (document.querySelector(selector) && document.querySelector(selector).getAttribute('data-mm-cleaned') === '1') {
+                return;
+              }
+            } catch (err) {}
+            injectHideRule(selector);
+            hideElement(target);
             var kill = function() {
               try {
                 document.querySelectorAll(selector).forEach(hideElement);
-              } catch (err) {}
+              } catch (err2) {}
             };
             setTimeout(kill, 50);
             setTimeout(kill, 300);
             setTimeout(kill, 1000);
-            setTimeout(kill, 2500);
-          }
+          }, 2000);
         }, true);
         (document.documentElement || document.body).appendChild(btn);
         var rect = el.getBoundingClientRect();

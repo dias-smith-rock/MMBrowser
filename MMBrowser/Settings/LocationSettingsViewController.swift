@@ -11,12 +11,7 @@ final class LocationSettingsViewController: UIViewController, UITableViewDataSou
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Location"
-        view.backgroundColor = BrowserTheme.background
-        if let navigationBar = navigationController?.navigationBar {
-            BrowserTheme.applyDarkNavigationBar(to: navigationBar)
-        }
-        tableView.overrideUserInterfaceStyle = .dark
-        tableView.backgroundColor = BrowserTheme.background
+        BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
@@ -32,6 +27,7 @@ final class LocationSettingsViewController: UIViewController, UITableViewDataSou
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.reloadData()
     }
 
@@ -70,11 +66,18 @@ final class LocationSettingsViewController: UIViewController, UITableViewDataSou
         }
     }
 
+    
+    func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
+        BrowserTheme.styleSectionHeaderFooter(view)
+    }
+
+    func tableView(_ tableView: UITableView, willDisplayFooterView view: UIView, forSection section: Int) {
+        BrowserTheme.styleSectionHeaderFooter(view)
+    }
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "cell")
-        cell.backgroundColor = BrowserTheme.card
-        cell.textLabel?.textColor = .white
-        cell.detailTextLabel?.textColor = BrowserTheme.textSecondary
+        BrowserTheme.styleListCell(cell)
         cell.accessoryType = .none
         cell.selectionStyle = .default
 

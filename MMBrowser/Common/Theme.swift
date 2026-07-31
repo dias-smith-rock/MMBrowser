@@ -83,4 +83,30 @@ enum BrowserTheme {
         navigationBar.tintColor = chromeBlue
         navigationBar.titleTextAttributes = [.foregroundColor: textPrimary]
     }
+
+    /// Shared chrome for settings / library screens so light themes stay readable.
+    static func applyScreenChrome(to viewController: UIViewController, tableView: UITableView? = nil) {
+        viewController.view.backgroundColor = background
+        viewController.overrideUserInterfaceStyle = preferredUserInterfaceStyle
+        tableView?.backgroundColor = background
+        tableView?.overrideUserInterfaceStyle = preferredUserInterfaceStyle
+        tableView?.separatorColor = textSecondary.withAlphaComponent(0.25)
+        tableView?.tintColor = chromeBlue
+        if let navigationBar = viewController.navigationController?.navigationBar {
+            applyNavigationBar(to: navigationBar)
+        }
+    }
+
+    static func styleListCell(_ cell: UITableViewCell) {
+        cell.backgroundColor = card
+        cell.textLabel?.textColor = textPrimary
+        cell.detailTextLabel?.textColor = textSecondary
+        cell.tintColor = chromeBlue
+    }
+
+    static func styleSectionHeaderFooter(_ view: UIView) {
+        guard let header = view as? UITableViewHeaderFooterView else { return }
+        header.textLabel?.textColor = textSecondary
+        header.detailTextLabel?.textColor = textSecondary
+    }
 }

@@ -8,12 +8,7 @@ final class GestureSettingsViewController: UIViewController, UITableViewDataSour
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Gestures"
-        view.backgroundColor = BrowserTheme.background
-        if let navigationBar = navigationController?.navigationBar {
-            BrowserTheme.applyDarkNavigationBar(to: navigationBar)
-        }
-        tableView.overrideUserInterfaceStyle = .dark
-        tableView.backgroundColor = BrowserTheme.background
+        BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
@@ -23,6 +18,7 @@ final class GestureSettingsViewController: UIViewController, UITableViewDataSour
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.reloadData()
     }
 
@@ -38,8 +34,8 @@ final class GestureSettingsViewController: UIViewController, UITableViewDataSour
 
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
-        case .toggles: return "Browsing Gestures"
-        case .bindings: return "Drawing Shapes"
+        case .toggles: return "Gestures"
+        case .bindings: return "Shapes"
         case .practice: return "Practice"
         }
     }
@@ -47,19 +43,26 @@ final class GestureSettingsViewController: UIViewController, UITableViewDataSour
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .toggles:
-            return "Swipe left/right with one finger for back and forward. Draw shapes with two fingers on the page."
+            return "All shapes use one finger: Hook → back, Hook ← forward, Hook ○ bookmark. Plain swipes are ignored."
         case .bindings:
             return "Assign an action to each shape, or turn a shape off."
         case .practice:
-            return "Use two fingers on the practice pad to preview recognition."
+            return "Use one finger on the practice pad to preview recognition."
         }
+    }
+
+    
+    func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
+        BrowserTheme.styleSectionHeaderFooter(view)
+    }
+
+    func tableView(_ tableView: UITableView, willDisplayFooterView view: UIView, forSection section: Int) {
+        BrowserTheme.styleSectionHeaderFooter(view)
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "cell")
-        cell.backgroundColor = BrowserTheme.card
-        cell.textLabel?.textColor = .white
-        cell.detailTextLabel?.textColor = BrowserTheme.textSecondary
+        BrowserTheme.styleListCell(cell)
         cell.accessoryView = nil
         cell.accessoryType = .none
         cell.selectionStyle = .default
@@ -71,13 +74,13 @@ final class GestureSettingsViewController: UIViewController, UITableViewDataSour
             cell.selectionStyle = .none
             let sw = UISwitch()
             if indexPath.row == 0 {
-                cell.textLabel?.text = "Navigation Swipes"
-                cell.detailTextLabel?.text = "One-finger left / right → back / forward"
+                cell.textLabel?.text = "Navigation Hooks"
+                cell.detailTextLabel?.text = "One-finger Hook → / Hook ←"
                 sw.isOn = AppSettings.navigationSwipeEnabled
                 sw.addTarget(self, action: #selector(swipeChanged(_:)), for: .valueChanged)
             } else {
-                cell.textLabel?.text = "Drawing Gestures"
-                cell.detailTextLabel?.text = "Two-finger shapes on the page"
+                cell.textLabel?.text = "Circle Gesture"
+                cell.detailTextLabel?.text = "One-finger Hook ○"
                 sw.isOn = AppSettings.drawingGesturesEnabled
                 sw.addTarget(self, action: #selector(drawingChanged(_:)), for: .valueChanged)
             }
@@ -85,12 +88,12 @@ final class GestureSettingsViewController: UIViewController, UITableViewDataSour
         case .bindings:
             let shape = GestureShape.allCases[indexPath.row]
             cell.textLabel?.text = shape.displayName
-            cell.detailTextLabel?.text = GestureActionMap.action(for: shape).displayName
+            cell.detailTextLabel?.text = GestureActionMap.action(for: shape, respectingToggles: false).displayName
             cell.imageView?.image = UIImage(systemName: shape.symbolName)
             cell.accessoryType = .disclosureIndicator
         case .practice:
             cell.textLabel?.text = "Practice Pad"
-            cell.detailTextLabel?.text = "Try drawing with two fingers"
+            cell.detailTextLabel?.text = "Try drawing with one finger"
             cell.accessoryType = .disclosureIndicator
         }
         return cell
@@ -111,7 +114,7 @@ final class GestureSettingsViewController: UIViewController, UITableViewDataSour
     private func presentActionPicker(for shape: GestureShape) {
         let sheet = UIAlertController(title: shape.displayName, message: "Choose action", preferredStyle: .actionSheet)
         for action in GestureBrowserAction.allCases {
-            let title = action == GestureActionMap.action(for: shape) ? "✓ \(action.displayName)" : action.displayName
+            let title = action == GestureActionMap.action(for: shape, respectingToggles: false) ? "✓ \(action.displayName)" : action.displayName
             sheet.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
                 GestureActionMap.setAction(action, for: shape)
                 self?.tableView.reloadData()
@@ -141,22 +144,23 @@ final class GesturePracticeViewController: UIViewController, DrawingGestureContr
     private let resultLabel = UILabel()
     private let hintLabel = UILabel()
     private let drawing = DrawingGestureController()
+    private var savedInteractivePopEnabled = true
 
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Practice"
-        view.backgroundColor = BrowserTheme.background
+        BrowserTheme.applyScreenChrome(to: self)
         if let navigationBar = navigationController?.navigationBar {
-            BrowserTheme.applyDarkNavigationBar(to: navigationBar)
+            BrowserTheme.applyNavigationBar(to: navigationBar)
         }
 
-        hintLabel.text = "Draw with two fingers"
+        hintLabel.text = "Draw with one finger: Hook → ← or ○"
         hintLabel.textColor = BrowserTheme.textSecondary
         hintLabel.font = .systemFont(ofSize: 14)
         hintLabel.textAlignment = .center
 
         resultLabel.text = "—"
-        resultLabel.textColor = .white
+        resultLabel.textColor = BrowserTheme.textPrimary
         resultLabel.font = .systemFont(ofSize: 18, weight: .semibold)
         resultLabel.textAlignment = .center
         resultLabel.numberOfLines = 2
@@ -164,6 +168,7 @@ final class GesturePracticeViewController: UIViewController, DrawingGestureContr
         pad.backgroundColor = BrowserTheme.card
         pad.layer.cornerRadius = 16
         pad.clipsToBounds = true
+        pad.isMultipleTouchEnabled = true
 
         view.addSubview(hintLabel)
         view.addSubview(pad)
@@ -188,7 +193,27 @@ final class GesturePracticeViewController: UIViewController, DrawingGestureContr
 
         drawing.delegate = self
         drawing.ignoresGlobalToggle = true
-        drawing.attach(to: pad)
+        // Attach to the full screen so competing nav pans can't steal the stroke;
+        // the visible pad is still the drawing target area users aim for.
+        drawing.attach(to: view, lockScrollView: nil)
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        BrowserTheme.applyScreenChrome(to: self)
+        // Practice pans were also driving the interactive pop gesture,
+        // which slid the whole page under the stroke.
+        savedInteractivePopEnabled = navigationController?.interactivePopGestureRecognizer?.isEnabled ?? true
+        navigationController?.interactivePopGestureRecognizer?.isEnabled = false
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.interactivePopGestureRecognizer?.isEnabled = savedInteractivePopEnabled
+    }
+
+    deinit {
+        drawing.detach()
     }
 
     func drawingGestureController(_ controller: DrawingGestureController, didRecognize shape: GestureShape, action: GestureBrowserAction) {

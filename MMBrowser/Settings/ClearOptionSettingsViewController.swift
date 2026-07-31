@@ -84,17 +84,17 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Clear Option"
-        view.backgroundColor = BrowserTheme.background
-        if let navigationBar = navigationController?.navigationBar {
-            BrowserTheme.applyDarkNavigationBar(to: navigationBar)
-        }
-        tableView.overrideUserInterfaceStyle = .dark
-        tableView.backgroundColor = BrowserTheme.background
+        BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
         view.addSubview(tableView)
         tableView.snp.makeConstraints { $0.edges.equalToSuperview() }
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
     }
 
     func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
@@ -122,11 +122,18 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
         }
     }
 
+    
+    func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
+        BrowserTheme.styleSectionHeaderFooter(view)
+    }
+
+    func tableView(_ tableView: UITableView, willDisplayFooterView view: UIView, forSection section: Int) {
+        BrowserTheme.styleSectionHeaderFooter(view)
+    }
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "cell")
-        cell.backgroundColor = BrowserTheme.card
-        cell.textLabel?.textColor = .white
-        cell.detailTextLabel?.textColor = BrowserTheme.textSecondary
+        BrowserTheme.styleListCell(cell)
         cell.selectionStyle = .none
         let sw = UISwitch()
         switch Section(rawValue: indexPath.section)! {

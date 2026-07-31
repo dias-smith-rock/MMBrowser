@@ -40,6 +40,23 @@ final class HistoryStore {
         save()
     }
 
+    /// Removes every history entry whose local calendar day matches `day`.
+    func remove(onDayOf day: Date, calendar: Calendar = .current) {
+        let start = calendar.startOfDay(for: day)
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return }
+        items.removeAll { $0.date >= start && $0.date < end }
+        save()
+    }
+
+    /// Groups items by local day, newest day first; items within a day newest first.
+    func sectionsByDay(calendar: Calendar = .current) -> [(day: Date, items: [HistoryItem])] {
+        let grouped = Dictionary(grouping: items) { calendar.startOfDay(for: $0.date) }
+        return grouped.keys.sorted(by: >).map { day in
+            let dayItems = (grouped[day] ?? []).sorted { $0.date > $1.date }
+            return (day, dayItems)
+        }
+    }
+
     private func load() {
         guard let data = defaults.data(forKey: key),
               let decoded = try? JSONDecoder().decode([HistoryItem].self, from: data) else { return }

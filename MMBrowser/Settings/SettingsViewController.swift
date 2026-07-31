@@ -91,10 +91,19 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .media:
             return "Background audio keeps supported video sites playing when you leave the app. Picture in Picture requires system support."
         case .gestures:
-            return "Draw shapes with two fingers, or swipe left/right with one finger."
+            return "One-finger Hook → back, Hook ← forward, Hook ○ bookmark."
         default:
             return nil
         }
+    }
+
+    
+    func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
+        BrowserTheme.styleSectionHeaderFooter(view)
+    }
+
+    func tableView(_ tableView: UITableView, willDisplayFooterView view: UIView, forSection section: Int) {
+        BrowserTheme.styleSectionHeaderFooter(view)
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {

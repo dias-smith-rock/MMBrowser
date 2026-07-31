@@ -9,13 +9,11 @@ final class ReadingListViewController: UIViewController, UITableViewDataSource, 
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Reading List"
-        view.backgroundColor = BrowserTheme.background
+        BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Close", style: .plain, target: self, action: #selector(close))
         items = ReadingListStore.shared.items
-        tableView.backgroundColor = BrowserTheme.background
         tableView.dataSource = self
         tableView.delegate = self
-        tableView.separatorColor = UIColor(white: 0.25, alpha: 1)
         view.addSubview(tableView)
         tableView.frame = view.bounds
         tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -28,7 +26,7 @@ final class ReadingListViewController: UIViewController, UITableViewDataSource, 
         let item = items[indexPath.row]
         cell.textLabel?.text = item.title
         cell.detailTextLabel?.text = (item.offlineFileName != nil ? "Offline · " : "") + (item.url?.host ?? "")
-        cell.textLabel?.textColor = .white
+        cell.textLabel?.textColor = BrowserTheme.textPrimary
         cell.detailTextLabel?.textColor = BrowserTheme.textSecondary
         cell.backgroundColor = BrowserTheme.background
         return cell

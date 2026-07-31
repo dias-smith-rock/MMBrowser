@@ -8,12 +8,7 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "App Lock"
-        view.backgroundColor = BrowserTheme.background
-        if let navigationBar = navigationController?.navigationBar {
-            BrowserTheme.applyDarkNavigationBar(to: navigationBar)
-        }
-        tableView.overrideUserInterfaceStyle = .dark
-        tableView.backgroundColor = BrowserTheme.background
+        BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
@@ -29,6 +24,7 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.reloadData()
     }
 
@@ -66,10 +62,19 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
         }
     }
 
+    
+    func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
+        BrowserTheme.styleSectionHeaderFooter(view)
+    }
+
+    func tableView(_ tableView: UITableView, willDisplayFooterView view: UIView, forSection section: Int) {
+        BrowserTheme.styleSectionHeaderFooter(view)
+    }
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let rowCell = UITableViewCell(style: .value1, reuseIdentifier: "value1")
         rowCell.backgroundColor = BrowserTheme.card
-        rowCell.textLabel?.textColor = .white
+        rowCell.textLabel?.textColor = BrowserTheme.textPrimary
         rowCell.detailTextLabel?.textColor = BrowserTheme.textSecondary
         rowCell.detailTextLabel?.text = nil
         rowCell.accessoryView = nil
@@ -314,12 +319,7 @@ final class AppLockGracePeriodViewController: UIViewController, UITableViewDataS
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Lock After"
-        view.backgroundColor = BrowserTheme.background
-        if let navigationBar = navigationController?.navigationBar {
-            BrowserTheme.applyDarkNavigationBar(to: navigationBar)
-        }
-        tableView.overrideUserInterfaceStyle = .dark
-        tableView.backgroundColor = BrowserTheme.background
+        BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
@@ -333,6 +333,11 @@ final class AppLockGracePeriodViewController: UIViewController, UITableViewDataS
         ])
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
+    }
+
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         options.count
     }
@@ -341,14 +346,16 @@ final class AppLockGracePeriodViewController: UIViewController, UITableViewDataS
         "Require unlock after MMBrowser has been in the background for this long."
     }
 
+    func tableView(_ tableView: UITableView, willDisplayFooterView view: UIView, forSection section: Int) {
+        BrowserTheme.styleSectionHeaderFooter(view)
+    }
+
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
         let option = options[indexPath.row]
-        cell.backgroundColor = BrowserTheme.card
-        cell.textLabel?.textColor = .white
+        BrowserTheme.styleListCell(cell)
         cell.textLabel?.text = option.displayName
         cell.accessoryType = option == AppLockSettings.gracePeriod ? .checkmark : .none
-        cell.tintColor = BrowserTheme.chromeBlue
         return cell
     }
 

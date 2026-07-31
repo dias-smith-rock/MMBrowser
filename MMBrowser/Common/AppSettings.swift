@@ -124,7 +124,7 @@ enum AppSettings {
         }
     }
 
-    /// One-finger left/right swipe → back/forward. Default on.
+    /// One-finger Hook → / ← navigation. Default on.
     static var navigationSwipeEnabled: Bool {
         get { d.object(forKey: "gesture.navSwipe.enabled") == nil ? true : d.bool(forKey: "gesture.navSwipe.enabled") }
         set {
@@ -133,7 +133,7 @@ enum AppSettings {
         }
     }
 
-    /// Two-finger drawing gestures. Default on.
+    /// One-finger Hook ○ (circle) gesture. Default on.
     static var drawingGesturesEnabled: Bool {
         get { d.object(forKey: "gesture.drawing.enabled") == nil ? true : d.bool(forKey: "gesture.drawing.enabled") }
         set {

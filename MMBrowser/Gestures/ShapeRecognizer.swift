@@ -18,9 +18,8 @@ enum ShapeRecognizer {
         let startEnd = hypot(simplified.last!.x - simplified.first!.x, simplified.last!.y - simplified.first!.y)
         let closure = startEnd / max(diag, 1)
         let corners = detectCorners(simplified)
-        let reversals = directionReversals(simplified)
 
-        // Circle: roughly closed, path length near ellipse perimeter, few sharp corners.
+        // Circle ○ — closed loop only (not confused with a swipe).
         let perimeter = .pi * (1.5 * (box.width + box.height) - sqrt(box.width * box.height))
         let circleScore = closure < 0.35
             && abs(length / max(perimeter, 1) - 1) < 0.55
@@ -30,28 +29,11 @@ enum ShapeRecognizer {
 
         if circleScore { return .circle }
 
-        // Zigzag: many direction changes, not closed.
-        if reversals >= 3 && closure > 0.25 { return .zigzag }
-
-        // Checkmark: typically 1 sharp corner; second leg shorter; overall down-right then up-right.
-        if let check = matchCheckmark(simplified, corners: corners) { return check }
-
-        // Triangle: 2–3 corners and somewhat closed.
-        if corners.count >= 2 && corners.count <= 4 && closure < 0.45 {
-            return .triangle
+        // Hook → / Hook ← — short reverse bend + long horizontal stroke.
+        // A plain swipe has no corner and will not match.
+        if let hook = matchHorizontalHook(simplified, corners: corners, closure: closure) {
+            return hook
         }
-
-        // Single V / Λ
-        if corners.count == 1 {
-            let c = corners[0]
-            let midY = simplified[c].y
-            let avgEndY = (simplified.first!.y + simplified.last!.y) / 2
-            if midY > avgEndY + diag * 0.12 { return .vDown }
-            if midY < avgEndY - diag * 0.12 { return .vUp }
-        }
-
-        // Soft zigzag fallback
-        if reversals >= 2 && closure > 0.3 { return .zigzag }
 
         return nil
     }
@@ -105,7 +87,6 @@ enum ShapeRecognizer {
             let cosAngle = (v1.x * v2.x + v1.y * v2.y) / (len1 * len2)
             let clamped = max(-1, min(1, cosAngle))
             let angle = acos(clamped) * 180 / .pi
-            // Sharp turn
             if angle > 45 && angle < 160 {
                 if let last = corners.last, i - last < 4 { continue }
                 corners.append(i)
@@ -114,45 +95,53 @@ enum ShapeRecognizer {
         return corners
     }
 
-    private static func directionReversals(_ points: [CGPoint]) -> Int {
-        guard points.count >= 6 else { return 0 }
-        var dirs: [CGFloat] = []
-        let step = max(1, points.count / 20)
-        var i = 0
-        while i + step < points.count {
-            let a = points[i]
-            let b = points[i + step]
-            dirs.append(atan2(b.y - a.y, b.x - a.x))
-            i += step
-        }
-        var count = 0
-        for j in 1..<dirs.count {
-            var delta = abs(dirs[j] - dirs[j - 1])
-            if delta > .pi { delta = 2 * .pi - delta }
-            if delta > (.pi * 0.55) { count += 1 }
-        }
-        return count
-    }
+    private static func matchHorizontalHook(
+        _ points: [CGPoint],
+        corners: [Int],
+        closure: CGFloat
+    ) -> GestureShape? {
+        guard closure > 0.15 else { return nil }
+        guard corners.count <= 2 else { return nil }
 
-    private static func matchCheckmark(_ points: [CGPoint], corners: [Int]) -> GestureShape? {
-        guard let cornerIndex = corners.first ?? sharpestIndex(points) else { return nil }
+        let cornerIndex = primaryCornerIndex(points, corners: corners) ?? sharpestIndex(points)
+        guard let cornerIndex else { return nil }
+
         let start = points.first!
         let corner = points[cornerIndex]
         let end = points.last!
-        let leg1 = hypot(corner.x - start.x, corner.y - start.y)
-        let leg2 = hypot(end.x - corner.x, end.y - corner.y)
-        guard leg1 > 20, leg2 > 12, leg2 < leg1 * 1.15 else { return nil }
+        let d1 = CGPoint(x: corner.x - start.x, y: corner.y - start.y)
+        let d2 = CGPoint(x: end.x - corner.x, y: end.y - corner.y)
+        let leg1 = hypot(d1.x, d1.y)
+        let leg2 = hypot(d2.x, d2.y)
 
-        // Classic check: first stroke goes down-right, second goes up-right.
-        let downRight = (corner.x > start.x - 10) && (corner.y > start.y + 8)
-        let upRight = (end.x > corner.x + 8) && (end.y < corner.y - 8)
-        if downRight && upRight { return .checkmark }
+        guard leg1 > 16, leg2 > 48, leg2 > leg1 * 1.35 else { return nil }
+        // Main stroke must be clearly horizontal.
+        guard abs(d2.x) > abs(d2.y) * 1.5, abs(d2.x) > 40 else { return nil }
 
-        // Mirrored / loose check: overall rightward with one bend.
-        let overallRight = end.x > start.x + 20
-        let hasBend = corners.count <= 2
-        if overallRight && hasBend && leg2 < leg1 * 0.95 { return .checkmark }
+        if d2.x > 0, d1.x < -10 { return .hookRight }
+        if d2.x < 0, d1.x > 10 { return .hookLeft }
         return nil
+    }
+
+    private static func primaryCornerIndex(_ points: [CGPoint], corners: [Int]) -> Int? {
+        guard !corners.isEmpty else { return nil }
+        var best: (Int, CGFloat)?
+        for i in corners {
+            guard i > 1, i + 1 < points.count - 1 else { continue }
+            let a = points[max(0, i - 2)]
+            let b = points[i]
+            let c = points[min(points.count - 1, i + 2)]
+            let v1 = CGPoint(x: b.x - a.x, y: b.y - a.y)
+            let v2 = CGPoint(x: c.x - b.x, y: c.y - b.y)
+            let len1 = hypot(v1.x, v1.y), len2 = hypot(v2.x, v2.y)
+            guard len1 > 1, len2 > 1 else { continue }
+            let cosAngle = max(-1, min(1, (v1.x * v2.x + v1.y * v2.y) / (len1 * len2)))
+            let angle = acos(cosAngle)
+            if best == nil || angle > best!.1 {
+                best = (i, angle)
+            }
+        }
+        return best?.0 ?? corners.first
     }
 
     private static func sharpestIndex(_ points: [CGPoint]) -> Int? {

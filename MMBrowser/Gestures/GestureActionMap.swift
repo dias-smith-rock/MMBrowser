@@ -2,42 +2,41 @@ import Foundation
 import UIKit
 
 enum GestureShape: String, CaseIterable {
-    case checkmark
+    /// Short reverse hook, then long stroke right → Back.
+    case hookRight
+    /// Short reverse hook, then long stroke left → Forward.
+    case hookLeft
+    /// Closed circle → Add Bookmark.
     case circle
-    case zigzag
-    case triangle
-    case vUp
-    case vDown
 
     var displayName: String {
         switch self {
-        case .checkmark: return "Checkmark ✓"
-        case .circle: return "Circle O"
-        case .zigzag: return "Zigzag Z"
-        case .triangle: return "Triangle △"
-        case .vUp: return "V Up ∧"
-        case .vDown: return "V Down ∨"
+        case .hookRight: return "Hook →"
+        case .hookLeft: return "Hook ←"
+        case .circle: return "Hook ○"
         }
     }
 
     var symbolName: String {
         switch self {
-        case .checkmark: return "checkmark"
+        case .hookRight: return "arrow.right"
+        case .hookLeft: return "arrow.left"
         case .circle: return "circle"
-        case .zigzag: return "waveform.path"
-        case .triangle: return "triangle"
-        case .vUp: return "chevron.up"
-        case .vDown: return "chevron.down"
         }
     }
 
     var defaultAction: GestureBrowserAction {
         switch self {
-        case .checkmark: return .addBookmark
-        case .circle: return .reload
-        case .zigzag: return .share
-        case .triangle: return .addReadingList
-        case .vUp, .vDown: return .none
+        case .hookRight: return .goBack
+        case .hookLeft: return .goForward
+        case .circle: return .addBookmark
+        }
+    }
+
+    var isNavigationHook: Bool {
+        switch self {
+        case .hookRight, .hookLeft: return true
+        case .circle: return false
         }
     }
 }
@@ -53,6 +52,10 @@ enum GestureBrowserAction: String, CaseIterable {
     case desktopSite
     case newIncognitoTab
     case screenshot
+    case goBack
+    case goForward
+    case pageUp
+    case pageDown
 
     var displayName: String {
         switch self {
@@ -66,12 +69,16 @@ enum GestureBrowserAction: String, CaseIterable {
         case .desktopSite: return "Request Desktop Site"
         case .newIncognitoTab: return "New Incognito Tab"
         case .screenshot: return "Screenshot"
+        case .goBack: return "Back"
+        case .goForward: return "Forward"
+        case .pageUp: return "Page Up"
+        case .pageDown: return "Page Down"
         }
     }
 
     var menuAction: MenuAction? {
         switch self {
-        case .none: return nil
+        case .none, .goBack, .goForward, .pageUp, .pageDown: return nil
         case .reload: return .reload
         case .addBookmark: return .addBookmark
         case .addReadingList: return .addReadingList
@@ -90,7 +97,14 @@ enum GestureActionMap {
         "gesture.binding.\(shape.rawValue)"
     }
 
-    static func action(for shape: GestureShape) -> GestureBrowserAction {
+    static func action(for shape: GestureShape, respectingToggles: Bool = true) -> GestureBrowserAction {
+        if respectingToggles {
+            if shape.isNavigationHook {
+                guard AppSettings.navigationSwipeEnabled else { return .none }
+            } else {
+                guard AppSettings.drawingGesturesEnabled else { return .none }
+            }
+        }
         let key = bindingKey(for: shape)
         guard let raw = UserDefaults.standard.string(forKey: key),
               let action = GestureBrowserAction(rawValue: raw) else {
@@ -108,9 +122,9 @@ enum GestureActionMap {
         let enabled = AppSettings.drawingGesturesEnabled
         let swipe = AppSettings.navigationSwipeEnabled
         switch (enabled, swipe) {
-        case (true, true): return "Drawing & Swipes"
-        case (true, false): return "Drawing"
-        case (false, true): return "Swipes"
+        case (true, true): return "Hooks & Circle"
+        case (true, false): return "Circle"
+        case (false, true): return "Hooks"
         case (false, false): return "Off"
         }
     }

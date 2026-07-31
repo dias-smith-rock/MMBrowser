@@ -14,7 +14,7 @@ final class FindInPageBar: UIView, UITextFieldDelegate {
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = BrowserTheme.elevated
-        field.textColor = .white
+        field.textColor = BrowserTheme.textPrimary
         field.tintColor = BrowserTheme.chromeBlue
         field.placeholder = "Find in page"
         field.returnKeyType = .search
@@ -29,15 +29,15 @@ final class FindInPageBar: UIView, UITextFieldDelegate {
 
         let prev = UIButton(type: .system)
         prev.setImage(UIImage(systemName: "chevron.up"), for: .normal)
-        prev.tintColor = .white
+        prev.tintColor = BrowserTheme.textPrimary
         prev.addTarget(self, action: #selector(prevTapped), for: .touchUpInside)
         let next = UIButton(type: .system)
         next.setImage(UIImage(systemName: "chevron.down"), for: .normal)
-        next.tintColor = .white
+        next.tintColor = BrowserTheme.textPrimary
         next.addTarget(self, action: #selector(nextTapped), for: .touchUpInside)
         let close = UIButton(type: .system)
         close.setImage(UIImage(systemName: "xmark"), for: .normal)
-        close.tintColor = .white
+        close.tintColor = BrowserTheme.textPrimary
         close.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
 
         let stack = UIStackView(arrangedSubviews: [field, countLabel, prev, next, close])

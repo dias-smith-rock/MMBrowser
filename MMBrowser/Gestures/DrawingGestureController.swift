@@ -4,21 +4,28 @@ protocol DrawingGestureControllerDelegate: AnyObject {
     func drawingGestureController(_ controller: DrawingGestureController, didRecognize shape: GestureShape, action: GestureBrowserAction)
 }
 
-/// Two-finger stroke overlay + shape recognition for browser shortcuts.
+/// One-finger stroke overlay + shape recognition for Hook → / ← / ○.
 final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
     weak var delegate: DrawingGestureControllerDelegate?
 
     private weak var hostView: UIView?
+    weak var scrollViewToLock: UIScrollView?
     private let overlay = StrokeOverlayView()
     private var pan: UIPanGestureRecognizer?
     private var points: [CGPoint] = []
-    private var isEnabled = true
-    /// When true, ignores AppSettings.drawingGesturesEnabled (practice pad).
+    /// When true, ignores AppSettings toggles (practice pad).
     var ignoresGlobalToggle = false
 
-    func attach(to view: UIView) {
+    private var didLockScrolling = false
+    private var savedScrollEnabled = true
+    private var savedPinchEnabled = true
+    private var savedMinZoom: CGFloat = 1
+    private var savedMaxZoom: CGFloat = 1
+
+    func attach(to view: UIView, lockScrollView: UIScrollView? = nil) {
         detach()
         hostView = view
+        scrollViewToLock = lockScrollView
         overlay.isUserInteractionEnabled = false
         overlay.alpha = 0
         view.addSubview(overlay)
@@ -32,73 +39,76 @@ final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
 
         let gesture = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
         gesture.delegate = self
-        gesture.minimumNumberOfTouches = 2
-        gesture.maximumNumberOfTouches = 2
-        gesture.cancelsTouchesInView = false
+        gesture.minimumNumberOfTouches = 1
+        gesture.maximumNumberOfTouches = 1
+        gesture.cancelsTouchesInView = true
         view.addGestureRecognizer(gesture)
         pan = gesture
         refreshEnabled()
     }
 
     func detach() {
+        unlockScrolling()
         if let pan, let hostView {
             hostView.removeGestureRecognizer(pan)
         }
         pan = nil
         overlay.removeFromSuperview()
         hostView = nil
+        scrollViewToLock = nil
         points.removeAll()
     }
 
     func refreshEnabled() {
-        isEnabled = ignoresGlobalToggle || AppSettings.drawingGesturesEnabled
-        pan?.isEnabled = isEnabled
-        if !isEnabled {
+        let on = ignoresGlobalToggle
+            || AppSettings.drawingGesturesEnabled
+            || AppSettings.navigationSwipeEnabled
+        pan?.isEnabled = on
+        if !on {
+            unlockScrolling()
             clearStroke(animated: false)
         }
     }
 
     @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
-        guard isEnabled, let hostView else { return }
+        guard let hostView else { return }
         switch gesture.state {
         case .began:
+            lockScrolling()
             points.removeAll()
             overlay.alpha = 1
             overlay.clear()
-            appendMidpoint(from: gesture, in: hostView)
+            appendPoint(from: gesture, in: hostView)
         case .changed:
-            appendMidpoint(from: gesture, in: hostView)
+            appendPoint(from: gesture, in: hostView)
             overlay.update(points: points)
         case .ended, .cancelled, .failed:
-            appendMidpoint(from: gesture, in: hostView)
+            appendPoint(from: gesture, in: hostView)
             overlay.update(points: points)
             finishStroke()
+            unlockScrolling()
         default:
             break
         }
     }
 
-    private func appendMidpoint(from gesture: UIPanGestureRecognizer, in view: UIView) {
-        guard gesture.numberOfTouches >= 2 else {
-            let p = gesture.location(in: view)
-            if points.last.map({ hypot($0.x - p.x, $0.y - p.y) > 2 }) ?? true {
-                points.append(p)
-            }
-            return
-        }
-        let a = gesture.location(ofTouch: 0, in: view)
-        let b = gesture.location(ofTouch: 1, in: view)
-        let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
-        if let last = points.last, hypot(last.x - mid.x, last.y - mid.y) < 2 { return }
-        points.append(mid)
+    private func appendPoint(from gesture: UIPanGestureRecognizer, in view: UIView) {
+        let point = gesture.location(in: view)
+        if let last = points.last, hypot(last.x - point.x, last.y - point.y) < 2 { return }
+        points.append(point)
     }
 
     private func finishStroke() {
         let recognized = ShapeRecognizer.recognize(points)
         clearStroke(animated: true)
         guard let shape = recognized else { return }
-        let action = GestureActionMap.action(for: shape)
-        guard action != .none else { return }
+        let action = GestureActionMap.action(for: shape, respectingToggles: !ignoresGlobalToggle)
+        guard action != .none else {
+            if ignoresGlobalToggle {
+                delegate?.drawingGestureController(self, didRecognize: shape, action: .none)
+            }
+            return
+        }
         delegate?.drawingGestureController(self, didRecognize: shape, action: action)
     }
 
@@ -115,13 +125,45 @@ final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        true
+    private func lockScrolling() {
+        guard !didLockScrolling, let scroll = scrollViewToLock else { return }
+        didLockScrolling = true
+        savedScrollEnabled = scroll.isScrollEnabled
+        savedPinchEnabled = scroll.pinchGestureRecognizer?.isEnabled ?? true
+        savedMinZoom = scroll.minimumZoomScale
+        savedMaxZoom = scroll.maximumZoomScale
+        scroll.isScrollEnabled = false
+        scroll.pinchGestureRecognizer?.isEnabled = false
+        let zoom = scroll.zoomScale
+        scroll.minimumZoomScale = zoom
+        scroll.maximumZoomScale = zoom
+        scroll.setContentOffset(scroll.contentOffset, animated: false)
+    }
+
+    private func unlockScrolling() {
+        guard didLockScrolling, let scroll = scrollViewToLock else {
+            didLockScrolling = false
+            return
+        }
+        didLockScrolling = false
+        scroll.isScrollEnabled = savedScrollEnabled
+        scroll.pinchGestureRecognizer?.isEnabled = savedPinchEnabled
+        scroll.minimumZoomScale = savedMinZoom
+        scroll.maximumZoomScale = savedMaxZoom
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        false
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
         if touch.view is UIControl { return false }
-        return isEnabled
+        return ignoresGlobalToggle
+            || AppSettings.drawingGesturesEnabled
+            || AppSettings.navigationSwipeEnabled
     }
 }
 

@@ -104,7 +104,6 @@ final class WebViewController: UIViewController {
     private var pageCleanerObserver: NSObjectProtocol?
     private var contentOffsetObservation: NSKeyValueObservation?
     private let drawingGestures = DrawingGestureController()
-    private var navigationPan: UIPanGestureRecognizer?
     private var gestureSettingsObserver: NSObjectProtocol?
 
     private let desktopUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
@@ -176,7 +175,7 @@ final class WebViewController: UIViewController {
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.navigationDelegate = self
         wv.uiDelegate = self
-        // Full-page swipe handles back/forward; keep edge peek disabled to avoid double triggers.
+    // Full-page navigation uses hooked drawing strokes instead of edge swipes.
         wv.allowsBackForwardNavigationGestures = false
         wv.scrollView.bouncesZoom = true
         wv.scrollView.alwaysBounceHorizontal = false
@@ -192,7 +191,6 @@ final class WebViewController: UIViewController {
             make.edges.equalToSuperview()
         }
         webView = wv
-        setupNavigationSwipeGestures(on: wv)
         setupDrawingGestures()
 
         progressObservation = wv.observe(\.estimatedProgress, options: [.new]) { [weak self] webView, _ in
@@ -296,24 +294,51 @@ final class WebViewController: UIViewController {
             ?? ""
         guard !host.isEmpty else { return }
 
-        PageCleanerManager.hideSelector(selector, on: webView)
+        let normalizedRect = PageCleanerPreviewBuilder.normalizedRect(from: body)
 
-        if isIncognito {
-            Toast.show("Hidden for this session", from: self)
-            return
-        }
+        // Snapshot while the element is still visible, then hide.
+        webView.takeSnapshot(with: nil) { [weak self] image, _ in
+            let finish = {
+                guard let self else { return }
+                PageCleanerManager.hideSelector(selector, on: webView)
 
-        let urlString: String?
-        if cleanerURLOnly, let url = webView.url {
-            urlString = PageCleanerStore.canonicalURLString(url)
-        } else {
-            urlString = nil
-        }
+                if self.isIncognito {
+                    Toast.show("Hidden for this session", from: self)
+                    return
+                }
 
-        if PageCleanerStore.shared.add(host: host, urlString: urlString, selector: selector, label: label) != nil {
-            Toast.show(urlString == nil ? "Hidden on this site" : "Hidden on this page", from: self)
-        } else {
-            Toast.show("Already hidden", from: self)
+                let urlString: String?
+                if self.cleanerURLOnly, let url = webView.url {
+                    urlString = PageCleanerStore.canonicalURLString(url)
+                } else {
+                    urlString = nil
+                }
+
+                var preview: UIImage?
+                if let image, let normalizedRect {
+                    preview = PageCleanerPreviewBuilder.makePreview(
+                        snapshot: image,
+                        normalizedRect: normalizedRect
+                    )
+                }
+
+                if PageCleanerStore.shared.add(
+                    host: host,
+                    urlString: urlString,
+                    selector: selector,
+                    label: label,
+                    previewImage: preview
+                ) != nil {
+                    Toast.show(urlString == nil ? "Hidden on this site" : "Hidden on this page", from: self)
+                } else {
+                    Toast.show("Already hidden", from: self)
+                }
+            }
+            if Thread.isMainThread {
+                finish()
+            } else {
+                DispatchQueue.main.async(execute: finish)
+            }
         }
     }
 
@@ -382,20 +407,23 @@ final class WebViewController: UIViewController {
     func goForward() { if webView?.canGoForward == true { webView?.goForward() } }
     func reload() { webView?.reload() }
 
-    /// Swipe right → back, swipe left → forward (full-page, not edge-only).
-    private func setupNavigationSwipeGestures(on webView: WKWebView) {
-        let pan = UIPanGestureRecognizer(target: self, action: #selector(handleNavigationPan(_:)))
-        pan.delegate = self
-        pan.maximumNumberOfTouches = 1
-        pan.cancelsTouchesInView = false
-        pan.isEnabled = AppSettings.navigationSwipeEnabled
-        view.addGestureRecognizer(pan)
-        navigationPan = pan
+    func pageUp() {
+        webView?.evaluateJavaScript(
+            "window.scrollBy({top: -Math.max(120, window.innerHeight * 0.85), left: 0, behavior: 'smooth'});",
+            completionHandler: nil
+        )
+    }
+
+    func pageDown() {
+        webView?.evaluateJavaScript(
+            "window.scrollBy({top: Math.max(120, window.innerHeight * 0.85), left: 0, behavior: 'smooth'});",
+            completionHandler: nil
+        )
     }
 
     private func setupDrawingGestures() {
         drawingGestures.delegate = self
-        drawingGestures.attach(to: view)
+        drawingGestures.attach(to: view, lockScrollView: webView?.scrollView)
         if gestureSettingsObserver == nil {
             gestureSettingsObserver = NotificationCenter.default.addObserver(
                 forName: .gestureSettingsChanged,
@@ -409,24 +437,7 @@ final class WebViewController: UIViewController {
     }
 
     private func refreshGestureSettings() {
-        navigationPan?.isEnabled = AppSettings.navigationSwipeEnabled
         drawingGestures.refreshEnabled()
-    }
-
-    @objc private func handleNavigationPan(_ gesture: UIPanGestureRecognizer) {
-        guard AppSettings.navigationSwipeEnabled else { return }
-        guard gesture.state == .ended else { return }
-        let translation = gesture.translation(in: view)
-        let velocity = gesture.velocity(in: view)
-        let dx = translation.x
-        let dy = translation.y
-        // Require a clear horizontal swipe so vertical scrolling isn't treated as navigation.
-        guard abs(dx) > abs(dy) * 1.8, abs(dx) > 70 || abs(velocity.x) > 700 else { return }
-        if dx > 0 {
-            goBack()
-        } else {
-            goForward()
-        }
     }
 
     func setPreferDesktop(_ enabled: Bool) {
@@ -463,8 +474,8 @@ final class WebViewController: UIViewController {
             let title = (obj["title"] as? String) ?? (webView.title ?? "Reader")
             let reader = ReaderViewController(title: title, bodyHTML: html)
             let nav = UINavigationController(rootViewController: reader)
-            nav.overrideUserInterfaceStyle = .dark
-            BrowserTheme.applyDarkNavigationBar(to: nav.navigationBar)
+            nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+            BrowserTheme.applyNavigationBar(to: nav.navigationBar)
             self.delegate?.webViewController(self, present: nav)
         }
     }
@@ -688,17 +699,6 @@ private final class WebViewScriptProxy: NSObject, WKScriptMessageHandler {
 extension WebViewController: DrawingGestureControllerDelegate {
     func drawingGestureController(_ controller: DrawingGestureController, didRecognize shape: GestureShape, action: GestureBrowserAction) {
         delegate?.webViewController(self, didTriggerGestureAction: action)
-    }
-}
-
-extension WebViewController: UIGestureRecognizerDelegate {
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
-        true
-    }
-
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        if touch.view is UIControl { return false }
-        return true
     }
 }
 

@@ -24,6 +24,8 @@ final class BrowserViewController: UIViewController {
     private let chromeScrollThreshold: CGFloat = 10
     private var isPageLoading = false
     private var pageLoadProgress: Double = 0
+    /// Keyboard overlap with this view (from bottom), in view coordinates.
+    private var keyboardOverlap: CGFloat = 0
 
     private var didAttemptOnboarding = false
 
@@ -44,6 +46,8 @@ final class BrowserViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSessionCleanup), name: .clearOptionSessionCleanup, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSettingsChanged), name: .clearOptionSettingsChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeDidChange, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillChange(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
     }
 
     @objc private func themeChanged() {
@@ -170,14 +174,11 @@ final class BrowserViewController: UIViewController {
         if collapsed {
             guard tabManager.selectedTab?.isNewTabPage != true else { return }
             guard !addressBar.isHidden else { return }
+            // Don't hide chrome while the keyboard is up — address field would stay covered.
+            guard keyboardOverlap < 1 else { return }
         }
         guard collapsed != isChromeCollapsed else { return }
         isChromeCollapsed = collapsed
-
-        let chromeHeight = BrowserTheme.addressBarHeight + BrowserTheme.toolbarHeight
-        let bottomInset = view.safeAreaInsets.bottom
-        let offset = collapsed ? (chromeHeight + bottomInset) : 0
-        chromeBottomConstraint?.update(offset: offset)
 
         contentTopConstraint?.deactivate()
         contentContainer.snp.prepareConstraints { make in
@@ -188,6 +189,7 @@ final class BrowserViewController: UIViewController {
             }
         }
         contentTopConstraint?.activate()
+        updateChromeBottomOffset(animated: false)
 
         let animations = {
             self.statusBarFill.alpha = collapsed ? 0 : 1
@@ -207,6 +209,73 @@ final class BrowserViewController: UIViewController {
         addressBar.setProgress(pageLoadProgress, isLoading: isPageLoading && !collapsed)
         updateCollapsedProgressVisibility()
         setNeedsStatusBarAppearanceUpdate()
+    }
+
+    /// Places chrome above the home indicator, or above the keyboard when it overlaps.
+    private func updateChromeBottomOffset(animated: Bool) {
+        let safeBottom = view.safeAreaInsets.bottom
+        let liftAboveSafeArea = max(0, keyboardOverlap - safeBottom)
+        let offset: CGFloat
+        if isChromeCollapsed && liftAboveSafeArea < 1 {
+            let chromeHeight = BrowserTheme.addressBarHeight + BrowserTheme.toolbarHeight
+            offset = chromeHeight + safeBottom
+        } else {
+            offset = -liftAboveSafeArea
+        }
+        chromeBottomConstraint?.update(offset: offset)
+        // Keep collapsed progress just above the lifted chrome / home indicator.
+        collapsedProgressView.snp.remakeConstraints { make in
+            make.leading.trailing.equalToSuperview()
+            make.height.equalTo(2)
+            if liftAboveSafeArea > 0 {
+                make.bottom.equalTo(chromeHost.snp.top)
+            } else {
+                make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+            }
+        }
+
+        guard animated else { return }
+        UIView.animate(
+            withDuration: 0.25,
+            delay: 0,
+            options: [.curveEaseInOut, .beginFromCurrentState, .allowUserInteraction],
+            animations: { self.view.layoutIfNeeded() }
+        )
+    }
+
+    @objc private func keyboardWillChange(_ notification: Notification) {
+        guard let frame = notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+        let converted = view.convert(frame, from: nil)
+        let overlap = max(0, view.bounds.maxY - converted.minY)
+        // Ignore tiny changes / floating keyboard fully off the bottom.
+        keyboardOverlap = overlap > 20 ? overlap : 0
+        if keyboardOverlap > 0 {
+            isChromeCollapsed = false
+            statusBarFill.alpha = 1
+            contentTopConstraint?.deactivate()
+            contentContainer.snp.prepareConstraints { make in
+                contentTopConstraint = make.top.equalTo(view.safeAreaLayoutGuide.snp.top).constraint
+            }
+            contentTopConstraint?.activate()
+            updateCollapsedProgressVisibility()
+        }
+        animateChromeWithKeyboard(notification)
+    }
+
+    @objc private func keyboardWillHide(_ notification: Notification) {
+        keyboardOverlap = 0
+        animateChromeWithKeyboard(notification)
+    }
+
+    private func animateChromeWithKeyboard(_ notification: Notification) {
+        let duration = (notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue ?? 0.25
+        let curveRaw = (notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? NSNumber)?.uintValue
+            ?? UIView.AnimationOptions.curveEaseInOut.rawValue
+        let options = UIView.AnimationOptions(rawValue: curveRaw << 16).union(.beginFromCurrentState)
+        updateChromeBottomOffset(animated: false)
+        UIView.animate(withDuration: duration, delay: 0, options: options) {
+            self.view.layoutIfNeeded()
+        }
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -394,8 +463,12 @@ final class BrowserViewController: UIViewController {
         captureCurrentSnapshotIfNeeded()
         let switcher = TabSwitcherViewController(tabManager: tabManager)
         switcher.delegate = self
-        switcher.modalPresentationStyle = .fullScreen
-        present(switcher, animated: true)
+        // Keep the browser (and WKWebView) in the window so HTML5 / YouTube audio keeps playing.
+        switcher.modalPresentationStyle = .overFullScreen
+        switcher.modalTransitionStyle = .coverVertical
+        present(switcher, animated: true) { [weak self] in
+            MediaPlaybackSupport.resumeMediaIfNeeded(in: self?.tabManager.selectedTab?.webController?.webView)
+        }
     }
 
     private func presentMenu() {
@@ -408,7 +481,9 @@ final class BrowserViewController: UIViewController {
                 sheet.prefersGrabberVisible = true
             }
         }
-        present(menu, animated: true)
+        present(menu, animated: true) { [weak self] in
+            MediaPlaybackSupport.resumeMediaIfNeeded(in: self?.tabManager.selectedTab?.webController?.webView)
+        }
     }
 
     private func captureCurrentSnapshotIfNeeded() {
@@ -418,9 +493,11 @@ final class BrowserViewController: UIViewController {
             tab.snapshot = nil
             return
         }
-        tab.webController?.captureSnapshot { image in
+        tab.webController?.captureSnapshot { [weak tab] image in
             guard AppSettings.showTabsPreviewImages else { return }
-            tab.snapshot = image
+            tab?.snapshot = image
+            // takeSnapshot can briefly pause HTML5 video — nudge it back if it was playing.
+            MediaPlaybackSupport.resumeMediaIfNeeded(in: tab?.webController?.webView)
         }
     }
 
@@ -428,6 +505,13 @@ final class BrowserViewController: UIViewController {
         let root: UIViewController
         if isBookmarks {
             let list = BookmarksViewController()
+            if let tab = tabManager.selectedTab,
+               !tab.isIncognito,
+               !tab.isNewTabPage,
+               let url = tab.url {
+                list.currentPageURL = url
+                list.currentPageTitle = tab.title
+            }
             list.onSelectURL = { [weak self] url in
                 self?.dismiss(animated: true) {
                     self?.navigate(to: url)
@@ -444,8 +528,8 @@ final class BrowserViewController: UIViewController {
             root = list
         }
         let nav = UINavigationController(rootViewController: root)
-        nav.overrideUserInterfaceStyle = .dark
-        BrowserTheme.applyDarkNavigationBar(to: nav.navigationBar)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
         present(nav, animated: true)
     }
 }
@@ -630,8 +714,21 @@ extension BrowserViewController: WebViewControllerDelegate {
 
     func webViewController(_ controller: WebViewController, didTriggerGestureAction action: GestureBrowserAction) {
         guard tabManager.selectedTab?.webController === controller else { return }
-        guard let menuAction = action.menuAction else { return }
-        performMenuAction(menuAction)
+        switch action {
+        case .goBack:
+            controller.goBack()
+        case .goForward:
+            controller.goForward()
+        case .pageUp:
+            controller.pageUp()
+        case .pageDown:
+            controller.pageDown()
+        case .none:
+            break
+        default:
+            guard let menuAction = action.menuAction else { return }
+            performMenuAction(menuAction)
+        }
     }
 
     func webViewController(_ controller: WebViewController, didUpdateNavigationState canGoBack: Bool, canGoForward: Bool) {
@@ -681,6 +778,7 @@ extension BrowserViewController: TabSwitcherViewControllerDelegate {
     func tabSwitcherDidClose() {
         dismiss(animated: true) {
             self.showSelectedTab()
+            MediaPlaybackSupport.resumeMediaIfNeeded(in: self.tabManager.selectedTab?.webController?.webView)
         }
     }
 
@@ -740,8 +838,11 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 Toast.show("No page to bookmark", from: self)
                 return
             }
-            BookmarkStore.shared.add(title: tab.title, url: url)
-            Toast.show("Bookmark added", from: self)
+            if BookmarkStore.shared.add(title: tab.title, url: url) {
+                Toast.show("Bookmark added", from: self)
+            } else {
+                Toast.show("Already bookmarked", from: self)
+            }
         case .addReadingList:
             if tabManager.selectedTab?.isIncognito == true {
                 Toast.show("Not available in Private Browsing", from: self)
@@ -782,8 +883,8 @@ extension BrowserViewController: MenuViewControllerDelegate {
             self?.showSelectedTab()
         }
         let nav = UINavigationController(rootViewController: settings)
-        nav.overrideUserInterfaceStyle = .dark
-        BrowserTheme.applyDarkNavigationBar(to: nav.navigationBar)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
         present(nav, animated: true)
     }
 
@@ -791,16 +892,16 @@ extension BrowserViewController: MenuViewControllerDelegate {
         let list = ReadingListViewController()
         list.onOpenURL = { [weak self] url in self?.navigate(to: url) }
         let nav = UINavigationController(rootViewController: list)
-        nav.overrideUserInterfaceStyle = .dark
-        BrowserTheme.applyDarkNavigationBar(to: nav.navigationBar)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
         present(nav, animated: true)
     }
 
     private func openDownloads() {
         let list = DownloadsViewController()
         let nav = UINavigationController(rootViewController: list)
-        nav.overrideUserInterfaceStyle = .dark
-        BrowserTheme.applyDarkNavigationBar(to: nav.navigationBar)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
         present(nav, animated: true)
     }
 }
