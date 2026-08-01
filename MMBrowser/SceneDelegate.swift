@@ -32,6 +32,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func sceneDidEnterBackground(_ scene: UIScene) {
         AppLockCoordinator.shared.applicationDidEnterBackground()
+        PasswordVaultGate.invalidate()
         AutoClearManager.performScheduledClear()
     }
 }

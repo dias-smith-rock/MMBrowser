@@ -7,6 +7,25 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		PWD0006F6D53A60E5B801 /* PasswordSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD0002E6B49964B0C220 /* PasswordSettings.swift */; };
+		PWD0000077F415072B01A /* PasswordVaultGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000425FA6C14C5A95C /* PasswordVaultGate.swift */; };
+		PWD000308A99B85C9CEC8 /* PasswordStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000BB0EA857D13D933 /* PasswordStore.swift */; };
+		PWD00014B8688591864B8 /* BankCardStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00047B4C58A4C8E24E /* BankCardStore.swift */; };
+		PWD0005376A7092DCCDCA /* FormProfileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000D5AB90268A2500C /* FormProfileStore.swift */; };
+		PWD000C2F36FB601D0BB0 /* PasswordsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00045F172A9EFBE8F4 /* PasswordsViewController.swift */; };
+		PWD00026392693921D2E4 /* PasswordDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000C8986B4EC6ACCF7 /* PasswordDetailViewController.swift */; };
+		PWD000540179EDC21BAC8 /* PasswordEditViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00087776CDE9305DAF /* PasswordEditViewController.swift */; };
+		PWD000C4D4F482494D0C9 /* AutofillSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD0001F365462803B334 /* AutofillSettingsViewController.swift */; };
+		PWD0000985731419635E3 /* MasterPasswordSetupViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00066762D6E1CB6128 /* MasterPasswordSetupViewController.swift */; };
+		PWD0009DC90B0E7B9BD0A /* FormProfileViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000C3281D28458A4CB /* FormProfileViewController.swift */; };
+		PWD0009E1EC3B39A55A78 /* BankCardsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000BFB537D189AD5DD /* BankCardsViewController.swift */; };
+		PWD00020F36142CAB07FF /* BrowserAutofillCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD0005BBAD108C0D38ED /* BrowserAutofillCoordinator.swift */; };
+		PWD0007057035C9BC516F /* VaultKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000C6D05B5242BACB5 /* VaultKeychain.swift */; };
+		PWD00045AA6E14A419D56 /* VaultCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00009064676E784F66 /* VaultCrypto.swift */; };
+		PWD000D2DE12EF3CF5CC9 /* VaultKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000C6D05B5242BACB5 /* VaultKeychain.swift */; };
+		PWD000643B2FAE8B1491B /* VaultCrypto.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00009064676E784F66 /* VaultCrypto.swift */; };
+		PWD00022028BCB969BF15 /* CredentialProviderViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000B8892CC3A5F6201 /* CredentialProviderViewController.swift */; };
+		PWD00025A95A5D8C6E573 /* MMBrowserCredentialProvider.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = PWD0000177186C24076BD /* MMBrowserCredentialProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		05EE9C9F5639484BA9BA6FF2 /* TabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFE04E67D090450B987F05FB /* TabManager.swift */; };
 		09129B1EA0E24FB4AFE10189 /* ReaderViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E248C7687DE44E8C99A7001F /* ReaderViewController.swift */; };
 		09FB7CC9808A4DD0A7C8E3AC /* MediaPlaybackSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F17FA7E6B9649618EC381DB /* MediaPlaybackSupport.swift */; };
@@ -93,6 +112,26 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		PWD0002E6B49964B0C220 /* PasswordSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordSettings.swift; sourceTree = "<group>"; };
+		PWD000425FA6C14C5A95C /* PasswordVaultGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordVaultGate.swift; sourceTree = "<group>"; };
+		PWD000BB0EA857D13D933 /* PasswordStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordStore.swift; sourceTree = "<group>"; };
+		PWD00047B4C58A4C8E24E /* BankCardStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankCardStore.swift; sourceTree = "<group>"; };
+		PWD000D5AB90268A2500C /* FormProfileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormProfileStore.swift; sourceTree = "<group>"; };
+		PWD00045F172A9EFBE8F4 /* PasswordsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordsViewController.swift; sourceTree = "<group>"; };
+		PWD000C8986B4EC6ACCF7 /* PasswordDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordDetailViewController.swift; sourceTree = "<group>"; };
+		PWD00087776CDE9305DAF /* PasswordEditViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordEditViewController.swift; sourceTree = "<group>"; };
+		PWD0001F365462803B334 /* AutofillSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutofillSettingsViewController.swift; sourceTree = "<group>"; };
+		PWD00066762D6E1CB6128 /* MasterPasswordSetupViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MasterPasswordSetupViewController.swift; sourceTree = "<group>"; };
+		PWD000C3281D28458A4CB /* FormProfileViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormProfileViewController.swift; sourceTree = "<group>"; };
+		PWD000BFB537D189AD5DD /* BankCardsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BankCardsViewController.swift; sourceTree = "<group>"; };
+		PWD0005BBAD108C0D38ED /* BrowserAutofillCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserAutofillCoordinator.swift; sourceTree = "<group>"; };
+		PWD000C6D05B5242BACB5 /* VaultKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultKeychain.swift; sourceTree = "<group>"; };
+		PWD00009064676E784F66 /* VaultCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultCrypto.swift; sourceTree = "<group>"; };
+		PWD000B8892CC3A5F6201 /* CredentialProviderViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialProviderViewController.swift; sourceTree = "<group>"; };
+		PWD000107214DC0A060D3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		PWD0002688BB6AA56270F /* MMBrowserCredentialProvider.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MMBrowserCredentialProvider.entitlements; sourceTree = "<group>"; };
+		PWD000494098C24F4B935 /* MMBrowser.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MMBrowser.entitlements; sourceTree = "<group>"; };
+		PWD0000177186C24076BD /* MMBrowserCredentialProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MMBrowserCredentialProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		00A238E7FC51408BA0111F44 /* HistoryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6090909090970 /* LibrarySheetViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarySheetViewController.swift; sourceTree = "<group>"; };
 		06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeAdShield.swift; sourceTree = "<group>"; };
@@ -290,6 +329,7 @@
 			isa = PBXGroup;
 			children = (
 				84E6B61229CD567E001723AE /* MMBrowser */,
+				PWD00041563EC72C7CA1D /* MMBrowserCredentialProvider */,
 				84E6B61129CD567E001723AE /* Products */,
 				241EBB84AFD806EB799ACDCC /* Pods */,
 				3230A67BC46090DA91FBE41C /* Frameworks */,
@@ -300,6 +340,7 @@
 			isa = PBXGroup;
 			children = (
 				84E6B61029CD567E001723AE /* MMBrowser.app */,
+				PWD0000177186C24076BD /* MMBrowserCredentialProvider.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -312,6 +353,8 @@
 				12BD4B168F4A48569EA59EC0 /* ViewController.swift */,
 				A247BF95D5D44368ACE4C974 /* Browser */,
 				A1B2C3D4E5F6030303030301 /* AppLock */,
+				PWD000076ED096ADCEB32 /* Passwords */,
+				PWD000494098C24F4B935 /* MMBrowser.entitlements */,
 				A1B2C3D4E5F6030303030302 /* Gestures */,
 				D1A5510B1493499DB371F870 /* Common */,
 				A1B2C3D4E5F6030303030310 /* Theme */,
@@ -455,6 +498,39 @@
 			path = Menu;
 			sourceTree = "<group>";
 		};
+
+		PWD000076ED096ADCEB32 /* Passwords */ = {
+			isa = PBXGroup;
+			children = (
+				PWD0002E6B49964B0C220 /* PasswordSettings.swift */,
+				PWD000425FA6C14C5A95C /* PasswordVaultGate.swift */,
+				PWD000BB0EA857D13D933 /* PasswordStore.swift */,
+				PWD00047B4C58A4C8E24E /* BankCardStore.swift */,
+				PWD000D5AB90268A2500C /* FormProfileStore.swift */,
+				PWD000C6D05B5242BACB5 /* VaultKeychain.swift */,
+				PWD00009064676E784F66 /* VaultCrypto.swift */,
+				PWD00045F172A9EFBE8F4 /* PasswordsViewController.swift */,
+				PWD000C8986B4EC6ACCF7 /* PasswordDetailViewController.swift */,
+				PWD00087776CDE9305DAF /* PasswordEditViewController.swift */,
+				PWD0001F365462803B334 /* AutofillSettingsViewController.swift */,
+				PWD00066762D6E1CB6128 /* MasterPasswordSetupViewController.swift */,
+				PWD000C3281D28458A4CB /* FormProfileViewController.swift */,
+				PWD000BFB537D189AD5DD /* BankCardsViewController.swift */,
+				PWD0005BBAD108C0D38ED /* BrowserAutofillCoordinator.swift */,
+			);
+			path = Passwords;
+			sourceTree = "<group>";
+		};
+		PWD00041563EC72C7CA1D /* MMBrowserCredentialProvider */ = {
+			isa = PBXGroup;
+			children = (
+				PWD000B8892CC3A5F6201 /* CredentialProviderViewController.swift */,
+				PWD000107214DC0A060D3 /* Info.plist */,
+				PWD0002688BB6AA56270F /* MMBrowserCredentialProvider.entitlements */,
+			);
+			path = MMBrowserCredentialProvider;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -466,16 +542,35 @@
 				84E6B60C29CD567E001723AE /* Sources */,
 				84E6B60D29CD567E001723AE /* Frameworks */,
 				84E6B60E29CD567E001723AE /* Resources */,
+				PWD0007D49CD5C2F814C4 /* Embed Foundation Extensions */,
 				24F45F471C0BFCBFDE17C8F0 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				PWD00033C4286C5ADC689 /* PBXTargetDependency */,
 			);
 			name = MMBrowser;
 			productName = MMBrowser;
 			productReference = 84E6B61029CD567E001723AE /* MMBrowser.app */;
 			productType = "com.apple.product-type.application";
+		};
+		PWD00064D9F014F9D8741 /* MMBrowserCredentialProvider */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = PWD0001361CB49F8690B6 /* Build configuration list for PBXNativeTarget "MMBrowserCredentialProvider" */;
+			buildPhases = (
+				PWD0008DB84D659183F79 /* Sources */,
+				PWD000BAD3F6BF5748393 /* Frameworks */,
+				PWD00028B0262C390CBE5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MMBrowserCredentialProvider;
+			productName = MMBrowserCredentialProvider;
+			productReference = PWD0000177186C24076BD /* MMBrowserCredentialProvider.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -488,6 +583,9 @@
 				LastUpgradeCheck = 1420;
 				TargetAttributes = {
 					84E6B60F29CD567E001723AE = {
+						CreatedOnToolsVersion = 14.2;
+					};
+					PWD00064D9F014F9D8741 = {
 						CreatedOnToolsVersion = 14.2;
 					};
 				};
@@ -506,10 +604,23 @@
 			projectRoot = "";
 			targets = (
 				84E6B60F29CD567E001723AE /* MMBrowser */,
+				PWD00064D9F014F9D8741 /* MMBrowserCredentialProvider */,
 			);
 		};
 /* End PBXProject section */
 
+
+		PWD0007D49CD5C2F814C4 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				PWD00025A95A5D8C6E573 /* MMBrowserCredentialProvider.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* Begin PBXResourcesBuildPhase section */
 		84E6B60E29CD567E001723AE /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
@@ -601,6 +712,21 @@
 				A1B2C3D4E5F6010101010163 /* AppearanceSettingsViewController.swift in Sources */,
 				90F8BD6BD7DB43AF80342259 /* Toast.swift in Sources */,
 				A1B2C3D4E5F6010101010170 /* KeyboardDismissCoordinator.swift in Sources */,
+				PWD0006F6D53A60E5B801 /* PasswordSettings.swift in Sources */,
+				PWD0000077F415072B01A /* PasswordVaultGate.swift in Sources */,
+				PWD000308A99B85C9CEC8 /* PasswordStore.swift in Sources */,
+				PWD00014B8688591864B8 /* BankCardStore.swift in Sources */,
+				PWD0005376A7092DCCDCA /* FormProfileStore.swift in Sources */,
+				PWD000C2F36FB601D0BB0 /* PasswordsViewController.swift in Sources */,
+				PWD00026392693921D2E4 /* PasswordDetailViewController.swift in Sources */,
+				PWD000540179EDC21BAC8 /* PasswordEditViewController.swift in Sources */,
+				PWD000C4D4F482494D0C9 /* AutofillSettingsViewController.swift in Sources */,
+				PWD0000985731419635E3 /* MasterPasswordSetupViewController.swift in Sources */,
+				PWD0009DC90B0E7B9BD0A /* FormProfileViewController.swift in Sources */,
+				PWD0009E1EC3B39A55A78 /* BankCardsViewController.swift in Sources */,
+				PWD00020F36142CAB07FF /* BrowserAutofillCoordinator.swift in Sources */,
+				PWD0007057035C9BC516F /* VaultKeychain.swift in Sources */,
+				PWD00045AA6E14A419D56 /* VaultCrypto.swift in Sources */,
 				E1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift in Sources */,
 				C58A1413B374481F93E6D824 /* URLInputResolver.swift in Sources */,
 				F28F14D6142F47C884D1BE09 /* DownloadManager.swift in Sources */,
@@ -655,6 +781,44 @@
 				A1B2C3D4E5F6010101010110 /* PasscodeKeypadView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+/* Begin PBXSourcesBuildPhase extension */
+		PWD0008DB84D659183F79 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				PWD00022028BCB969BF15 /* CredentialProviderViewController.swift in Sources */,
+				PWD000D2DE12EF3CF5CC9 /* VaultKeychain.swift in Sources */,
+				PWD000643B2FAE8B1491B /* VaultCrypto.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		PWD000BAD3F6BF5748393 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		PWD00028B0262C390CBE5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		PWD0008D3A10D2B7DC854 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 84E6B60829CD567D001723AE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = PWD00064D9F014F9D8741;
+			remoteInfo = MMBrowserCredentialProvider;
+		};
+		PWD00033C4286C5ADC689 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = PWD00064D9F014F9D8741 /* MMBrowserCredentialProvider */;
+			targetProxy = PWD0008D3A10D2B7DC854 /* PBXContainerItemProxy */;
 		};
 /* End PBXSourcesBuildPhase section */
 
@@ -808,6 +972,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0.0;
+				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -840,8 +1005,60 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0.0;
+				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+
+		PWD000924F46A72BA468E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = MMBrowserCredentialProvider/MMBrowserCredentialProvider.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8S748AQ4H7;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MMBrowserCredentialProvider/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser.credentialprovider;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		PWD00052A5E22145B00EC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = MMBrowserCredentialProvider/MMBrowserCredentialProvider.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8S748AQ4H7;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MMBrowserCredentialProvider/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser.credentialprovider;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -868,6 +1085,16 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
+		};
+
+		PWD0001361CB49F8690B6 /* Build configuration list for PBXNativeTarget "MMBrowserCredentialProvider" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				PWD000924F46A72BA468E /* Debug */,
+				PWD00052A5E22145B00EC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

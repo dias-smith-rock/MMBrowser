@@ -78,4 +78,26 @@ enum AppLockBiometrics {
             }
         }
     }
+
+    /// Face ID / Touch ID with fallback to the device passcode.
+    static func authenticateDeviceOwner(reason: String, completion: @escaping (Bool, String?) -> Void) {
+        let context = LAContext()
+        context.localizedCancelTitle = "Cancel"
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            DispatchQueue.main.async {
+                completion(false, error?.localizedDescription ?? "Device authentication unavailable")
+            }
+            return
+        }
+        context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, evalError in
+            DispatchQueue.main.async {
+                if success {
+                    completion(true, nil)
+                } else {
+                    completion(false, evalError?.localizedDescription)
+                }
+            }
+        }
+    }
 }

@@ -105,6 +105,7 @@ final class WebViewController: UIViewController {
     private var contentOffsetObservation: NSKeyValueObservation?
     private let drawingGestures = DrawingGestureController()
     private var gestureSettingsObserver: NSObjectProtocol?
+    private let autofillCoordinator = BrowserAutofillCoordinator()
 
     private let desktopUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
@@ -172,6 +173,10 @@ final class WebViewController: UIViewController {
         if AppSettings.noImagesEnabled {
             config.userContentController.add(proxy, name: ImageBlockManager.disableHandlerName)
         }
+        if !isIncognito {
+            config.userContentController.addUserScript(BrowserAutofillCoordinator.userScript)
+            config.userContentController.add(autofillCoordinator, name: BrowserAutofillCoordinator.messageName)
+        }
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.navigationDelegate = self
         wv.uiDelegate = self
@@ -191,6 +196,9 @@ final class WebViewController: UIViewController {
             make.edges.equalToSuperview()
         }
         webView = wv
+        if !isIncognito {
+            autofillCoordinator.hostViewController = self
+        }
         setupDrawingGestures()
 
         progressObservation = wv.observe(\.estimatedProgress, options: [.new]) { [weak self] webView, _ in
@@ -680,6 +688,7 @@ final class WebViewController: UIViewController {
         exitPageCleaner()
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: ImageBlockManager.disableHandlerName)
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: PageCleanerManager.handlerName)
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: BrowserAutofillCoordinator.messageName)
         scriptMessageProxy = nil
         webView?.stopLoading()
         webView?.navigationDelegate = nil

@@ -21,21 +21,27 @@ final class BottomToolbarView: UIView {
     private var isPrivateMode = false
     private var canGoBack = false
     private var canGoForward = false
+    private var tabCount = 1
+
+    private static let iconPointSize: CGFloat = 22
+    private static let iconConfig = UIImage.SymbolConfiguration(pointSize: iconPointSize, weight: .semibold)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
 
-        configure(backButton, action: #selector(backTapped))
-        configure(forwardButton, action: #selector(forwardTapped))
-        configure(plusButton, action: #selector(plusTapped))
-        configure(menuButton, action: #selector(menuTapped))
+        configure(backButton, action: #selector(backTapped), label: "Back")
+        configure(forwardButton, action: #selector(forwardTapped), label: "Forward")
+        configure(plusButton, action: #selector(plusTapped), label: "New Tab")
+        configure(tabsButton, action: #selector(tabsTapped), label: "Tabs")
+        configure(menuButton, action: #selector(menuTapped), label: "Menu")
 
-        tabsButton.addTarget(self, action: #selector(tabsTapped), for: .touchUpInside)
-        tabsBadgeLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        tabsBadgeLabel.font = .systemFont(ofSize: 10, weight: .bold)
         tabsBadgeLabel.textAlignment = .center
-        tabsBadgeLabel.layer.borderWidth = 1.6
-        tabsBadgeLabel.layer.cornerRadius = 5
+        tabsBadgeLabel.textColor = .white
+        tabsBadgeLabel.backgroundColor = BrowserTheme.chromeBlue
+        tabsBadgeLabel.layer.cornerRadius = 7
         tabsBadgeLabel.clipsToBounds = true
+        tabsBadgeLabel.isUserInteractionEnabled = false
         tabsButton.addSubview(tabsBadgeLabel)
 
         let stack = UIStackView(arrangedSubviews: [backButton, forwardButton, plusButton, tabsButton, menuButton])
@@ -50,9 +56,10 @@ final class BottomToolbarView: UIView {
             make.height.equalTo(BrowserTheme.toolbarHeight)
         }
         tabsBadgeLabel.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-            make.width.greaterThanOrEqualTo(22)
-            make.height.equalTo(22)
+            make.centerX.equalTo(tabsButton.snp.centerX).offset(10)
+            make.centerY.equalTo(tabsButton.snp.centerY).offset(-10)
+            make.height.equalTo(14)
+            make.width.greaterThanOrEqualTo(14)
         }
 
         applyTheme()
@@ -66,10 +73,10 @@ final class BottomToolbarView: UIView {
     func update(canGoBack: Bool, canGoForward: Bool, tabCount: Int, isPrivate: Bool = false) {
         self.canGoBack = canGoBack
         self.canGoForward = canGoForward
-        tabsBadgeLabel.text = "\(min(tabCount, 99))"
-        let width = tabCount >= 10 ? 28 : 22
+        self.tabCount = max(tabCount, 1)
+        tabsBadgeLabel.text = " \(min(self.tabCount, 99)) "
         tabsBadgeLabel.snp.updateConstraints { make in
-            make.width.greaterThanOrEqualTo(width)
+            make.width.greaterThanOrEqualTo(self.tabCount >= 10 ? 20 : 14)
         }
         setPrivateMode(isPrivate)
     }
@@ -82,21 +89,24 @@ final class BottomToolbarView: UIView {
     @objc private func applyTheme() {
         backgroundColor = isPrivateMode ? BrowserTheme.privateBackground : BrowserTheme.background
         let tint = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
-        let pointSize: CGFloat = 22
-        backButton.setImage(ThemeManager.shared.image(for: .toolbarBack, pointSize: pointSize), for: .normal)
-        forwardButton.setImage(ThemeManager.shared.image(for: .toolbarForward, pointSize: pointSize), for: .normal)
-        plusButton.setImage(ThemeManager.shared.image(for: .toolbarNewTab, pointSize: pointSize), for: .normal)
-        menuButton.setImage(
-            UIImage(systemName: "line.3.horizontal", withConfiguration: UIImage.SymbolConfiguration(pointSize: pointSize, weight: .semibold)),
-            for: .normal
-        )
-        menuButton.accessibilityLabel = "Menu"
-        [backButton, forwardButton, plusButton, tabsButton, menuButton].forEach {
-            $0.tintColor = tint
-            $0.imageView?.contentMode = .scaleAspectFit
+        let config = Self.iconConfig
+        let size = Self.iconPointSize
+
+        backButton.setImage(ThemeManager.shared.image(for: .toolbarBack, configuration: config, pointSize: size), for: .normal)
+        forwardButton.setImage(ThemeManager.shared.image(for: .toolbarForward, configuration: config, pointSize: size), for: .normal)
+        plusButton.setImage(ThemeManager.shared.image(for: .toolbarNewTab, configuration: config, pointSize: size), for: .normal)
+        tabsButton.setImage(ThemeManager.shared.image(for: .toolbarTabs, configuration: config, pointSize: size), for: .normal)
+        menuButton.setImage(ThemeManager.shared.image(for: .toolbarMenu, configuration: config, pointSize: size), for: .normal)
+
+        [backButton, forwardButton, plusButton, tabsButton, menuButton].forEach { button in
+            button.tintColor = tint
+            button.imageView?.contentMode = .scaleAspectFit
+            button.setPreferredSymbolConfiguration(config, forImageIn: .normal)
         }
-        tabsBadgeLabel.textColor = tint
-        tabsBadgeLabel.layer.borderColor = tint.cgColor
+
+        tabsBadgeLabel.backgroundColor = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
+        tabsBadgeLabel.textColor = isPrivateMode ? BrowserTheme.privateBackground : .black
+        tabsBadgeLabel.isHidden = false
         applyNavigationEnabledState()
     }
 
@@ -111,8 +121,10 @@ final class BottomToolbarView: UIView {
         forwardButton.alpha = canGoForward ? 1 : disabledAlpha
     }
 
-    private func configure(_ button: UIButton, action: Selector) {
+    private func configure(_ button: UIButton, action: Selector, label: String) {
         button.tintColor = BrowserTheme.textPrimary
+        button.accessibilityLabel = label
+        button.setPreferredSymbolConfiguration(Self.iconConfig, forImageIn: .normal)
         button.addTarget(self, action: action, for: .touchUpInside)
     }
 

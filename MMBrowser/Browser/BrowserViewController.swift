@@ -514,7 +514,7 @@ final class BrowserViewController: UIViewController {
             guard let self else { return }
             MediaPlaybackSupport.resumeMediaIfNeeded(in: self.tabManager.selectedTab?.webController?.webView)
 
-            let reload = { [weak switcher] in
+            let reload: () -> Void = { [weak switcher] in
                 switcher?.reloadPreviews()
             }
             if let tab = self.tabManager.selectedTab, !tab.isNewTabPage {
@@ -530,8 +530,18 @@ final class BrowserViewController: UIViewController {
         menu.delegate = self
         if #available(iOS 15.0, *) {
             if let sheet = menu.sheetPresentationController {
-                sheet.detents = [.medium(), .large()]
                 sheet.prefersGrabberVisible = true
+                if #available(iOS 16.0, *) {
+                    let fitted = UISheetPresentationController.Detent.custom(identifier: .init("menuFitted")) { context in
+                        // Taller than .medium so the extras row (Theme / Feedback) stays fully visible.
+                        min(context.maximumDetentValue * 0.78, context.maximumDetentValue)
+                    }
+                    sheet.detents = [fitted, .large()]
+                    sheet.selectedDetentIdentifier = fitted.identifier
+                } else {
+                    sheet.detents = [.large()]
+                    sheet.selectedDetentIdentifier = .large
+                }
             }
         }
         present(menu, animated: true) { [weak self] in
@@ -1046,7 +1056,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
         case .setDefaultBrowser:
             openDefaultBrowserSettings()
         case .passwords:
-            Toast.show("Passwords coming soon", from: self)
+            openPasswords()
         case .backgroundGallery:
             openAppearance(focus: .wallpaper)
         case .theme:
@@ -1270,6 +1280,17 @@ extension BrowserViewController: MenuViewControllerDelegate {
         nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         BrowserTheme.applyNavigationBar(to: nav.navigationBar)
         present(nav, animated: true)
+    }
+
+    private func openPasswords() {
+        PasswordVaultGate.unlockIfNeeded(from: self) { [weak self] ok in
+            guard let self, ok else { return }
+            let list = PasswordsViewController()
+            let nav = UINavigationController(rootViewController: list)
+            nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+            BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+            self.present(nav, animated: true)
+        }
     }
 }
 

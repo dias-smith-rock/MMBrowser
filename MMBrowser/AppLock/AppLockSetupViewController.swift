@@ -15,6 +15,8 @@ enum AppLockVerifyAction {
     case changeToPattern
     case enableBiometrics
     case disableBiometrics
+    /// One-shot verify for Passwords vault entry (no settings mutation).
+    case unlockVault
 }
 
 protocol AppLockSetupViewControllerDelegate: AnyObject {
@@ -231,6 +233,8 @@ final class AppLockSetupViewController: UIViewController {
             if AppLockSettings.primaryMethod == .none {
                 AppLockSettings.isEnabled = false
             }
+            finish(success: true)
+        case .unlockVault:
             finish(success: true)
         }
     }
