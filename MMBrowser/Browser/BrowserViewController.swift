@@ -5,7 +5,10 @@ final class BrowserViewController: UIViewController {
     let tabManager = TabManager()
 
     private let statusBarFill = UIView()
+    private let contentClipView = UIView()
     private let contentContainer = UIView()
+    private let adjacentTabPreview = UIImageView()
+    private var preparedAdjacentTabOffset: Int?
     private let addressBar = AddressBarView()
     private let toolbar = BottomToolbarView()
     private let chromeHost = BrowserChromeView()
@@ -48,6 +51,11 @@ final class BrowserViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeDidChange, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillChange(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+    }
+
+    @objc private func appDidEnterBackground() {
+        tabManager.persistSessionIfNeeded()
     }
 
     @objc private func themeChanged() {
@@ -88,6 +96,11 @@ final class BrowserViewController: UIViewController {
         if !AppSettings.showTabsPreviewImages {
             tabManager.clearAllSnapshots()
         }
+        if AppSettings.closeAllTabsOnExit {
+            tabManager.clearPersistedSession()
+        } else {
+            tabManager.persistSessionIfNeeded()
+        }
     }
 
     @objc private func trackerChanged() {
@@ -116,7 +129,12 @@ final class BrowserViewController: UIViewController {
     }
 
     private func setupChrome() {
+        contentClipView.backgroundColor = BrowserTheme.background
+        contentClipView.clipsToBounds = true
         contentContainer.backgroundColor = BrowserTheme.background
+        adjacentTabPreview.contentMode = .scaleAspectFill
+        adjacentTabPreview.clipsToBounds = true
+        adjacentTabPreview.isHidden = true
         addressBar.delegate = self
         toolbar.delegate = self
 
@@ -130,7 +148,9 @@ final class BrowserViewController: UIViewController {
 
         statusBarFill.backgroundColor = BrowserTheme.background
         view.addSubview(statusBarFill)
-        view.addSubview(contentContainer)
+        view.addSubview(contentClipView)
+        contentClipView.addSubview(contentContainer)
+        contentClipView.addSubview(adjacentTabPreview)
         view.addSubview(chromeHost)
         view.addSubview(collapsedProgressView)
 
@@ -156,10 +176,16 @@ final class BrowserViewController: UIViewController {
         chromeStack.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
-        contentContainer.snp.makeConstraints { make in
+        contentClipView.snp.makeConstraints { make in
             contentTopConstraint = make.top.equalTo(view.safeAreaLayoutGuide.snp.top).constraint
             make.leading.trailing.equalToSuperview()
             make.bottom.equalTo(chromeHost.snp.top)
+        }
+        contentContainer.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
+        }
+        adjacentTabPreview.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
         }
         collapsedProgressView.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview()
@@ -181,7 +207,7 @@ final class BrowserViewController: UIViewController {
         isChromeCollapsed = collapsed
 
         contentTopConstraint?.deactivate()
-        contentContainer.snp.prepareConstraints { make in
+        contentClipView.snp.prepareConstraints { make in
             if collapsed {
                 contentTopConstraint = make.top.equalToSuperview().constraint
             } else {
@@ -253,7 +279,7 @@ final class BrowserViewController: UIViewController {
             isChromeCollapsed = false
             statusBarFill.alpha = 1
             contentTopConstraint?.deactivate()
-            contentContainer.snp.prepareConstraints { make in
+            contentClipView.snp.prepareConstraints { make in
                 contentTopConstraint = make.top.equalTo(view.safeAreaLayoutGuide.snp.top).constraint
             }
             contentTopConstraint?.activate()
@@ -317,6 +343,14 @@ final class BrowserViewController: UIViewController {
 
     private func showSelectedTab() {
         guard let tab = tabManager.selectedTab else { return }
+        // Keep a preview of the tab we're leaving so the switcher isn't blank.
+        if AppSettings.showTabsPreviewImages,
+           let currentWeb = currentContent as? WebViewController,
+           let outgoing = tabManager.tabs.first(where: { $0.webController === currentWeb }),
+           outgoing.id != tab.id,
+           !outgoing.isNewTabPage {
+            captureSnapshot(for: outgoing, completion: nil)
+        }
         applyPrivateChrome(tab.isIncognito)
         resetChromeForCurrentTab()
         if tab.isNewTabPage {
@@ -337,6 +371,7 @@ final class BrowserViewController: UIViewController {
         let bg = isPrivate ? BrowserTheme.privateBackground : BrowserTheme.background
         view.backgroundColor = bg
         statusBarFill.backgroundColor = bg
+        contentClipView.backgroundColor = bg
         contentContainer.backgroundColor = bg
         addressBar.setPrivateMode(isPrivate)
         toolbar.setPrivateMode(isPrivate)
@@ -429,6 +464,7 @@ final class BrowserViewController: UIViewController {
         web.load(url: url)
         refreshToolbar()
         newTabController?.reloadContinue(from: tabManager.recentBrowsedTabs(limit: 1))
+        tabManager.persistSessionIfNeeded()
     }
 
     private func openURLInNewTab(_ url: URL, incognito: Bool = false) {
@@ -460,14 +496,34 @@ final class BrowserViewController: UIViewController {
 
     private func presentTabSwitcher() {
         setChromeCollapsed(false, animated: false)
-        captureCurrentSnapshotIfNeeded()
+        view.layoutIfNeeded()
+
         let switcher = TabSwitcherViewController(tabManager: tabManager)
         switcher.delegate = self
         // Keep the browser (and WKWebView) in the window so HTML5 / YouTube audio keeps playing.
         switcher.modalPresentationStyle = .overFullScreen
         switcher.modalTransitionStyle = .coverVertical
-        present(switcher, animated: true) { [weak self] in
-            MediaPlaybackSupport.resumeMediaIfNeeded(in: self?.tabManager.selectedTab?.webController?.webView)
+
+        let open = { [weak self] in
+            guard let self else { return }
+            self.present(switcher, animated: true) { [weak self] in
+                MediaPlaybackSupport.resumeMediaIfNeeded(in: self?.tabManager.selectedTab?.webController?.webView)
+                self?.refreshBackgroundTabSnapshots { [weak switcher] in
+                    switcher?.reloadPreviews()
+                }
+            }
+        }
+
+        // Wait for the current tab snapshot so its card isn't blank on open.
+        if let tab = tabManager.selectedTab, !tab.isNewTabPage, AppSettings.showTabsPreviewImages {
+            captureSnapshot(for: tab) {
+                open()
+            }
+        } else {
+            if tabManager.selectedTab?.isNewTabPage == true {
+                tabManager.selectedTab?.snapshot = nil
+            }
+            open()
         }
     }
 
@@ -510,18 +566,52 @@ final class BrowserViewController: UIViewController {
         }
     }
 
-    private func captureCurrentSnapshotIfNeeded() {
-        guard AppSettings.showTabsPreviewImages else { return }
-        guard let tab = tabManager.selectedTab else { return }
-        if tab.isNewTabPage {
-            tab.snapshot = nil
+    private func captureSnapshot(for tab: BrowserTab, completion: (() -> Void)?) {
+        guard AppSettings.showTabsPreviewImages else {
+            completion?()
             return
         }
-        tab.webController?.captureSnapshot { [weak tab] image in
-            guard AppSettings.showTabsPreviewImages else { return }
-            tab?.snapshot = image
-            // takeSnapshot can briefly pause HTML5 video — nudge it back if it was playing.
-            MediaPlaybackSupport.resumeMediaIfNeeded(in: tab?.webController?.webView)
+        if tab.isNewTabPage {
+            tab.snapshot = nil
+            completion?()
+            return
+        }
+        guard let web = tab.webController else {
+            completion?()
+            return
+        }
+        web.captureSnapshot { [weak tab] image in
+            DispatchQueue.main.async {
+                if AppSettings.showTabsPreviewImages, let image {
+                    tab?.snapshot = image
+                }
+                MediaPlaybackSupport.resumeMediaIfNeeded(in: tab?.webController?.webView)
+                completion?()
+            }
+        }
+    }
+
+    /// Refresh previews for non-selected tabs that still have a live WebView.
+    private func refreshBackgroundTabSnapshots(completion: (() -> Void)?) {
+        guard AppSettings.showTabsPreviewImages else {
+            completion?()
+            return
+        }
+        let selectedID = tabManager.selectedTab?.id
+        let candidates = tabManager.tabs.filter {
+            $0.id != selectedID && !$0.isNewTabPage && $0.webController != nil
+        }
+        guard !candidates.isEmpty else {
+            completion?()
+            return
+        }
+        let group = DispatchGroup()
+        for tab in candidates {
+            group.enter()
+            captureSnapshot(for: tab) { group.leave() }
+        }
+        group.notify(queue: .main) {
+            completion?()
         }
     }
 
@@ -599,14 +689,82 @@ extension BrowserViewController: AddressBarViewDelegate {
         return title.isEmpty ? "Tab" : title
     }
 
+    func addressBarSwipeDidUpdate(offset: CGFloat, width: CGFloat) {
+        updateContentSwipe(offset: offset, addressWidth: width)
+    }
+
     func addressBarDidSwipeToPreviousTab() {
-        if tabManager.selectAdjacentTab(offset: -1) {
-            showSelectedTab()
-        }
+        finishContentSwipe(selectOffset: -1)
     }
 
     func addressBarDidSwipeToNextTab() {
-        if tabManager.selectAdjacentTab(offset: 1) {
+        finishContentSwipe(selectOffset: 1)
+    }
+
+    private func updateContentSwipe(offset: CGFloat, addressWidth: CGFloat) {
+        let width = max(contentClipView.bounds.width, view.bounds.width, 1)
+        let scale = width / max(addressWidth, 1)
+        let contentOffset = offset * scale
+
+        if abs(offset) < 0.5 {
+            contentContainer.transform = .identity
+            adjacentTabPreview.transform = .identity
+            adjacentTabPreview.isHidden = true
+            adjacentTabPreview.image = nil
+            preparedAdjacentTabOffset = nil
+            return
+        }
+
+        let towardPrevious = offset < 0
+        let adj = towardPrevious ? -1 : 1
+        if preparedAdjacentTabOffset != adj {
+            preparedAdjacentTabOffset = adj
+            if let tab = tabManager.selectedTab {
+                captureSnapshot(for: tab, completion: nil)
+            }
+            configureAdjacentPreview(forTabOffset: adj)
+        }
+
+        contentContainer.transform = CGAffineTransform(translationX: contentOffset, y: 0)
+        let peekStart: CGFloat = towardPrevious ? width : -width
+        adjacentTabPreview.transform = CGAffineTransform(translationX: peekStart + contentOffset, y: 0)
+        adjacentTabPreview.isHidden = false
+    }
+
+    private func configureAdjacentPreview(forTabOffset offset: Int) {
+        let index = tabManager.selectedIndex + offset
+        guard tabManager.tabs.indices.contains(index) else {
+            adjacentTabPreview.image = nil
+            adjacentTabPreview.backgroundColor = BrowserTheme.background
+            return
+        }
+        let tab = tabManager.tabs[index]
+        if let snapshot = tab.snapshot {
+            adjacentTabPreview.image = snapshot
+            adjacentTabPreview.backgroundColor = .clear
+        } else if tab.isNewTabPage {
+            adjacentTabPreview.image = nil
+            adjacentTabPreview.backgroundColor = tab.isIncognito ? BrowserTheme.privateBackground : BrowserTheme.background
+        } else {
+            adjacentTabPreview.image = nil
+            adjacentTabPreview.backgroundColor = BrowserTheme.card
+            // Best-effort live snapshot for a smoother peek.
+            tab.webController?.captureSnapshot { [weak self, weak tab] image in
+                guard let self = self, let tab = tab else { return }
+                tab.snapshot = image
+                guard self.preparedAdjacentTabOffset == offset else { return }
+                self.adjacentTabPreview.image = image
+            }
+        }
+    }
+
+    private func finishContentSwipe(selectOffset: Int) {
+        contentContainer.transform = .identity
+        adjacentTabPreview.transform = .identity
+        adjacentTabPreview.isHidden = true
+        adjacentTabPreview.image = nil
+        preparedAdjacentTabOffset = nil
+        if tabManager.selectAdjacentTab(offset: selectOffset) {
             showSelectedTab()
         }
     }
@@ -660,8 +818,8 @@ extension BrowserViewController: BottomToolbarViewDelegate {
     func toolbarDidTapBack() { tabManager.selectedTab?.webController?.goBack() }
     func toolbarDidTapForward() { tabManager.selectedTab?.webController?.goForward() }
     func toolbarDidTapNewTab() {
-        let privateMode = tabManager.selectedTab?.isIncognito ?? false
-        _ = tabManager.addTab(incognito: privateMode, select: true)
+        // Always open a normal tab; private browsing is opt-in only.
+        _ = tabManager.addTab(incognito: false, select: true)
         showSelectedTab()
     }
     func toolbarDidTapTabs() { presentTabSwitcher() }
@@ -731,6 +889,7 @@ extension BrowserViewController: WebViewControllerDelegate {
     func webViewController(_ controller: WebViewController, didUpdateTitle title: String?) {
         guard let tab = tabManager.tabs.first(where: { $0.webController === controller }) else { return }
         tab.title = (title?.isEmpty == false) ? title! : (tab.url?.host ?? "Untitled")
+        tabManager.persistSessionIfNeeded()
     }
 
     func webViewController(_ controller: WebViewController, didUpdateURL url: URL?) {
@@ -742,6 +901,10 @@ extension BrowserViewController: WebViewControllerDelegate {
             addressBar.setBlockCount(0)
             addressBar.setFocusIndicator(active: AppSettings.hideShortsEnabled && YouTubeDarkMode.isYouTube(url))
         }
+        if !tab.isIncognito, let url, !url.absoluteString.hasPrefix("about:") {
+            HistoryStore.shared.add(title: tab.title, url: url)
+        }
+        tabManager.persistSessionIfNeeded()
     }
 
     func webViewController(_ controller: WebViewController, didUpdateProgress progress: Double, isLoading: Bool) {

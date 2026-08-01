@@ -12,6 +12,9 @@ final class TabManager {
     private(set) var selectedIndex: Int = 0
     private(set) var groupNames: [String] = ["Default", "Work", "Personal"]
 
+    private let sessionKey = "mmbrowser.tabs.session"
+    private let defaults = UserDefaults.standard
+
     var selectedTab: BrowserTab? {
         guard tabs.indices.contains(selectedIndex) else { return nil }
         return tabs[selectedIndex]
@@ -21,6 +24,10 @@ final class TabManager {
     var incognitoTabs: [BrowserTab] { tabs.filter { $0.isIncognito } }
 
     init() {
+        if !AppSettings.closeAllTabsOnExit, restorePersistedSession() {
+            return
+        }
+        clearPersistedSession()
         tabs = [BrowserTab()]
         selectedIndex = 0
     }
@@ -34,7 +41,7 @@ final class TabManager {
             tab.lastAccessed = Date()
             delegate?.tabManager(self, didSelect: tab)
         }
-        delegate?.tabManagerDidUpdate(self)
+        notifyUpdated()
         return tab
     }
 
@@ -43,7 +50,7 @@ final class TabManager {
         selectedIndex = index
         tabs[index].lastAccessed = Date()
         delegate?.tabManager(self, didSelect: tabs[index])
-        delegate?.tabManagerDidUpdate(self)
+        notifyUpdated()
     }
 
     /// Swipe between tabs in list order. Returns whether selection changed.
@@ -54,7 +61,7 @@ final class TabManager {
         selectedIndex = newIndex
         tabs[newIndex].lastAccessed = Date()
         delegate?.tabManager(self, didSelect: tabs[newIndex])
-        delegate?.tabManagerDidUpdate(self)
+        notifyUpdated()
         return true
     }
 
@@ -87,7 +94,7 @@ final class TabManager {
                 delegate?.tabManager(self, didSelect: selected)
             }
         }
-        delegate?.tabManagerDidUpdate(self)
+        notifyUpdated()
     }
 
     func closeTab(id: UUID) {
@@ -120,7 +127,7 @@ final class TabManager {
                 tab.snapshot = nil
             }
         }
-        delegate?.tabManagerDidUpdate(self)
+        notifyUpdated()
     }
 
     /// Close every tab and leave a single fresh New Tab (used by Close All Tabs on Exit).
@@ -133,8 +140,9 @@ final class TabManager {
         let fresh = BrowserTab(isIncognito: false)
         tabs = [fresh]
         selectedIndex = 0
+        clearPersistedSession()
         delegate?.tabManager(self, didSelect: fresh)
-        delegate?.tabManagerDidUpdate(self)
+        notifyUpdated()
     }
 
     func clearAllSnapshots() {
@@ -155,7 +163,7 @@ final class TabManager {
         guard let tab = tabs.first(where: { $0.id == id }) else { return }
         tab.groupName = name
         if !groupNames.contains(name) { groupNames.append(name) }
-        delegate?.tabManagerDidUpdate(self)
+        notifyUpdated()
     }
 
     func invalidateAllWebViews() {
@@ -168,4 +176,88 @@ final class TabManager {
             delegate?.tabManager(self, didSelect: selected)
         }
     }
+
+    // MARK: - Persistence (when Close All Tabs on Exit is off)
+
+    private func notifyUpdated() {
+        delegate?.tabManagerDidUpdate(self)
+        persistSessionIfNeeded()
+    }
+
+    /// Saves normal tabs so they survive relaunch when auto-close-tabs is disabled.
+    func persistSessionIfNeeded() {
+        if AppSettings.closeAllTabsOnExit {
+            clearPersistedSession()
+            return
+        }
+        let normal = normalTabs
+        guard !normal.isEmpty else {
+            clearPersistedSession()
+            return
+        }
+        let selectedID = selectedTab.flatMap { $0.isIncognito ? nil : $0.id }
+        let index = selectedID.flatMap { id in normal.firstIndex(where: { $0.id == id }) } ?? 0
+        let payload = PersistedSession(
+            tabs: normal.map {
+                PersistedTab(
+                    id: $0.id,
+                    title: $0.title,
+                    urlString: $0.url?.absoluteString,
+                    isNewTabPage: $0.isNewTabPage,
+                    lastAccessed: $0.lastAccessed,
+                    groupName: $0.groupName,
+                    preferDesktop: $0.preferDesktop
+                )
+            },
+            selectedIndex: index,
+            groupNames: groupNames
+        )
+        if let data = try? JSONEncoder().encode(payload) {
+            defaults.set(data, forKey: sessionKey)
+        }
+    }
+
+    func clearPersistedSession() {
+        defaults.removeObject(forKey: sessionKey)
+    }
+
+    @discardableResult
+    private func restorePersistedSession() -> Bool {
+        guard let data = defaults.data(forKey: sessionKey),
+              let session = try? JSONDecoder().decode(PersistedSession.self, from: data),
+              !session.tabs.isEmpty else {
+            return false
+        }
+        tabs = session.tabs.map {
+            let url = $0.urlString.flatMap(URL.init(string:))
+            return BrowserTab(
+                id: $0.id,
+                title: $0.title,
+                url: url,
+                isNewTabPage: url == nil,
+                lastAccessed: $0.lastAccessed,
+                groupName: $0.groupName,
+                preferDesktop: $0.preferDesktop
+            )
+        }
+        groupNames = session.groupNames.isEmpty ? ["Default", "Work", "Personal"] : session.groupNames
+        selectedIndex = min(max(0, session.selectedIndex), tabs.count - 1)
+        return true
+    }
+}
+
+private struct PersistedSession: Codable {
+    var tabs: [PersistedTab]
+    var selectedIndex: Int
+    var groupNames: [String]
+}
+
+private struct PersistedTab: Codable {
+    let id: UUID
+    var title: String
+    var urlString: String?
+    var isNewTabPage: Bool
+    var lastAccessed: Date
+    var groupName: String
+    var preferDesktop: Bool
 }

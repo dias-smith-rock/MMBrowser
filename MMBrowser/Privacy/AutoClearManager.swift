@@ -36,7 +36,8 @@ enum AutoClearManager {
         }
 
         let finish = {
-            if runSessionCleanup {
+            // Only close tabs when that Clear Option is enabled.
+            if runSessionCleanup, AppSettings.closeAllTabsOnExit {
                 NotificationCenter.default.post(name: .clearOptionSessionCleanup, object: nil)
             }
             completion?()

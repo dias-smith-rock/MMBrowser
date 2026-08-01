@@ -83,7 +83,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .privacy:
             return "Location Deny/Spoof only affects GPS-like browser APIs—not your network IP."
         case .clearOption:
-            return "Choose what is removed automatically when you leave the app. Turn History auto-clear off to keep history and show it in the menu."
+            return "Choose what is removed automatically when you leave the app. History is still recorded during the session; turn History auto-clear off to keep it across launches."
         case .tools:
             return "Hide page elements and save rules for sites you visit often."
         case .youtube:

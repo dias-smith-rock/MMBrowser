@@ -69,9 +69,7 @@ final class MenuViewController: UIViewController {
             ("Downloads", "arrow.down.circle", .downloads),
             ("Bookmarks", "bookmark", .bookmarks)
         ]
-        if !AppSettings.autoClearHistory {
-            items.append(("History", "clock", .history))
-        }
+        items.append(("History", "clock", .history))
         items.append(("Reading list", "text.book.closed", .readingList))
         if isIncognito {
             items.removeAll { $0.2 == .downloads }

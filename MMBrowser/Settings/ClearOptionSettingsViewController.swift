@@ -23,7 +23,7 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
             switch self {
             case .cache: return "Disk and memory caches"
             case .cookies: return "Website cookies"
-            case .history: return "Browsing history list"
+            case .history: return "Cleared when you leave the app"
             case .localStorage: return "Local / session / IndexedDB storage"
             }
         }
@@ -116,7 +116,7 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .autoClear:
-            return "When enabled, selected data is removed when you leave the app, and again on next launch (covers crash or force quit). History is only kept (and shown in the menu) when History auto-clear is off."
+            return "When enabled, selected data is removed when you leave the app, and again on next launch (covers crash or force quit). History is recorded during the session and cleared on exit when History auto-clear is on."
         case .session:
             return "Close All Tabs on Exit resets to a single New Tab when you background the app. Turn off preview images to hide webpage thumbnails in the tab switcher."
         }

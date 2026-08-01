@@ -154,9 +154,10 @@ enum AppSettings {
         set { d.set(newValue, forKey: "clear.auto.cookies") }
     }
 
-    /// When true, history is not retained and the menu History entry is hidden.
+    /// When true, browsing history is cleared when leaving the app / on next launch.
+    /// History is still recorded during the current session. Default off so History works out of the box.
     static var autoClearHistory: Bool {
-        get { d.object(forKey: "clear.auto.history") == nil ? true : d.bool(forKey: "clear.auto.history") }
+        get { d.object(forKey: "clear.auto.history") == nil ? false : d.bool(forKey: "clear.auto.history") }
         set { d.set(newValue, forKey: "clear.auto.history") }
     }
 

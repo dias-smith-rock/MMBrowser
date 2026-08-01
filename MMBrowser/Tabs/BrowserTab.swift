@@ -25,6 +25,28 @@ final class BrowserTab {
         self.preferDesktop = false
     }
 
+    /// Restores a previously persisted (non-incognito) tab.
+    init(
+        id: UUID,
+        title: String,
+        url: URL?,
+        isNewTabPage: Bool,
+        lastAccessed: Date,
+        groupName: String,
+        preferDesktop: Bool
+    ) {
+        self.id = id
+        self.title = title
+        self.url = url
+        self.isIncognito = false
+        self.isNewTabPage = isNewTabPage
+        self.lastAccessed = lastAccessed
+        self.snapshot = nil
+        self.webController = nil
+        self.groupName = groupName
+        self.preferDesktop = preferDesktop
+    }
+
     var displayHost: String {
         if isNewTabPage { return "" }
         return url?.host ?? title

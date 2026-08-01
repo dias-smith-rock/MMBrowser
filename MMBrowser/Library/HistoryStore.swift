@@ -20,11 +20,22 @@ final class HistoryStore {
         load()
     }
 
-    func add(title: String, url: URL) {
-        if AppSettings.autoClearHistory { return }
+    func add(title: String, url: URL, calendar: Calendar = .current) {
+        // Always record during the session. When Clear Option → History is on,
+        // AutoClearManager wipes this list on background / next launch.
         if url.absoluteString.hasPrefix("about:") { return }
-        let item = HistoryItem(id: UUID(), title: title.isEmpty ? url.host ?? url.absoluteString : title, urlString: url.absoluteString, date: Date())
-        items.removeAll { $0.urlString == item.urlString }
+        let now = Date()
+        let item = HistoryItem(
+            id: UUID(),
+            title: title.isEmpty ? url.host ?? url.absoluteString : title,
+            urlString: url.absoluteString,
+            date: now
+        )
+        // Dedupe only within the same local day so a revisit on a later day
+        // still appears under today's history while older days keep their entries.
+        items.removeAll {
+            $0.urlString == item.urlString && calendar.isDate($0.date, inSameDayAs: now)
+        }
         items.insert(item, at: 0)
         if items.count > 300 { items = Array(items.prefix(300)) }
         save()

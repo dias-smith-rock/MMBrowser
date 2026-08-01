@@ -9,6 +9,8 @@ protocol AddressBarViewDelegate: AnyObject {
     func addressBarCanSwipeToPreviousTab() -> Bool
     func addressBarCanSwipeToNextTab() -> Bool
     func addressBarTitleForAdjacentTab(offset: Int) -> String?
+    /// Interactive tab switch: `offset` matches address-field drag (points in address-bar space).
+    func addressBarSwipeDidUpdate(offset: CGFloat, width: CGFloat)
     func addressBarDidSwipeToPreviousTab()
     func addressBarDidSwipeToNextTab()
     func addressBarDidChoosePageCleaner(urlOnly: Bool)
@@ -580,6 +582,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         let peekStart = offset >= 0 ? -width : width
         peekLabel.transform = CGAffineTransform(translationX: peekStart + offset, y: 0)
         peekLabel.alpha = peekAlpha
+        delegate?.addressBarSwipeDidUpdate(offset: offset, width: width)
     }
 
     private func rubberBand(_ dx: CGFloat, limit: CGFloat) -> CGFloat {
@@ -596,6 +599,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             self.peekLabel.transform = .identity
             self.peekLabel.alpha = 0
             self.peekLabel.text = nil
+            self.delegate?.addressBarSwipeDidUpdate(offset: 0, width: max(self.swipeClip.bounds.width, 1))
         }
         if animated {
             UIView.animate(withDuration: 0.2, animations: updates)

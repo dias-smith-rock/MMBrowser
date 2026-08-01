@@ -14,7 +14,7 @@ final class TabSwitcherViewController: UIViewController {
     private var collectionView: UICollectionView!
     private var collectionHeightConstraint: Constraint?
     private let topBar = UIView()
-    private let countBadge = UILabel()
+    private let modeControl = UISegmentedControl(items: ["Tabs", "Incognito"])
     private let doneButton = UIButton(type: .system)
     private let addButton = UIButton(type: .system)
     private let moreButton = UIButton(type: .system)
@@ -22,10 +22,18 @@ final class TabSwitcherViewController: UIViewController {
     private let contentStack = UIStackView()
     private let bookmarksSection = UIStackView()
     private let readingSection = UIStackView()
+    private let bookmarksTable = UITableView(frame: .zero, style: .plain)
+    private let readingTable = UITableView(frame: .zero, style: .plain)
+    private var bookmarksHeightConstraint: Constraint?
+    private var readingHeightConstraint: Constraint?
+    private var bookmarkItems: [BookmarkItem] = []
+    private var readingItems: [ReadingListItem] = []
     private var searchQuery = ""
+    private var showingIncognito = false
 
     init(tabManager: TabManager) {
         self.tabManager = tabManager
+        self.showingIncognito = tabManager.selectedTab?.isIncognito ?? false
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -33,7 +41,7 @@ final class TabSwitcherViewController: UIViewController {
 
     private var displayedTabs: [BrowserTab] {
         let q = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let base = tabManager.tabs
+        let base = showingIncognito ? tabManager.incognitoTabs : tabManager.normalTabs
         guard !q.isEmpty else { return base }
         return base.filter {
             $0.title.lowercased().contains(q)
@@ -44,11 +52,18 @@ final class TabSwitcherViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = BrowserTheme.background
+        applyChrome()
         setupTop()
         setupMainScroll()
         setupBottom()
         reload()
+    }
+
+    private func applyChrome() {
+        view.backgroundColor = showingIncognito ? BrowserTheme.privateBackground : BrowserTheme.background
+        topBar.backgroundColor = .clear
+        addButton.backgroundColor = showingIncognito ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
+        doneButton.setTitleColor(showingIncognito ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue, for: .normal)
     }
 
     override func viewDidLayoutSubviews() {
@@ -64,14 +79,12 @@ final class TabSwitcherViewController: UIViewController {
         search.tintColor = BrowserTheme.textPrimary
         search.addTarget(self, action: #selector(searchPlaceholder), for: .touchUpInside)
 
-        countBadge.textAlignment = .center
-        countBadge.font = .monospacedDigitSystemFont(ofSize: 15, weight: .semibold)
-        countBadge.textColor = .black
-        countBadge.backgroundColor = UIColor(white: 0.85, alpha: 1)
-        countBadge.layer.cornerRadius = 14
-        countBadge.clipsToBounds = true
-        countBadge.adjustsFontSizeToFitWidth = true
-        countBadge.baselineAdjustment = .alignCenters
+        modeControl.selectedSegmentIndex = showingIncognito ? 1 : 0
+        modeControl.selectedSegmentTintColor = BrowserTheme.secondaryCard
+        modeControl.setTitleTextAttributes([.foregroundColor: BrowserTheme.textPrimary], for: .normal)
+        modeControl.setTitleTextAttributes([.foregroundColor: BrowserTheme.textPrimary], for: .selected)
+        modeControl.addTarget(self, action: #selector(modeChanged), for: .valueChanged)
+        modeControl.accessibilityLabel = "Tabs mode"
 
         moreButton.setImage(UIImage(systemName: "ellipsis"), for: .normal)
         moreButton.tintColor = BrowserTheme.textPrimary
@@ -80,7 +93,7 @@ final class TabSwitcherViewController: UIViewController {
         moreButton.menu = makeMoreMenu()
 
         topBar.addSubview(search)
-        topBar.addSubview(countBadge)
+        topBar.addSubview(modeControl)
         topBar.addSubview(moreButton)
         topBar.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
@@ -97,10 +110,12 @@ final class TabSwitcherViewController: UIViewController {
             make.centerY.equalToSuperview()
             make.size.equalTo(36)
         }
-        countBadge.snp.makeConstraints { make in
+        modeControl.snp.makeConstraints { make in
             make.center.equalToSuperview()
-            make.height.equalTo(28)
-            make.width.equalTo(countBadge.snp.height).multipliedBy(1.35)
+            make.height.equalTo(32)
+            make.width.equalTo(220)
+            make.leading.greaterThanOrEqualTo(search.snp.trailing).offset(8)
+            make.trailing.lessThanOrEqualTo(moreButton.snp.leading).offset(-8)
         }
     }
 
@@ -135,8 +150,8 @@ final class TabSwitcherViewController: UIViewController {
         collectionView.delegate = self
         collectionView.register(TabGridCell.self, forCellWithReuseIdentifier: TabGridCell.reuseID)
 
-        configureListSection(bookmarksSection, title: "Bookmarks")
-        configureListSection(readingSection, title: "Reading list")
+        configureListSection(bookmarksSection, title: "Bookmarks", table: bookmarksTable, kind: .bookmarks)
+        configureListSection(readingSection, title: "Reading list", table: readingTable, kind: .reading)
 
         contentStack.addArrangedSubview(collectionView)
         contentStack.addArrangedSubview(bookmarksSection)
@@ -156,7 +171,9 @@ final class TabSwitcherViewController: UIViewController {
         }
     }
 
-    private func configureListSection(_ section: UIStackView, title: String) {
+    private enum LibraryKind: Int { case bookmarks = 1, reading = 2 }
+
+    private func configureListSection(_ section: UIStackView, title: String, table: UITableView, kind: LibraryKind) {
         section.axis = .vertical
         section.spacing = 8
         section.alignment = .fill
@@ -168,8 +185,26 @@ final class TabSwitcherViewController: UIViewController {
         header.text = title
         header.font = .systemFont(ofSize: 16, weight: .semibold)
         header.textColor = BrowserTheme.textPrimary
-        header.tag = 9001
         section.addArrangedSubview(header)
+
+        table.tag = kind.rawValue
+        table.backgroundColor = .clear
+        table.isScrollEnabled = false
+        table.separatorInset = UIEdgeInsets(top: 0, left: 12, bottom: 0, right: 0)
+        table.separatorColor = BrowserTheme.textSecondary.withAlphaComponent(0.18)
+        table.layer.cornerRadius = 12
+        table.clipsToBounds = true
+        table.dataSource = self
+        table.delegate = self
+        table.register(UITableViewCell.self, forCellReuseIdentifier: "libraryCell")
+        section.addArrangedSubview(table)
+        table.snp.makeConstraints { make in
+            if kind == .bookmarks {
+                bookmarksHeightConstraint = make.height.equalTo(0).constraint
+            } else {
+                readingHeightConstraint = make.height.equalTo(0).constraint
+            }
+        }
     }
 
     private func setupBottom() {
@@ -198,18 +233,22 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func reload() {
-        let count = displayedTabs.count
-        countBadge.text = "\(count)"
-        let widthMultiplier: CGFloat = count >= 100 ? 2.0 : (count >= 10 ? 1.65 : 1.35)
-        countBadge.snp.remakeConstraints { make in
-            make.center.equalToSuperview()
-            make.height.equalTo(28)
-            make.width.equalTo(countBadge.snp.height).multipliedBy(widthMultiplier)
-        }
+        modeControl.selectedSegmentIndex = showingIncognito ? 1 : 0
+        let normalCount = tabManager.normalTabs.count
+        let privateCount = tabManager.incognitoTabs.count
+        modeControl.setTitle(normalCount > 0 ? "Tabs (\(normalCount))" : "Tabs", forSegmentAt: 0)
+        modeControl.setTitle(privateCount > 0 ? "Incognito (\(privateCount))" : "Incognito", forSegmentAt: 1)
         moreButton.menu = makeMoreMenu()
+        applyChrome()
         collectionView.reloadData()
         updateCollectionHeight()
         rebuildLibrarySections()
+    }
+
+    /// Refresh tab cards after async webpage snapshots finish.
+    func reloadPreviews() {
+        guard isViewLoaded else { return }
+        collectionView.reloadData()
     }
 
     private func updateCollectionHeight() {
@@ -223,94 +262,79 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func rebuildLibrarySections() {
-        rebuildSection(
-            bookmarksSection,
-            items: BookmarkStore.shared.items.map { ($0.title, $0.urlString, $0.url) }
-        )
-        rebuildSection(
-            readingSection,
-            items: ReadingListStore.shared.items.map { ($0.title, $0.urlString, $0.url) }
-        )
+        // Keep library shortcuts on the normal-tabs surface only.
+        guard !showingIncognito else {
+            bookmarkItems = []
+            readingItems = []
+            bookmarksSection.isHidden = true
+            readingSection.isHidden = true
+            bookmarksHeightConstraint?.update(offset: 0)
+            readingHeightConstraint?.update(offset: 0)
+            bookmarksTable.reloadData()
+            readingTable.reloadData()
+            return
+        }
+
+        bookmarkItems = Array(BookmarkStore.shared.items.filter { $0.url != nil }.prefix(12))
+        readingItems = Array(ReadingListStore.shared.items.filter { $0.url != nil }.prefix(12))
+
+        bookmarksSection.isHidden = bookmarkItems.isEmpty
+        readingSection.isHidden = readingItems.isEmpty
+        bookmarksHeightConstraint?.update(offset: CGFloat(bookmarkItems.count) * 56)
+        readingHeightConstraint?.update(offset: CGFloat(readingItems.count) * 56)
+        bookmarksTable.reloadData()
+        readingTable.reloadData()
     }
 
-    private func rebuildSection(_ section: UIStackView, items: [(String, String, URL?)]) {
-        // Keep header (tag 9001), remove rows.
-        section.arrangedSubviews.forEach { view in
-            if view.tag != 9001 {
-                section.removeArrangedSubview(view)
-                view.removeFromSuperview()
-            }
+    @objc private func modeChanged() {
+        showingIncognito = modeControl.selectedSegmentIndex == 1
+        searchQuery = ""
+        let pool = showingIncognito ? tabManager.incognitoTabs : tabManager.normalTabs
+        if let tab = pool.sorted(by: { $0.lastAccessed > $1.lastAccessed }).first {
+            tabManager.selectTab(id: tab.id)
         }
-
-        let visible = items.filter { $0.2 != nil }
-        section.isHidden = visible.isEmpty
-        guard !visible.isEmpty else { return }
-
-        for item in visible.prefix(12) {
-            section.addArrangedSubview(makeLibraryRow(title: item.0, subtitle: item.1, url: item.2!))
-        }
-    }
-
-    private func makeLibraryRow(title: String, subtitle: String, url: URL) -> UIView {
-        let row = UIButton(type: .system)
-        row.backgroundColor = BrowserTheme.card
-        row.layer.cornerRadius = 12
-        row.contentHorizontalAlignment = .left
-        row.contentEdgeInsets = UIEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
-
-        let titleLabel = UILabel()
-        titleLabel.text = title
-        titleLabel.textColor = BrowserTheme.textPrimary
-        titleLabel.font = .systemFont(ofSize: 15, weight: .medium)
-        titleLabel.numberOfLines = 1
-
-        let subtitleLabel = UILabel()
-        subtitleLabel.text = URL(string: subtitle)?.host ?? subtitle
-        subtitleLabel.textColor = BrowserTheme.textSecondary
-        subtitleLabel.font = .systemFont(ofSize: 12)
-        subtitleLabel.numberOfLines = 1
-
-        let stack = UIStackView(arrangedSubviews: [titleLabel, subtitleLabel])
-        stack.axis = .vertical
-        stack.spacing = 2
-        stack.isUserInteractionEnabled = false
-        row.addSubview(stack)
-        stack.snp.makeConstraints { make in
-            make.edges.equalToSuperview().inset(UIEdgeInsets(top: 10, left: 12, bottom: 10, right: 12))
-        }
-        row.snp.makeConstraints { $0.height.greaterThanOrEqualTo(52) }
-
-        row.addAction(UIAction { [weak self] _ in
-            self?.delegate?.tabSwitcherDidRequestOpenURLInNewTab(url)
-        }, for: .touchUpInside)
-
-        return row
+        reload()
     }
 
     @objc private func addTapped() {
-        let incognito = tabManager.selectedTab?.isIncognito ?? false
-        delegate?.tabSwitcherDidRequestNewTab(incognito: incognito)
+        // Create a tab in the mode currently being viewed.
+        delegate?.tabSwitcherDidRequestNewTab(incognito: showingIncognito)
     }
 
     @objc private func doneTapped() {
+        // If current selection is in the other mode, jump to the viewed mode's tab.
+        let selectedIsPrivate = tabManager.selectedTab?.isIncognito ?? false
+        if selectedIsPrivate != showingIncognito {
+            let pool = showingIncognito ? tabManager.incognitoTabs : tabManager.normalTabs
+            if let tab = pool.sorted(by: { $0.lastAccessed > $1.lastAccessed }).first {
+                tabManager.selectTab(id: tab.id)
+            } else if showingIncognito {
+                // No private tab yet — create one so Done lands in Incognito.
+                _ = tabManager.addTab(incognito: true, select: true)
+            }
+        }
         delegate?.tabSwitcherDidClose()
     }
 
     private func closeOtherTabs() {
-        guard let selected = tabManager.selectedTab else { return }
-        let others = tabManager.tabs.filter { $0.id != selected.id }
-        for tab in others {
+        let visibleIDs = Set(displayedTabs.map(\.id))
+        guard let selected = tabManager.selectedTab, visibleIDs.contains(selected.id) else { return }
+        for tab in displayedTabs where tab.id != selected.id {
             tabManager.closeTab(id: tab.id)
         }
         reload()
     }
 
     private func closeAllTabs() {
-        let ids = tabManager.tabs.map(\.id)
+        let ids = displayedTabs.map(\.id)
         for id in ids {
             tabManager.closeTab(id: id)
         }
         reload()
+        if displayedTabs.isEmpty, showingIncognito {
+            // Stay on Incognito surface with an empty grid; user can tap +.
+            return
+        }
         if tabManager.tabs.isEmpty {
             delegate?.tabSwitcherDidClose()
         }
@@ -378,6 +402,69 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
         let width = (collectionView.bounds.width - 36) / 2
         return CGSize(width: width, height: width * 1.25)
     }
+}
+
+extension TabSwitcherViewController: UITableViewDataSource, UITableViewDelegate {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        tableView === bookmarksTable ? bookmarkItems.count : readingItems.count
+    }
+
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "libraryCell")
+            ?? UITableViewCell(style: .subtitle, reuseIdentifier: "libraryCell")
+        cell.backgroundColor = BrowserTheme.card
+        cell.selectionStyle = .default
+        cell.textLabel?.textColor = BrowserTheme.textPrimary
+        cell.textLabel?.font = .systemFont(ofSize: 15, weight: .medium)
+        cell.detailTextLabel?.textColor = BrowserTheme.textSecondary
+        cell.detailTextLabel?.font = .systemFont(ofSize: 12)
+
+        if tableView === bookmarksTable {
+            let item = bookmarkItems[indexPath.row]
+            cell.textLabel?.text = item.title
+            cell.detailTextLabel?.text = item.url?.host ?? item.urlString
+        } else {
+            let item = readingItems[indexPath.row]
+            cell.textLabel?.text = item.title
+            cell.detailTextLabel?.text = item.url?.host ?? item.urlString
+        }
+        return cell
+    }
+
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat { 56 }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        let url: URL?
+        if tableView === bookmarksTable {
+            url = bookmarkItems[indexPath.row].url
+        } else {
+            url = readingItems[indexPath.row].url
+        }
+        guard let url else { return }
+        delegate?.tabSwitcherDidRequestOpenURLInNewTab(url)
+    }
+
+    func tableView(
+        _ tableView: UITableView,
+        trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath
+    ) -> UISwipeActionsConfiguration? {
+        let delete = UIContextualAction(style: .destructive, title: "Delete") { [weak self] _, _, done in
+            guard let self else { done(false); return }
+            if tableView === self.bookmarksTable {
+                let id = self.bookmarkItems[indexPath.row].id
+                BookmarkStore.shared.remove(id: id)
+            } else {
+                let id = self.readingItems[indexPath.row].id
+                ReadingListStore.shared.remove(id: id)
+            }
+            self.rebuildLibrarySections()
+            done(true)
+        }
+        return UISwipeActionsConfiguration(actions: [delete])
+    }
+
+    func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool { true }
 }
 
 final class TabGridCell: UICollectionViewCell {

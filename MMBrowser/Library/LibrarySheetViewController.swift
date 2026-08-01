@@ -1,7 +1,8 @@
 import UIKit
 import SnapKit
 
-/// Combined Bookmarks + History sheet with domain grouping.
+/// Shared Bookmarks / History sheet (domain grouping).
+/// Menu keeps separate Bookmarks and History entries; each opens this sheet on the matching tab.
 final class LibrarySheetViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, UISearchResultsUpdating {
     enum Mode: Int {
         case bookmarks = 0
@@ -70,7 +71,9 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
         segment.selectedSegmentIndex = mode.rawValue
         segment.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
         segment.selectedSegmentTintColor = BrowserTheme.secondaryCard
-        navigationItem.titleView = makeTitleStack()
+        // Title only — mode switcher sits below nav so Bookmarks/History remain distinct entries.
+        title = mode == .bookmarks ? "Bookmarks" : "History"
+        tableView.tableHeaderView = makeSegmentHeader()
 
         searchController.searchResultsUpdater = self
         searchController.obscuresBackgroundDuringPresentation = false
@@ -104,32 +107,21 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
 
     // MARK: - Chrome
 
-    private func makeTitleStack() -> UIView {
-        let title = UILabel()
-        title.text = mode == .bookmarks ? "Bookmarks" : "History"
-        title.font = .systemFont(ofSize: 17, weight: .semibold)
-        title.textColor = BrowserTheme.textPrimary
-        title.textAlignment = .center
-        title.tag = 1001
-
-        let wrap = UIStackView(arrangedSubviews: [title, segment])
-        wrap.axis = .vertical
-        wrap.spacing = 8
-        wrap.alignment = .fill
-        wrap.bounds = CGRect(x: 0, y: 0, width: 220, height: 64)
+    private func makeSegmentHeader() -> UIView {
+        let wrap = UIView(frame: CGRect(x: 0, y: 0, width: 320, height: 52))
+        wrap.backgroundColor = BrowserTheme.background
+        wrap.addSubview(segment)
         segment.snp.makeConstraints { make in
-            make.height.equalTo(32)
+            make.leading.trailing.equalToSuperview().inset(16)
+            make.centerY.equalToSuperview()
+            make.height.equalTo(36)
         }
         return wrap
     }
 
     private func updateChrome() {
-        if let stack = navigationItem.titleView as? UIStackView,
-           let title = stack.arrangedSubviews.first as? UILabel {
-            title.text = mode == .bookmarks ? "Bookmarks" : "History"
-        } else {
-            title = mode == .bookmarks ? "Bookmarks" : "History"
-        }
+        title = mode == .bookmarks ? "Bookmarks" : "History"
+        segment.selectedSegmentIndex = mode.rawValue
         let hasData = mode == .bookmarks ? !bookmarkGroups.isEmpty : !historyDays.isEmpty
         navigationItem.rightBarButtonItems?.first?.isEnabled = hasData
     }
@@ -256,7 +248,13 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
             return cell
         case let .bookmark(item):
             let cell = tableView.dequeueReusableCell(withIdentifier: LibraryPageCell.reuseID, for: indexPath) as! LibraryPageCell
-            cell.configure(title: item.title, urlString: item.urlString, timeText: nil, host: BookmarkStore.hostKey(forURLString: item.urlString))
+            cell.configure(
+                title: item.title,
+                urlString: item.urlString,
+                timeText: nil,
+                host: BookmarkStore.hostKey(forURLString: item.urlString),
+                indented: true
+            )
             cell.onDelete = { [weak self] in
                 BookmarkStore.shared.remove(id: item.id)
                 self?.reloadAfterMutation()
@@ -268,7 +266,8 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
                 title: item.title,
                 urlString: item.urlString,
                 timeText: timeFormatter.string(from: item.date),
-                host: HistoryStore.hostKey(for: item.urlString)
+                host: HistoryStore.hostKey(for: item.urlString),
+                indented: true
             )
             cell.onDelete = { [weak self] in
                 HistoryStore.shared.remove(id: item.id)
@@ -297,7 +296,63 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
         }
     }
 
+    func tableView(
+        _ tableView: UITableView,
+        contextMenuConfigurationForRowAt indexPath: IndexPath,
+        point: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        guard mode == .bookmarks else { return nil }
+        let row = rows(in: indexPath.section)[indexPath.row]
+        guard case let .bookmark(item) = row else { return nil }
+        return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { [weak self] _ in
+            let open = UIAction(title: "Open", image: UIImage(systemName: "safari")) { _ in
+                if let url = item.url {
+                    self?.onSelectURL?(url)
+                }
+            }
+            let edit = UIAction(title: "Edit", image: UIImage(systemName: "pencil")) { _ in
+                self?.presentEditBookmark(item)
+            }
+            let delete = UIAction(title: "Delete", image: UIImage(systemName: "trash"), attributes: .destructive) { _ in
+                BookmarkStore.shared.remove(id: item.id)
+                self?.reloadAfterMutation()
+            }
+            return UIMenu(children: [open, edit, delete])
+        }
+    }
+
     // MARK: - Actions
+
+    private func presentEditBookmark(_ item: BookmarkItem) {
+        let alert = UIAlertController(title: "Edit Bookmark", message: nil, preferredStyle: .alert)
+        alert.addTextField { field in
+            field.text = item.title
+            field.placeholder = "Title"
+            field.clearButtonMode = .whileEditing
+            field.autocapitalizationType = .words
+        }
+        alert.addTextField { field in
+            field.text = item.urlString
+            field.placeholder = "URL"
+            field.clearButtonMode = .whileEditing
+            field.keyboardType = .URL
+            field.autocapitalizationType = .none
+            field.autocorrectionType = .no
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self] _ in
+            guard let self else { return }
+            let title = alert.textFields?[0].text ?? ""
+            let urlString = alert.textFields?[1].text ?? ""
+            if BookmarkStore.shared.update(id: item.id, title: title, urlString: urlString) {
+                self.reloadAfterMutation()
+                Toast.show("Bookmark updated", from: self)
+            } else {
+                Toast.show("Couldn’t save — check the URL or duplicate", from: self)
+            }
+        })
+        present(alert, animated: true)
+    }
 
     @objc private func close() { dismiss(animated: true) }
 
@@ -401,15 +456,23 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
 
 // MARK: - Cells
 
+private enum LibraryRowIcon {
+    static let delete = UIImage.SymbolConfiguration(pointSize: 11, weight: .medium)
+    static let chevron = UIImage.SymbolConfiguration(pointSize: 7, weight: .light)
+    static let hitSize: CGFloat = 22
+}
+
 private final class LibraryDomainCell: UITableViewCell {
     static let reuseID = "LibraryDomainCell"
     var onDelete: (() -> Void)?
 
     private let avatar = LetterAvatarView()
     private let hostLabel = UILabel()
+    private let countBadge = UIView()
     private let countLabel = UILabel()
-    private let chevron = UIImageView()
+    private let chevronButton = UIButton(type: .system)
     private let deleteButton = UIButton(type: .system)
+    private let rowStack = UIStackView()
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -420,60 +483,94 @@ private final class LibraryDomainCell: UITableViewCell {
         hostLabel.font = .systemFont(ofSize: 16, weight: .medium)
         hostLabel.textColor = BrowserTheme.textPrimary
         hostLabel.lineBreakMode = .byTruncatingMiddle
+        hostLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        hostLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
-        countLabel.font = .systemFont(ofSize: 14, weight: .regular)
+        countBadge.backgroundColor = BrowserTheme.secondaryCard
+        countBadge.clipsToBounds = true
+        countBadge.setContentHuggingPriority(.required, for: .horizontal)
+        countBadge.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        countLabel.font = .systemFont(ofSize: 11, weight: .semibold)
         countLabel.textColor = BrowserTheme.textSecondary
-        countLabel.setContentHuggingPriority(.required, for: .horizontal)
+        countLabel.textAlignment = .center
+        countBadge.addSubview(countLabel)
+        countLabel.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+            make.leading.equalToSuperview().offset(6)
+            make.trailing.equalToSuperview().offset(-6)
+        }
+        countBadge.snp.makeConstraints { make in
+            make.height.equalTo(20)
+            make.width.greaterThanOrEqualTo(20)
+        }
 
-        chevron.tintColor = BrowserTheme.textSecondary
-        chevron.contentMode = .scaleAspectFit
+        chevronButton.setImage(UIImage(systemName: "chevron.down", withConfiguration: LibraryRowIcon.chevron), for: .normal)
+        chevronButton.tintColor = BrowserTheme.textSecondary
+        chevronButton.isUserInteractionEnabled = false
+        chevronButton.setContentHuggingPriority(.required, for: .horizontal)
+        chevronButton.snp.makeConstraints { make in
+            make.size.equalTo(LibraryRowIcon.hitSize)
+        }
 
-        deleteButton.setImage(UIImage(systemName: "xmark"), for: .normal)
+        deleteButton.setImage(UIImage(systemName: "xmark", withConfiguration: LibraryRowIcon.delete), for: .normal)
         deleteButton.tintColor = BrowserTheme.textSecondary
         deleteButton.addTarget(self, action: #selector(deleteTapped), for: .touchUpInside)
+        deleteButton.setContentHuggingPriority(.required, for: .horizontal)
+        deleteButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        deleteButton.snp.makeConstraints { make in
+            make.size.equalTo(LibraryRowIcon.hitSize)
+        }
 
-        contentView.addSubview(avatar)
-        contentView.addSubview(hostLabel)
-        contentView.addSubview(countLabel)
-        contentView.addSubview(chevron)
-        contentView.addSubview(deleteButton)
+        let spacer = UIView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
+        rowStack.axis = .horizontal
+        rowStack.alignment = .center
+        rowStack.spacing = 6
+        rowStack.addArrangedSubview(avatar)
+        rowStack.addArrangedSubview(hostLabel)
+        rowStack.setCustomSpacing(8, after: hostLabel)
+        rowStack.addArrangedSubview(countBadge)
+        rowStack.setCustomSpacing(2, after: countBadge)
+        rowStack.addArrangedSubview(chevronButton)
+        rowStack.addArrangedSubview(spacer)
+        rowStack.addArrangedSubview(deleteButton)
+
+        contentView.addSubview(rowStack)
         avatar.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(16)
-            make.centerY.equalToSuperview()
             make.size.equalTo(28)
         }
-        hostLabel.snp.makeConstraints { make in
-            make.leading.equalTo(avatar.snp.trailing).offset(12)
-            make.centerY.equalToSuperview()
-        }
-        countLabel.snp.makeConstraints { make in
-            make.leading.equalTo(hostLabel.snp.trailing).offset(8)
-            make.centerY.equalToSuperview()
-        }
-        chevron.snp.makeConstraints { make in
-            make.leading.equalTo(countLabel.snp.trailing).offset(6)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(12)
-            make.trailing.lessThanOrEqualTo(deleteButton.snp.leading).offset(-8)
-        }
-        deleteButton.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-12)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(32)
-        }
-        contentView.snp.makeConstraints { make in
-            make.height.greaterThanOrEqualTo(52)
+        rowStack.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(16)
+            make.trailing.equalToSuperview().offset(-10)
+            make.top.equalToSuperview().offset(10)
+            make.bottom.equalToSuperview().offset(-10)
+            make.height.greaterThanOrEqualTo(32)
         }
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        countBadge.layer.cornerRadius = countBadge.bounds.height / 2
+    }
+
     func configure(host: String, count: Int, expanded: Bool) {
         avatar.configure(title: host, colorSeed: host)
         hostLabel.text = host
         countLabel.text = "\(count)"
-        chevron.image = UIImage(systemName: expanded ? "chevron.up" : "chevron.down")
+        countBadge.backgroundColor = BrowserTheme.secondaryCard
+        countLabel.textColor = BrowserTheme.textSecondary
+        chevronButton.setImage(
+            UIImage(
+                systemName: expanded ? "chevron.up" : "chevron.down",
+                withConfiguration: LibraryRowIcon.chevron
+            ),
+            for: .normal
+        )
     }
 
     @objc private func deleteTapped() { onDelete?() }
@@ -488,6 +585,8 @@ private final class LibraryPageCell: UITableViewCell {
     private let urlLabel = UILabel()
     private let timeLabel = UILabel()
     private let deleteButton = UIButton(type: .system)
+    private let textStack = UIStackView()
+    private var avatarLeadingConstraint: Constraint?
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
@@ -507,11 +606,12 @@ private final class LibraryPageCell: UITableViewCell {
         timeLabel.textColor = BrowserTheme.textSecondary
         timeLabel.setContentHuggingPriority(.required, for: .horizontal)
 
-        deleteButton.setImage(UIImage(systemName: "xmark"), for: .normal)
+        deleteButton.setImage(UIImage(systemName: "xmark", withConfiguration: LibraryRowIcon.delete), for: .normal)
         deleteButton.tintColor = BrowserTheme.textSecondary
         deleteButton.addTarget(self, action: #selector(deleteTapped), for: .touchUpInside)
 
-        let textStack = UIStackView(arrangedSubviews: [titleLabel, urlLabel])
+        textStack.addArrangedSubview(titleLabel)
+        textStack.addArrangedSubview(urlLabel)
         textStack.axis = .vertical
         textStack.spacing = 2
 
@@ -521,35 +621,37 @@ private final class LibraryPageCell: UITableViewCell {
         contentView.addSubview(deleteButton)
 
         avatar.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(16)
+            avatarLeadingConstraint = make.leading.equalToSuperview().offset(16).constraint
             make.top.equalToSuperview().offset(12)
             make.size.equalTo(28)
+        }
+        deleteButton.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().offset(-10)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(LibraryRowIcon.hitSize)
+        }
+        timeLabel.snp.makeConstraints { make in
+            make.trailing.equalTo(deleteButton.snp.leading).offset(-4)
+            make.centerY.equalToSuperview()
         }
         textStack.snp.makeConstraints { make in
             make.leading.equalTo(avatar.snp.trailing).offset(12)
             make.top.equalToSuperview().offset(10)
             make.bottom.equalToSuperview().offset(-10)
             make.trailing.lessThanOrEqualTo(timeLabel.snp.leading).offset(-8)
-        }
-        timeLabel.snp.makeConstraints { make in
-            make.trailing.equalTo(deleteButton.snp.leading).offset(-4)
-            make.centerY.equalToSuperview()
-        }
-        deleteButton.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-12)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(32)
+            make.trailing.lessThanOrEqualTo(deleteButton.snp.leading).offset(-8)
         }
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(title: String, urlString: String, timeText: String?, host: String) {
+    func configure(title: String, urlString: String, timeText: String?, host: String, indented: Bool) {
         avatar.configure(title: title.isEmpty ? host : title, colorSeed: host)
         titleLabel.text = title.isEmpty ? host : title
         urlLabel.text = urlString
         timeLabel.text = timeText
         timeLabel.isHidden = timeText == nil
+        avatarLeadingConstraint?.update(offset: indented ? 36 : 16)
     }
 
     @objc private func deleteTapped() { onDelete?() }
