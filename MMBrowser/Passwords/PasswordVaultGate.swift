@@ -86,6 +86,9 @@ enum PasswordVaultGate {
             let text = alert.textFields?.first?.text ?? ""
             if let key = VaultCrypto.unlockMasterPassword(text) {
                 VaultCrypto.setSessionMasterKey(key)
+                PasswordStore.shared.reload()
+                BankCardStore.shared.reload()
+                FormProfileStore.shared.reload()
                 completion(true)
             } else {
                 Toast.show("Incorrect master password", from: presenter)

@@ -35,6 +35,7 @@ final class PasswordsViewController: UIViewController, UITableViewDataSource, UI
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        PasswordStore.shared.reload()
         reload()
     }
 

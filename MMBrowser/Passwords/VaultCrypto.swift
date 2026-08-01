@@ -111,24 +111,107 @@ enum VaultCrypto {
         return deviceKey()
     }
 
-    /// Re-encrypt blob from oldKey to newKey.
-    static func reencrypt(service: String, from oldKey: SymmetricKey, to newKey: SymmetricKey) {
-        guard let data = VaultKeychain.load(service: service, account: VaultKeychain.blobAccount) else { return }
-        // Try decode as generic JSON Data wrapper
-        if let items = try? decrypt(data, as: [PasswordItemDTO].self, with: oldKey),
-           let sealed = try? encrypt(items, with: newKey) {
-            _ = VaultKeychain.set(service: service, account: VaultKeychain.blobAccount, data: sealed)
-            return
+    /// Re-encrypt a known blob type. Returns false only when data exists but cannot be migrated.
+    @discardableResult
+    static func reencrypt<T: Codable>(service: String, as type: T.Type, from oldKey: SymmetricKey, to newKey: SymmetricKey) -> Bool {
+        guard let data = VaultKeychain.load(service: service, account: VaultKeychain.blobAccount) else {
+            return true // nothing stored yet
         }
-        if let items = try? decrypt(data, as: [BankCardItemDTO].self, with: oldKey),
-           let sealed = try? encrypt(items, with: newKey) {
-            _ = VaultKeychain.set(service: service, account: VaultKeychain.blobAccount, data: sealed)
-            return
+        do {
+            let value = try decrypt(data, as: type, with: oldKey)
+            let sealed = try encrypt(value, with: newKey)
+            return VaultKeychain.set(service: service, account: VaultKeychain.blobAccount, data: sealed)
+        } catch {
+            return false
         }
-        if let profile = try? decrypt(data, as: FormProfileDTO.self, with: oldKey),
-           let sealed = try? encrypt(profile, with: newKey) {
-            _ = VaultKeychain.set(service: service, account: VaultKeychain.blobAccount, data: sealed)
+    }
+
+    private static func reencryptAllBlobs(from oldKey: SymmetricKey, to newKey: SymmetricKey) -> Bool {
+        let passwordsOK = reencrypt(service: VaultKeychain.passwordsService, as: [PasswordItemDTO].self, from: oldKey, to: newKey)
+        let cardsOK = reencrypt(service: VaultKeychain.bankCardsService, as: [BankCardItemDTO].self, from: oldKey, to: newKey)
+        let formOK = reencrypt(service: VaultKeychain.formProfileService, as: FormProfileDTO.self, from: oldKey, to: newKey)
+        return passwordsOK && cardsOK && formOK
+    }
+
+    private static func snapshotVault(with key: SymmetricKey) -> (passwords: [PasswordItemDTO]?, cards: [BankCardItemDTO]?, form: FormProfileDTO?)? {
+        let passwordsData = VaultKeychain.load(service: VaultKeychain.passwordsService, account: VaultKeychain.blobAccount)
+        let cardsData = VaultKeychain.load(service: VaultKeychain.bankCardsService, account: VaultKeychain.blobAccount)
+        let formData = VaultKeychain.load(service: VaultKeychain.formProfileService, account: VaultKeychain.blobAccount)
+
+        var passwords: [PasswordItemDTO]?
+        var cards: [BankCardItemDTO]?
+        var form: FormProfileDTO?
+
+        if let passwordsData {
+            guard let decoded = try? decrypt(passwordsData, as: [PasswordItemDTO].self, with: key) else { return nil }
+            passwords = decoded
         }
+        if let cardsData {
+            guard let decoded = try? decrypt(cardsData, as: [BankCardItemDTO].self, with: key) else { return nil }
+            cards = decoded
+        }
+        if let formData {
+            guard let decoded = try? decrypt(formData, as: FormProfileDTO.self, with: key) else { return nil }
+            form = decoded
+        }
+        return (passwords, cards, form)
+    }
+
+    private static func writeVault(
+        passwords: [PasswordItemDTO]?,
+        cards: [BankCardItemDTO]?,
+        form: FormProfileDTO?,
+        with key: SymmetricKey
+    ) -> Bool {
+        do {
+            if let passwords {
+                let sealed = try encrypt(passwords, with: key)
+                guard VaultKeychain.set(service: VaultKeychain.passwordsService, account: VaultKeychain.blobAccount, data: sealed) else { return false }
+            }
+            if let cards {
+                let sealed = try encrypt(cards, with: key)
+                guard VaultKeychain.set(service: VaultKeychain.bankCardsService, account: VaultKeychain.blobAccount, data: sealed) else { return false }
+            }
+            if let form {
+                let sealed = try encrypt(form, with: key)
+                guard VaultKeychain.set(service: VaultKeychain.formProfileService, account: VaultKeychain.blobAccount, data: sealed) else { return false }
+            }
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    /// Create master password: decrypt with device key, install master, rewrite ciphertext, unlock session.
+    static func migrateVault(from deviceKey: SymmetricKey, installingMasterPassword password: String) -> SymmetricKey? {
+        guard let snapshot = snapshotVault(with: deviceKey) else { return nil }
+        guard let newKey = setMasterPassword(password) else { return nil }
+        // Must set session key before any PasswordStore.reload() sees hasMasterPassword == true.
+        setSessionMasterKey(newKey)
+        guard writeVault(passwords: snapshot.passwords, cards: snapshot.cards, form: snapshot.form, with: newKey) else {
+            return nil
+        }
+        return newKey
+    }
+
+    static func rotateMasterPassword(from oldKey: SymmetricKey, to newPassword: String) -> SymmetricKey? {
+        guard let snapshot = snapshotVault(with: oldKey) else { return nil }
+        clearMasterPassword()
+        guard let newKey = setMasterPassword(newPassword) else { return nil }
+        setSessionMasterKey(newKey)
+        guard writeVault(passwords: snapshot.passwords, cards: snapshot.cards, form: snapshot.form, with: newKey) else {
+            return nil
+        }
+        return newKey
+    }
+
+    @discardableResult
+    static func removeMasterPassword(using oldKey: SymmetricKey) -> Bool {
+        let device = deviceKey()
+        guard reencryptAllBlobs(from: oldKey, to: device) else { return false }
+        clearMasterPassword()
+        setSessionMasterKey(nil)
+        return true
     }
 }
 

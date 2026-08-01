@@ -103,13 +103,13 @@ final class MasterPasswordSetupViewController: UIViewController {
                 Toast.show("Passwords do not match", from: self)
                 return
             }
+            // Snapshot + reencrypt with device key BEFORE flipping hasMasterPassword,
+            // then install the master key and refresh stores.
             let oldKey = VaultCrypto.deviceKey()
-            guard let newKey = VaultCrypto.setMasterPassword(p) else {
+            guard VaultCrypto.migrateVault(from: oldKey, installingMasterPassword: p) != nil else {
                 Toast.show("Could not set master password", from: self)
                 return
             }
-            reencryptAll(from: oldKey, to: newKey)
-            VaultCrypto.setSessionMasterKey(newKey)
             Toast.show("Master password created", from: self)
         case .change:
             let current = currentField.text ?? ""
@@ -123,13 +123,10 @@ final class MasterPasswordSetupViewController: UIViewController {
                 Toast.show("Check the new password fields", from: self)
                 return
             }
-            VaultCrypto.clearMasterPassword()
-            guard let newKey = VaultCrypto.setMasterPassword(p) else {
+            guard VaultCrypto.rotateMasterPassword(from: oldKey, to: p) != nil else {
                 Toast.show("Could not change master password", from: self)
                 return
             }
-            reencryptAll(from: oldKey, to: newKey)
-            VaultCrypto.setSessionMasterKey(newKey)
             Toast.show("Master password changed", from: self)
         case .remove:
             let p = passwordField.text ?? ""
@@ -137,22 +134,16 @@ final class MasterPasswordSetupViewController: UIViewController {
                 Toast.show("Incorrect master password", from: self)
                 return
             }
-            let deviceKey = VaultCrypto.deviceKey()
-            reencryptAll(from: oldKey, to: deviceKey)
-            VaultCrypto.clearMasterPassword()
-            VaultCrypto.setSessionMasterKey(nil)
+            guard VaultCrypto.removeMasterPassword(using: oldKey) else {
+                Toast.show("Could not remove master password", from: self)
+                return
+            }
             Toast.show("Master password removed", from: self)
         }
-        onFinished?()
-        dismiss(animated: true)
-    }
-
-    private func reencryptAll(from oldKey: SymmetricKey, to newKey: SymmetricKey) {
-        VaultCrypto.reencrypt(service: VaultKeychain.passwordsService, from: oldKey, to: newKey)
-        VaultCrypto.reencrypt(service: VaultKeychain.bankCardsService, from: oldKey, to: newKey)
-        VaultCrypto.reencrypt(service: VaultKeychain.formProfileService, from: oldKey, to: newKey)
         PasswordStore.shared.reload()
         BankCardStore.shared.reload()
         FormProfileStore.shared.reload()
+        onFinished?()
+        dismiss(animated: true)
     }
 }

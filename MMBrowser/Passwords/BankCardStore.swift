@@ -69,17 +69,23 @@ final class BankCardStore {
 
     private func load() -> [BankCardItem] {
         if let cache { return cache }
-        guard let key = VaultCrypto.activeKey() else { cache = []; return [] }
+        guard let key = VaultCrypto.activeKey() else { return [] }
         guard let data = VaultKeychain.load(service: VaultKeychain.bankCardsService, account: VaultKeychain.blobAccount) else {
-            cache = []; return []
+            cache = []
+            return []
         }
-        do {
-            let items = try VaultCrypto.decrypt(data, as: [BankCardItemDTO].self, with: key).map(BankCardItem.from)
+        if let items = try? VaultCrypto.decrypt(data, as: [BankCardItemDTO].self, with: key).map(BankCardItem.from) {
             cache = items
             return items
-        } catch {
-            cache = []; return []
         }
+        if VaultCrypto.hasMasterPassword {
+            let device = VaultCrypto.deviceKey()
+            if let items = try? VaultCrypto.decrypt(data, as: [BankCardItemDTO].self, with: device).map(BankCardItem.from) {
+                _ = persist(items)
+                return items
+            }
+        }
+        return []
     }
 
     private func persist(_ items: [BankCardItem]) -> Bool {

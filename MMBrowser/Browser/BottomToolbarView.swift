@@ -23,8 +23,8 @@ final class BottomToolbarView: UIView {
     private var canGoForward = false
     private var tabCount = 1
 
-    private static let iconPointSize: CGFloat = 22
-    private static let iconConfig = UIImage.SymbolConfiguration(pointSize: iconPointSize, weight: .semibold)
+    private static let iconPointSize: CGFloat = 26
+    private static let iconConfig = UIImage.SymbolConfiguration(pointSize: iconPointSize, weight: .regular)
 
     override init(frame: CGRect) {
         super.init(frame: frame)

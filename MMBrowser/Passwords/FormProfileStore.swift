@@ -68,21 +68,24 @@ final class FormProfileStore {
 
     private func load() -> FormProfile {
         if let cache { return cache }
-        guard let key = VaultCrypto.activeKey() else {
-            cache = .empty
-            return .empty
-        }
+        guard let key = VaultCrypto.activeKey() else { return .empty }
         guard let data = VaultKeychain.load(service: VaultKeychain.formProfileService, account: VaultKeychain.blobAccount) else {
             cache = .empty
             return .empty
         }
-        do {
-            let profile = FormProfile.from(try VaultCrypto.decrypt(data, as: FormProfileDTO.self, with: key))
+        if let dto = try? VaultCrypto.decrypt(data, as: FormProfileDTO.self, with: key) {
+            let profile = FormProfile.from(dto)
             cache = profile
             return profile
-        } catch {
-            cache = .empty
-            return .empty
         }
+        if VaultCrypto.hasMasterPassword {
+            let device = VaultCrypto.deviceKey()
+            if let dto = try? VaultCrypto.decrypt(data, as: FormProfileDTO.self, with: device) {
+                let profile = FormProfile.from(dto)
+                _ = save(profile)
+                return profile
+            }
+        }
+        return .empty
     }
 }

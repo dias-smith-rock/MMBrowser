@@ -103,21 +103,26 @@ final class PasswordStore {
     private func load() -> [PasswordItem] {
         if let cache { return cache }
         guard let key = VaultCrypto.activeKey() else {
-            cache = []
+            // Locked / mid-migration — never cache an empty vault.
             return []
         }
         guard let data = VaultKeychain.load(service: VaultKeychain.passwordsService, account: VaultKeychain.blobAccount) else {
             cache = []
             return []
         }
-        do {
-            let items = try VaultCrypto.decrypt(data, as: [PasswordItemDTO].self, with: key).map(PasswordItem.from)
+        if let items = try? VaultCrypto.decrypt(data, as: [PasswordItemDTO].self, with: key).map(PasswordItem.from) {
             cache = items
             return items
-        } catch {
-            cache = []
-            return []
         }
+        // Recovery: blob may still be sealed with the device key after a failed master migration.
+        if VaultCrypto.hasMasterPassword {
+            let device = VaultCrypto.deviceKey()
+            if let items = try? VaultCrypto.decrypt(data, as: [PasswordItemDTO].self, with: device).map(PasswordItem.from) {
+                _ = persist(items) // rewrite under the active master key
+                return items
+            }
+        }
+        return []
     }
 
     @discardableResult
