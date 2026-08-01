@@ -45,11 +45,24 @@ final class PasswordStore {
         }
     }
 
+    /// Matches by exact host first, then by registrable domain so a saved
+    /// `google.com` entry also covers `accounts.google.com`.
     func items(forHost host: String) -> [PasswordItem] {
         let key = Self.normalizeHost(host)
-        return all.filter {
-            Self.normalizeHost($0.host) == key
-                || Self.normalizeHost(URL(string: $0.url)?.host ?? "") == key
+        guard !key.isEmpty else { return [] }
+
+        func hosts(of item: PasswordItem) -> [String] {
+            [Self.normalizeHost(item.host), Self.normalizeHost(URL(string: item.url)?.host ?? "")]
+                .filter { !$0.isEmpty }
+        }
+
+        let exact = all.filter { hosts(of: $0).contains(key) }
+        if !exact.isEmpty { return exact }
+
+        let domain = Self.registrableDomain(key)
+        guard !domain.isEmpty else { return [] }
+        return all.filter { item in
+            hosts(of: item).contains { Self.registrableDomain($0) == domain }
         }
     }
 
@@ -158,6 +171,25 @@ final class PasswordStore {
     }
 
     static func normalizeHost(_ host: String) -> String {
-        host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        var value = host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        if value.hasPrefix("www.") {
+            value.removeFirst(4)
+        }
+        return value
+    }
+
+    /// Second-level public suffixes where the registrable domain needs three labels.
+    private static let compoundSuffixes: Set<String> = [
+        "co", "com", "net", "org", "gov", "edu", "ac", "or", "ne", "go", "in", "id"
+    ]
+
+    /// Approximate eTLD+1 (no Public Suffix List dependency).
+    static func registrableDomain(_ host: String) -> String {
+        let labels = normalizeHost(host).split(separator: ".").map(String.init)
+        guard labels.count > 2 else { return labels.joined(separator: ".") }
+        if compoundSuffixes.contains(labels[labels.count - 2]), labels[labels.count - 1].count <= 3 {
+            return labels.suffix(3).joined(separator: ".")
+        }
+        return labels.suffix(2).joined(separator: ".")
     }
 }

@@ -175,7 +175,6 @@ final class WebViewController: UIViewController {
         }
         if !isIncognito {
             config.userContentController.addUserScript(BrowserAutofillCoordinator.userScript)
-            config.userContentController.add(autofillCoordinator, name: BrowserAutofillCoordinator.messageName)
         }
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.navigationDelegate = self
@@ -198,6 +197,7 @@ final class WebViewController: UIViewController {
         webView = wv
         if !isIncognito {
             autofillCoordinator.hostViewController = self
+            autofillCoordinator.attach(to: wv, isIncognito: isIncognito, contentController: config.userContentController)
         }
         setupDrawingGestures()
 

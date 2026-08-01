@@ -9,6 +9,10 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
     private weak var webView: WKWebView?
     private var isIncognito = false
     private var lastSavePromptKey: String?
+    /// Suppresses repeat suggestions while the user stays on the same page.
+    private var promptedKeys: Set<String> = []
+    private var lastPageKey: String?
+    private var isPresentingSuggestion = false
 
     static var userScript: WKUserScript {
         WKUserScript(source: Self.scriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
@@ -39,9 +43,12 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
 
     private func handle(type: String, body: [String: Any]) {
         guard !isIncognito else { return }
+        resetPromptsIfPageChanged()
         switch type {
         case "passwordFocus":
-            offerPasswordFill()
+            offerPasswordFill(kind: "password")
+        case "usernameFocus":
+            offerPasswordFill(kind: "username")
         case "formFocus":
             offerFormFill()
         case "cardFocus":
@@ -53,16 +60,56 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
         }
     }
 
-    private func offerPasswordFill() {
+    private func resetPromptsIfPageChanged() {
+        let key = webView?.url?.absoluteString ?? ""
+        guard key != lastPageKey else { return }
+        lastPageKey = key
+        promptedKeys.removeAll()
+        lastSavePromptKey = nil
+    }
+
+    /// Presents matching accounts so the user can pick one, then fills the page.
+    private func offerPasswordFill(kind: String) {
         guard PasswordSettings.autofillPasswords,
               VaultCrypto.isMasterUnlocked,
+              !isPresentingSuggestion,
+              let hostVC = hostViewController,
               let host = webView?.url?.host
         else { return }
+
         let matches = PasswordStore.shared.items(forHost: host)
-        guard let item = matches.first else { return }
+        guard !matches.isEmpty else { return }
+
+        let key = "\(host)|\(kind)"
+        guard !promptedKeys.contains(key) else { return }
+        promptedKeys.insert(key)
+
+        let sheet = UIAlertController(
+            title: "Use Saved Password?",
+            message: host,
+            preferredStyle: .actionSheet
+        )
+        for item in matches.prefix(5) {
+            let label = item.username.isEmpty ? item.host : item.username
+            sheet.addAction(UIAlertAction(title: label, style: .default) { [weak self] _ in
+                self?.fill(item)
+            })
+        }
+        sheet.addAction(UIAlertAction(title: "Not Now", style: .cancel))
+        if let pop = sheet.popoverPresentationController {
+            pop.sourceView = hostVC.view
+            pop.sourceRect = CGRect(x: hostVC.view.bounds.midX, y: hostVC.view.bounds.maxY - 80, width: 1, height: 1)
+        }
+        isPresentingSuggestion = true
+        hostVC.present(sheet, animated: true) { [weak self] in
+            self?.isPresentingSuggestion = false
+        }
+    }
+
+    private func fill(_ item: PasswordItem) {
         let user = Self.jsString(item.username)
         let pass = Self.jsString(item.password)
-        let js = "window.__mmAutofill && window.__mmAutofill.fillPassword(\(user), \(pass));"
+        let js = "window.__mmAutofill && window.__mmAutofill.fillCredentials(\(user), \(pass));"
         webView?.evaluateJavaScript(js, completionHandler: nil)
     }
 
@@ -206,12 +253,32 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
         el.dispatchEvent(new Event('input', { bubbles: true }));
         el.dispatchEvent(new Event('change', { bubbles: true }));
       }
-      function fillPassword(user, pass) {
-        var pwds = document.querySelectorAll('input[type="password"]');
-        if (!pwds.length) return;
-        var pwd = pwds[0];
-        var form = pwd.form;
-        var userEl = findUsername(form, pwd);
+      function visible(el) {
+        if (!el) return false;
+        if (el.disabled || el.readOnly) return false;
+        var r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      }
+      function firstVisible(selector) {
+        var list = document.querySelectorAll(selector);
+        for (var i = 0; i < list.length; i++) {
+          if (visible(list[i])) return list[i];
+        }
+        return list.length ? list[0] : null;
+      }
+      // Fills whatever the current step exposes: username-only, password-only, or both.
+      function fillCredentials(user, pass) {
+        var pwd = firstVisible('input[type="password"]');
+        var userEl = null;
+        if (pwd) {
+          userEl = findUsername(pwd.form, pwd);
+        }
+        if (!userEl || !visible(userEl)) {
+          var candidates = document.querySelectorAll('input[autocomplete="username"], input[type="email"], input[type="tel"], input[type="text"]');
+          for (var i = 0; i < candidates.length; i++) {
+            if (visible(candidates[i]) && looksLikeUser(candidates[i])) { userEl = candidates[i]; break; }
+          }
+        }
         setValue(userEl, user);
         setValue(pwd, pass);
       }
@@ -250,13 +317,19 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
           else if (/cc-csc|cvc|cvv|security-code/.test(key)) setValue(el, cvv);
         }
       }
+      function isLoginField(el, key) {
+        if ((el.autocomplete || '').toLowerCase().indexOf('username') >= 0) return true;
+        if (/identifier|login|signin|user|account/.test(key)) return true;
+        return !!document.querySelector('input[type="password"]');
+      }
       function onFocus(e) {
         var t = e.target;
         if (!t || !t.tagName || t.tagName.toLowerCase() !== 'input') return;
         var type = (t.type || '').toLowerCase();
-        var key = ((t.name || '') + ' ' + (t.id || '') + ' ' + (t.autocomplete || '')).toLowerCase();
+        var key = ((t.name || '') + ' ' + (t.id || '') + ' ' + (t.autocomplete || '') + ' ' + (t.placeholder || '')).toLowerCase();
         if (type === 'password') post('passwordFocus');
         else if (/cc-number|cardnumber|card-number|cc-exp|cc-csc|cvc|cvv/.test(key)) post('cardFocus');
+        else if (looksLikeUser(t) && isLoginField(t, key)) post('usernameFocus');
         else if (/name|email|phone|tel|address|city|postal|zip|country/.test(key)) post('formFocus');
       }
       function onSubmit(e) {
@@ -269,7 +342,12 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
       }
       document.addEventListener('focusin', onFocus, true);
       document.addEventListener('submit', onSubmit, true);
-      window.__mmAutofill = { fillPassword: fillPassword, fillForm: fillForm, fillCard: fillCard };
+      // The page may focus its login field before this script runs, so no focusin fires.
+      setTimeout(function() {
+        var el = document.activeElement;
+        if (el && el.tagName && el.tagName.toLowerCase() === 'input') onFocus({ target: el });
+      }, 300);
+      window.__mmAutofill = { fillCredentials: fillCredentials, fillForm: fillForm, fillCard: fillCard };
     })();
     """
 }
