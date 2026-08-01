@@ -11,6 +11,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.rootViewController = BrowserViewController()
         window.makeKeyAndVisible()
         self.window = window
+        KeyboardDismissCoordinator.shared.attach(to: window)
         AppLockCoordinator.shared.attach(to: windowScene)
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeDidChange, object: nil)
     }

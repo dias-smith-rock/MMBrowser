@@ -498,32 +498,29 @@ final class BrowserViewController: UIViewController {
         setChromeCollapsed(false, animated: false)
         view.layoutIfNeeded()
 
+        // Never block the switcher on WKWebView.takeSnapshot — a slow/frozen page can
+        // delay or never deliver the callback, which made the tabs button feel dead.
+        if tabManager.selectedTab?.isNewTabPage == true {
+            tabManager.selectedTab?.snapshot = nil
+        }
+
         let switcher = TabSwitcherViewController(tabManager: tabManager)
         switcher.delegate = self
         // Keep the browser (and WKWebView) in the window so HTML5 / YouTube audio keeps playing.
         switcher.modalPresentationStyle = .overFullScreen
         switcher.modalTransitionStyle = .coverVertical
 
-        let open = { [weak self] in
+        present(switcher, animated: true) { [weak self] in
             guard let self else { return }
-            self.present(switcher, animated: true) { [weak self] in
-                MediaPlaybackSupport.resumeMediaIfNeeded(in: self?.tabManager.selectedTab?.webController?.webView)
-                self?.refreshBackgroundTabSnapshots { [weak switcher] in
-                    switcher?.reloadPreviews()
-                }
-            }
-        }
+            MediaPlaybackSupport.resumeMediaIfNeeded(in: self.tabManager.selectedTab?.webController?.webView)
 
-        // Wait for the current tab snapshot so its card isn't blank on open.
-        if let tab = tabManager.selectedTab, !tab.isNewTabPage, AppSettings.showTabsPreviewImages {
-            captureSnapshot(for: tab) {
-                open()
+            let reload = { [weak switcher] in
+                switcher?.reloadPreviews()
             }
-        } else {
-            if tabManager.selectedTab?.isNewTabPage == true {
-                tabManager.selectedTab?.snapshot = nil
+            if let tab = self.tabManager.selectedTab, !tab.isNewTabPage {
+                self.captureSnapshot(for: tab, completion: reload)
             }
-            open()
+            self.refreshBackgroundTabSnapshots(completion: reload)
         }
     }
 
@@ -580,14 +577,29 @@ final class BrowserViewController: UIViewController {
             completion?()
             return
         }
+
+        var finished = false
+
         web.captureSnapshot { [weak tab] image in
             DispatchQueue.main.async {
                 if AppSettings.showTabsPreviewImages, let image {
                     tab?.snapshot = image
                 }
                 MediaPlaybackSupport.resumeMediaIfNeeded(in: tab?.webController?.webView)
-                completion?()
+                if !finished {
+                    finished = true
+                    completion?()
+                } else if image != nil {
+                    // Snapshot arrived after timeout — still refresh previews.
+                    completion?()
+                }
             }
+        }
+        // Frozen / hung content processes may never invoke takeSnapshot's callback.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            guard !finished else { return }
+            finished = true
+            completion?()
         }
     }
 

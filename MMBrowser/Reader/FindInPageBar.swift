@@ -65,5 +65,8 @@ final class FindInPageBar: UIView, UITextFieldDelegate {
 
     @objc private func prevTapped() { delegate?.findBar(self, didSearch: field.text ?? "", forward: false) }
     @objc private func nextTapped() { delegate?.findBar(self, didSearch: field.text ?? "", forward: true) }
-    @objc private func closeTapped() { delegate?.findBarDidDismiss(self) }
+    @objc private func closeTapped() {
+        field.resignFirstResponder()
+        delegate?.findBarDidDismiss(self)
+    }
 }

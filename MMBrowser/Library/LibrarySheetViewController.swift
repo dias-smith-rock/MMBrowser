@@ -88,6 +88,7 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
         tableView.delegate = self
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 56
+        tableView.keyboardDismissMode = .onDrag
         tableView.register(LibraryDomainCell.self, forCellReuseIdentifier: LibraryDomainCell.reuseID)
         tableView.register(LibraryPageCell.self, forCellReuseIdentifier: LibraryPageCell.reuseID)
         tableView.tableFooterView = UIView()
