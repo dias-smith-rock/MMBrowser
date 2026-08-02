@@ -29,21 +29,20 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
         }
 
         var isOn: Bool {
-            get {
-                switch self {
-                case .cache: return AppSettings.autoClearCache
-                case .cookies: return AppSettings.autoClearCookies
-                case .history: return AppSettings.autoClearHistory
-                case .localStorage: return AppSettings.autoClearLocalStorage
-                }
+            switch self {
+            case .cache: return AppSettings.autoClearCache
+            case .cookies: return AppSettings.autoClearCookies
+            case .history: return AppSettings.autoClearHistory
+            case .localStorage: return AppSettings.autoClearLocalStorage
             }
-            set {
-                switch self {
-                case .cache: AppSettings.autoClearCache = newValue
-                case .cookies: AppSettings.autoClearCookies = newValue
-                case .history: AppSettings.autoClearHistory = newValue
-                case .localStorage: AppSettings.autoClearLocalStorage = newValue
-                }
+        }
+
+        func setOn(_ value: Bool) {
+            switch self {
+            case .cache: AppSettings.autoClearCache = value
+            case .cookies: AppSettings.autoClearCookies = value
+            case .history: AppSettings.autoClearHistory = value
+            case .localStorage: AppSettings.autoClearLocalStorage = value
             }
         }
     }
@@ -66,17 +65,16 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
         }
 
         var isOn: Bool {
-            get {
-                switch self {
-                case .closeAllTabsOnExit: return AppSettings.closeAllTabsOnExit
-                case .showTabsPreviewImages: return AppSettings.showTabsPreviewImages
-                }
+            switch self {
+            case .closeAllTabsOnExit: return AppSettings.closeAllTabsOnExit
+            case .showTabsPreviewImages: return AppSettings.showTabsPreviewImages
             }
-            set {
-                switch self {
-                case .closeAllTabsOnExit: AppSettings.closeAllTabsOnExit = newValue
-                case .showTabsPreviewImages: AppSettings.showTabsPreviewImages = newValue
-                }
+        }
+
+        func setOn(_ value: Bool) {
+            switch self {
+            case .closeAllTabsOnExit: AppSettings.closeAllTabsOnExit = value
+            case .showTabsPreviewImages: AppSettings.showTabsPreviewImages = value
             }
         }
     }
@@ -95,6 +93,7 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
+        tableView.reloadData()
     }
 
     func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
@@ -157,8 +156,8 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
     }
 
     @objc private func autoClearChanged(_ sw: UISwitch) {
-        guard var row = AutoClearRow(rawValue: sw.tag - 100) else { return }
-        row.isOn = sw.isOn
+        guard let row = AutoClearRow(rawValue: sw.tag - 100) else { return }
+        row.setOn(sw.isOn)
         guard sw.isOn else { return }
         switch row {
         case .cache:
@@ -174,8 +173,8 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
     }
 
     @objc private func sessionChanged(_ sw: UISwitch) {
-        guard var row = SessionRow(rawValue: sw.tag - 200) else { return }
-        row.isOn = sw.isOn
+        guard let row = SessionRow(rawValue: sw.tag - 200) else { return }
+        row.setOn(sw.isOn)
         if row == .showTabsPreviewImages, !sw.isOn {
             Toast.show("Tab previews off", from: self)
         }

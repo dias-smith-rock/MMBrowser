@@ -191,6 +191,11 @@ final class BrowserViewController: UIViewController {
         #endif
     }
 
+    /// Called when entering background so tab/container state is on disk before cleanup.
+    func persistSessionForBackground() {
+        tabManager.persistSessionIfNeeded()
+    }
+
     @objc private func handleClearOptionSessionCleanup() {
         guard AppSettings.closeAllTabsOnExit else { return }
         // Never dismiss first-run onboarding / other setup sheets on session cleanup.
@@ -208,11 +213,9 @@ final class BrowserViewController: UIViewController {
         if !AppSettings.showTabsPreviewImages {
             tabManager.clearAllSnapshots()
         }
-        if AppSettings.closeAllTabsOnExit {
-            tabManager.clearPersistedSession()
-        } else {
-            tabManager.persistSessionIfNeeded()
-        }
+        // Keep persisting while browsing so crash recovery still works when
+        // "Close All Tabs on Exit" is enabled; that option only clears on leave.
+        tabManager.persistSessionIfNeeded()
     }
 
     @objc private func trackerChanged() {

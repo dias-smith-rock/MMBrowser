@@ -151,26 +151,33 @@ enum AppSettings {
 
     // MARK: - Clear Option (auto-clear on exit). Defaults on for privacy.
 
+    private static func setClearOption(_ value: Bool, forKey key: String) {
+        d.set(value, forKey: key)
+        // Ensure the choice survives force-quit / crash immediately after toggling.
+        d.synchronize()
+        NotificationCenter.default.post(name: .clearOptionSettingsChanged, object: nil)
+    }
+
     static var autoClearCache: Bool {
         get { d.object(forKey: "clear.auto.cache") == nil ? true : d.bool(forKey: "clear.auto.cache") }
-        set { d.set(newValue, forKey: "clear.auto.cache") }
+        set { setClearOption(newValue, forKey: "clear.auto.cache") }
     }
 
     static var autoClearCookies: Bool {
         get { d.object(forKey: "clear.auto.cookies") == nil ? true : d.bool(forKey: "clear.auto.cookies") }
-        set { d.set(newValue, forKey: "clear.auto.cookies") }
+        set { setClearOption(newValue, forKey: "clear.auto.cookies") }
     }
 
     /// When true, browsing history is cleared when leaving the app / on next launch.
     /// History is still recorded during the current session. Default off so History works out of the box.
     static var autoClearHistory: Bool {
         get { d.object(forKey: "clear.auto.history") == nil ? false : d.bool(forKey: "clear.auto.history") }
-        set { d.set(newValue, forKey: "clear.auto.history") }
+        set { setClearOption(newValue, forKey: "clear.auto.history") }
     }
 
     static var autoClearLocalStorage: Bool {
         get { d.object(forKey: "clear.auto.localStorage") == nil ? true : d.bool(forKey: "clear.auto.localStorage") }
-        set { d.set(newValue, forKey: "clear.auto.localStorage") }
+        set { setClearOption(newValue, forKey: "clear.auto.localStorage") }
     }
 
     static var clearOptionSummary: String {
@@ -183,22 +190,17 @@ enum AppSettings {
         return parts.joined(separator: " · ")
     }
 
-    /// Close every tab when leaving the app (leave one fresh New Tab). Default on.
+    /// Close every tab when leaving the app (leave one fresh New Tab). Default off so
+    /// container tabs survive relaunch / force-quit; enable for stronger session privacy.
     static var closeAllTabsOnExit: Bool {
-        get { d.object(forKey: "clear.closeTabsOnExit") == nil ? true : d.bool(forKey: "clear.closeTabsOnExit") }
-        set {
-            d.set(newValue, forKey: "clear.closeTabsOnExit")
-            NotificationCenter.default.post(name: .clearOptionSettingsChanged, object: nil)
-        }
+        get { d.object(forKey: "clear.closeTabsOnExit") == nil ? false : d.bool(forKey: "clear.closeTabsOnExit") }
+        set { setClearOption(newValue, forKey: "clear.closeTabsOnExit") }
     }
 
     /// Show webpage snapshots on tab cards. Default on.
     static var showTabsPreviewImages: Bool {
         get { d.object(forKey: "clear.showTabPreviews") == nil ? true : d.bool(forKey: "clear.showTabPreviews") }
-        set {
-            d.set(newValue, forKey: "clear.showTabPreviews")
-            NotificationCenter.default.post(name: .clearOptionSettingsChanged, object: nil)
-        }
+        set { setClearOption(newValue, forKey: "clear.showTabPreviews") }
     }
 }
 

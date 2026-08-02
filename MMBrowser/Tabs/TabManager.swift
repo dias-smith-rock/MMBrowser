@@ -17,6 +17,8 @@ final class TabManager {
     private let sessionKey = "mmbrowser.tabs.session"
     private let containersKey = "mmbrowser.containers"
     private let lastContainerKey = "mmbrowser.containers.lastActive"
+    /// Set when tabs were intentionally closed on exit; cleared on next launch.
+    private let cleanExitKey = "mmbrowser.tabs.cleanExit"
     private let defaults = UserDefaults.standard
 
     var selectedTab: BrowserTab? {
@@ -43,11 +45,24 @@ final class TabManager {
 
     init() {
         loadPersistedContainers()
-        if !AppSettings.closeAllTabsOnExit, restorePersistedSession() {
+        let cleanExit = defaults.bool(forKey: cleanExitKey)
+        defaults.set(false, forKey: cleanExitKey)
+
+        // Only skip restore after an intentional "close tabs on exit" cleanup.
+        // Abnormal termination keeps the last persisted session for crash recovery.
+        if cleanExit {
+            clearPersistedSession()
+            tabs = [BrowserTab(containerID: resolvedLastActiveContainerID)]
+            selectedIndex = 0
             noteActiveContainer(from: selectedTab)
             return
         }
-        clearPersistedSession()
+
+        if restorePersistedSession() {
+            noteActiveContainer(from: selectedTab)
+            return
+        }
+
         tabs = [BrowserTab(containerID: resolvedLastActiveContainerID)]
         selectedIndex = 0
         noteActiveContainer(from: selectedTab)
@@ -216,7 +231,7 @@ final class TabManager {
         tabs = [fresh]
         selectedIndex = 0
         noteActiveContainer(from: fresh)
-        clearPersistedSession()
+        markCleanExitAndClearSession()
         delegate?.tabManager(self, didSelect: fresh)
         notifyUpdated()
     }
@@ -506,10 +521,6 @@ final class TabManager {
 
     func persistSessionIfNeeded() {
         persistContainers()
-        if AppSettings.closeAllTabsOnExit {
-            clearPersistedSession()
-            return
-        }
         let normal = normalTabs
         guard !normal.isEmpty else {
             clearPersistedSession()
@@ -536,6 +547,8 @@ final class TabManager {
         if let data = try? JSONEncoder().encode(payload) {
             defaults.set(data, forKey: sessionKey)
         }
+        // Flush promptly so a sudden termination still has the latest tab/container map.
+        defaults.synchronize()
         var keep = Set<UUID>()
         for tab in normal {
             keep.insert(tab.id)
@@ -544,6 +557,13 @@ final class TabManager {
             }
         }
         TabSnapshotStore.removeAll(except: keep)
+    }
+
+    /// Intentional leave with "Close All Tabs on Exit" — next launch starts fresh.
+    func markCleanExitAndClearSession() {
+        defaults.set(true, forKey: cleanExitKey)
+        clearPersistedSession()
+        defaults.synchronize()
     }
 
     func clearPersistedSession() {
