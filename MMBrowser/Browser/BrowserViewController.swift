@@ -600,16 +600,12 @@ final class BrowserViewController: UIViewController {
         tabManager.persistSessionIfNeeded()
     }
 
-    /// Compact idle address-bar label (hostname without leading www).
+    /// Full page URL for the address bar (empty for about: pages / missing URL).
     private static func addressBarDisplayText(for url: URL?) -> String {
         guard let url else { return "" }
-        guard var host = url.host, !host.isEmpty else {
-            return url.absoluteString
-        }
-        if host.hasPrefix("www.") {
-            host.removeFirst(4)
-        }
-        return host
+        let text = url.absoluteString
+        if text.hasPrefix("about:") { return "" }
+        return text
     }
 
     /// Opens `url` in a new tab in the given / parent / currently selected container session.
@@ -848,6 +844,13 @@ extension BrowserViewController: AddressBarViewDelegate {
 
     func addressBarDidBeginEditing() {
         setChromeCollapsed(false, animated: true)
+        // Ensure the field shows the full URL while editing (not a stale compact label).
+        if let url = tabManager.selectedTab?.url ?? tabManager.selectedTab?.webController?.webView?.url {
+            let full = Self.addressBarDisplayText(for: url)
+            if !full.isEmpty {
+                addressBar.setURLTextForcing(full)
+            }
+        }
     }
 
     func addressBarDidTapReload() {

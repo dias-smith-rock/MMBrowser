@@ -287,6 +287,11 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         textField.text = text
     }
 
+    /// Updates the field even while editing (e.g. expand to the full URL on focus).
+    func setURLTextForcing(_ text: String) {
+        textField.text = text
+    }
+
     func setPrivateMode(_ isPrivate: Bool) {
         isPrivateMode = isPrivate
         privateBadge.isHidden = !isPrivate
@@ -419,8 +424,9 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         resetSwipeVisuals(animated: false)
         hideCleanerMenu()
         textField.textAlignment = .left
-        textField.selectAll(nil)
+        // Let the host expand to the full URL before selecting.
         delegate?.addressBarDidBeginEditing()
+        textField.selectAll(nil)
     }
 
     func textFieldDidEndEditing(_ textField: UITextField) {
