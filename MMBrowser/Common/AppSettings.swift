@@ -37,8 +37,15 @@ enum AppSettings {
         get { d.object(forKey: "media.pip") == nil ? true : d.bool(forKey: "media.pip") }
         set {
             d.set(newValue, forKey: "media.pip")
+            if !newValue { stickyPictureInPicture = false }
             NotificationCenter.default.post(name: .mediaPlaybackSettingsChanged, object: nil)
         }
+    }
+
+    /// When true, newly loaded pages with video should auto-enter Picture in Picture.
+    static var stickyPictureInPicture: Bool {
+        get { d.bool(forKey: "media.pip.sticky") }
+        set { d.set(newValue, forKey: "media.pip.sticky") }
     }
 
     static var httpsOnly: Bool {

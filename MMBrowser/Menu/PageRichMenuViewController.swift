@@ -83,6 +83,7 @@ final class PageRichMenuViewController: UIViewController {
                 action: .desktopSite,
                 enabled: context.hasLoadablePage
             ),
+            row("Picture in Picture", symbol: "pip.enter", action: .pictureInPicture, enabled: context.hasLoadablePage && AppSettings.pictureInPictureEnabled),
             row("Find on page", symbol: "magnifyingglass", action: .findInPage, enabled: context.hasLoadablePage),
             row("Enable Reader mode", symbol: "doc.plaintext", action: .readerMode, enabled: context.hasLoadablePage),
             row("Change text size", symbol: "textformat.size", action: .changeTextSize, enabled: context.hasLoadablePage)

@@ -7,6 +7,7 @@ enum MenuAction: Equatable {
     case readerMode, findInPage, share, desktopSite, sharePDF, screenshot, longScreenshot
     case pageCleaner
     case copyURL, aboutSite, addToHomepage, printPage, translate, changeTextSize, adBlocker
+    case pictureInPicture
     case accountLogin, setDefaultBrowser, passwords, backgroundGallery, theme, feedback
     case placeholder(String)
 }

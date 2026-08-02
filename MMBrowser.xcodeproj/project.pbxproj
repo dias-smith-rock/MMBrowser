@@ -27,6 +27,7 @@
 		PWD00022028BCB969BF15 /* CredentialProviderViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000B8892CC3A5F6201 /* CredentialProviderViewController.swift */; };
 		PWD00025A95A5D8C6E573 /* MMBrowserCredentialProvider.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = PWD0000177186C24076BD /* MMBrowserCredentialProvider.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		05EE9C9F5639484BA9BA6FF2 /* TabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFE04E67D090450B987F05FB /* TabManager.swift */; };
+		TSS0000101010101010171 /* TabSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020271 /* TabSnapshotStore.swift */; };
 		09129B1EA0E24FB4AFE10189 /* ReaderViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E248C7687DE44E8C99A7001F /* ReaderViewController.swift */; };
 		09FB7CC9808A4DD0A7C8E3AC /* MediaPlaybackSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F17FA7E6B9649618EC381DB /* MediaPlaybackSupport.swift */; };
 		1F1ED11741F74753815644DF /* SearchEngineManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BEFF87E8CE24C4584724613 /* SearchEngineManager.swift */; };
@@ -137,6 +138,7 @@
 		06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeAdShield.swift; sourceTree = "<group>"; };
 		0783DF19A0FE4061AF8CB2FF /* FilterUpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterUpdateManager.swift; sourceTree = "<group>"; };
 		094FFB3CDC234AA8BFFC8140 /* BrowserTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTab.swift; sourceTree = "<group>"; };
+		TSS0000202020202020271 /* TabSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabSnapshotStore.swift; sourceTree = "<group>"; };
 		0B7E0BA721F0467CB355866F /* BrowserViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserViewController.swift; sourceTree = "<group>"; };
 		12BD4B168F4A48569EA59EC0 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		148219CAF76C4E93AD37C016 /* DefaultFilterManifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = DefaultFilterManifest.json; sourceTree = "<group>"; };
@@ -382,6 +384,7 @@
 			children = (
 				094FFB3CDC234AA8BFFC8140 /* BrowserTab.swift */,
 				BFE04E67D090450B987F05FB /* TabManager.swift */,
+				TSS0000202020202020271 /* TabSnapshotStore.swift */,
 				B67A0C2C8812465E960FEC7A /* TabSwitcherViewController.swift */,
 			);
 			path = Tabs;
@@ -767,6 +770,7 @@
 				A1B2C3D4E5F6010101010151 /* ClearOptionSettingsViewController.swift in Sources */,
 				225CD882697F4D4E83068A67 /* BrowserTab.swift in Sources */,
 				05EE9C9F5639484BA9BA6FF2 /* TabManager.swift in Sources */,
+				TSS0000101010101010171 /* TabSnapshotStore.swift in Sources */,
 				E275E26CE7D145A49D4259E8 /* TabSwitcherViewController.swift in Sources */,
 				3E002237DEF54CE88D630EE4 /* ViewController.swift in Sources */,
 				A1B2C3D4E5F6010101010101 /* AppLockSettings.swift in Sources */,

@@ -55,7 +55,36 @@ final class BrowserViewController: UIViewController {
     }
 
     @objc private func appDidEnterBackground() {
-        tabManager.persistSessionIfNeeded()
+        // Refresh previews for live tabs so thumbnails survive relaunch.
+        guard !AppSettings.closeAllTabsOnExit, AppSettings.showTabsPreviewImages else {
+            tabManager.persistSessionIfNeeded()
+            return
+        }
+        var bgTask = UIBackgroundTaskIdentifier.invalid
+        bgTask = UIApplication.shared.beginBackgroundTask(withName: "PersistTabSnapshots") {
+            if bgTask != .invalid {
+                UIApplication.shared.endBackgroundTask(bgTask)
+                bgTask = .invalid
+            }
+        }
+        let group = DispatchGroup()
+        for tab in tabManager.tabs where !tab.isIncognito && !tab.isNewTabPage {
+            if tab.webController != nil {
+                group.enter()
+                captureSnapshot(for: tab) {
+                    group.leave()
+                }
+            } else if let snapshot = tab.snapshot {
+                TabSnapshotStore.save(snapshot, for: tab.id)
+            }
+        }
+        group.notify(queue: .main) { [weak self] in
+            self?.tabManager.persistSessionIfNeeded()
+            if bgTask != .invalid {
+                UIApplication.shared.endBackgroundTask(bgTask)
+                bgTask = .invalid
+            }
+        }
     }
 
     @objc private func themeChanged() {
@@ -512,7 +541,9 @@ final class BrowserViewController: UIViewController {
 
         present(switcher, animated: true) { [weak self] in
             guard let self else { return }
-            MediaPlaybackSupport.resumeMediaIfNeeded(in: self.tabManager.selectedTab?.webController?.webView)
+            if self.tabManager.selectedTab?.webController?.isPictureInPictureActive != true {
+                MediaPlaybackSupport.resumeMediaIfNeeded(in: self.tabManager.selectedTab?.webController?.webView)
+            }
 
             let reload: () -> Void = { [weak switcher] in
                 switcher?.reloadPreviews()
@@ -545,6 +576,7 @@ final class BrowserViewController: UIViewController {
             }
         }
         present(menu, animated: true) { [weak self] in
+            guard self?.tabManager.selectedTab?.webController?.isPictureInPictureActive != true else { return }
             MediaPlaybackSupport.resumeMediaIfNeeded(in: self?.tabManager.selectedTab?.webController?.webView)
         }
     }
@@ -569,6 +601,7 @@ final class BrowserViewController: UIViewController {
             }
         }
         present(menu, animated: true) { [weak self] in
+            guard self?.tabManager.selectedTab?.webController?.isPictureInPictureActive != true else { return }
             MediaPlaybackSupport.resumeMediaIfNeeded(in: self?.tabManager.selectedTab?.webController?.webView)
         }
     }
@@ -580,6 +613,7 @@ final class BrowserViewController: UIViewController {
         }
         if tab.isNewTabPage {
             tab.snapshot = nil
+            TabSnapshotStore.remove(for: tab.id)
             completion?()
             return
         }
@@ -594,15 +628,17 @@ final class BrowserViewController: UIViewController {
             DispatchQueue.main.async {
                 if AppSettings.showTabsPreviewImages, let image {
                     tab?.snapshot = image
+                    if let id = tab?.id {
+                        TabSnapshotStore.save(image, for: id)
+                    }
                 }
-                MediaPlaybackSupport.resumeMediaIfNeeded(in: tab?.webController?.webView)
-                if !finished {
-                    finished = true
-                    completion?()
-                } else if image != nil {
-                    // Snapshot arrived after timeout — still refresh previews.
-                    completion?()
+                if tab?.webController?.isPictureInPictureActive != true {
+                    MediaPlaybackSupport.resumeMediaIfNeeded(in: tab?.webController?.webView)
                 }
+                // Completion at most once — late snapshots after the timeout still update the image.
+                guard !finished else { return }
+                finished = true
+                completion?()
             }
         }
         // Frozen / hung content processes may never invoke takeSnapshot's callback.
@@ -772,8 +808,11 @@ extension BrowserViewController: AddressBarViewDelegate {
             adjacentTabPreview.backgroundColor = BrowserTheme.card
             // Best-effort live snapshot for a smoother peek.
             tab.webController?.captureSnapshot { [weak self, weak tab] image in
-                guard let self = self, let tab = tab else { return }
+                guard let self = self, let tab = tab, let image else { return }
                 tab.snapshot = image
+                if AppSettings.showTabsPreviewImages {
+                    TabSnapshotStore.save(image, for: tab.id)
+                }
                 guard self.preparedAdjacentTabOffset == offset else { return }
                 self.adjacentTabPreview.image = image
             }
@@ -1010,7 +1049,9 @@ extension BrowserViewController: TabSwitcherViewControllerDelegate {
     func tabSwitcherDidClose() {
         dismiss(animated: true) {
             self.showSelectedTab()
-            MediaPlaybackSupport.resumeMediaIfNeeded(in: self.tabManager.selectedTab?.webController?.webView)
+            if self.tabManager.selectedTab?.webController?.isPictureInPictureActive != true {
+                MediaPlaybackSupport.resumeMediaIfNeeded(in: self.tabManager.selectedTab?.webController?.webView)
+            }
         }
     }
 
@@ -1097,6 +1138,19 @@ extension BrowserViewController: MenuViewControllerDelegate {
             tabManager.selectedTab?.webController?.openReaderMode()
         case .findInPage:
             tabManager.selectedTab?.webController?.showFindInPage()
+        case .pictureInPicture:
+            guard AppSettings.pictureInPictureEnabled else {
+                Toast.show("Picture in Picture is off in Settings", from: self)
+                return
+            }
+            AppSettings.stickyPictureInPicture = true
+            MediaPlaybackSupport.enterPictureInPicture(in: tabManager.selectedTab?.webController?.webView) { [weak self] ok in
+                guard let self else { return }
+                if !ok {
+                    AppSettings.stickyPictureInPicture = false
+                    Toast.show("No playable video for PiP", from: self)
+                }
+            }
         case .share:
             guard let url = tabManager.selectedTab?.url else {
                 Toast.show("No page to share", from: self)

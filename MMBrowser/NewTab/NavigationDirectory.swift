@@ -52,7 +52,7 @@ enum NavigationDirectory {
             sites: [
                 NavigationSite(title: "Spotify", urlString: "https://open.spotify.com", logoAssetName: "nav_spotify"),
                 NavigationSite(title: "YouTube Music", urlString: "https://music.youtube.com", logoAssetName: "nav_youtubemusic"),
-                NavigationSite(title: "Apple Music", urlString: "https://music.apple.com", logoAssetName: "nav_applemusic"),
+                NavigationSite(title: "YouTube", urlString: "https://www.youtube.com", logoAssetName: "nav_youtube"),
                 NavigationSite(title: "SoundCloud", urlString: "https://soundcloud.com", logoAssetName: "nav_soundcloud"),
                 NavigationSite(title: "Bandcamp", urlString: "https://bandcamp.com", logoAssetName: "nav_bandcamp")
             ]

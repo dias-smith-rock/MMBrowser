@@ -81,6 +81,7 @@ final class TabManager {
             tab.webController?.cleanup()
             tab.webController = nil
             tab.snapshot = nil
+            TabSnapshotStore.remove(for: tab.id)
         }
         tabs.removeAll { $0.isIncognito }
         if tabs.isEmpty {
@@ -104,6 +105,7 @@ final class TabManager {
         closing.webController?.cleanup()
         closing.webController = nil
         closing.snapshot = nil
+        TabSnapshotStore.remove(for: closing.id)
         tabs.remove(at: index)
 
         if tabs.isEmpty {
@@ -136,6 +138,7 @@ final class TabManager {
             tab.webController?.cleanup()
             tab.webController = nil
             tab.snapshot = nil
+            TabSnapshotStore.remove(for: tab.id)
         }
         let fresh = BrowserTab(isIncognito: false)
         tabs = [fresh]
@@ -146,7 +149,10 @@ final class TabManager {
     }
 
     func clearAllSnapshots() {
-        for tab in tabs { tab.snapshot = nil }
+        for tab in tabs {
+            tab.snapshot = nil
+            TabSnapshotStore.remove(for: tab.id)
+        }
         delegate?.tabManagerDidUpdate(self)
     }
 
@@ -215,10 +221,20 @@ final class TabManager {
         if let data = try? JSONEncoder().encode(payload) {
             defaults.set(data, forKey: sessionKey)
         }
+        // Persist in-memory previews and drop orphans.
+        var keep = Set<UUID>()
+        for tab in normal {
+            keep.insert(tab.id)
+            if let snapshot = tab.snapshot, AppSettings.showTabsPreviewImages {
+                TabSnapshotStore.save(snapshot, for: tab.id)
+            }
+        }
+        TabSnapshotStore.removeAll(except: keep)
     }
 
     func clearPersistedSession() {
         defaults.removeObject(forKey: sessionKey)
+        TabSnapshotStore.removeAll()
     }
 
     @discardableResult
@@ -230,7 +246,7 @@ final class TabManager {
         }
         tabs = session.tabs.map {
             let url = $0.urlString.flatMap(URL.init(string:))
-            return BrowserTab(
+            let tab = BrowserTab(
                 id: $0.id,
                 title: $0.title,
                 url: url,
@@ -239,6 +255,10 @@ final class TabManager {
                 groupName: $0.groupName,
                 preferDesktop: $0.preferDesktop
             )
+            if AppSettings.showTabsPreviewImages {
+                tab.snapshot = TabSnapshotStore.load(for: $0.id)
+            }
+            return tab
         }
         groupNames = session.groupNames.isEmpty ? ["Default", "Work", "Personal"] : session.groupNames
         selectedIndex = min(max(0, session.selectedIndex), tabs.count - 1)
