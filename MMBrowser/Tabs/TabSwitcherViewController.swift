@@ -22,13 +22,18 @@ final class TabSwitcherViewController: UIViewController {
     private let mainScroll = UIScrollView()
     private let contentStack = UIStackView()
     private let bookmarksSection = UIStackView()
-    private let readingSection = UIStackView()
+    private let historySection = UIStackView()
     private let bookmarksTable = UITableView(frame: .zero, style: .plain)
-    private let readingTable = UITableView(frame: .zero, style: .plain)
+    private let historyTable = UITableView(frame: .zero, style: .plain)
     private var bookmarksHeightConstraint: Constraint?
-    private var readingHeightConstraint: Constraint?
+    private var historyHeightConstraint: Constraint?
     private var bookmarkItems: [BookmarkItem] = []
-    private var readingItems: [ReadingListItem] = []
+    private var historyItems: [HistoryItem] = []
+    /// Library lists start collapsed; tap the header to expand.
+    private var bookmarksExpanded = false
+    private var historyExpanded = false
+    private weak var bookmarksHeaderButton: UIButton?
+    private weak var historyHeaderButton: UIButton?
     private var searchQuery = ""
     private var showingIncognito = false
     /// `nil` means All containers.
@@ -269,11 +274,11 @@ final class TabSwitcherViewController: UIViewController {
         collectionView.register(TabGridCell.self, forCellWithReuseIdentifier: TabGridCell.reuseID)
 
         configureListSection(bookmarksSection, title: "Bookmarks", table: bookmarksTable, kind: .bookmarks)
-        configureListSection(readingSection, title: "Reading list", table: readingTable, kind: .reading)
+        configureListSection(historySection, title: "History", table: historyTable, kind: .history)
 
         contentStack.addArrangedSubview(collectionView)
         contentStack.addArrangedSubview(bookmarksSection)
-        contentStack.addArrangedSubview(readingSection)
+        contentStack.addArrangedSubview(historySection)
 
         mainScroll.snp.makeConstraints { make in
             make.top.equalTo(groupFilterBar.snp.bottom)
@@ -289,7 +294,7 @@ final class TabSwitcherViewController: UIViewController {
         }
     }
 
-    private enum LibraryKind: Int { case bookmarks = 1, reading = 2 }
+    private enum LibraryKind: Int { case bookmarks = 1, history = 2 }
 
     private func configureListSection(_ section: UIStackView, title: String, table: UITableView, kind: LibraryKind) {
         section.axis = .vertical
@@ -299,11 +304,29 @@ final class TabSwitcherViewController: UIViewController {
         section.layoutMargins = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
         section.isHidden = true
 
-        let header = UILabel()
-        header.text = title
-        header.font = .systemFont(ofSize: 16, weight: .semibold)
-        header.textColor = BrowserTheme.textPrimary
+        var config = UIButton.Configuration.plain()
+        config.title = title
+        config.image = UIImage(systemName: "chevron.right", withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold))
+        config.imagePlacement = .trailing
+        config.imagePadding = 8
+        config.baseForegroundColor = BrowserTheme.textPrimary
+        config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0)
+        config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
+            var outgoing = incoming
+            outgoing.font = .systemFont(ofSize: 16, weight: .semibold)
+            return outgoing
+        }
+        let header = UIButton(configuration: config)
+        header.contentHorizontalAlignment = .fill
+        header.tag = kind.rawValue
+        header.accessibilityLabel = title
+        header.addTarget(self, action: #selector(libraryHeaderTapped(_:)), for: .touchUpInside)
         section.addArrangedSubview(header)
+        if kind == .bookmarks {
+            bookmarksHeaderButton = header
+        } else {
+            historyHeaderButton = header
+        }
 
         table.tag = kind.rawValue
         table.backgroundColor = .clear
@@ -315,13 +338,67 @@ final class TabSwitcherViewController: UIViewController {
         table.dataSource = self
         table.delegate = self
         table.register(UITableViewCell.self, forCellReuseIdentifier: "libraryCell")
+        table.isHidden = true
         section.addArrangedSubview(table)
         table.snp.makeConstraints { make in
             if kind == .bookmarks {
                 bookmarksHeightConstraint = make.height.equalTo(0).constraint
             } else {
-                readingHeightConstraint = make.height.equalTo(0).constraint
+                historyHeightConstraint = make.height.equalTo(0).constraint
             }
+        }
+    }
+
+    @objc private func libraryHeaderTapped(_ sender: UIButton) {
+        guard let kind = LibraryKind(rawValue: sender.tag) else { return }
+        switch kind {
+        case .bookmarks:
+            bookmarksExpanded.toggle()
+        case .history:
+            historyExpanded.toggle()
+        }
+        applyLibraryExpansion(animated: true)
+    }
+
+    private func updateLibraryHeader(_ button: UIButton?, title: String, expanded: Bool, count: Int) {
+        guard var config = button?.configuration else { return }
+        config.title = count > 0 ? "\(title) (\(count))" : title
+        config.image = UIImage(
+            systemName: expanded ? "chevron.down" : "chevron.right",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)
+        )
+        button?.configuration = config
+        button?.accessibilityHint = expanded ? "Collapse" : "Expand"
+    }
+
+    private func applyLibraryExpansion(animated: Bool) {
+        let updates = {
+            self.bookmarksTable.isHidden = !self.bookmarksExpanded || self.bookmarkItems.isEmpty
+            self.historyTable.isHidden = !self.historyExpanded || self.historyItems.isEmpty
+            self.bookmarksHeightConstraint?.update(
+                offset: self.bookmarksExpanded ? CGFloat(self.bookmarkItems.count) * 56 : 0
+            )
+            self.historyHeightConstraint?.update(
+                offset: self.historyExpanded ? CGFloat(self.historyItems.count) * 56 : 0
+            )
+            self.updateLibraryHeader(
+                self.bookmarksHeaderButton,
+                title: "Bookmarks",
+                expanded: self.bookmarksExpanded,
+                count: self.bookmarkItems.count
+            )
+            self.updateLibraryHeader(
+                self.historyHeaderButton,
+                title: "History",
+                expanded: self.historyExpanded,
+                count: self.historyItems.count
+            )
+            self.view.layoutIfNeeded()
+        }
+        if animated {
+            UIView.animate(withDuration: 0.22, delay: 0, options: [.curveEaseInOut], animations: updates)
+        } else {
+            updates()
         }
     }
 
@@ -384,25 +461,23 @@ final class TabSwitcherViewController: UIViewController {
         // Keep library shortcuts on the normal-tabs surface only.
         guard !showingIncognito else {
             bookmarkItems = []
-            readingItems = []
+            historyItems = []
             bookmarksSection.isHidden = true
-            readingSection.isHidden = true
-            bookmarksHeightConstraint?.update(offset: 0)
-            readingHeightConstraint?.update(offset: 0)
+            historySection.isHidden = true
             bookmarksTable.reloadData()
-            readingTable.reloadData()
+            historyTable.reloadData()
+            applyLibraryExpansion(animated: false)
             return
         }
 
         bookmarkItems = Array(BookmarkStore.shared.items.filter { $0.url != nil }.prefix(12))
-        readingItems = Array(ReadingListStore.shared.items.filter { $0.url != nil }.prefix(12))
+        historyItems = Array(HistoryStore.shared.items.filter { $0.url != nil }.prefix(12))
 
         bookmarksSection.isHidden = bookmarkItems.isEmpty
-        readingSection.isHidden = readingItems.isEmpty
-        bookmarksHeightConstraint?.update(offset: CGFloat(bookmarkItems.count) * 56)
-        readingHeightConstraint?.update(offset: CGFloat(readingItems.count) * 56)
+        historySection.isHidden = historyItems.isEmpty
         bookmarksTable.reloadData()
-        readingTable.reloadData()
+        historyTable.reloadData()
+        applyLibraryExpansion(animated: false)
     }
 
     @objc private func modeChanged() {
@@ -644,7 +719,7 @@ extension TabSwitcherViewController: UICollectionViewDragDelegate, UICollectionV
 
 extension TabSwitcherViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        tableView === bookmarksTable ? bookmarkItems.count : readingItems.count
+        tableView === bookmarksTable ? bookmarkItems.count : historyItems.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -662,7 +737,7 @@ extension TabSwitcherViewController: UITableViewDataSource, UITableViewDelegate 
             cell.textLabel?.text = item.title
             cell.detailTextLabel?.text = item.url?.host ?? item.urlString
         } else {
-            let item = readingItems[indexPath.row]
+            let item = historyItems[indexPath.row]
             cell.textLabel?.text = item.title
             cell.detailTextLabel?.text = item.url?.host ?? item.urlString
         }
@@ -677,7 +752,7 @@ extension TabSwitcherViewController: UITableViewDataSource, UITableViewDelegate 
         if tableView === bookmarksTable {
             url = bookmarkItems[indexPath.row].url
         } else {
-            url = readingItems[indexPath.row].url
+            url = historyItems[indexPath.row].url
         }
         guard let url else { return }
         delegate?.tabSwitcherDidRequestOpenURLInNewTab(url, containerID: preferredContainerIDForNewTab)
@@ -693,8 +768,8 @@ extension TabSwitcherViewController: UITableViewDataSource, UITableViewDelegate 
                 let id = self.bookmarkItems[indexPath.row].id
                 BookmarkStore.shared.remove(id: id)
             } else {
-                let id = self.readingItems[indexPath.row].id
-                ReadingListStore.shared.remove(id: id)
+                let id = self.historyItems[indexPath.row].id
+                HistoryStore.shared.remove(id: id)
             }
             self.rebuildLibrarySections()
             done(true)

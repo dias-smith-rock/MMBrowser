@@ -5,27 +5,24 @@ protocol DrawingGestureControllerDelegate: AnyObject {
 }
 
 /// One-finger stroke overlay + shape recognition for Hook → / ← / ○.
+///
+/// Never disables `UIScrollView.isScrollEnabled` — toggling that mid-gesture
+/// frequently leaves WKWebView unable to scroll until the page is reloaded.
 final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
     weak var delegate: DrawingGestureControllerDelegate?
 
     private weak var hostView: UIView?
-    weak var scrollViewToLock: UIScrollView?
+    private weak var webScrollView: UIScrollView?
     private let overlay = StrokeOverlayView()
     private var pan: UIPanGestureRecognizer?
     private var points: [CGPoint] = []
     /// When true, ignores AppSettings toggles (practice pad).
     var ignoresGlobalToggle = false
 
-    private var didLockScrolling = false
-    private var savedScrollEnabled = true
-    private var savedPinchEnabled = true
-    private var savedMinZoom: CGFloat = 1
-    private var savedMaxZoom: CGFloat = 1
-
     func attach(to view: UIView, lockScrollView: UIScrollView? = nil) {
         detach()
         hostView = view
-        scrollViewToLock = lockScrollView
+        webScrollView = lockScrollView
         overlay.isUserInteractionEnabled = false
         overlay.alpha = 0
         view.addSubview(overlay)
@@ -41,23 +38,24 @@ final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
         gesture.delegate = self
         gesture.minimumNumberOfTouches = 1
         gesture.maximumNumberOfTouches = 1
-        // Do not cancel touches until we commit to a stroke — otherwise vertical
-        // page scrolling / pull-to-refresh can be permanently blocked.
+        // Keep touches flowing to WKWebView so vertical scrolling / pull-to-refresh work.
         gesture.cancelsTouchesInView = false
+        gesture.delaysTouchesBegan = false
+        gesture.delaysTouchesEnded = false
         view.addGestureRecognizer(gesture)
         pan = gesture
         refreshEnabled()
     }
 
     func detach() {
-        unlockScrolling()
+        cancelActiveStroke()
         if let pan, let hostView {
             hostView.removeGestureRecognizer(pan)
         }
         pan = nil
         overlay.removeFromSuperview()
         hostView = nil
-        scrollViewToLock = nil
+        webScrollView = nil
         points.removeAll()
     }
 
@@ -67,7 +65,7 @@ final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
             || AppSettings.navigationSwipeEnabled
         pan?.isEnabled = on
         if !on {
-            unlockScrolling()
+            cancelActiveStroke()
             clearStroke(animated: false)
         }
     }
@@ -81,29 +79,50 @@ final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
             overlay.clear()
             appendPoint(from: gesture, in: hostView)
         case .changed:
-            appendPoint(from: gesture, in: hostView)
-            overlay.update(points: points)
-            // Lock web scrolling only after the stroke looks intentional.
-            if !didLockScrolling, strokeLength() >= 16 {
-                lockScrolling()
+            // If the stroke turns into a vertical scroll, yield immediately.
+            if isPrimarilyVertical(gesture, in: hostView) {
+                cancelActiveStroke()
+                return
             }
-        case .ended, .cancelled, .failed:
             appendPoint(from: gesture, in: hostView)
             overlay.update(points: points)
-            finishStroke()
-            unlockScrolling()
+        case .ended, .cancelled, .failed:
+            if gesture.state == .ended, !isPrimarilyVertical(gesture, in: hostView) {
+                appendPoint(from: gesture, in: hostView)
+                overlay.update(points: points)
+                finishStroke()
+            } else {
+                clearStroke(animated: false)
+                points.removeAll()
+            }
         default:
             break
         }
     }
 
-    private func strokeLength() -> CGFloat {
-        guard points.count >= 2 else { return 0 }
-        var length: CGFloat = 0
-        for i in 1..<points.count {
-            length += hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
+    private func isPrimarilyVertical(_ gesture: UIPanGestureRecognizer, in view: UIView) -> Bool {
+        let translation = gesture.translation(in: view)
+        let velocity = gesture.velocity(in: view)
+        let dx: CGFloat
+        let dy: CGFloat
+        if abs(velocity.x) + abs(velocity.y) > 40 {
+            dx = velocity.x
+            dy = velocity.y
+        } else {
+            dx = translation.x
+            dy = translation.y
         }
-        return length
+        // Vertical page scroll / pull-to-refresh — do not treat as a drawing stroke.
+        return abs(dy) >= abs(dx) * 1.05
+    }
+
+    /// Force-cancel the recognizer so WKWebView keeps the pan for scrolling.
+    private func cancelActiveStroke() {
+        clearStroke(animated: false)
+        points.removeAll()
+        guard let pan, pan.isEnabled, pan.state == .began || pan.state == .changed else { return }
+        pan.isEnabled = false
+        pan.isEnabled = true
     }
 
     private func appendPoint(from gesture: UIPanGestureRecognizer, in view: UIView) {
@@ -139,57 +158,22 @@ final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
-    private func lockScrolling() {
-        guard !didLockScrolling, let scroll = scrollViewToLock else { return }
-        didLockScrolling = true
-        savedScrollEnabled = scroll.isScrollEnabled
-        savedPinchEnabled = scroll.pinchGestureRecognizer?.isEnabled ?? true
-        savedMinZoom = scroll.minimumZoomScale
-        savedMaxZoom = scroll.maximumZoomScale
-        scroll.isScrollEnabled = false
-        scroll.pinchGestureRecognizer?.isEnabled = false
-        let zoom = scroll.zoomScale
-        scroll.minimumZoomScale = zoom
-        scroll.maximumZoomScale = zoom
-        scroll.setContentOffset(scroll.contentOffset, animated: false)
-    }
-
-    private func unlockScrolling() {
-        guard didLockScrolling, let scroll = scrollViewToLock else {
-            didLockScrolling = false
-            return
-        }
-        didLockScrolling = false
-        scroll.isScrollEnabled = savedScrollEnabled
-        scroll.pinchGestureRecognizer?.isEnabled = savedPinchEnabled
-        scroll.minimumZoomScale = savedMinZoom
-        scroll.maximumZoomScale = savedMaxZoom
-    }
-
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
         guard let pan = gestureRecognizer as? UIPanGestureRecognizer, let hostView else { return true }
-        let velocity = pan.velocity(in: hostView)
-        let translation = pan.translation(in: hostView)
-        // Prefer velocity once available; fall back to early translation.
-        let dx = abs(velocity.x) > 8 ? velocity.x : translation.x
-        let dy = abs(velocity.y) > 8 ? velocity.y : translation.y
-        // Clearly vertical pans belong to WKWebView scrolling / pull-to-refresh.
-        if abs(dy) > abs(dx) * 1.1 {
-            return false
-        }
-        return true
+        // Practice pad: accept any direction.
+        if ignoresGlobalToggle { return true }
+        // Only start for clearly non-vertical pans so page scrolling always wins.
+        return !isPrimarilyVertical(pan, in: hostView)
     }
 
     func gestureRecognizer(
         _ gestureRecognizer: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
-        // Allow the web view scroll pan to keep working until we decide this is a stroke.
-        if otherGestureRecognizer == scrollViewToLock?.panGestureRecognizer {
+        if otherGestureRecognizer == webScrollView?.panGestureRecognizer {
             return true
         }
         if otherGestureRecognizer is UIRefreshControl { return true }
-        // UIRefreshControl uses an internal pan on the scroll view.
         if let otherView = otherGestureRecognizer.view, otherView is UIScrollView {
             return true
         }
