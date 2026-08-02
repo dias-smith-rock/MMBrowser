@@ -17,7 +17,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         AdBlockManager.shared.prepare()
         MediaPlaybackSupport.configureAudioSessionIfNeeded()
         // Cover crash / force-quit: clear data only — do not close tabs / dismiss UI on launch.
-        AutoClearManager.performScheduledClear(runSessionCleanup: false)
+        // Defer so WebKit's run loop is ready; clearing data stores during early launch can crash.
+        DispatchQueue.main.async {
+            AutoClearManager.performScheduledClear(runSessionCleanup: false)
+        }
         return true
     }
 

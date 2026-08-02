@@ -44,9 +44,39 @@ struct SpoofLocationPreset: Equatable {
 }
 
 enum GeolocationSpoof {
-    /// Injected at document start when mode is deny or spoof.
+    struct Configuration: Equatable {
+        var mode: LocationPrivacyMode
+        var latitude: Double
+        var longitude: Double
+        var timeZoneIdentifier: String
+
+        static func fromAppSettings() -> Configuration {
+            Configuration(
+                mode: AppSettings.locationPrivacyMode,
+                latitude: AppSettings.spoofLatitude,
+                longitude: AppSettings.spoofLongitude,
+                timeZoneIdentifier: AppSettings.spoofTimeZoneIdentifier
+            )
+        }
+
+        static func from(container: BrowserContainer) -> Configuration {
+            Configuration(
+                mode: container.locationMode,
+                latitude: container.latitude,
+                longitude: container.longitude,
+                timeZoneIdentifier: container.timeZoneIdentifier
+            )
+        }
+    }
+
+    /// Injected at document start when mode is deny or spoof (global settings).
     static func userScript() -> WKUserScript? {
-        let mode = AppSettings.locationPrivacyMode
+        userScript(configuration: .fromAppSettings())
+    }
+
+    /// Injected at document start when mode is deny or spoof.
+    static func userScript(configuration: Configuration) -> WKUserScript? {
+        let mode = configuration.mode
         guard mode == .deny || mode == .spoof else { return nil }
 
         let lat: Double
@@ -61,9 +91,9 @@ enum GeolocationSpoof {
             lat = 0; lon = 0; tz = ""; accuracy = 0
         case .spoof:
             deny = false
-            lat = AppSettings.spoofLatitude
-            lon = AppSettings.spoofLongitude
-            tz = AppSettings.spoofTimeZoneIdentifier
+            lat = configuration.latitude
+            lon = configuration.longitude
+            tz = configuration.timeZoneIdentifier
             accuracy = 25
         case .ask:
             return nil

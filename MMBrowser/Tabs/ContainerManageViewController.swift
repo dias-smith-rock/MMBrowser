@@ -47,6 +47,11 @@ final class ContainerManageViewController: UIViewController {
         reload()
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        reload()
+    }
+
     private func reload() {
         items = tabManager.sortedContainers
         tableView.reloadData()
@@ -57,40 +62,18 @@ final class ContainerManageViewController: UIViewController {
     }
 
     @objc private func addTapped() {
-        let alert = UIAlertController(title: "Add Container", message: nil, preferredStyle: .alert)
-        alert.addTextField { $0.placeholder = "Name"; $0.autocapitalizationType = .words }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Add", style: .default, handler: { [weak self] _ in
-            guard let self else { return }
-            let name = self.alertText(alert) ?? ""
-            if self.tabManager.addContainer(name: name) == nil {
-                self.presentError("Could not add container. Choose a unique non-empty name.")
-                return
-            }
-            self.reload()
-            self.delegate?.containerManageDidChange()
-        }))
-        present(alert, animated: true)
+        let edit = ContainerEditViewController(
+            container: nil,
+            suggestedPresetIndex: tabManager.containers.count
+        )
+        edit.delegate = self
+        navigationController?.pushViewController(edit, animated: true)
     }
 
-    private func rename(_ container: BrowserContainer) {
-        let alert = UIAlertController(title: "Rename Container", message: nil, preferredStyle: .alert)
-        alert.addTextField {
-            $0.text = container.name
-            $0.autocapitalizationType = .words
-        }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Save", style: .default, handler: { [weak self] _ in
-            guard let self else { return }
-            let name = self.alertText(alert) ?? ""
-            guard self.tabManager.renameContainer(id: container.id, to: name) else {
-                self.presentError("Could not rename. Choose a unique non-empty name.")
-                return
-            }
-            self.reload()
-            self.delegate?.containerManageDidChange()
-        }))
-        present(alert, animated: true)
+    private func openEditor(for container: BrowserContainer) {
+        let edit = ContainerEditViewController(container: container)
+        edit.delegate = self
+        navigationController?.pushViewController(edit, animated: true)
     }
 
     private func confirmDelete(_ container: BrowserContainer) {
@@ -113,14 +96,27 @@ final class ContainerManageViewController: UIViewController {
         present(alert, animated: true)
     }
 
-    private func alertText(_ alert: UIAlertController) -> String? {
-        alert.textFields?.first?.text
-    }
-
     private func presentError(_ message: String) {
         let alert = UIAlertController(title: "Containers", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+}
+
+extension ContainerManageViewController: ContainerEditViewControllerDelegate {
+    func containerEditDidSave(_ container: BrowserContainer, isNew: Bool) {
+        let ok: Bool
+        if isNew {
+            ok = tabManager.addContainer(container) != nil
+        } else {
+            ok = tabManager.updateContainer(container)
+        }
+        guard ok else {
+            presentError("Could not save. Choose a unique non-empty name.")
+            return
+        }
+        reload()
+        delegate?.containerManageDidChange()
     }
 }
 
@@ -130,21 +126,19 @@ extension ContainerManageViewController: UITableViewDataSource, UITableViewDeleg
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+        let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "cell")
+        BrowserTheme.styleListCell(cell)
         let item = items[indexPath.row]
-        var config = cell.defaultContentConfiguration()
-        config.text = item.name
         let count = tabManager.normalTabs.filter { $0.containerID == item.id }.count
-        config.secondaryText = count == 1 ? "1 tab" : "\(count) tabs"
-        cell.contentConfiguration = config
+        cell.textLabel?.text = item.name
+        cell.detailTextLabel?.text = "\(count == 1 ? "1 tab" : "\(count) tabs") · \(item.locationSummary)"
         cell.accessoryType = .disclosureIndicator
-        cell.backgroundColor = BrowserTheme.card
         return cell
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        rename(items[indexPath.row])
+        openEditor(for: items[indexPath.row])
     }
 
     func tableView(

@@ -31,6 +31,9 @@ final class BrowserViewController: UIViewController {
     private var keyboardOverlap: CGFloat = 0
 
     private var didAttemptOnboarding = false
+    /// Keeps sticky PiP advancing to the next video while JS timers are throttled in background.
+    private var stickyPipBackgroundTimer: Timer?
+    private var stickyPipBackgroundTask = UIBackgroundTaskIdentifier.invalid
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -52,6 +55,7 @@ final class BrowserViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillChange(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(pipProbeDumpTabs(_:)), name: PipProbe.dumpTabsNotification, object: nil)
     }
 
@@ -83,6 +87,7 @@ final class BrowserViewController: UIViewController {
         for tab in tabManager.tabs {
             MediaPlaybackSupport.keepBackgroundMediaAlive(in: tab.webController?.webView)
         }
+        startStickyPipBackgroundKeepAlive()
 
         // Refresh previews for live tabs so thumbnails survive relaunch.
         guard !AppSettings.closeAllTabsOnExit, AppSettings.showTabsPreviewImages else {
@@ -118,6 +123,50 @@ final class BrowserViewController: UIViewController {
                 UIApplication.shared.endBackgroundTask(bgTask)
                 bgTask = .invalid
             }
+        }
+    }
+
+    @objc private func appWillEnterForeground() {
+        stopStickyPipBackgroundKeepAlive()
+    }
+
+    /// Native timer + background task so sticky PiP can hand off to the next video after `ended`
+    /// (page `setTimeout` is heavily throttled while suspended).
+    private func startStickyPipBackgroundKeepAlive() {
+        stopStickyPipBackgroundKeepAlive()
+        guard AppSettings.pictureInPictureEnabled, AppSettings.stickyPictureInPicture else { return }
+        guard let owner = PipSession.owner, owner.webView != nil else { return }
+
+        stickyPipBackgroundTask = UIApplication.shared.beginBackgroundTask(withName: "StickyPipNext") { [weak self] in
+            self?.stopStickyPipBackgroundKeepAlive()
+        }
+        var ticks = 0
+        let timer = Timer(timeInterval: 2.0, repeats: true) { [weak self] t in
+            guard let self else {
+                t.invalidate()
+                return
+            }
+            ticks += 1
+            guard ticks <= 20,
+                  AppSettings.stickyPictureInPicture,
+                  let owner = PipSession.owner else {
+                self.stopStickyPipBackgroundKeepAlive()
+                return
+            }
+            MediaPlaybackSupport.configureAudioSessionIfNeeded()
+            MediaPlaybackSupport.keepBackgroundMediaAlive(in: owner.webView)
+            MediaPlaybackSupport.reinforcePictureInPictureIfNeeded(in: owner.webView)
+        }
+        stickyPipBackgroundTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func stopStickyPipBackgroundKeepAlive() {
+        stickyPipBackgroundTimer?.invalidate()
+        stickyPipBackgroundTimer = nil
+        if stickyPipBackgroundTask != .invalid {
+            UIApplication.shared.endBackgroundTask(stickyPipBackgroundTask)
+            stickyPipBackgroundTask = .invalid
         }
     }
 
@@ -494,11 +543,18 @@ final class BrowserViewController: UIViewController {
 
     private func makeWebController(for tab: BrowserTab) -> WebViewController {
         if tab.isIncognito {
-            return WebViewController(isIncognito: true)
+            return WebViewController(isIncognito: true, geoConfiguration: .fromAppSettings())
         }
+        let geo: GeolocationSpoof.Configuration = {
+            if let container = tabManager.container(id: tab.containerID) {
+                return .from(container: container)
+            }
+            return .fromAppSettings()
+        }()
         return WebViewController(
             isIncognito: false,
-            websiteDataStore: TabSessionStore.dataStore(for: tabManager.sessionID(for: tab))
+            websiteDataStore: TabSessionStore.dataStore(for: tabManager.sessionID(for: tab)),
+            geoConfiguration: geo
         )
     }
 

@@ -83,6 +83,9 @@ final class WebViewController: UIViewController {
     private let isIncognito: Bool
     /// Persistent store for normal tabs; ignored when `isIncognito` (uses non-persistent).
     private let websiteDataStore: WKWebsiteDataStore
+    /// Geolocation deny/spoof for this tab (container-specific for normal tabs).
+    private let geoConfiguration: GeolocationSpoof.Configuration
+    private let pullToRefresh = UIRefreshControl()
     private var progressObservation: NSKeyValueObservation?
     private var loadingObservation: NSKeyValueObservation?
     private var titleObservation: NSKeyValueObservation?
@@ -131,9 +134,14 @@ final class WebViewController: UIViewController {
 
     private let desktopUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
-    init(isIncognito: Bool, websiteDataStore: WKWebsiteDataStore = .default()) {
+    init(
+        isIncognito: Bool,
+        websiteDataStore: WKWebsiteDataStore = .default(),
+        geoConfiguration: GeolocationSpoof.Configuration = .fromAppSettings()
+    ) {
         self.isIncognito = isIncognito
         self.websiteDataStore = websiteDataStore
+        self.geoConfiguration = geoConfiguration
         // Do not inherit global sticky — only the PiP owner tab may prefer PiP.
         self.prefersPictureInPicture = false
         super.init(nibName: nil, bundle: nil)
@@ -171,7 +179,7 @@ final class WebViewController: UIViewController {
         if YouTubeAdShield.isEffectivelyEnabled {
             config.userContentController.addUserScript(YouTubeAdShield.userScript)
         }
-        if let geoScript = GeolocationSpoof.userScript() {
+        if let geoScript = GeolocationSpoof.userScript(configuration: geoConfiguration) {
             config.userContentController.addUserScript(geoScript)
         }
         // Unlock pinch-zoom on pages that set user-scalable=no / maximum-scale=1
@@ -209,10 +217,16 @@ final class WebViewController: UIViewController {
         wv.uiDelegate = self
     // Full-page navigation uses hooked drawing strokes instead of edge swipes.
         wv.allowsBackForwardNavigationGestures = false
+        wv.scrollView.bounces = true
         wv.scrollView.bouncesZoom = true
+        wv.scrollView.alwaysBounceVertical = true
         wv.scrollView.alwaysBounceHorizontal = false
         wv.scrollView.isDirectionalLockEnabled = true
+        wv.scrollView.isScrollEnabled = true
         wv.scrollView.contentInsetAdjustmentBehavior = .never
+        pullToRefresh.tintColor = BrowserTheme.chromeBlue
+        pullToRefresh.addTarget(self, action: #selector(pullToRefreshTriggered), for: .valueChanged)
+        wv.scrollView.refreshControl = pullToRefresh
         if #available(iOS 14.0, *) {
             wv.pageZoom = 1.0
         }
@@ -252,6 +266,9 @@ final class WebViewController: UIViewController {
             let progress = webView.estimatedProgress
             let loading = webView.isLoading && webView.estimatedProgress < 1
             self?.notifyDelegateOnMain {
+                if !webView.isLoading {
+                    $0.endPullToRefreshIfNeeded()
+                }
                 $0.delegate?.webViewController($0, didUpdateProgress: progress, isLoading: loading)
             }
         }
@@ -466,6 +483,25 @@ final class WebViewController: UIViewController {
     func goBack() { if webView?.canGoBack == true { webView?.goBack() } }
     func goForward() { if webView?.canGoForward == true { webView?.goForward() } }
     func reload() { webView?.reload() }
+
+    @objc private func pullToRefreshTriggered() {
+        guard let webView else {
+            endPullToRefreshIfNeeded()
+            return
+        }
+        if webView.url != nil {
+            webView.reload()
+        } else if let pendingURL {
+            load(url: pendingURL)
+        } else {
+            endPullToRefreshIfNeeded()
+        }
+    }
+
+    private func endPullToRefreshIfNeeded() {
+        guard pullToRefresh.isRefreshing else { return }
+        pullToRefresh.endRefreshing()
+    }
 
     func pageUp() {
         webView?.evaluateJavaScript(
@@ -1422,6 +1458,7 @@ extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         errorContainer.isHidden = true
         httpsFallbackAttempted = false
+        endPullToRefreshIfNeeded()
         delegate?.webViewController(self, didUpdateProgress: 1, isLoading: false)
         delegate?.webViewController(self, didUpdateTitle: webView.title)
         delegate?.webViewController(self, didUpdateURL: webView.url)
@@ -1556,6 +1593,7 @@ extension WebViewController: WKNavigationDelegate {
         lastFailedURL = webView?.url
         errorLabel.text = "Couldn't load page.\n\(error.localizedDescription)"
         errorContainer.isHidden = false
+        endPullToRefreshIfNeeded()
         delegate?.webViewControllerDidFail(self, error: error)
         delegate?.webViewController(self, didUpdateProgress: 0, isLoading: false)
     }

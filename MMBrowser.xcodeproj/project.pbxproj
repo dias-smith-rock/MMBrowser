@@ -114,6 +114,7 @@
 		TSS0000101010101010172 /* TabSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020272 /* TabSessionStore.swift */; };
 		TSS0000101010101010173 /* BrowserContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020273 /* BrowserContainer.swift */; };
 		TSS0000101010101010174 /* ContainerManageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020274 /* ContainerManageViewController.swift */; };
+		TSS0000101010101010175 /* ContainerEditViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020275 /* ContainerEditViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -253,6 +254,7 @@
 		TSS0000202020202020272 /* TabSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabSessionStore.swift; sourceTree = "<group>"; };
 		TSS0000202020202020273 /* BrowserContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserContainer.swift; sourceTree = "<group>"; };
 		TSS0000202020202020274 /* ContainerManageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerManageViewController.swift; sourceTree = "<group>"; };
+		TSS0000202020202020275 /* ContainerEditViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerEditViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -427,6 +429,7 @@
 				TSS0000202020202020271 /* TabSnapshotStore.swift */,
 				TSS0000202020202020272 /* TabSessionStore.swift */,
 				TSS0000202020202020274 /* ContainerManageViewController.swift */,
+				TSS0000202020202020275 /* ContainerEditViewController.swift */,
 				B67A0C2C8812465E960FEC7A /* TabSwitcherViewController.swift */,
 			);
 			path = Tabs;
@@ -812,6 +815,7 @@
 				TSS0000101010101010172 /* TabSessionStore.swift in Sources */,
 				TSS0000101010101010173 /* BrowserContainer.swift in Sources */,
 				TSS0000101010101010174 /* ContainerManageViewController.swift in Sources */,
+				TSS0000101010101010175 /* ContainerEditViewController.swift in Sources */,
 				E275E26CE7D145A49D4259E8 /* TabSwitcherViewController.swift in Sources */,
 				3E002237DEF54CE88D630EE4 /* ViewController.swift in Sources */,
 				A1B2C3D4E5F6010101010101 /* AppLockSettings.swift in Sources */,

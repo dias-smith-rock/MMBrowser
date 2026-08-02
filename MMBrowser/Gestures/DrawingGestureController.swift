@@ -41,7 +41,9 @@ final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
         gesture.delegate = self
         gesture.minimumNumberOfTouches = 1
         gesture.maximumNumberOfTouches = 1
-        gesture.cancelsTouchesInView = true
+        // Do not cancel touches until we commit to a stroke — otherwise vertical
+        // page scrolling / pull-to-refresh can be permanently blocked.
+        gesture.cancelsTouchesInView = false
         view.addGestureRecognizer(gesture)
         pan = gesture
         refreshEnabled()
@@ -74,7 +76,6 @@ final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
         guard let hostView else { return }
         switch gesture.state {
         case .began:
-            lockScrolling()
             points.removeAll()
             overlay.alpha = 1
             overlay.clear()
@@ -82,6 +83,10 @@ final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
         case .changed:
             appendPoint(from: gesture, in: hostView)
             overlay.update(points: points)
+            // Lock web scrolling only after the stroke looks intentional.
+            if !didLockScrolling, strokeLength() >= 16 {
+                lockScrolling()
+            }
         case .ended, .cancelled, .failed:
             appendPoint(from: gesture, in: hostView)
             overlay.update(points: points)
@@ -90,6 +95,15 @@ final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
         default:
             break
         }
+    }
+
+    private func strokeLength() -> CGFloat {
+        guard points.count >= 2 else { return 0 }
+        var length: CGFloat = 0
+        for i in 1..<points.count {
+            length += hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
+        }
+        return length
     }
 
     private func appendPoint(from gesture: UIPanGestureRecognizer, in view: UIView) {
@@ -152,11 +166,34 @@ final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
         scroll.maximumZoomScale = savedMaxZoom
     }
 
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard let pan = gestureRecognizer as? UIPanGestureRecognizer, let hostView else { return true }
+        let velocity = pan.velocity(in: hostView)
+        let translation = pan.translation(in: hostView)
+        // Prefer velocity once available; fall back to early translation.
+        let dx = abs(velocity.x) > 8 ? velocity.x : translation.x
+        let dy = abs(velocity.y) > 8 ? velocity.y : translation.y
+        // Clearly vertical pans belong to WKWebView scrolling / pull-to-refresh.
+        if abs(dy) > abs(dx) * 1.1 {
+            return false
+        }
+        return true
+    }
+
     func gestureRecognizer(
         _ gestureRecognizer: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
     ) -> Bool {
-        false
+        // Allow the web view scroll pan to keep working until we decide this is a stroke.
+        if otherGestureRecognizer == scrollViewToLock?.panGestureRecognizer {
+            return true
+        }
+        if otherGestureRecognizer is UIRefreshControl { return true }
+        // UIRefreshControl uses an internal pan on the scroll view.
+        if let otherView = otherGestureRecognizer.view, otherView is UIScrollView {
+            return true
+        }
+        return false
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {

@@ -391,6 +391,11 @@ enum MediaPlaybackSupport {
             // Ignore sub-200ms glitches (WebKit / YouTube false leaves on foreground).
             if (age < 200 || age > 4500) return false;
             if (anyInPiP()) return false;
+            // Clip finished → next-video handoff, not a user dismiss.
+            try {
+              if (pipLeftVideo && pipLeftVideo.ended) return false;
+            } catch (e) {}
+            if (window.__mmPipAdvanceUntil && Date.now() < window.__mmPipAdvanceUntil) return false;
             var v = pickVideo();
             if (!v || v.ended) return false;
             var src = videoSrc(v);
@@ -631,16 +636,57 @@ enum MediaPlaybackSupport {
             } catch (e) { return ''; }
           }
 
+          function tryAdvanceYouTubeNext() {
+            if (!isYouTubeFamily() || isYouTubeMusic()) return false;
+            try {
+              var selectors = [
+                '.ytp-next-button:not([disabled])',
+                '.ytp-chrome-controls .ytp-next-button',
+                'button.ytp-next-button'
+              ];
+              for (var i = 0; i < selectors.length; i++) {
+                var btn = document.querySelector(selectors[i]);
+                if (!btn) continue;
+                btn.click();
+                postDiag('advance.next.click', {});
+                return true;
+              }
+            } catch (e) {}
+            return false;
+          }
+
+          function forceLeaveHtmlPip(v) {
+            try {
+              if (v) v.dataset.mmWantPip = '0';
+              var raw = HTMLVideoElement.prototype.__mmSetPresentationMode;
+              if (v && raw && isInPiP(v)) raw.call(v, 'inline');
+              if (document.pictureInPictureElement && document.exitPictureInPicture) {
+                document.exitPictureInPicture();
+              }
+            } catch (e) {}
+          }
+
           /// After PiP drops (next video / element swap), re-enter unless the user dismissed.
           function schedulePipReenter(previousVideo) {
             if (!window.__mmPreferPip || isYouTubeMusic()) return;
             var token = ++reenterToken;
             var prevSrc = videoSrc(previousVideo);
-            var delays = [120, 280, 550, 1000, 1800];
+            var prevEnded = false;
+            try { prevEnded = !!(previousVideo && previousVideo.ended); } catch (e) {}
+            // Background timers are throttled — keep trying longer after a natural end.
+            var delays = prevEnded || (window.__mmPipAdvanceUntil && Date.now() < window.__mmPipAdvanceUntil)
+              ? [200, 500, 1000, 1800, 3000, 5000, 8000, 12000]
+              : [120, 280, 550, 1000, 1800, 3200];
             delays.forEach(function(ms, idx) {
               setTimeout(function() {
                 if (token !== reenterToken || !window.__mmPreferPip) return;
-                if (anyInPiP()) {
+                var stuck = pickVideo();
+                // Ended clip still reporting PiP — leave so the next item can start.
+                if (anyInPiP() && stuck && stuck.ended) {
+                  postDiag('reenter.forceLeaveEnded', { idx: idx, video: videoProbe(stuck) });
+                  forceLeaveHtmlPip(stuck);
+                  tryAdvanceYouTubeNext();
+                } else if (anyInPiP()) {
                   postPip(true);
                   return;
                 }
@@ -652,7 +698,11 @@ enum MediaPlaybackSupport {
                 }
                 var v = pickVideo();
                 if (!v) {
-                  if (idx === delays.length - 1) clearPreferPip();
+                  if (idx >= 2) tryAdvanceYouTubeNext();
+                  return;
+                }
+                if (v.ended) {
+                  if (idx >= 1) tryAdvanceYouTubeNext();
                   return;
                 }
 
@@ -662,13 +712,13 @@ enum MediaPlaybackSupport {
                   && src
                   && src === prevSrc
                   && !v.ended;
-                if (sameClip) {
+                if (sameClip && !prevEnded) {
                   // Same clip still inline → user closed PiP (wait one tick for false leaves).
                   if (idx >= 1) clearPreferPip();
                   return;
                 }
-                // New / replaced media — put it back in PiP.
-                enterPiP();
+                // New / replaced / next media — put it back in PiP.
+                enterPiP(prevEnded ? 'ended.next:' + idx : 'reenter:' + idx);
               }, ms);
             });
           }
@@ -690,6 +740,10 @@ enum MediaPlaybackSupport {
               proto.webkitSetPresentationMode = function(mode) {
                 try {
                   if (mode === 'inline' && (window.__mmPreferPip || (this.dataset && this.dataset.mmWantPip === '1'))) {
+                    // Allow leave when the clip ended / next-video handoff is in progress.
+                    if (this.ended || (window.__mmPipAdvanceUntil && Date.now() < window.__mmPipAdvanceUntil)) {
+                      return originalSet.call(this, mode);
+                    }
                     return;
                   }
                 } catch (e) {}
@@ -737,14 +791,26 @@ enum MediaPlaybackSupport {
           function keepPipPlaying() {
             try {
               if (window.__mmPipSuppressed || isYouTubeMusic()) return;
+              var candidate = pickVideo();
+              if (window.__mmPreferPip && candidate && candidate.ended && isInPiP(candidate)) {
+                window.__mmPipAdvanceUntil = Date.now() + 15000;
+                forceLeaveHtmlPip(candidate);
+                tryAdvanceYouTubeNext();
+                schedulePipReenter(candidate);
+                return;
+              }
               if (window.__mmPreferPip && !anyInPiP()) {
                 if (looksLikeUserDismiss()) {
                   clearPreferPip();
                   return;
                 }
                 // Do not schedule re-enter / play kicks during initial buffer stalls.
-                var candidate = pickVideo();
                 if (candidate && isLikelyBufferingPause(candidate)) return;
+                if (candidate && candidate.ended) {
+                  tryAdvanceYouTubeNext();
+                  schedulePipReenter(candidate);
+                  return;
+                }
                 schedulePipReenter(candidate);
               }
               document.querySelectorAll('video').forEach(function(v) {
@@ -947,6 +1013,11 @@ enum MediaPlaybackSupport {
               postDiag('enter.fail', { reason: why, why: 'noVideo', videoCount: collectVideos(document, []).length });
               return false;
             }
+            if (v.ended) {
+              postDiag('enter.fail', { reason: why, why: 'ended', video: videoProbe(v) });
+              tryAdvanceYouTubeNext();
+              return false;
+            }
             window.__mmPreferPip = true;
             // Kick play without awaiting — keeps tap gesture valid for PiP below.
             try {
@@ -1020,6 +1091,21 @@ enum MediaPlaybackSupport {
               }
               if (window.__mmPipSuppressed) {
                 if (anyInPiP()) postPip(false);
+              } else if (window.__mmPreferPip) {
+                var v = pickVideo();
+                if (v && v.ended && isInPiP(v)) {
+                  window.__mmPipAdvanceUntil = Date.now() + 15000;
+                  forceLeaveHtmlPip(v);
+                  tryAdvanceYouTubeNext();
+                  schedulePipReenter(v);
+                } else if (anyInPiP()) {
+                  postPip(true);
+                } else if (v && !v.ended) {
+                  tryReenterOrClear('scan.prefer');
+                } else if (v && v.ended) {
+                  tryAdvanceYouTubeNext();
+                  schedulePipReenter(v);
+                }
               } else if (anyInPiP()) {
                 postPip(true);
               }
@@ -1172,7 +1258,20 @@ enum MediaPlaybackSupport {
           document.addEventListener('ended', function(e) {
             var v = e.target;
             if (!v || v.tagName !== 'VIDEO') return;
-            if (window.__mmPreferPip) schedulePipReenter(v);
+            if (!window.__mmPreferPip || isYouTubeMusic()) return;
+            // Natural end while sticky: leave PiP, advance playlist, re-enter on next item.
+            window.__mmPipAdvanceUntil = Date.now() + 15000;
+            postDiag('ended.next', { video: videoProbe(v), hidden: document.visibilityState === 'hidden' });
+            forceLeaveHtmlPip(v);
+            tryAdvanceYouTubeNext();
+            schedulePipReenter(v);
+            [2500, 5000, 9000].forEach(function(ms) {
+              setTimeout(function() {
+                if (!window.__mmPreferPip || anyInPiP()) return;
+                tryAdvanceYouTubeNext();
+                tryReenterOrClear('ended+' + ms);
+              }, ms);
+            });
           }, true);
 
           // YouTube SPA next / related navigation.

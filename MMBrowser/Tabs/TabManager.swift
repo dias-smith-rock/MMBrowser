@@ -244,17 +244,41 @@ final class TabManager {
     // MARK: - Containers
 
     @discardableResult
-    func addContainer(name: String) -> BrowserContainer? {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    func addContainer(_ draft: BrowserContainer) -> BrowserContainer? {
+        let trimmed = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         if containers.contains(where: { $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }) {
             return nil
         }
         let nextIndex = (containers.map(\.sortIndex).max() ?? -1) + 1
-        let container = BrowserContainer(id: UUID(), name: trimmed, sessionID: UUID(), sortIndex: nextIndex)
+        let container = BrowserContainer(
+            id: UUID(),
+            name: trimmed,
+            sessionID: UUID(),
+            sortIndex: nextIndex,
+            locationMode: draft.locationMode,
+            latitude: draft.latitude,
+            longitude: draft.longitude,
+            timeZoneIdentifier: draft.timeZoneIdentifier,
+            locationPresetID: draft.locationPresetID
+        )
         containers.append(container)
         notifyUpdated()
         return container
+    }
+
+    @discardableResult
+    func addContainer(name: String) -> BrowserContainer? {
+        let preset = SpoofLocationPreset.all[containers.count % SpoofLocationPreset.all.count]
+        return addContainer(
+            BrowserContainer(
+                id: UUID(),
+                name: name,
+                sessionID: UUID(),
+                sortIndex: 0,
+                location: preset
+            )
+        )
     }
 
     @discardableResult
@@ -268,6 +292,54 @@ final class TabManager {
         containers[index].name = trimmed
         notifyUpdated()
         return true
+    }
+
+    /// Updates name and location settings. Rebuilds WebViews in that container when location changes.
+    @discardableResult
+    func updateContainer(_ updated: BrowserContainer) -> Bool {
+        let trimmed = updated.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let index = containers.firstIndex(where: { $0.id == updated.id }) else { return false }
+        if containers.contains(where: { $0.id != updated.id && $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }) {
+            return false
+        }
+        let previous = containers[index]
+        let next = BrowserContainer(
+            id: previous.id,
+            name: trimmed,
+            sessionID: previous.sessionID,
+            sortIndex: previous.sortIndex,
+            locationMode: updated.locationMode,
+            latitude: updated.latitude,
+            longitude: updated.longitude,
+            timeZoneIdentifier: updated.timeZoneIdentifier,
+            locationPresetID: updated.locationPresetID
+        )
+        containers[index] = next
+        let locationChanged =
+            previous.locationMode != next.locationMode
+            || abs(previous.latitude - next.latitude) > 0.0000001
+            || abs(previous.longitude - next.longitude) > 0.0000001
+            || previous.timeZoneIdentifier != next.timeZoneIdentifier
+        notifyUpdated()
+        if locationChanged {
+            invalidateWebViews(inContainer: previous.id)
+        }
+        return true
+    }
+
+    func invalidateWebViews(inContainer containerID: UUID) {
+        var touched = false
+        for tab in tabs where !tab.isIncognito && tab.containerID == containerID {
+            tab.webController?.cleanup()
+            tab.webController = nil
+            touched = true
+        }
+        guard touched else { return }
+        delegate?.tabManagerDidUpdate(self)
+        if let selected = selectedTab {
+            delegate?.tabManager(self, didSelect: selected)
+        }
     }
 
     func reorderContainers(ids: [UUID]) {
@@ -568,7 +640,14 @@ final class TabManager {
             names.insert("Default", at: 0)
         }
         return names.enumerated().map { offset, name in
-            BrowserContainer(id: UUID(), name: name, sessionID: UUID(), sortIndex: offset)
+            let preset = SpoofLocationPreset.all[offset % SpoofLocationPreset.all.count]
+            return BrowserContainer(
+                id: UUID(),
+                name: name,
+                sessionID: UUID(),
+                sortIndex: offset,
+                location: preset
+            )
         }
     }
 }
