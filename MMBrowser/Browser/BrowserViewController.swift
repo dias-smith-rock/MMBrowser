@@ -132,6 +132,7 @@ final class BrowserViewController: UIViewController {
 
     /// Native timer + background task so sticky PiP can hand off to the next video after `ended`
     /// (page `setTimeout` is heavily throttled while suspended).
+    /// While PiP is healthy/playing, the page script no-ops — avoids play↔pause thrash.
     private func startStickyPipBackgroundKeepAlive() {
         stopStickyPipBackgroundKeepAlive()
         guard AppSettings.pictureInPictureEnabled, AppSettings.stickyPictureInPicture else { return }
@@ -141,20 +142,19 @@ final class BrowserViewController: UIViewController {
             self?.stopStickyPipBackgroundKeepAlive()
         }
         var ticks = 0
-        let timer = Timer(timeInterval: 2.0, repeats: true) { [weak self] t in
+        let timer = Timer(timeInterval: 3.5, repeats: true) { [weak self] t in
             guard let self else {
                 t.invalidate()
                 return
             }
             ticks += 1
-            guard ticks <= 20,
+            guard ticks <= 16,
                   AppSettings.stickyPictureInPicture,
                   let owner = PipSession.owner else {
                 self.stopStickyPipBackgroundKeepAlive()
                 return
             }
-            MediaPlaybackSupport.configureAudioSessionIfNeeded()
-            MediaPlaybackSupport.keepBackgroundMediaAlive(in: owner.webView)
+            // Single reinforce path (no-ops when PiP is already playing).
             MediaPlaybackSupport.reinforcePictureInPictureIfNeeded(in: owner.webView)
         }
         stickyPipBackgroundTimer = timer

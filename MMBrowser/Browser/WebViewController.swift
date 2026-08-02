@@ -85,7 +85,6 @@ final class WebViewController: UIViewController {
     private let websiteDataStore: WKWebsiteDataStore
     /// Geolocation deny/spoof for this tab (container-specific for normal tabs).
     private let geoConfiguration: GeolocationSpoof.Configuration
-    private let pullToRefresh = UIRefreshControl()
     private var progressObservation: NSKeyValueObservation?
     private var loadingObservation: NSKeyValueObservation?
     private var titleObservation: NSKeyValueObservation?
@@ -118,9 +117,11 @@ final class WebViewController: UIViewController {
     private var prefersPictureInPicture = false
     private var pipForegroundObserver: NSObjectProtocol?
     private var pipLeaveWorkItem: DispatchWorkItem?
-    /// Native PiP entry — YouTube video pages only (hidden on YouTube Music).
+    /// Native PiP entry chip — shown while a page video is playing (hidden on YouTube Music).
     private lazy var pipEntryButton: UIButton = makePipEntryButton()
     private var pipVideoPollTimer: Timer?
+    /// True when the page reports an actively playing (or PiP) `<video>`.
+    private var pageHasPlayingVideo = false
     /// Prevents stacked auto-enter retries while sticky PiP waits for a video element.
     private var stickyPipEnterInFlight = false
     /// After a PiP leave, suppress sticky auto-restore briefly so a manual close can clear prefer.
@@ -224,9 +225,6 @@ final class WebViewController: UIViewController {
         wv.scrollView.isDirectionalLockEnabled = true
         wv.scrollView.isScrollEnabled = true
         wv.scrollView.contentInsetAdjustmentBehavior = .never
-        pullToRefresh.tintColor = BrowserTheme.chromeBlue
-        pullToRefresh.addTarget(self, action: #selector(pullToRefreshTriggered), for: .valueChanged)
-        wv.scrollView.refreshControl = pullToRefresh
         if #available(iOS 14.0, *) {
             wv.pageZoom = 1.0
         }
@@ -266,9 +264,6 @@ final class WebViewController: UIViewController {
             let progress = webView.estimatedProgress
             let loading = webView.isLoading && webView.estimatedProgress < 1
             self?.notifyDelegateOnMain {
-                if !webView.isLoading {
-                    $0.endPullToRefreshIfNeeded()
-                }
                 $0.delegate?.webViewController($0, didUpdateProgress: progress, isLoading: loading)
             }
         }
@@ -483,25 +478,6 @@ final class WebViewController: UIViewController {
     func goBack() { if webView?.canGoBack == true { webView?.goBack() } }
     func goForward() { if webView?.canGoForward == true { webView?.goForward() } }
     func reload() { webView?.reload() }
-
-    @objc private func pullToRefreshTriggered() {
-        guard let webView else {
-            endPullToRefreshIfNeeded()
-            return
-        }
-        if webView.url != nil {
-            webView.reload()
-        } else if let pendingURL {
-            load(url: pendingURL)
-        } else {
-            endPullToRefreshIfNeeded()
-        }
-    }
-
-    private func endPullToRefreshIfNeeded() {
-        guard pullToRefresh.isRefreshing else { return }
-        pullToRefresh.endRefreshing()
-    }
 
     func pageUp() {
         webView?.evaluateJavaScript(
@@ -924,9 +900,12 @@ final class WebViewController: UIViewController {
     private func refreshPipEntryPolling() {
         pipVideoPollTimer?.invalidate()
         pipVideoPollTimer = nil
+        if YouTubeDarkMode.isYouTubeMusic(webView?.url) || !AppSettings.pictureInPictureEnabled {
+            pageHasPlayingVideo = false
+        }
         updatePipEntryButtonVisibility()
         guard AppSettings.pictureInPictureEnabled,
-              YouTubeDarkMode.isYouTube(webView?.url)
+              !YouTubeDarkMode.isYouTubeMusic(webView?.url)
         else { return }
         pollPlayableVideoForPiP()
         pipVideoPollTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: true) { [weak self] _ in
@@ -935,22 +914,35 @@ final class WebViewController: UIViewController {
     }
 
     private func pollPlayableVideoForPiP() {
-        guard AppSettings.pictureInPictureEnabled, YouTubeDarkMode.isYouTube(webView?.url) else {
+        guard AppSettings.pictureInPictureEnabled,
+              !YouTubeDarkMode.isYouTubeMusic(webView?.url) else {
+            pageHasPlayingVideo = false
             updatePipEntryButtonVisibility()
             return
         }
         let js = """
         (function(){
           try {
-            var vids = document.querySelectorAll('video');
+            function walk(root, out) {
+              if (!root) return out;
+              try { root.querySelectorAll('video').forEach(function(v){ out.push(v); }); } catch (e) {}
+              try {
+                var all = root.querySelectorAll('*');
+                for (var i = 0; i < all.length; i++) {
+                  if (all[i].shadowRoot) walk(all[i].shadowRoot, out);
+                }
+              } catch (e) {}
+              return out;
+            }
+            var vids = walk(document, []);
             if (!vids.length) return 'none';
             for (var i = 0; i < vids.length; i++) {
               var v = vids[i];
               if (v.webkitPresentationMode === 'picture-in-picture') return 'pip';
+              if (document.pictureInPictureElement === v) return 'pip';
               if (!v.paused && !v.ended) return 'playing';
-              if (v.currentTime > 0.05 || v.readyState >= 2) return 'ready';
             }
-            return 'present';
+            return 'idle';
           } catch (e) { return 'none'; }
         })();
         """
@@ -959,6 +951,8 @@ final class WebViewController: UIViewController {
                 guard let self else { return }
                 let state = result as? String ?? "none"
                 let inPip = state == "pip"
+                let playing = state == "playing" || inPip
+                self.pageHasPlayingVideo = playing
                 if inPip {
                     if let until = self.suppressPipClaimUntil, Date() < until {
                         MediaPlaybackSupport.releasePictureInPicture(in: self.webView)
@@ -1144,11 +1138,12 @@ final class WebViewController: UIViewController {
     }
 
     private func updatePipEntryButtonVisibility() {
-        // Regular YouTube only — Music has no usable HTML video / PiP surface.
+        // Show while a page video is playing (or already in system PiP).
+        // YouTube Music has no usable HTML video / PiP surface.
         let show = AppSettings.pictureInPictureEnabled
-            && YouTubeDarkMode.isYouTube(webView?.url)
             && !YouTubeDarkMode.isYouTubeMusic(webView?.url)
             && !(webView?.isHidden ?? false)
+            && (pageHasPlayingVideo || isPictureInPictureActive)
         pipEntryButton.isHidden = !show
         if show {
             if pipEntryButton.superview == nil {
@@ -1201,7 +1196,13 @@ final class WebViewController: UIViewController {
                     PipSession.handleTrustedUserPlay(from: self)
                 }
             }
-            if body["videoReady"] as? Bool != nil {
+            if let playing = body["videoPlaying"] as? Bool {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.pageHasPlayingVideo = playing
+                    self.updatePipEntryButtonVisibility()
+                }
+            } else if body["videoReady"] as? Bool != nil {
                 DispatchQueue.main.async { [weak self] in
                     // Sticky reenter after next-track / media swap is owned by page JS.
                     // Restoring from every videoReady pulse re-opened PiP after a manual close.
@@ -1458,7 +1459,6 @@ extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         errorContainer.isHidden = true
         httpsFallbackAttempted = false
-        endPullToRefreshIfNeeded()
         delegate?.webViewController(self, didUpdateProgress: 1, isLoading: false)
         delegate?.webViewController(self, didUpdateTitle: webView.title)
         delegate?.webViewController(self, didUpdateURL: webView.url)
@@ -1593,7 +1593,6 @@ extension WebViewController: WKNavigationDelegate {
         lastFailedURL = webView?.url
         errorLabel.text = "Couldn't load page.\n\(error.localizedDescription)"
         errorContainer.isHidden = false
-        endPullToRefreshIfNeeded()
         delegate?.webViewControllerDidFail(self, error: error)
         delegate?.webViewController(self, didUpdateProgress: 0, isLoading: false)
     }

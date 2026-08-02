@@ -38,7 +38,7 @@ final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
         gesture.delegate = self
         gesture.minimumNumberOfTouches = 1
         gesture.maximumNumberOfTouches = 1
-        // Keep touches flowing to WKWebView so vertical scrolling / pull-to-refresh work.
+        // Keep touches flowing to WKWebView so vertical scrolling still works.
         gesture.cancelsTouchesInView = false
         gesture.delaysTouchesBegan = false
         gesture.delaysTouchesEnded = false
@@ -112,7 +112,7 @@ final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
             dx = translation.x
             dy = translation.y
         }
-        // Vertical page scroll / pull-to-refresh — do not treat as a drawing stroke.
+        // Vertical page scroll — do not treat as a drawing stroke.
         return abs(dy) >= abs(dx) * 1.05
     }
 
@@ -173,7 +173,6 @@ final class DrawingGestureController: NSObject, UIGestureRecognizerDelegate {
         if otherGestureRecognizer == webScrollView?.panGestureRecognizer {
             return true
         }
-        if otherGestureRecognizer is UIRefreshControl { return true }
         if let otherView = otherGestureRecognizer.view, otherView is UIScrollView {
             return true
         }

@@ -225,35 +225,22 @@ enum MediaPlaybackSupport {
     private static let reinforcePipJS = """
     (function() {
       try {
+        if (typeof window.__mmStickyPipBackgroundTick === 'function') {
+          return window.__mmStickyPipBackgroundTick('reinforce');
+        }
         var prefer = !!window.__mmPreferPip;
         var inPip = (typeof window.__mmAnyInPiP === 'function') && window.__mmAnyInPiP();
-        if (!prefer && !inPip) return;
-        // After a manual PiP close, page script clears prefer shortly — do not force re-enter.
+        if (!prefer && !inPip) return 'idle';
+        // Healthy PiP playback — do not poke play()/presentationMode (causes play↔pause thrash).
+        if (inPip && typeof window.__mmPipPlaybackHealthy === 'function' && window.__mmPipPlaybackHealthy()) {
+          return 'healthy';
+        }
         if (!inPip && typeof window.__mmTryReenterOrClear === 'function') {
           window.__mmTryReenterOrClear('reinforce');
-          return;
+          return 'reenter';
         }
-        if (!prefer) return;
-        window.__mmPreferPip = true;
-        if (!inPip && typeof window.__mmEnterPiP === 'function') {
-          window.__mmEnterPiP();
-          return;
-        }
-        document.querySelectorAll('video').forEach(function(v) {
-          if (v.dataset.mmWantPip !== '1' && v.webkitPresentationMode !== 'picture-in-picture') return;
-          v.dataset.mmWantPip = '1';
-          if (v.paused && !v.ended) {
-            var p = v.play();
-            if (p && p.catch) p.catch(function(){});
-          }
-          if (v.webkitPresentationMode !== 'picture-in-picture') {
-            var raw = HTMLVideoElement.prototype.__mmSetPresentationMode;
-            if (raw) {
-              try { raw.call(v, 'picture-in-picture'); } catch (e) {}
-            }
-          }
-        });
-      } catch (e) {}
+        return 'noop';
+      } catch (e) { return 'err'; }
     })();
     """
 
@@ -278,23 +265,20 @@ enum MediaPlaybackSupport {
     (function() {
       try {
         window.__mmBackgroundAudio = true;
-        if (window.__mmPreferPip) {
-          document.querySelectorAll('video').forEach(function(v) {
-            try {
-              v.dataset.mmWantPlay = '1';
-              if (!v.ended && v.paused) {
-                var p = v.play();
-                if (p && p.catch) p.catch(function(){});
-              }
-            } catch (e) {}
-          });
+        // Already in system PiP and playing — leave the AV pipeline alone.
+        if (typeof window.__mmPipPlaybackHealthy === 'function' && window.__mmPipPlaybackHealthy()) {
+          return 'healthy';
+        }
+        if (typeof window.__mmStickyPipBackgroundTick === 'function') {
+          return window.__mmStickyPipBackgroundTick('keepalive');
         }
         if (typeof window.__mmKeepBackgroundMedia === 'function') {
           window.__mmKeepBackgroundMedia();
-          return;
+          return 'legacy';
         }
         document.querySelectorAll('video').forEach(function(v) {
           if (v.ended) return;
+          if (v.webkitPresentationMode === 'picture-in-picture') return;
           if (!v.paused || v.dataset.mmWantPlay === '1' || v.currentTime > 0.05) {
             v.dataset.mmWantPlay = '1';
             if (v.paused) {
@@ -303,7 +287,8 @@ enum MediaPlaybackSupport {
             }
           }
         });
-      } catch (e) {}
+        return 'fallback';
+      } catch (e) { return 'err'; }
     })();
     """
 
@@ -549,10 +534,22 @@ enum MediaPlaybackSupport {
             return false;
           }
 
+          function pipPlaybackHealthy() {
+            try {
+              if (!anyInPiP()) return false;
+              var v = pickVideo();
+              return !!(v && isInPiP(v) && !v.paused && !v.ended);
+            } catch (e) { return false; }
+          }
+          window.__mmPipPlaybackHealthy = pipPlaybackHealthy;
+
           function forceResumePlaying() {
             try {
+              // Never fight a healthy PiP session — repeated play() causes audible thrash.
+              if (pipPlaybackHealthy()) return;
               document.querySelectorAll('video').forEach(function(v) {
                 if (v.ended) return;
+                if (isInPiP(v) && !v.paused) return;
                 if (v.dataset.mmWantPlay !== '1' && v.paused && v.currentTime < 0.05) return;
                 v.dataset.mmWantPlay = '1';
                 if (v.paused && canForcePlay(v)) {
@@ -563,10 +560,43 @@ enum MediaPlaybackSupport {
             } catch (e) {}
           }
           window.__mmKeepBackgroundMedia = function() {
+            if (pipPlaybackHealthy()) return;
             forceResumePlaying();
-            setTimeout(forceResumePlaying, 80);
-            setTimeout(forceResumePlaying, 300);
-            setTimeout(forceResumePlaying, 800);
+            // One delayed retry only (was 3) — enough for visibility pause, not a thrash loop.
+            setTimeout(function() {
+              if (!pipPlaybackHealthy()) forceResumePlaying();
+            }, 400);
+          };
+
+          /// Native background timer entry: only act when PiP needs help (ended / left / stuck).
+          window.__mmStickyPipBackgroundTick = function(reason) {
+            try {
+              if (isYouTubeMusic()) return 'music';
+              if (!window.__mmPreferPip && !anyInPiP()) return 'idle';
+              if (pipPlaybackHealthy()) return 'healthy';
+              var v = pickVideo();
+              if (anyInPiP() && v && v.ended) {
+                window.__mmPipAdvanceUntil = Date.now() + 15000;
+                forceLeaveHtmlPip(v);
+                tryAdvanceYouTubeNext();
+                schedulePipReenter(v);
+                return 'advance';
+              }
+              if (anyInPiP() && v && v.paused && !v.ended) {
+                // Only nudge a stuck pause while foreground; background PiP owns transport.
+                if (document.visibilityState === 'hidden') return 'pip-paused-bg';
+                v.dataset.mmWantPlay = '1';
+                var p = v.play();
+                if (p && p.catch) p.catch(function(){});
+                return 'resume';
+              }
+              if (!anyInPiP() && window.__mmPreferPip) {
+                if (v && v.ended) tryAdvanceYouTubeNext();
+                tryReenterOrClear(String(reason || 'bgTick'));
+                return 'reenter';
+              }
+              return 'noop';
+            } catch (e) { return 'err'; }
           };
 
           function clearPreferPip() {
@@ -608,9 +638,14 @@ enum MediaPlaybackSupport {
             if (window.__mmPipSuppressed || !window.__mmPreferPip) return;
             var v = pickVideo();
             if (anyInPiP()) {
-              // Same PiP session can go stale after an in-page song swap — re-assert.
-              postDiag('track.reassert', { reason: String(reason || '') });
-              if (v) requestPiPOnVideo(v);
+              // Already in PiP — do not re-call setPresentationMode (play↔pause thrash).
+              if (v && v.ended) {
+                window.__mmPipAdvanceUntil = Date.now() + 15000;
+                forceLeaveHtmlPip(v);
+                tryAdvanceYouTubeNext();
+                schedulePipReenter(v);
+                return;
+              }
               postPip(true);
               return;
             }
@@ -791,12 +826,22 @@ enum MediaPlaybackSupport {
           function keepPipPlaying() {
             try {
               if (window.__mmPipSuppressed || isYouTubeMusic()) return;
+              // Stable PiP playback — do not schedule reenter / spam play().
+              if (pipPlaybackHealthy()) return;
               var candidate = pickVideo();
               if (window.__mmPreferPip && candidate && candidate.ended && isInPiP(candidate)) {
                 window.__mmPipAdvanceUntil = Date.now() + 15000;
                 forceLeaveHtmlPip(candidate);
                 tryAdvanceYouTubeNext();
                 schedulePipReenter(candidate);
+                return;
+              }
+              if (anyInPiP() && candidate && candidate.paused && !candidate.ended) {
+                candidate.dataset.mmWantPlay = '1';
+                if (canForcePlay(candidate)) {
+                  var rp = candidate.play();
+                  if (rp && rp.catch) rp.catch(function(){});
+                }
                 return;
               }
               if (window.__mmPreferPip && !anyInPiP()) {
@@ -815,6 +860,7 @@ enum MediaPlaybackSupport {
               }
               document.querySelectorAll('video').forEach(function(v) {
                 if (!window.__mmPreferPip && v.dataset.mmWantPip !== '1' && !isInPiP(v)) return;
+                if (isInPiP(v) && !v.paused) return;
                 if (window.__mmPreferPip || isInPiP(v)) v.dataset.mmWantPip = '1';
                 if (v.paused && !v.ended && canForcePlay(v) && !isLikelyBufferingPause(v)) {
                   var p = v.play();
@@ -1059,17 +1105,33 @@ enum MediaPlaybackSupport {
           }
           window.__mmEnterPiP = enterPiP;
 
+          function anyVideoPlaying() {
+            try {
+              if (anyInPiP()) return true;
+              var vids = collectVideos(document, []);
+              for (var i = 0; i < vids.length; i++) {
+                var v = vids[i];
+                if (v && !v.paused && !v.ended) return true;
+              }
+            } catch (e) {}
+            return false;
+          }
+
           function postVideoReady() {
             try {
               var v = pickVideo();
+              var playing = anyVideoPlaying();
               var ready = !!(v && (
-                (!v.paused && !v.ended)
+                playing
                 || v.currentTime > 0.05
                 || v.readyState >= 2
                 || (isYouTubeFamily() && !!v)
               ));
               if (window.webkit && webkit.messageHandlers && webkit.messageHandlers.mmMediaPip) {
-                webkit.messageHandlers.mmMediaPip.postMessage({ videoReady: ready });
+                webkit.messageHandlers.mmMediaPip.postMessage({
+                  videoReady: ready,
+                  videoPlaying: playing
+                });
               }
             } catch (e) {}
           }
@@ -1125,6 +1187,7 @@ enum MediaPlaybackSupport {
           document.addEventListener('playing', function(e) {
             var v = e.target;
             if (!v || v.tagName !== 'VIDEO') return;
+            postVideoReady();
             if (isYouTubeMusic()) {
               exitInvisibleMusicHtmlPip();
               return;
@@ -1135,6 +1198,14 @@ enum MediaPlaybackSupport {
             setTimeout(function() { tryReenterOrClear('playing:80'); }, 80);
             setTimeout(function() { tryReenterOrClear('playing:400'); }, 400);
           }, true);
+
+          ['pause', 'ended', 'emptied'].forEach(function(type) {
+            document.addEventListener(type, function(e) {
+              var v = e.target;
+              if (!v || v.tagName !== 'VIDEO') return;
+              postVideoReady();
+            }, true);
+          });
 
           // Capture at document BEFORE YouTube's listeners. Stopping propagation is what
           // unlocks PiP on YouTube and stops it from dismissing PiP when the app returns.
@@ -1280,6 +1351,7 @@ enum MediaPlaybackSupport {
             setTimeout(function() { tryReenterOrClear('yt-navigate-finish'); }, 350);
           }, true);
 
+          var pipPauseResumeToken = 0;
           document.addEventListener('pause', function(e) {
             var v = e.target;
             if (!v || v.tagName !== 'VIDEO') return;
@@ -1287,18 +1359,33 @@ enum MediaPlaybackSupport {
             // Initial load / stall: WebKit pauses while readyState is low. Forcing play()
             // here (especially with sticky PiP prefer) causes audible play↔pause thrashing.
             if (isLikelyBufferingPause(v)) return;
-            if (isInPiP(v) || v.dataset.mmWantPip === '1' || wantsPip()) {
-              // YouTube often pauses on foreground/background transitions — keep PiP alive.
-              setTimeout(keepPipPlaying, 0);
-              setTimeout(keepPipPlaying, 120);
+            if (isInPiP(v)) {
+              // Background + system PiP: leave transport to PiP chrome. Fighting YouTube's
+              // visibility pause with play() causes continuous play↔pause switching.
+              if (document.visibilityState === 'hidden') return;
+              var token = ++pipPauseResumeToken;
+              setTimeout(function() {
+                if (token !== pipPauseResumeToken) return;
+                if (!isInPiP(v) || !v.paused || v.ended) return;
+                if (pipPlaybackHealthy()) return;
+                v.dataset.mmWantPlay = '1';
+                if (canForcePlay(v)) {
+                  var p = v.play();
+                  if (p && p.catch) p.catch(function(){});
+                }
+              }, 700);
+              return;
+            }
+            if (v.dataset.mmWantPip === '1' || wantsPip()) {
+              setTimeout(keepPipPlaying, 350);
               return;
             }
             // Only auto-resume when the page is already hidden (app background / lock).
             // While visible, allow the user to pause normally.
             if (document.visibilityState === 'hidden' && (wantsKeepAlive() || v.dataset.mmWantPlay === '1')) {
-              setTimeout(forceResumePlaying, 0);
-              setTimeout(forceResumePlaying, 120);
-              setTimeout(forceResumePlaying, 400);
+              setTimeout(function() {
+                if (!pipPlaybackHealthy()) forceResumePlaying();
+              }, 400);
               return;
             }
             if (document.visibilityState === 'visible') {
@@ -1309,24 +1396,25 @@ enum MediaPlaybackSupport {
           document.addEventListener('visibilitychange', function(e) {
             var keep = wantsPip() || wantsKeepAlive();
             if (keep && document.visibilityState === 'hidden') {
-              // YouTube Music pauses on visibility — swallow and keep playing.
               try { e.stopImmediatePropagation(); } catch (err) { try { e.stopPropagation(); } catch (e2) {} }
-              if (anyInPiP()) postPip(true);
+              if (anyInPiP()) {
+                // System PiP owns playback — do not spam play() (causes play↔pause thrash).
+                postPip(true);
+                markPlayingState();
+                return;
+              }
               markPlayingState();
               forceResumePlaying();
-              keepPipPlaying();
-              setTimeout(forceResumePlaying, 80);
-              setTimeout(forceResumePlaying, 350);
-              setTimeout(keepPipPlaying, 350);
+              setTimeout(function() {
+                if (!anyInPiP()) forceResumePlaying();
+              }, 400);
               return;
             }
             if (document.visibilityState === 'visible') {
               resumeVideos();
-            } else {
+            } else if (!anyInPiP()) {
               markPlayingState();
               resumeVideos();
-              setTimeout(resumeVideos, 80);
-              setTimeout(resumeVideos, 350);
             }
           }, true);
 
@@ -1334,20 +1422,27 @@ enum MediaPlaybackSupport {
           window.addEventListener('pagehide', function(e) {
             if (!wantsPip() && !wantsKeepAlive()) return;
             try { e.stopImmediatePropagation(); } catch (err) {}
+            if (anyInPiP()) {
+              markPlayingState();
+              return;
+            }
             markPlayingState();
             forceResumePlaying();
-            keepPipPlaying();
           }, true);
           window.addEventListener('pageshow', function(e) {
             if (!wantsPip() && !wantsKeepAlive()) return;
             try { e.stopImmediatePropagation(); } catch (err) {}
-            if (anyInPiP()) postPip(true);
+            if (anyInPiP()) {
+              postPip(true);
+              return;
+            }
             forceResumePlaying();
             keepPipPlaying();
           }, true);
 
           document.addEventListener('freeze', function() {
             if (!wantsKeepAlive() && !wantsPip()) return;
+            if (anyInPiP()) return;
             forceResumePlaying();
           }, true);
         })();
