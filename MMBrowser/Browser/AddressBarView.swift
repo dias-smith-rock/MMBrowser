@@ -126,7 +126,6 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         setupCleanerMenu()
         setupTabSwipe()
         applyTheme()
-        refreshTextFieldConstraints()
         NotificationCenter.default.addObserver(self, selector: #selector(applyTheme), name: .themeDidChange, object: nil)
 
         container.snp.makeConstraints { make in
@@ -162,9 +161,10 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.height.equalTo(14)
             make.width.greaterThanOrEqualTo(14)
         }
+        // Trailing is owned exclusively by refreshTextFieldConstraints() so it can track the
+        // shield button without fighting a second trailing constraint to richMenuButton.
         swipeClip.snp.makeConstraints { make in
             make.leading.equalTo(reloadButton.snp.trailing).offset(8)
-            make.trailing.equalTo(richMenuButton.snp.leading).offset(-8)
             make.top.bottom.equalToSuperview()
         }
         textField.snp.makeConstraints { make in
@@ -173,6 +173,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         peekLabel.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
+        refreshTextFieldConstraints()
         progressView.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview()
             make.bottom.equalTo(container.snp.top)
@@ -281,6 +282,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     func setURLText(_ text: String) {
+        // Don't clobber in-progress typing; apply once editing ends.
+        guard !textField.isFirstResponder else { return }
         textField.text = text
     }
 

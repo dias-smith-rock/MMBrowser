@@ -16,6 +16,11 @@ enum YouTubeDarkMode {
         isYouTubeHost(url?.host)
     }
 
+    static func isYouTubeMusic(_ url: URL?) -> Bool {
+        guard let host = url?.host?.lowercased() else { return false }
+        return host == "music.youtube.com" || host.hasSuffix(".music.youtube.com")
+    }
+
     /// Document-start script: keep PREF.f6=400 and hint color-scheme.
     static var userScript: WKUserScript {
         let source = """

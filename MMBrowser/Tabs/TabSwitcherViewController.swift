@@ -30,6 +30,10 @@ final class TabSwitcherViewController: UIViewController {
     private var readingItems: [ReadingListItem] = []
     private var searchQuery = ""
     private var showingIncognito = false
+    /// `nil` means All groups.
+    private var selectedGroupFilter: String?
+    private let groupFilterBar = UIScrollView()
+    private let groupFilterStack = UIStackView()
 
     init(tabManager: TabManager) {
         self.tabManager = tabManager
@@ -39,9 +43,16 @@ final class TabSwitcherViewController: UIViewController {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    private var poolTabs: [BrowserTab] {
+        showingIncognito ? tabManager.incognitoTabs : tabManager.normalTabs
+    }
+
     private var displayedTabs: [BrowserTab] {
+        var base = poolTabs
+        if let group = selectedGroupFilter {
+            base = base.filter { $0.groupName == group }
+        }
         let q = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let base = showingIncognito ? tabManager.incognitoTabs : tabManager.normalTabs
         guard !q.isEmpty else { return base }
         return base.filter {
             $0.title.lowercased().contains(q)
@@ -50,10 +61,17 @@ final class TabSwitcherViewController: UIViewController {
         }
     }
 
+    /// Drag reorder only when showing the unfiltered tab pool.
+    private var canReorderTabs: Bool {
+        searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && selectedGroupFilter == nil
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         applyChrome()
         setupTop()
+        setupGroupFilterBar()
         setupMainScroll()
         setupBottom()
         reload()
@@ -119,6 +137,74 @@ final class TabSwitcherViewController: UIViewController {
         }
     }
 
+    private func setupGroupFilterBar() {
+        groupFilterBar.showsHorizontalScrollIndicator = false
+        groupFilterBar.alwaysBounceHorizontal = true
+        groupFilterStack.axis = .horizontal
+        groupFilterStack.spacing = 8
+        groupFilterStack.alignment = .center
+        groupFilterBar.addSubview(groupFilterStack)
+        view.addSubview(groupFilterBar)
+
+        groupFilterBar.snp.makeConstraints { make in
+            make.top.equalTo(topBar.snp.bottom)
+            make.leading.trailing.equalToSuperview()
+            make.height.equalTo(40)
+        }
+        groupFilterStack.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(UIEdgeInsets(top: 4, left: 16, bottom: 4, right: 16))
+            make.height.equalToSuperview().offset(-8)
+        }
+    }
+
+    private func rebuildGroupFilterBar() {
+        groupFilterStack.arrangedSubviews.forEach {
+            groupFilterStack.removeArrangedSubview($0)
+            $0.removeFromSuperview()
+        }
+
+        // Keep filter valid if the group disappeared.
+        if let selected = selectedGroupFilter,
+           !tabManager.groupNames.contains(selected) {
+            selectedGroupFilter = nil
+        }
+
+        let accent = showingIncognito ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
+        let chips: [(title: String, group: String?)] =
+            [("All", nil)] + tabManager.groupNames.map { ($0, $0) }
+
+        for chip in chips {
+            let count: Int = {
+                guard let group = chip.group else { return poolTabs.count }
+                return poolTabs.filter { $0.groupName == group }.count
+            }()
+            let selected = selectedGroupFilter == chip.group
+            let button = UIButton(type: .system)
+            button.setTitle(count > 0 ? "\(chip.title) (\(count))" : chip.title, for: .normal)
+            button.titleLabel?.font = .systemFont(ofSize: 13, weight: selected ? .semibold : .medium)
+            button.setTitleColor(selected ? .white : BrowserTheme.textPrimary, for: .normal)
+            button.backgroundColor = selected ? accent : BrowserTheme.secondaryCard
+            button.layer.cornerRadius = 14
+            button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
+            button.tag = chip.group == nil ? -1 : (tabManager.groupNames.firstIndex(of: chip.group!) ?? 0)
+            button.accessibilityIdentifier = chip.group ?? "__all__"
+            button.addTarget(self, action: #selector(groupFilterTapped(_:)), for: .touchUpInside)
+            groupFilterStack.addArrangedSubview(button)
+        }
+    }
+
+    @objc private func groupFilterTapped(_ sender: UIButton) {
+        let id = sender.accessibilityIdentifier
+        if id == "__all__" || id == nil {
+            selectedGroupFilter = nil
+        } else {
+            selectedGroupFilter = id
+        }
+        rebuildGroupFilterBar()
+        collectionView.reloadData()
+        updateCollectionHeight()
+    }
+
     private func makeMoreMenu() -> UIMenu {
         let closeOthers = UIAction(title: "Close Other Tabs", image: UIImage(systemName: "xmark.rectangle")) { [weak self] _ in
             self?.closeOtherTabs()
@@ -148,6 +234,10 @@ final class TabSwitcherViewController: UIViewController {
         collectionView.isScrollEnabled = false
         collectionView.dataSource = self
         collectionView.delegate = self
+        collectionView.dragDelegate = self
+        collectionView.dropDelegate = self
+        collectionView.dragInteractionEnabled = true
+        collectionView.reorderingCadence = .immediate
         collectionView.register(TabGridCell.self, forCellWithReuseIdentifier: TabGridCell.reuseID)
 
         configureListSection(bookmarksSection, title: "Bookmarks", table: bookmarksTable, kind: .bookmarks)
@@ -158,7 +248,7 @@ final class TabSwitcherViewController: UIViewController {
         contentStack.addArrangedSubview(readingSection)
 
         mainScroll.snp.makeConstraints { make in
-            make.top.equalTo(topBar.snp.bottom)
+            make.top.equalTo(groupFilterBar.snp.bottom)
             make.leading.trailing.equalToSuperview()
             make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).offset(-72)
         }
@@ -240,6 +330,7 @@ final class TabSwitcherViewController: UIViewController {
         modeControl.setTitle(privateCount > 0 ? "Incognito (\(privateCount))" : "Incognito", forSegmentAt: 1)
         moreButton.menu = makeMoreMenu()
         applyChrome()
+        rebuildGroupFilterBar()
         collectionView.reloadData()
         updateCollectionHeight()
         rebuildLibrarySections()
@@ -289,6 +380,7 @@ final class TabSwitcherViewController: UIViewController {
     @objc private func modeChanged() {
         showingIncognito = modeControl.selectedSegmentIndex == 1
         searchQuery = ""
+        selectedGroupFilter = nil
         let pool = showingIncognito ? tabManager.incognitoTabs : tabManager.normalTabs
         if let tab = pool.sorted(by: { $0.lastAccessed > $1.lastAccessed }).first {
             tabManager.selectTab(id: tab.id)
@@ -341,9 +433,10 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func promptMoveGroup(for tab: BrowserTab) {
-        let alert = UIAlertController(title: "Move to group", message: tab.title, preferredStyle: .actionSheet)
+        let alert = UIAlertController(title: "Move to Group", message: tab.title, preferredStyle: .actionSheet)
         for name in tabManager.groupNames {
-            alert.addAction(UIAlertAction(title: name, style: .default, handler: { _ in
+            let title = name == tab.groupName ? "\(name) ✓" : name
+            alert.addAction(UIAlertAction(title: title, style: .default, handler: { _ in
                 self.tabManager.moveTab(tab.id, toGroup: name)
                 self.reload()
             }))
@@ -386,6 +479,7 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
                 self.delegate?.tabSwitcherDidClose()
             }
         }
+        // Grouping via tap — long-press is reserved for drag reorder.
         cell.onMoveGroup = { [weak self] in
             self?.promptMoveGroup(for: tab)
         }
@@ -401,6 +495,80 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         let width = (collectionView.bounds.width - 36) / 2
         return CGSize(width: width, height: width * 1.25)
+    }
+}
+
+extension TabSwitcherViewController: UICollectionViewDragDelegate, UICollectionViewDropDelegate {
+    func collectionView(
+        _ collectionView: UICollectionView,
+        itemsForBeginning session: UIDragSession,
+        at indexPath: IndexPath
+    ) -> [UIDragItem] {
+        guard canReorderTabs else { return [] }
+        let tab = displayedTabs[indexPath.item]
+        let provider = NSItemProvider(object: tab.id.uuidString as NSString)
+        let item = UIDragItem(itemProvider: provider)
+        item.localObject = tab.id
+        return [item]
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        dragSessionWillBegin session: UIDragSession
+    ) {
+        mainScroll.isScrollEnabled = false
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        dragSessionDidEnd session: UIDragSession
+    ) {
+        mainScroll.isScrollEnabled = true
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        dropSessionDidUpdate session: UIDropSession,
+        withDestinationIndexPath destinationIndexPath: IndexPath?
+    ) -> UICollectionViewDropProposal {
+        guard canReorderTabs, session.localDragSession != nil else {
+            return UICollectionViewDropProposal(operation: .forbidden)
+        }
+        return UICollectionViewDropProposal(operation: .move, intent: .insertAtDestinationIndexPath)
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        performDropWith coordinator: UICollectionViewDropCoordinator
+    ) {
+        guard canReorderTabs,
+              let item = coordinator.items.first,
+              let id = item.dragItem.localObject as? UUID,
+              let sourcePath = item.sourceIndexPath else { return }
+
+        let destinationIndex = coordinator.destinationIndexPath?.item
+            ?? displayedTabs.count - 1
+        let destPath = IndexPath(
+            item: max(0, min(destinationIndex, max(displayedTabs.count - 1, 0))),
+            section: 0
+        )
+        guard sourcePath.item != destPath.item else {
+            coordinator.drop(item.dragItem, toItemAt: destPath)
+            return
+        }
+
+        collectionView.performBatchUpdates {
+            self.tabManager.reorderTab(
+                id: id,
+                toDisplayIndex: destPath.item,
+                incognito: self.showingIncognito
+            )
+            collectionView.moveItem(at: sourcePath, to: destPath)
+        } completion: { [weak self] _ in
+            self?.updateCollectionHeight()
+        }
+        coordinator.drop(item.dragItem, toItemAt: destPath)
     }
 }
 
@@ -474,6 +642,7 @@ final class TabGridCell: UICollectionViewCell {
 
     private let card = UIView()
     private let titleLabel = UILabel()
+    private let groupButton = UIButton(type: .system)
     private let closeButton = UIButton(type: .system)
     private let preview = UIImageView()
     private let placeholder = UILabel()
@@ -487,17 +656,36 @@ final class TabGridCell: UICollectionViewCell {
 
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = BrowserTheme.textPrimary
+        titleLabel.lineBreakMode = .byTruncatingTail
+
+        groupButton.titleLabel?.font = .systemFont(ofSize: 11, weight: .medium)
+        groupButton.titleLabel?.lineBreakMode = .byTruncatingTail
+        groupButton.contentHorizontalAlignment = .leading
+        groupButton.setTitleColor(BrowserTheme.textSecondary, for: .normal)
+        groupButton.tintColor = BrowserTheme.textSecondary
+        groupButton.setImage(
+            UIImage(systemName: "folder", withConfiguration: UIImage.SymbolConfiguration(pointSize: 10, weight: .medium)),
+            for: .normal
+        )
+        groupButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -2, bottom: 0, right: 2)
+        groupButton.titleEdgeInsets = UIEdgeInsets(top: 0, left: 2, bottom: 0, right: -2)
+        groupButton.accessibilityLabel = "Move to Group"
+        groupButton.addTarget(self, action: #selector(groupTapped), for: .touchUpInside)
+
         closeButton.setImage(UIImage(systemName: "xmark"), for: .normal)
         closeButton.tintColor = BrowserTheme.textSecondary
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
 
         preview.contentMode = .scaleAspectFill
         preview.clipsToBounds = true
+        preview.isUserInteractionEnabled = false
         placeholder.text = "Page"
         placeholder.textColor = BrowserTheme.textSecondary
         placeholder.textAlignment = .center
+        placeholder.isUserInteractionEnabled = false
 
         card.addSubview(titleLabel)
+        card.addSubview(groupButton)
         card.addSubview(closeButton)
         card.addSubview(preview)
         card.addSubview(placeholder)
@@ -507,25 +695,30 @@ final class TabGridCell: UICollectionViewCell {
             make.top.leading.equalToSuperview().offset(10)
             make.trailing.equalTo(closeButton.snp.leading).offset(-6)
         }
+        groupButton.snp.makeConstraints { make in
+            make.top.equalTo(titleLabel.snp.bottom).offset(0)
+            make.leading.equalToSuperview().offset(8)
+            make.trailing.lessThanOrEqualTo(closeButton.snp.leading).offset(-6)
+            make.height.equalTo(24)
+        }
         closeButton.snp.makeConstraints { make in
             make.top.equalToSuperview().offset(6)
             make.trailing.equalToSuperview().offset(-6)
             make.size.equalTo(28)
         }
         preview.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(36)
+            make.top.equalToSuperview().offset(48)
             make.leading.trailing.bottom.equalToSuperview()
         }
         placeholder.snp.makeConstraints { $0.center.equalTo(preview) }
-
-        let long = UILongPressGestureRecognizer(target: self, action: #selector(longPressed(_:)))
-        card.addGestureRecognizer(long)
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
     func configure(tab: BrowserTab, selected: Bool) {
         titleLabel.text = tab.title
+        let group = tab.groupName.trimmingCharacters(in: .whitespacesAndNewlines)
+        groupButton.setTitle(group.isEmpty ? "Default" : group, for: .normal)
         if AppSettings.showTabsPreviewImages, let snapshot = tab.snapshot {
             preview.image = snapshot
             placeholder.isHidden = true
@@ -538,7 +731,5 @@ final class TabGridCell: UICollectionViewCell {
     }
 
     @objc private func closeTapped() { onClose?() }
-    @objc private func longPressed(_ g: UILongPressGestureRecognizer) {
-        if g.state == .began { onMoveGroup?() }
-    }
+    @objc private func groupTapped() { onMoveGroup?() }
 }

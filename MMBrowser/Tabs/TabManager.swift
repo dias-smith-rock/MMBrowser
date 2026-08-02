@@ -32,9 +32,11 @@ final class TabManager {
         selectedIndex = 0
     }
 
+    /// - Parameter sessionID: When non-nil and creating a normal tab, reuse that website-data session
+    ///   (e.g. link opened from a parent tab). Otherwise a fresh session is created.
     @discardableResult
-    func addTab(incognito: Bool = false, select: Bool = true) -> BrowserTab {
-        let tab = BrowserTab(isIncognito: incognito)
+    func addTab(incognito: Bool = false, select: Bool = true, sessionID: UUID? = nil) -> BrowserTab {
+        let tab = BrowserTab(isIncognito: incognito, sessionID: incognito ? nil : sessionID)
         tabs.append(tab)
         if select {
             selectedIndex = tabs.count - 1
@@ -102,6 +104,7 @@ final class TabManager {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
         let closing = tabs[index]
         let wasIncognito = closing.isIncognito
+        let closedSessionID = closing.sessionID
         closing.webController?.cleanup()
         closing.webController = nil
         closing.snapshot = nil
@@ -121,6 +124,10 @@ final class TabManager {
             }
         }
 
+        if !wasIncognito {
+            TabSessionStore.removeIfOrphaned(sessionID: closedSessionID, among: tabs)
+        }
+
         // Last private tab closed — ensure no leftover private WebViews/snapshots.
         if wasIncognito, incognitoTabs.isEmpty {
             for tab in tabs where tab.isIncognito {
@@ -134,6 +141,7 @@ final class TabManager {
 
     /// Close every tab and leave a single fresh New Tab (used by Close All Tabs on Exit).
     func closeAllTabsAndReset() {
+        let orphanSessionIDs = Set(normalTabs.map(\.sessionID))
         for tab in tabs {
             tab.webController?.cleanup()
             tab.webController = nil
@@ -143,6 +151,9 @@ final class TabManager {
         let fresh = BrowserTab(isIncognito: false)
         tabs = [fresh]
         selectedIndex = 0
+        for sessionID in orphanSessionIDs where sessionID != fresh.sessionID {
+            TabSessionStore.removeIfOrphaned(sessionID: sessionID, among: tabs)
+        }
         clearPersistedSession()
         delegate?.tabManager(self, didSelect: fresh)
         notifyUpdated()
@@ -169,6 +180,36 @@ final class TabManager {
         guard let tab = tabs.first(where: { $0.id == id }) else { return }
         tab.groupName = name
         if !groupNames.contains(name) { groupNames.append(name) }
+        notifyUpdated()
+    }
+
+    /// Reorder within the normal or incognito pool (display order). Persists via `notifyUpdated`.
+    func reorderTab(id: UUID, toDisplayIndex dest: Int, incognito: Bool) {
+        let poolIndices = tabs.indices.filter { tabs[$0].isIncognito == incognito }
+        guard let fromPool = poolIndices.firstIndex(where: { tabs[$0].id == id }),
+              poolIndices.indices.contains(dest),
+              fromPool != dest else { return }
+
+        var pool = poolIndices.map { tabs[$0] }
+        let item = pool.remove(at: fromPool)
+        pool.insert(item, at: dest)
+
+        let selectedID = selectedTab?.id
+        var merged: [BrowserTab] = []
+        merged.reserveCapacity(tabs.count)
+        var poolCursor = 0
+        for tab in tabs {
+            if tab.isIncognito == incognito {
+                merged.append(pool[poolCursor])
+                poolCursor += 1
+            } else {
+                merged.append(tab)
+            }
+        }
+        tabs = merged
+        if let selectedID, let idx = tabs.firstIndex(where: { $0.id == selectedID }) {
+            selectedIndex = idx
+        }
         notifyUpdated()
     }
 
@@ -207,6 +248,7 @@ final class TabManager {
             tabs: normal.map {
                 PersistedTab(
                     id: $0.id,
+                    sessionID: $0.sessionID,
                     title: $0.title,
                     urlString: $0.url?.absoluteString,
                     isNewTabPage: $0.isNewTabPage,
@@ -248,6 +290,7 @@ final class TabManager {
             let url = $0.urlString.flatMap(URL.init(string:))
             let tab = BrowserTab(
                 id: $0.id,
+                sessionID: $0.sessionID,
                 title: $0.title,
                 url: url,
                 isNewTabPage: url == nil,
@@ -274,10 +317,47 @@ private struct PersistedSession: Codable {
 
 private struct PersistedTab: Codable {
     let id: UUID
+    var sessionID: UUID
     var title: String
     var urlString: String?
     var isNewTabPage: Bool
     var lastAccessed: Date
     var groupName: String
     var preferDesktop: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, sessionID, title, urlString, isNewTabPage, lastAccessed, groupName, preferDesktop
+    }
+
+    init(
+        id: UUID,
+        sessionID: UUID,
+        title: String,
+        urlString: String?,
+        isNewTabPage: Bool,
+        lastAccessed: Date,
+        groupName: String,
+        preferDesktop: Bool
+    ) {
+        self.id = id
+        self.sessionID = sessionID
+        self.title = title
+        self.urlString = urlString
+        self.isNewTabPage = isNewTabPage
+        self.lastAccessed = lastAccessed
+        self.groupName = groupName
+        self.preferDesktop = preferDesktop
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        sessionID = try c.decodeIfPresent(UUID.self, forKey: .sessionID) ?? UUID()
+        title = try c.decode(String.self, forKey: .title)
+        urlString = try c.decodeIfPresent(String.self, forKey: .urlString)
+        isNewTabPage = try c.decode(Bool.self, forKey: .isNewTabPage)
+        lastAccessed = try c.decode(Date.self, forKey: .lastAccessed)
+        groupName = try c.decode(String.self, forKey: .groupName)
+        preferDesktop = try c.decode(Bool.self, forKey: .preferDesktop)
+    }
 }

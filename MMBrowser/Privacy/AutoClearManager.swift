@@ -48,11 +48,8 @@ enum AutoClearManager {
             return
         }
 
-        let store = WKWebsiteDataStore.default()
-        store.fetchDataRecords(ofTypes: types) { records in
-            store.removeData(ofTypes: types, for: records) {
-                DispatchQueue.main.async(execute: finish)
-            }
+        TabSessionStore.clear(types: types) {
+            finish()
         }
     }
 
@@ -80,11 +77,6 @@ enum AutoClearManager {
             completion?()
             return
         }
-        let store = WKWebsiteDataStore.default()
-        store.fetchDataRecords(ofTypes: types) { records in
-            store.removeData(ofTypes: types, for: records) {
-                DispatchQueue.main.async { completion?() }
-            }
-        }
+        TabSessionStore.clear(types: types, completion: completion)
     }
 }

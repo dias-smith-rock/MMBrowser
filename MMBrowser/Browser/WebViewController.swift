@@ -80,6 +80,8 @@ final class WebViewController: UIViewController {
 
     private(set) var webView: WKWebView?
     private let isIncognito: Bool
+    /// Persistent store for normal tabs; ignored when `isIncognito` (uses non-persistent).
+    private let websiteDataStore: WKWebsiteDataStore
     private var progressObservation: NSKeyValueObservation?
     private var loadingObservation: NSKeyValueObservation?
     private var titleObservation: NSKeyValueObservation?
@@ -112,18 +114,27 @@ final class WebViewController: UIViewController {
     private var prefersPictureInPicture = false
     private var pipForegroundObserver: NSObjectProtocol?
     private var pipLeaveWorkItem: DispatchWorkItem?
-    /// Native PiP entry — YouTube only exposes its own control in fullscreen.
+    /// Native PiP entry — YouTube video pages only (hidden on YouTube Music).
     private lazy var pipEntryButton: UIButton = makePipEntryButton()
     private var pipVideoPollTimer: Timer?
-    private var hasPlayableVideoForPiP = false
     /// Prevents stacked auto-enter retries while sticky PiP waits for a video element.
     private var stickyPipEnterInFlight = false
+    /// After a PiP leave, suppress sticky auto-restore briefly so a manual close can clear prefer.
+    private var suppressStickyPipRestoreUntil: Date?
+    /// After yielding to another tab, ignore stale active:true while system PiP tears down.
+    private var suppressPipClaimUntil: Date?
+    /// Last free-drag origin for the PiP button (session + UserDefaults).
+    private var pipEntryButtonOrigin: CGPoint?
+    private static let pipEntryOriginXKey = "media.pip.button.originX"
+    private static let pipEntryOriginYKey = "media.pip.button.originY"
 
     private let desktopUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
-    init(isIncognito: Bool) {
+    init(isIncognito: Bool, websiteDataStore: WKWebsiteDataStore = .default()) {
         self.isIncognito = isIncognito
-        self.prefersPictureInPicture = AppSettings.stickyPictureInPicture
+        self.websiteDataStore = websiteDataStore
+        // Do not inherit global sticky — only the PiP owner tab may prefer PiP.
+        self.prefersPictureInPicture = false
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -140,7 +151,7 @@ final class WebViewController: UIViewController {
         guard !didSetupWebView else { return }
         didSetupWebView = true
         let config = WKWebViewConfiguration()
-        if isIncognito { config.websiteDataStore = .nonPersistent() }
+        config.websiteDataStore = isIncognito ? .nonPersistent() : websiteDataStore
         MediaPlaybackSupport.configureAudioSessionIfNeeded()
         MediaPlaybackSupport.apply(to: config)
         AdBlockManager.shared.apply(to: config) { [weak self] in
@@ -230,38 +241,47 @@ final class WebViewController: UIViewController {
         setupDrawingGestures()
 
         progressObservation = wv.observe(\.estimatedProgress, options: [.new]) { [weak self] webView, _ in
-            guard let self = self else { return }
-            self.delegate?.webViewController(
-                self,
-                didUpdateProgress: webView.estimatedProgress,
-                isLoading: webView.isLoading && webView.estimatedProgress < 1
-            )
+            let progress = webView.estimatedProgress
+            let loading = webView.isLoading && webView.estimatedProgress < 1
+            self?.notifyDelegateOnMain {
+                $0.delegate?.webViewController($0, didUpdateProgress: progress, isLoading: loading)
+            }
         }
         loadingObservation = wv.observe(\.isLoading, options: [.new]) { [weak self] webView, _ in
-            guard let self = self else { return }
-            self.delegate?.webViewController(
-                self,
-                didUpdateProgress: webView.estimatedProgress,
-                isLoading: webView.isLoading && webView.estimatedProgress < 1
-            )
+            let progress = webView.estimatedProgress
+            let loading = webView.isLoading && webView.estimatedProgress < 1
+            self?.notifyDelegateOnMain {
+                $0.delegate?.webViewController($0, didUpdateProgress: progress, isLoading: loading)
+            }
         }
         titleObservation = wv.observe(\.title, options: [.new]) { [weak self] webView, _ in
-            guard let self = self else { return }
-            self.delegate?.webViewController(self, didUpdateTitle: webView.title)
+            let title = webView.title
+            self?.notifyDelegateOnMain {
+                $0.delegate?.webViewController($0, didUpdateTitle: title)
+            }
         }
+        // WKWebView URL KVO can fire off the main thread; hop before touching UI.
         urlObservation = wv.observe(\.url, options: [.new]) { [weak self] webView, _ in
-            guard let self = self else { return }
-            YouTubeDarkMode.applyAppearance(to: webView, url: webView.url)
-            self.delegate?.webViewController(self, didUpdateURL: webView.url)
-            self.refreshPipEntryPolling()
+            let url = webView.url
+            self?.notifyDelegateOnMain {
+                YouTubeDarkMode.applyAppearance(to: webView, url: url)
+                $0.delegate?.webViewController($0, didUpdateURL: url)
+                $0.refreshPipEntryPolling()
+            }
         }
         canGoBackObservation = wv.observe(\.canGoBack, options: [.new]) { [weak self] webView, _ in
-            guard let self = self else { return }
-            self.delegate?.webViewController(self, didUpdateNavigationState: webView.canGoBack, canGoForward: webView.canGoForward)
+            let back = webView.canGoBack
+            let forward = webView.canGoForward
+            self?.notifyDelegateOnMain {
+                $0.delegate?.webViewController($0, didUpdateNavigationState: back, canGoForward: forward)
+            }
         }
         canGoForwardObservation = wv.observe(\.canGoForward, options: [.new]) { [weak self] webView, _ in
-            guard let self = self else { return }
-            self.delegate?.webViewController(self, didUpdateNavigationState: webView.canGoBack, canGoForward: webView.canGoForward)
+            let back = webView.canGoBack
+            let forward = webView.canGoForward
+            self?.notifyDelegateOnMain {
+                $0.delegate?.webViewController($0, didUpdateNavigationState: back, canGoForward: forward)
+            }
         }
         contentOffsetObservation = wv.scrollView.observe(\.contentOffset, options: [.new, .old]) { [weak self] scrollView, change in
             guard let self = self else { return }
@@ -270,7 +290,9 @@ final class WebViewController: UIViewController {
             let oldY = change.oldValue?.y ?? newY
             let delta = newY - oldY
             guard abs(delta) > 0.5 else { return }
-            self.delegate?.webViewController(self, didScroll: delta, offsetY: newY)
+            self.notifyDelegateOnMain {
+                $0.delegate?.webViewController($0, didScroll: delta, offsetY: newY)
+            }
         }
 
         if let pendingURL = pendingURL {
@@ -728,6 +750,7 @@ final class WebViewController: UIViewController {
         pipLeaveWorkItem = nil
         pipVideoPollTimer?.invalidate()
         pipVideoPollTimer = nil
+        PipSession.releaseIfOwner(self)
         prefersPictureInPicture = false
         setPictureInPictureActive(false)
         webView?.stopLoading()
@@ -742,7 +765,7 @@ final class WebViewController: UIViewController {
         var config = UIButton.Configuration.filled()
         config.cornerStyle = .capsule
         config.baseForegroundColor = .white
-        config.baseBackgroundColor = UIColor.black.withAlphaComponent(0.78)
+        config.baseBackgroundColor = BrowserTheme.chromeBlue
         config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
         config.image = UIImage(systemName: "pip.enter")
         config.imagePadding = 6
@@ -758,29 +781,116 @@ final class WebViewController: UIViewController {
         button.layer.shadowOffset = CGSize(width: 0, height: 2)
         button.layer.shadowRadius = 6
         button.addTarget(self, action: #selector(pipEntryTapped), for: .touchUpInside)
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(pipEntryPanned(_:)))
+        pan.maximumNumberOfTouches = 1
+        button.addGestureRecognizer(pan)
         return button
     }
 
     private func setupPipEntryButton() {
-        view.addSubview(pipEntryButton)
-        pipEntryButton.snp.makeConstraints { make in
-            make.trailing.equalTo(view.safeAreaLayoutGuide).inset(12)
-            // Sit below typical YouTube top chrome so it stays visible during inline playback.
-            make.top.equalTo(view.safeAreaLayoutGuide).inset(52)
+        if pipEntryButton.superview == nil {
+            view.addSubview(pipEntryButton)
         }
+        loadPipEntryButtonOriginIfNeeded()
+        layoutPipEntryButton()
         refreshPipEntryPolling()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        guard !pipEntryButton.isHidden else { return }
+        layoutPipEntryButton()
+    }
+
+    private func loadPipEntryButtonOriginIfNeeded() {
+        guard pipEntryButtonOrigin == nil else { return }
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: Self.pipEntryOriginXKey) != nil,
+           defaults.object(forKey: Self.pipEntryOriginYKey) != nil {
+            pipEntryButtonOrigin = CGPoint(
+                x: defaults.double(forKey: Self.pipEntryOriginXKey),
+                y: defaults.double(forKey: Self.pipEntryOriginYKey)
+            )
+        }
+    }
+
+    private func persistPipEntryButtonOrigin() {
+        guard let origin = pipEntryButtonOrigin else { return }
+        let defaults = UserDefaults.standard
+        defaults.set(origin.x, forKey: Self.pipEntryOriginXKey)
+        defaults.set(origin.y, forKey: Self.pipEntryOriginYKey)
+    }
+
+    private func pipEntryButtonSize() -> CGSize {
+        pipEntryButton.invalidateIntrinsicContentSize()
+        var size = pipEntryButton.intrinsicContentSize
+        if size.width < 1 || size.height < 1 || size.width == UIView.noIntrinsicMetric {
+            pipEntryButton.sizeToFit()
+            size = pipEntryButton.bounds.size
+        }
+        if size.width < 1 || size.height < 1 {
+            size = CGSize(width: 72, height: 36)
+        }
+        return size
+    }
+
+    /// Default: left side, below typical YouTube top chrome.
+    private func defaultPipEntryButtonOrigin() -> CGPoint {
+        let safe = view.safeAreaInsets
+        return CGPoint(x: safe.left + 12, y: safe.top + 52)
+    }
+
+    private func clampPipEntryOrigin(_ origin: CGPoint, size: CGSize) -> CGPoint {
+        let safe = view.safeAreaInsets
+        let inset: CGFloat = 8
+        let minX = safe.left + inset
+        let minY = safe.top + inset
+        let maxX = max(minX, view.bounds.width - safe.right - size.width - inset)
+        let maxY = max(minY, view.bounds.height - safe.bottom - size.height - inset)
+        return CGPoint(
+            x: min(max(origin.x, minX), maxX),
+            y: min(max(origin.y, minY), maxY)
+        )
+    }
+
+    private func layoutPipEntryButton() {
+        guard pipEntryButton.superview != nil, view.bounds.width > 1, view.bounds.height > 1 else { return }
+        let size = pipEntryButtonSize()
+        let raw = pipEntryButtonOrigin ?? defaultPipEntryButtonOrigin()
+        let origin = clampPipEntryOrigin(raw, size: size)
+        pipEntryButtonOrigin = origin
+        pipEntryButton.frame = CGRect(origin: origin, size: size)
+    }
+
+    @objc private func pipEntryPanned(_ gesture: UIPanGestureRecognizer) {
+        switch gesture.state {
+        case .began:
+            view.bringSubviewToFront(pipEntryButton)
+        case .changed:
+            let translation = gesture.translation(in: view)
+            gesture.setTranslation(.zero, in: view)
+            let size = pipEntryButton.bounds.size
+            let next = CGPoint(
+                x: pipEntryButton.frame.origin.x + translation.x,
+                y: pipEntryButton.frame.origin.y + translation.y
+            )
+            let origin = clampPipEntryOrigin(next, size: size)
+            pipEntryButtonOrigin = origin
+            pipEntryButton.frame = CGRect(origin: origin, size: size)
+        case .ended, .cancelled:
+            persistPipEntryButtonOrigin()
+        default:
+            break
+        }
     }
 
     private func refreshPipEntryPolling() {
         pipVideoPollTimer?.invalidate()
         pipVideoPollTimer = nil
+        updatePipEntryButtonVisibility()
         guard AppSettings.pictureInPictureEnabled,
               YouTubeDarkMode.isYouTube(webView?.url)
-        else {
-            hasPlayableVideoForPiP = false
-            updatePipEntryButtonVisibility()
-            return
-        }
+        else { return }
         pollPlayableVideoForPiP()
         pipVideoPollTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: true) { [weak self] _ in
             self?.pollPlayableVideoForPiP()
@@ -789,7 +899,6 @@ final class WebViewController: UIViewController {
 
     private func pollPlayableVideoForPiP() {
         guard AppSettings.pictureInPictureEnabled, YouTubeDarkMode.isYouTube(webView?.url) else {
-            hasPlayableVideoForPiP = false
             updatePipEntryButtonVisibility()
             return
         }
@@ -813,18 +922,18 @@ final class WebViewController: UIViewController {
                 guard let self else { return }
                 let state = result as? String ?? "none"
                 let inPip = state == "pip"
-                self.hasPlayableVideoForPiP = inPip
-                    || state == "playing"
-                    || state == "ready"
-                    || state == "present"
                 if inPip {
+                    if let until = self.suppressPipClaimUntil, Date() < until {
+                        MediaPlaybackSupport.releasePictureInPicture(in: self.webView)
+                        self.setPictureInPictureActive(false)
+                        return
+                    }
                     self.stickyPipEnterInFlight = false
                     self.persistPipPrefer(true)
                     self.setPictureInPictureActive(true)
-                } else if AppSettings.stickyPictureInPicture {
-                    self.restoreStickyPipIfNeeded()
                 } else if self.isPictureInPictureActive {
-                    // Avoid a stuck "active" flag that permanently hides the PiP entry.
+                    // Avoid a stuck "active" flag after a false leave.
+                    // Do not auto-restore sticky here — that re-opened PiP after a manual close.
                     self.syncPictureInPictureActiveFromPage()
                 } else {
                     self.updatePipEntryButtonVisibility()
@@ -835,15 +944,74 @@ final class WebViewController: UIViewController {
 
     private func persistPipPrefer(_ prefer: Bool) {
         prefersPictureInPicture = prefer
-        AppSettings.stickyPictureInPicture = prefer
+        if prefer {
+            PipSession.claim(self)
+            AppSettings.stickyPictureInPicture = true
+        } else {
+            AppSettings.stickyPictureInPicture = false
+            PipSession.releaseIfOwner(self)
+        }
+    }
+
+    /// Another tab claimed PiP or started playback — stop fighting for the audio session.
+    func yieldPipOwnership(reason: String) {
+        PipProbe.log("session.yield", [
+            "reason": reason,
+            "host": webView?.url?.host ?? "?",
+            "wasActive": isPictureInPictureActive,
+            "wasPrefer": prefersPictureInPicture
+        ])
+        stickyPipEnterInFlight = false
+        pipLeaveWorkItem?.cancel()
+        pipLeaveWorkItem = nil
+        prefersPictureInPicture = false
+        // Stale presentation-mode / scan pulses still report inPip while teardown runs.
+        suppressPipClaimUntil = Date().addingTimeInterval(2.5)
+        suppressStickyPipRestoreUntil = Date().addingTimeInterval(2.5)
+        if PipSession.isOwner(self) {
+            AppSettings.stickyPictureInPicture = false
+            PipSession.releaseIfOwner(self)
+        }
+        setPictureInPictureActive(false)
+        MediaPlaybackSupport.releasePictureInPicture(in: webView)
+        // Second pass — first exit can race WebKit's PiP session.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self else { return }
+            MediaPlaybackSupport.releasePictureInPicture(in: self.webView)
+        }
     }
 
     /// After a new document load, re-apply saved PiP intent and enter when a video is ready.
     private func restoreStickyPipIfNeeded() {
         guard AppSettings.pictureInPictureEnabled, AppSettings.stickyPictureInPicture else { return }
+        // YouTube Music has no PiP surface — never sticky-restore there.
+        guard !YouTubeDarkMode.isYouTubeMusic(webView?.url) else { return }
+        guard PipSession.isOwner(self) else {
+            // Global sticky may still be true from another tab — do not steal it.
+            PipProbe.log("sticky.restore.skip", [
+                "why": "notOwner",
+                "host": webView?.url?.host ?? "?"
+            ])
+            return
+        }
+        if let until = suppressStickyPipRestoreUntil, Date() < until {
+            PipProbe.log("sticky.restore.skip", ["why": "suppressAfterLeave"])
+            return
+        }
+        PipProbe.log("sticky.restore", [
+            "host": webView?.url?.host ?? "?",
+            "isMusic": YouTubeDarkMode.isYouTubeMusic(webView?.url),
+            "inFlight": stickyPipEnterInFlight,
+            "nativeActive": isPictureInPictureActive
+        ])
+        PipProbe.requestTabDump(reason: "sticky.restore")
+        MediaPlaybackSupport.probePageState(in: webView, reason: "sticky.restore")
         prefersPictureInPicture = true
         MediaPlaybackSupport.applyStickyPrefer(in: webView, prefer: true)
-        guard !stickyPipEnterInFlight else { return }
+        guard !stickyPipEnterInFlight else {
+            PipProbe.log("sticky.restore.skip", ["why": "inFlight"])
+            return
+        }
         stickyPipEnterInFlight = true
         attemptStickyPipEnter(retriesLeft: 10)
     }
@@ -851,23 +1019,44 @@ final class WebViewController: UIViewController {
     private func attemptStickyPipEnter(retriesLeft: Int) {
         guard AppSettings.pictureInPictureEnabled,
               AppSettings.stickyPictureInPicture,
+              !YouTubeDarkMode.isYouTubeMusic(webView?.url),
               retriesLeft > 0 else {
+            PipProbe.log("sticky.attempt.stop", [
+                "left": retriesLeft,
+                "sticky": AppSettings.stickyPictureInPicture,
+                "host": webView?.url?.host ?? "?"
+            ])
             stickyPipEnterInFlight = false
             return
         }
+        PipProbe.log("sticky.attempt", [
+            "left": retriesLeft,
+            "host": webView?.url?.host ?? "?",
+            "isMusic": YouTubeDarkMode.isYouTubeMusic(webView?.url)
+        ])
         MediaPlaybackSupport.reinforcePictureInPictureIfNeeded(in: webView)
         MediaPlaybackSupport.enterPictureInPicture(in: webView) { [weak self] ok in
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard AppSettings.stickyPictureInPicture else {
                     self.stickyPipEnterInFlight = false
+                    PipProbe.log("sticky.attempt.abort", ["why": "stickyCleared"])
                     return
                 }
                 if ok || self.isPictureInPictureActive {
+                    PipProbe.log("sticky.attempt.ok", [
+                        "jsOk": ok,
+                        "nativeActive": self.isPictureInPictureActive,
+                        "host": self.webView?.url?.host ?? "?"
+                    ])
                     self.stickyPipEnterInFlight = false
                     self.setPictureInPictureActive(true)
                     return
                 }
+                PipProbe.log("sticky.attempt.retry", [
+                    "left": retriesLeft - 1,
+                    "host": self.webView?.url?.host ?? "?"
+                ])
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { [weak self] in
                     self?.attemptStickyPipEnter(retriesLeft: retriesLeft - 1)
                 }
@@ -895,17 +1084,22 @@ final class WebViewController: UIViewController {
                 if inPip {
                     self.persistPipPrefer(true)
                     self.setPictureInPictureActive(true)
-                } else if prefer || AppSettings.stickyPictureInPicture {
-                    // Re-entering after next-video / new page — keep intent.
+                } else if prefer, PipSession.isOwner(self) || PipSession.owner == nil {
+                    // Page still wants PiP (next-video reenter in progress). Keep sticky
+                    // but do not force enter — JS owns reenter vs user-dismiss.
                     self.persistPipPrefer(true)
-                    self.setPictureInPictureActive(true)
-                    MediaPlaybackSupport.applyStickyPrefer(in: self.webView, prefer: true)
-                    MediaPlaybackSupport.reinforcePictureInPictureIfNeeded(in: self.webView)
-                    if !inPip {
-                        self.attemptStickyPipEnter(retriesLeft: 6)
-                    }
-                } else {
+                    self.setPictureInPictureActive(false)
+                } else if prefer {
+                    // Another tab owns PiP — drop local prefer so we do not fight for audio.
+                    self.prefersPictureInPicture = false
+                    self.setPictureInPictureActive(false)
+                    MediaPlaybackSupport.applyStickyPrefer(in: self.webView, prefer: false)
+                } else if PipSession.isOwner(self) {
+                    self.stickyPipEnterInFlight = false
                     self.persistPipPrefer(false)
+                    self.setPictureInPictureActive(false)
+                } else {
+                    self.prefersPictureInPicture = false
                     self.setPictureInPictureActive(false)
                 }
             }
@@ -913,57 +1107,68 @@ final class WebViewController: UIViewController {
     }
 
     private func updatePipEntryButtonVisibility() {
+        // Regular YouTube only — Music has no usable HTML video / PiP surface.
         let show = AppSettings.pictureInPictureEnabled
             && YouTubeDarkMode.isYouTube(webView?.url)
-            && hasPlayableVideoForPiP
-            && !isPictureInPictureActive
+            && !YouTubeDarkMode.isYouTubeMusic(webView?.url)
             && !(webView?.isHidden ?? false)
         pipEntryButton.isHidden = !show
         if show {
+            if pipEntryButton.superview == nil {
+                view.addSubview(pipEntryButton)
+                loadPipEntryButtonOriginIfNeeded()
+            }
+            layoutPipEntryButton()
             view.bringSubviewToFront(pipEntryButton)
         }
     }
 
     @objc private func pipEntryTapped() {
-        persistPipPrefer(true)
+        // Explicit user intent — allow PiP again after a prior yield suppress window.
+        suppressPipClaimUntil = nil
+        guard !YouTubeDarkMode.isYouTubeMusic(webView?.url) else { return }
+        // Silent no-op when PiP cannot start (no toast / alert).
         MediaPlaybackSupport.enterPictureInPicture(in: webView) { [weak self] ok in
             DispatchQueue.main.async {
-                guard let self else { return }
-                if !ok {
-                    self.persistPipPrefer(self.isPictureInPictureActive || AppSettings.stickyPictureInPicture)
-                }
-                // Presentation-mode bridge / poll will hide the entry once PiP is confirmed.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                    self?.pollPlayableVideoForPiP()
-                }
+                guard let self, ok else { return }
+                self.persistPipPrefer(true)
+                self.setPictureInPictureActive(true)
             }
         }
     }
 
     private func reinforcePictureInPictureAfterForeground() {
-        guard prefersPictureInPicture || isPictureInPictureActive || AppSettings.stickyPictureInPicture,
+        guard PipSession.isOwner(self),
+              prefersPictureInPicture || isPictureInPictureActive || AppSettings.stickyPictureInPicture,
               let webView else { return }
-        persistPipPrefer(true)
-        setPictureInPictureActive(true)
-        // Keep the page visible; JS blocks YouTube from forcing inline / dismissing PiP.
+        // Page script decides reenter vs user-dismiss; do not mark active here.
         MediaPlaybackSupport.reinforcePictureInPictureIfNeeded(in: webView)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-            guard let self, self.prefersPictureInPicture else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self, PipSession.isOwner(self),
+                  AppSettings.stickyPictureInPicture || self.prefersPictureInPicture else { return }
             MediaPlaybackSupport.reinforcePictureInPictureIfNeeded(in: self.webView)
+            self.syncPictureInPictureActiveFromPage()
         }
     }
 
     fileprivate func handlePictureInPictureMessage(_ message: WKScriptMessage) {
         guard message.name == MediaPlaybackSupport.pipHandlerName else { return }
         if let body = message.body as? [String: Any] {
-            if let ready = body["videoReady"] as? Bool {
+            if body["diag"] as? Bool == true {
+                PipProbe.logJS(body)
+                return
+            }
+            if body["userPlay"] as? Bool == true {
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
-                    self.hasPlayableVideoForPiP = ready
-                    if ready {
-                        self.restoreStickyPipIfNeeded()
-                    }
-                    self.updatePipEntryButtonVisibility()
+                    PipSession.handleTrustedUserPlay(from: self)
+                }
+            }
+            if body["videoReady"] as? Bool != nil {
+                DispatchQueue.main.async { [weak self] in
+                    // Sticky reenter after next-track / media swap is owned by page JS.
+                    // Restoring from every videoReady pulse re-opened PiP after a manual close.
+                    self?.updatePipEntryButtonVisibility()
                 }
             }
             if let active = body["active"] as? Bool {
@@ -985,22 +1190,56 @@ final class WebViewController: UIViewController {
         pipLeaveWorkItem?.cancel()
         pipLeaveWorkItem = nil
 
-        if active || prefer == true {
+        PipProbe.log("native.activeChange", [
+            "active": active,
+            "prefer": prefer.map { $0 ? "true" : "false" } ?? "nil",
+            "host": webView?.url?.host ?? "?",
+            "sticky": AppSettings.stickyPictureInPicture,
+            "nativeActive": isPictureInPictureActive
+        ])
+
+        if active {
+            if let until = suppressPipClaimUntil, Date() < until {
+                // Yielding to another tab — do not reclaim from teardown flicker.
+                PipProbe.log("native.activeChange.ignored", [
+                    "why": "yielding",
+                    "host": webView?.url?.host ?? "?"
+                ])
+                setPictureInPictureActive(false)
+                MediaPlaybackSupport.releasePictureInPicture(in: webView)
+                return
+            }
+            // Only the tab that is actually presenting PiP may claim sticky ownership.
+            suppressStickyPipRestoreUntil = nil
             persistPipPrefer(true)
             setPictureInPictureActive(true)
-            if !active {
-                MediaPlaybackSupport.reinforcePictureInPictureIfNeeded(in: webView)
-            }
             return
         }
 
+        // Left PiP. Never reinforce here — that re-opened PiP after the user closed it.
+        setPictureInPictureActive(false)
+        suppressStickyPipRestoreUntil = Date().addingTimeInterval(1.2)
+
         if prefer == false {
             // Explicit clear from page (user dismissed PiP).
+            PipProbe.log("native.preferCleared", ["host": webView?.url?.host ?? "?"])
             stickyPipEnterInFlight = false
             persistPipPrefer(false)
+            suppressStickyPipRestoreUntil = nil
+            return
         }
 
-        // Delay clearing — YouTube/WebKit can emit a false leave during foreground resume / next video.
+        if prefer == true {
+            // Keep sticky only if this tab already owns the session (or none does yet).
+            if PipSession.isOwner(self) || PipSession.owner == nil {
+                persistPipPrefer(true)
+            } else {
+                prefersPictureInPicture = false
+                MediaPlaybackSupport.applyStickyPrefer(in: webView, prefer: false)
+            }
+        }
+
+        // Delay sync — YouTube/WebKit can emit a false leave during foreground resume / next video.
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.syncPictureInPictureActiveFromPage()
@@ -1019,6 +1258,18 @@ final class WebViewController: UIViewController {
 
     @objc private func retryTapped() {
         if let url = lastFailedURL { load(url: url) } else { webView?.reload() }
+    }
+
+    /// WKWebView KVO often arrives off the main thread — UI / delegate work must hop.
+    private func notifyDelegateOnMain(_ work: @escaping (WebViewController) -> Void) {
+        if Thread.isMainThread {
+            work(self)
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                work(self)
+            }
+        }
     }
 
     deinit { cleanup() }
@@ -1133,17 +1384,37 @@ extension WebViewController: WKNavigationDelegate {
                 }
                 return
             }
+
+            // Optimistic address-bar update for main-frame navigations (links / typed URL / redirects).
+            let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
+            if isMainFrame, ["http", "https"].contains(scheme) {
+                notifyDelegateOnMain {
+                    $0.delegate?.webViewController($0, didUpdateURL: url)
+                }
+            }
         }
         decisionHandler(.allow)
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         PageCleanerManager.apply(to: webView, url: webView.url)
-        // Document JS state is reset on navigation — re-seed sticky PiP before media starts.
-        if AppSettings.stickyPictureInPicture {
+        notifyDelegateOnMain {
+            $0.delegate?.webViewController($0, didUpdateURL: webView.url)
+            $0.delegate?.webViewController($0, didUpdateTitle: webView.title)
+        }
+        // Document JS state is reset on navigation — re-seed sticky PiP only for the owner tab.
+        if AppSettings.stickyPictureInPicture, PipSession.isOwner(self) {
+            PipProbe.log("nav.commit", [
+                "host": webView.url?.host ?? "?",
+                "isMusic": YouTubeDarkMode.isYouTubeMusic(webView.url),
+                "sticky": true
+            ])
             stickyPipEnterInFlight = false
             prefersPictureInPicture = true
             MediaPlaybackSupport.seedStickyPrefer(in: webView)
+        } else if AppSettings.stickyPictureInPicture, !PipSession.isOwner(self) {
+            prefersPictureInPicture = false
+            MediaPlaybackSupport.applyStickyPrefer(in: webView, prefer: false)
         }
     }
 
@@ -1157,8 +1428,16 @@ extension WebViewController: WKNavigationDelegate {
             HistoryStore.shared.add(title: webView.title ?? "", url: url)
         }
         AppLockCoordinator.shared.noteWebpageFinished(url: webView.url)
-        if AppSettings.stickyPictureInPicture {
+        if AppSettings.stickyPictureInPicture, PipSession.isOwner(self) {
+            PipProbe.log("nav.finish", [
+                "host": webView.url?.host ?? "?",
+                "isMusic": YouTubeDarkMode.isYouTubeMusic(webView.url),
+                "sticky": true
+            ])
             restoreStickyPipIfNeeded()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                MediaPlaybackSupport.probePageState(in: self?.webView, reason: "nav.finish+1s")
+            }
         }
         // Some sites rewrite viewport after load; re-apply carefully.
         if YouTubeDarkMode.isYouTube(webView.url) {

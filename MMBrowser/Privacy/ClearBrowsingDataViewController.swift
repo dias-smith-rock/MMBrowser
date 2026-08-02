@@ -90,11 +90,6 @@ final class ClearBrowsingDataViewController: UIViewController {
             finish()
             return
         }
-        let store = WKWebsiteDataStore.default()
-        store.fetchDataRecords(ofTypes: types) { records in
-            store.removeData(ofTypes: types, for: records) {
-                DispatchQueue.main.async(execute: finish)
-            }
-        }
+        TabSessionStore.clear(types: types, completion: finish)
     }
 }

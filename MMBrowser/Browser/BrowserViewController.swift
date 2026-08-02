@@ -52,9 +52,38 @@ final class BrowserViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillChange(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(pipProbeDumpTabs(_:)), name: PipProbe.dumpTabsNotification, object: nil)
+    }
+
+    @objc private func pipProbeDumpTabs(_ note: Notification) {
+        let reason = (note.userInfo?["reason"] as? String) ?? "?"
+        let rows: [[String: Any]] = tabManager.tabs.enumerated().map { idx, tab in
+            [
+                "i": idx,
+                "host": tab.url?.host ?? (tab.isNewTabPage ? "ntp" : "?"),
+                "incognito": tab.isIncognito,
+                "selected": idx == tabManager.selectedIndex,
+                "nativePip": tab.webController?.isPictureInPictureActive ?? false,
+                "hasWeb": tab.webController != nil,
+                "isMusic": YouTubeDarkMode.isYouTubeMusic(tab.url)
+            ]
+        }
+        PipProbe.log("tabs.dump", [
+            "reason": reason,
+            "sticky": AppSettings.stickyPictureInPicture,
+            "selected": tabManager.selectedIndex,
+            "count": tabManager.tabs.count,
+            "tabs": rows
+        ])
     }
 
     @objc private func appDidEnterBackground() {
+        MediaPlaybackSupport.configureAudioSessionIfNeeded()
+        // YouTube Music (and similar) pause on visibility — re-assert playback immediately.
+        for tab in tabManager.tabs {
+            MediaPlaybackSupport.keepBackgroundMediaAlive(in: tab.webController?.webView)
+        }
+
         // Refresh previews for live tabs so thumbnails survive relaunch.
         guard !AppSettings.closeAllTabsOnExit, AppSettings.showTabsPreviewImages else {
             tabManager.persistSessionIfNeeded()
@@ -72,6 +101,7 @@ final class BrowserViewController: UIViewController {
             if tab.webController != nil {
                 group.enter()
                 captureSnapshot(for: tab) {
+                    MediaPlaybackSupport.keepBackgroundMediaAlive(in: tab.webController?.webView)
                     group.leave()
                 }
             } else if let snapshot = tab.snapshot {
@@ -79,7 +109,11 @@ final class BrowserViewController: UIViewController {
             }
         }
         group.notify(queue: .main) { [weak self] in
-            self?.tabManager.persistSessionIfNeeded()
+            guard let self else { return }
+            for tab in self.tabManager.tabs {
+                MediaPlaybackSupport.keepBackgroundMediaAlive(in: tab.webController?.webView)
+            }
+            self.tabManager.persistSessionIfNeeded()
             if bgTask != .invalid {
                 UIApplication.shared.endBackgroundTask(bgTask)
                 bgTask = .invalid
@@ -443,7 +477,7 @@ final class BrowserViewController: UIViewController {
             web = existing
             configureWebController(web)
         } else {
-            web = WebViewController(isIncognito: tab.isIncognito)
+            web = makeWebController(for: tab)
             configureWebController(web)
             tab.webController = web
             if let url = tab.url {
@@ -454,8 +488,18 @@ final class BrowserViewController: UIViewController {
             }
         }
         embed(web)
-        addressBar.setURLText(tab.url?.host ?? tab.url?.absoluteString ?? "")
+        addressBar.setURLText(Self.addressBarDisplayText(for: tab.url ?? web.webView?.url))
         refreshToolbar()
+    }
+
+    private func makeWebController(for tab: BrowserTab) -> WebViewController {
+        if tab.isIncognito {
+            return WebViewController(isIncognito: true)
+        }
+        return WebViewController(
+            isIncognito: false,
+            websiteDataStore: TabSessionStore.dataStore(for: tab.sessionID)
+        )
     }
 
     private func embed(_ child: UIViewController) {
@@ -479,13 +523,14 @@ final class BrowserViewController: UIViewController {
         tab.title = url.host ?? "Untitled"
         tab.lastAccessed = Date()
         addressBar.isHidden = false
+        addressBar.setURLText(Self.addressBarDisplayText(for: url))
 
         let web: WebViewController
         if let existing = tab.webController {
             web = existing
             configureWebController(web)
         } else {
-            web = WebViewController(isIncognito: tab.isIncognito)
+            web = makeWebController(for: tab)
             configureWebController(web)
             tab.webController = web
         }
@@ -496,8 +541,25 @@ final class BrowserViewController: UIViewController {
         tabManager.persistSessionIfNeeded()
     }
 
-    private func openURLInNewTab(_ url: URL, incognito: Bool = false) {
-        let tab = tabManager.addTab(incognito: incognito, select: true)
+    /// Compact idle address-bar label (hostname without leading www).
+    private static func addressBarDisplayText(for url: URL?) -> String {
+        guard let url else { return "" }
+        guard var host = url.host, !host.isEmpty else {
+            return url.absoluteString
+        }
+        if host.hasPrefix("www.") {
+            host.removeFirst(4)
+        }
+        return host
+    }
+
+    /// Opens `url` in a new tab. When `inheritSessionFrom` is a normal tab, the new tab shares its cookie session.
+    private func openURLInNewTab(_ url: URL, incognito: Bool = false, inheritSessionFrom parent: BrowserTab? = nil) {
+        let sessionID: UUID? = {
+            guard !incognito, let parent, !parent.isIncognito else { return nil }
+            return parent.sessionID
+        }()
+        let tab = tabManager.addTab(incognito: incognito, select: true, sessionID: sessionID)
         navigate(to: url, in: tab)
     }
 
@@ -958,9 +1020,10 @@ extension BrowserViewController: WebViewControllerDelegate {
         tab.url = url
         tab.isNewTabPage = false
         if tabManager.selectedTab?.id == tab.id {
-            addressBar.setURLText(url?.host ?? url?.absoluteString ?? "")
+            addressBar.setURLText(Self.addressBarDisplayText(for: url))
             addressBar.setBlockCount(0)
             addressBar.setFocusIndicator(active: AppSettings.hideShortsEnabled && YouTubeDarkMode.isYouTube(url))
+            refreshToolbar()
         }
         if !tab.isIncognito, let url, !url.absoluteString.hasPrefix("about:") {
             HistoryStore.shared.add(title: tab.title, url: url)
@@ -1008,7 +1071,9 @@ extension BrowserViewController: WebViewControllerDelegate {
     }
 
     func webViewController(_ controller: WebViewController, requestNewTabFor url: URL) {
-        openURLInNewTab(url, incognito: tabManager.selectedTab?.isIncognito ?? false)
+        let parent = tabManager.tabs.first(where: { $0.webController === controller })
+            ?? tabManager.selectedTab
+        openURLInNewTab(url, incognito: parent?.isIncognito ?? false, inheritSessionFrom: parent)
     }
 
     func webViewControllerDidFail(_ controller: WebViewController, error: Error) {}

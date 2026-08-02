@@ -2,6 +2,9 @@ import UIKit
 
 final class BrowserTab {
     let id: UUID
+    /// Persistent website-data session for normal tabs (`WKWebsiteDataStore(forIdentifier:)`).
+    /// Incognito tabs ignore this and use a non-persistent store.
+    var sessionID: UUID
     var title: String
     var url: URL?
     var isIncognito: Bool
@@ -12,8 +15,9 @@ final class BrowserTab {
     var groupName: String
     var preferDesktop: Bool
 
-    init(isIncognito: Bool = false) {
+    init(isIncognito: Bool = false, sessionID: UUID? = nil) {
         self.id = UUID()
+        self.sessionID = sessionID ?? UUID()
         self.title = "New Tab"
         self.url = nil
         self.isIncognito = isIncognito
@@ -28,6 +32,7 @@ final class BrowserTab {
     /// Restores a previously persisted (non-incognito) tab.
     init(
         id: UUID,
+        sessionID: UUID,
         title: String,
         url: URL?,
         isNewTabPage: Bool,
@@ -36,6 +41,7 @@ final class BrowserTab {
         preferDesktop: Bool
     ) {
         self.id = id
+        self.sessionID = sessionID
         self.title = title
         self.url = url
         self.isIncognito = false
