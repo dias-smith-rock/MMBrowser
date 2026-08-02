@@ -338,7 +338,12 @@ final class TabSwitcherViewController: UIViewController {
         table.dataSource = self
         table.delegate = self
         table.register(UITableViewCell.self, forCellReuseIdentifier: "libraryCell")
-        table.isHidden = true
+        // Keep the table in the stack layout always; collapse via height == 0.
+        // Toggling `isHidden` on arranged subviews skips layout and overlaps siblings.
+        table.clipsToBounds = true
+        table.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        table.setContentHuggingPriority(.required, for: .vertical)
+        section.clipsToBounds = true
         section.addArrangedSubview(table)
         table.snp.makeConstraints { make in
             if kind == .bookmarks {
@@ -372,27 +377,33 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func applyLibraryExpansion(animated: Bool) {
+        let bookmarkHeight = (bookmarksExpanded && !bookmarkItems.isEmpty)
+            ? CGFloat(bookmarkItems.count) * 56 : 0
+        let historyHeight = (historyExpanded && !historyItems.isEmpty)
+            ? CGFloat(historyItems.count) * 56 : 0
+
+        updateLibraryHeader(
+            bookmarksHeaderButton,
+            title: "Bookmarks",
+            expanded: bookmarksExpanded,
+            count: bookmarkItems.count
+        )
+        updateLibraryHeader(
+            historyHeaderButton,
+            title: "History",
+            expanded: historyExpanded,
+            count: historyItems.count
+        )
+
         let updates = {
-            self.bookmarksTable.isHidden = !self.bookmarksExpanded || self.bookmarkItems.isEmpty
-            self.historyTable.isHidden = !self.historyExpanded || self.historyItems.isEmpty
-            self.bookmarksHeightConstraint?.update(
-                offset: self.bookmarksExpanded ? CGFloat(self.bookmarkItems.count) * 56 : 0
-            )
-            self.historyHeightConstraint?.update(
-                offset: self.historyExpanded ? CGFloat(self.historyItems.count) * 56 : 0
-            )
-            self.updateLibraryHeader(
-                self.bookmarksHeaderButton,
-                title: "Bookmarks",
-                expanded: self.bookmarksExpanded,
-                count: self.bookmarkItems.count
-            )
-            self.updateLibraryHeader(
-                self.historyHeaderButton,
-                title: "History",
-                expanded: self.historyExpanded,
-                count: self.historyItems.count
-            )
+            self.bookmarksHeightConstraint?.update(offset: bookmarkHeight)
+            self.historyHeightConstraint?.update(offset: historyHeight)
+            self.bookmarksTable.alpha = bookmarkHeight > 0 ? 1 : 0
+            self.historyTable.alpha = historyHeight > 0 ? 1 : 0
+            self.bookmarksSection.layoutIfNeeded()
+            self.historySection.layoutIfNeeded()
+            self.contentStack.layoutIfNeeded()
+            self.mainScroll.layoutIfNeeded()
             self.view.layoutIfNeeded()
         }
         if animated {
