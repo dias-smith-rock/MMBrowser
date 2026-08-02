@@ -498,7 +498,7 @@ final class BrowserViewController: UIViewController {
         }
         return WebViewController(
             isIncognito: false,
-            websiteDataStore: TabSessionStore.dataStore(for: tab.sessionID)
+            websiteDataStore: TabSessionStore.dataStore(for: tabManager.sessionID(for: tab))
         )
     }
 
@@ -553,24 +553,33 @@ final class BrowserViewController: UIViewController {
         return host
     }
 
-    /// Opens `url` in a new tab. When `inheritSessionFrom` is a normal tab, the new tab shares its cookie session.
-    private func openURLInNewTab(_ url: URL, incognito: Bool = false, inheritSessionFrom parent: BrowserTab? = nil) {
-        let sessionID: UUID? = {
-            guard !incognito, let parent, !parent.isIncognito else { return nil }
-            return parent.sessionID
+    /// Opens `url` in a new tab in the given / parent / currently selected container session.
+    private func openURLInNewTab(
+        _ url: URL,
+        incognito: Bool = false,
+        inheritContainerFrom parent: BrowserTab? = nil,
+        containerID: UUID? = nil
+    ) {
+        let resolvedContainerID: UUID? = {
+            guard !incognito else { return nil }
+            if let containerID { return containerID }
+            if let parent, !parent.isIncognito { return parent.containerID }
+            if let selected = tabManager.selectedTab, !selected.isIncognito {
+                return selected.containerID
+            }
+            return nil
         }()
-        let tab = tabManager.addTab(incognito: incognito, select: true, sessionID: sessionID)
+        let tab = tabManager.addTab(incognito: incognito, select: true, containerID: resolvedContainerID)
         navigate(to: url, in: tab)
     }
 
     func refreshToolbar() {
         let wv = tabManager.selectedTab?.webController?.webView
         let isPrivate = tabManager.selectedTab?.isIncognito ?? false
-        let tabCount = isPrivate ? tabManager.incognitoTabs.count : tabManager.normalTabs.count
         toolbar.update(
             canGoBack: wv?.canGoBack ?? false,
             canGoForward: wv?.canGoForward ?? false,
-            tabCount: max(tabCount, 1),
+            tabCount: tabManager.toolbarTabCount(incognito: isPrivate),
             isPrivate: isPrivate
         )
         addressBar.setPageCleanerActive(tabManager.selectedTab?.webController?.isPageCleanerActive == true)
@@ -792,17 +801,15 @@ extension BrowserViewController: AddressBarViewDelegate {
     }
 
     func addressBarCanSwipeToPreviousTab() -> Bool {
-        tabManager.selectedIndex > 0
+        tabManager.canSelectAdjacentTab(offset: -1)
     }
 
     func addressBarCanSwipeToNextTab() -> Bool {
-        tabManager.selectedIndex < tabManager.tabs.count - 1
+        tabManager.canSelectAdjacentTab(offset: 1)
     }
 
     func addressBarTitleForAdjacentTab(offset: Int) -> String? {
-        let index = tabManager.selectedIndex + offset
-        guard tabManager.tabs.indices.contains(index) else { return nil }
-        let tab = tabManager.tabs[index]
+        guard let tab = tabManager.tab(adjacentOffset: offset) else { return nil }
         if let host = tab.url?.host, !host.isEmpty { return host }
         if tab.isNewTabPage { return "New Tab" }
         let title = tab.title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -852,13 +859,11 @@ extension BrowserViewController: AddressBarViewDelegate {
     }
 
     private func configureAdjacentPreview(forTabOffset offset: Int) {
-        let index = tabManager.selectedIndex + offset
-        guard tabManager.tabs.indices.contains(index) else {
+        guard let tab = tabManager.tab(adjacentOffset: offset) else {
             adjacentTabPreview.image = nil
             adjacentTabPreview.backgroundColor = BrowserTheme.background
             return
         }
-        let tab = tabManager.tabs[index]
         if let snapshot = tab.snapshot {
             adjacentTabPreview.image = snapshot
             adjacentTabPreview.backgroundColor = .clear
@@ -942,7 +947,9 @@ extension BrowserViewController: BottomToolbarViewDelegate {
     func toolbarDidTapForward() { tabManager.selectedTab?.webController?.goForward() }
     func toolbarDidTapNewTab() {
         // Always open a normal tab; private browsing is opt-in only.
-        _ = tabManager.addTab(incognito: false, select: true)
+        // Inherit the currently selected tab's container (Firefox Container semantics).
+        let containerID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
+        _ = tabManager.addTab(incognito: false, select: true, containerID: containerID)
         showSelectedTab()
     }
     func toolbarDidTapTabs() { presentTabSwitcher() }
@@ -1017,8 +1024,12 @@ extension BrowserViewController: WebViewControllerDelegate {
 
     func webViewController(_ controller: WebViewController, didUpdateURL url: URL?) {
         guard let tab = tabManager.tabs.first(where: { $0.webController === controller }) else { return }
+        let previousHost = tab.url?.host
         tab.url = url
         tab.isNewTabPage = false
+        if previousHost != url?.host {
+            tab.clearSessionAvatar()
+        }
         if tabManager.selectedTab?.id == tab.id {
             addressBar.setURLText(Self.addressBarDisplayText(for: url))
             addressBar.setBlockCount(0)
@@ -1073,7 +1084,42 @@ extension BrowserViewController: WebViewControllerDelegate {
     func webViewController(_ controller: WebViewController, requestNewTabFor url: URL) {
         let parent = tabManager.tabs.first(where: { $0.webController === controller })
             ?? tabManager.selectedTab
-        openURLInNewTab(url, incognito: parent?.isIncognito ?? false, inheritSessionFrom: parent)
+        openURLInNewTab(url, incognito: parent?.isIncognito ?? false, inheritContainerFrom: parent)
+    }
+
+    func webViewController(_ controller: WebViewController, didDetectSessionAvatar url: URL?) {
+        guard let tab = tabManager.tabs.first(where: { $0.webController === controller }) else { return }
+        guard !tab.isIncognito else { return }
+        if let url {
+            guard tab.sessionAvatarURL != url else { return }
+            tab.sessionAvatarURL = url
+            URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+                guard let data, let image = UIImage(data: data) else { return }
+                DispatchQueue.main.async {
+                    guard tab.sessionAvatarURL == url else { return }
+                    tab.sessionAvatar = image
+                    self?.reloadPresentedTabSwitcherPreviews()
+                }
+            }.resume()
+        } else if tab.sessionAvatarURL != nil || tab.sessionAvatar != nil {
+            tab.clearSessionAvatar()
+            reloadPresentedTabSwitcherPreviews()
+        }
+    }
+
+    private func reloadPresentedTabSwitcherPreviews() {
+        var explorer: UIViewController? = presentedViewController
+        while let current = explorer {
+            if let switcher = current as? TabSwitcherViewController {
+                switcher.reloadPreviews()
+                return
+            }
+            if let nav = current as? UINavigationController {
+                explorer = nav.topViewController
+            } else {
+                explorer = current.presentedViewController
+            }
+        }
     }
 
     func webViewControllerDidFail(_ controller: WebViewController, error: Error) {}
@@ -1120,16 +1166,16 @@ extension BrowserViewController: TabSwitcherViewControllerDelegate {
         }
     }
 
-    func tabSwitcherDidRequestNewTab(incognito: Bool) {
+    func tabSwitcherDidRequestNewTab(incognito: Bool, containerID: UUID?) {
         dismiss(animated: true) {
-            _ = self.tabManager.addTab(incognito: incognito, select: true)
+            _ = self.tabManager.addTab(incognito: incognito, select: true, containerID: containerID)
             self.showSelectedTab()
         }
     }
 
-    func tabSwitcherDidRequestOpenURLInNewTab(_ url: URL) {
+    func tabSwitcherDidRequestOpenURLInNewTab(_ url: URL, containerID: UUID?) {
         dismiss(animated: true) {
-            self.openURLInNewTab(url, incognito: false)
+            self.openURLInNewTab(url, incognito: false, containerID: containerID)
         }
     }
 }
@@ -1173,7 +1219,8 @@ extension BrowserViewController: MenuViewControllerDelegate {
             tabManager.selectedTab?.webController?.reload()
             Toast.show("Reloaded", from: self)
         case .newTab:
-            _ = tabManager.addTab(incognito: false, select: true)
+            let containerID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
+            _ = tabManager.addTab(incognito: false, select: true, containerID: containerID)
             showSelectedTab()
         case .newIncognitoTab:
             _ = tabManager.addTab(incognito: true, select: true)

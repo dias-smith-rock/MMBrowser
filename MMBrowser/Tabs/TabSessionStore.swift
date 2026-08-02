@@ -1,15 +1,15 @@
 import Foundation
 import WebKit
 
-/// Persistent per-tab (or shared-lineage) website data stores via identifier-based data stores.
+/// Persistent website data stores keyed by container `sessionID`.
 enum TabSessionStore {
     static func dataStore(for sessionID: UUID) -> WKWebsiteDataStore {
         WKWebsiteDataStore(forIdentifier: sessionID)
     }
 
-    /// Removes the data store when no remaining normal tab references `sessionID`.
-    static func removeIfOrphaned(sessionID: UUID, among tabs: [BrowserTab]) {
-        let stillReferenced = tabs.contains { !$0.isIncognito && $0.sessionID == sessionID }
+    /// Removes the data store when no container still owns `sessionID`.
+    static func removeIfOrphaned(sessionID: UUID, containers: [BrowserContainer]) {
+        let stillReferenced = containers.contains { $0.sessionID == sessionID }
         guard !stillReferenced else { return }
         WKWebsiteDataStore.remove(forIdentifier: sessionID) { _ in }
     }

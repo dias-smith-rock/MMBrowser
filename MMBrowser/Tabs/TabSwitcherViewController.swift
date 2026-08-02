@@ -3,8 +3,9 @@ import SnapKit
 
 protocol TabSwitcherViewControllerDelegate: AnyObject {
     func tabSwitcherDidClose()
-    func tabSwitcherDidRequestNewTab(incognito: Bool)
-    func tabSwitcherDidRequestOpenURLInNewTab(_ url: URL)
+    /// `containerID` is the container for the new normal tab (selected tab / active filter).
+    func tabSwitcherDidRequestNewTab(incognito: Bool, containerID: UUID?)
+    func tabSwitcherDidRequestOpenURLInNewTab(_ url: URL, containerID: UUID?)
 }
 
 final class TabSwitcherViewController: UIViewController {
@@ -30,14 +31,19 @@ final class TabSwitcherViewController: UIViewController {
     private var readingItems: [ReadingListItem] = []
     private var searchQuery = ""
     private var showingIncognito = false
-    /// `nil` means All groups.
-    private var selectedGroupFilter: String?
+    /// `nil` means All containers.
+    private var selectedContainerFilter: UUID?
     private let groupFilterBar = UIScrollView()
     private let groupFilterStack = UIStackView()
 
     init(tabManager: TabManager) {
         self.tabManager = tabManager
         self.showingIncognito = tabManager.selectedTab?.isIncognito ?? false
+        if let selected = tabManager.selectedTab, !selected.isIncognito {
+            self.selectedContainerFilter = selected.containerID
+        } else {
+            self.selectedContainerFilter = tabManager.lastActiveContainerID
+        }
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -49,22 +55,23 @@ final class TabSwitcherViewController: UIViewController {
 
     private var displayedTabs: [BrowserTab] {
         var base = poolTabs
-        if let group = selectedGroupFilter {
-            base = base.filter { $0.groupName == group }
+        if let containerID = selectedContainerFilter {
+            base = base.filter { $0.containerID == containerID }
         }
         let q = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return base }
         return base.filter {
-            $0.title.lowercased().contains(q)
+            let name = tabManager.containerName(for: $0)
+            return $0.title.lowercased().contains(q)
                 || ($0.url?.absoluteString.lowercased().contains(q) ?? false)
-                || $0.groupName.lowercased().contains(q)
+                || name.lowercased().contains(q)
         }
     }
 
     /// Drag reorder only when showing the unfiltered tab pool.
     private var canReorderTabs: Bool {
         searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && selectedGroupFilter == nil
+            && selectedContainerFilter == nil
     }
 
     override func viewDidLoad() {
@@ -163,22 +170,23 @@ final class TabSwitcherViewController: UIViewController {
             $0.removeFromSuperview()
         }
 
-        // Keep filter valid if the group disappeared.
-        if let selected = selectedGroupFilter,
-           !tabManager.groupNames.contains(selected) {
-            selectedGroupFilter = nil
+        if let selected = selectedContainerFilter,
+           tabManager.container(id: selected) == nil {
+            selectedContainerFilter = nil
         }
 
         let accent = showingIncognito ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
-        let chips: [(title: String, group: String?)] =
-            [("All", nil)] + tabManager.groupNames.map { ($0, $0) }
+        let chips: [(title: String, id: String)] =
+            [("All", "__all__")] + tabManager.sortedContainers.map { ($0.name, $0.id.uuidString) }
 
         for chip in chips {
             let count: Int = {
-                guard let group = chip.group else { return poolTabs.count }
-                return poolTabs.filter { $0.groupName == group }.count
+                if chip.id == "__all__" { return poolTabs.count }
+                guard let uuid = UUID(uuidString: chip.id) else { return 0 }
+                return poolTabs.filter { $0.containerID == uuid }.count
             }()
-            let selected = selectedGroupFilter == chip.group
+            let selected = (chip.id == "__all__" && selectedContainerFilter == nil)
+                || (selectedContainerFilter?.uuidString == chip.id)
             let button = UIButton(type: .system)
             button.setTitle(count > 0 ? "\(chip.title) (\(count))" : chip.title, for: .normal)
             button.titleLabel?.font = .systemFont(ofSize: 13, weight: selected ? .semibold : .medium)
@@ -186,23 +194,43 @@ final class TabSwitcherViewController: UIViewController {
             button.backgroundColor = selected ? accent : BrowserTheme.secondaryCard
             button.layer.cornerRadius = 14
             button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
-            button.tag = chip.group == nil ? -1 : (tabManager.groupNames.firstIndex(of: chip.group!) ?? 0)
-            button.accessibilityIdentifier = chip.group ?? "__all__"
+            button.accessibilityIdentifier = chip.id
             button.addTarget(self, action: #selector(groupFilterTapped(_:)), for: .touchUpInside)
             groupFilterStack.addArrangedSubview(button)
         }
+
+        let manage = UIButton(type: .system)
+        let manageIcon = UIImage(
+            systemName: "slider.horizontal.3",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+        )
+        manage.setImage(manageIcon, for: .normal)
+        manage.tintColor = accent
+        manage.backgroundColor = BrowserTheme.secondaryCard
+        manage.layer.cornerRadius = 14
+        manage.contentEdgeInsets = UIEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
+        manage.accessibilityLabel = "Manage Containers"
+        manage.addTarget(self, action: #selector(manageContainersTapped), for: .touchUpInside)
+        groupFilterStack.addArrangedSubview(manage)
     }
 
     @objc private func groupFilterTapped(_ sender: UIButton) {
         let id = sender.accessibilityIdentifier
         if id == "__all__" || id == nil {
-            selectedGroupFilter = nil
+            selectedContainerFilter = nil
         } else {
-            selectedGroupFilter = id
+            selectedContainerFilter = id.flatMap(UUID.init(uuidString:))
         }
         rebuildGroupFilterBar()
         collectionView.reloadData()
         updateCollectionHeight()
+    }
+
+    @objc private func manageContainersTapped() {
+        let vc = ContainerManageViewController(tabManager: tabManager)
+        vc.delegate = self
+        let nav = UINavigationController(rootViewController: vc)
+        present(nav, animated: true)
     }
 
     private func makeMoreMenu() -> UIMenu {
@@ -380,7 +408,7 @@ final class TabSwitcherViewController: UIViewController {
     @objc private func modeChanged() {
         showingIncognito = modeControl.selectedSegmentIndex == 1
         searchQuery = ""
-        selectedGroupFilter = nil
+        selectedContainerFilter = nil
         let pool = showingIncognito ? tabManager.incognitoTabs : tabManager.normalTabs
         if let tab = pool.sorted(by: { $0.lastAccessed > $1.lastAccessed }).first {
             tabManager.selectTab(id: tab.id)
@@ -388,9 +416,22 @@ final class TabSwitcherViewController: UIViewController {
         reload()
     }
 
+    /// Container for newly opened normal tabs: active filter, else currently selected tab.
+    private var preferredContainerIDForNewTab: UUID? {
+        if showingIncognito { return nil }
+        if let selectedContainerFilter { return selectedContainerFilter }
+        if let selected = tabManager.selectedTab, !selected.isIncognito {
+            return selected.containerID
+        }
+        return tabManager.defaultContainer.id
+    }
+
     @objc private func addTapped() {
-        // Create a tab in the mode currently being viewed.
-        delegate?.tabSwitcherDidRequestNewTab(incognito: showingIncognito)
+        // Create a tab in the mode currently being viewed, in the active container context.
+        delegate?.tabSwitcherDidRequestNewTab(
+            incognito: showingIncognito,
+            containerID: preferredContainerIDForNewTab
+        )
     }
 
     @objc private func doneTapped() {
@@ -433,11 +474,11 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func promptMoveGroup(for tab: BrowserTab) {
-        let alert = UIAlertController(title: "Move to Group", message: tab.title, preferredStyle: .actionSheet)
-        for name in tabManager.groupNames {
-            let title = name == tab.groupName ? "\(name) ✓" : name
+        let alert = UIAlertController(title: "Move to Container", message: tab.title, preferredStyle: .actionSheet)
+        for container in tabManager.sortedContainers {
+            let title = container.id == tab.containerID ? "\(container.name) ✓" : container.name
             alert.addAction(UIAlertAction(title: title, style: .default, handler: { _ in
-                self.tabManager.moveTab(tab.id, toGroup: name)
+                self.tabManager.moveTab(tab.id, toContainer: container.id)
                 self.reload()
             }))
         }
@@ -451,7 +492,7 @@ final class TabSwitcherViewController: UIViewController {
 
     @objc private func searchPlaceholder() {
         let alert = UIAlertController(title: "Search tabs", message: nil, preferredStyle: .alert)
-        alert.addTextField { $0.placeholder = "Title, URL, or group"; $0.text = self.searchQuery }
+        alert.addTextField { $0.placeholder = "Title, URL, or container"; $0.text = self.searchQuery }
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Search", style: .default, handler: { _ in
             self.searchQuery = alert.textFields?.first?.text ?? ""
@@ -470,7 +511,11 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: TabGridCell.reuseID, for: indexPath) as! TabGridCell
         let tab = displayedTabs[indexPath.item]
         let selected = tab.id == tabManager.selectedTab?.id
-        cell.configure(tab: tab, selected: selected)
+        cell.configure(
+            tab: tab,
+            containerName: tabManager.containerName(for: tab),
+            selected: selected
+        )
         cell.onClose = { [weak self] in
             guard let self = self else { return }
             self.tabManager.closeTab(id: tab.id)
@@ -495,6 +540,31 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         let width = (collectionView.bounds.width - 36) / 2
         return CGSize(width: width, height: width * 1.25)
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        contextMenuConfigurationForItemAt indexPath: IndexPath,
+        point: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        let tab = displayedTabs[indexPath.item]
+        guard !tab.isIncognito else { return nil }
+        return UIContextMenuConfiguration(identifier: tab.id.uuidString as NSString, previewProvider: nil) { [weak self] _ in
+            guard let self else { return nil }
+            let moveChildren = self.tabManager.sortedContainers.map { container in
+                let checked = container.id == tab.containerID
+                return UIAction(
+                    title: container.name,
+                    image: UIImage(systemName: checked ? "checkmark.circle.fill" : "circle"),
+                    state: checked ? .on : .off
+                ) { [weak self] _ in
+                    self?.tabManager.moveTab(tab.id, toContainer: container.id)
+                    self?.reload()
+                }
+            }
+            let moveMenu = UIMenu(title: "Move to Container", options: .displayInline, children: moveChildren)
+            return UIMenu(title: "", children: [moveMenu])
+        }
     }
 }
 
@@ -610,7 +680,7 @@ extension TabSwitcherViewController: UITableViewDataSource, UITableViewDelegate 
             url = readingItems[indexPath.row].url
         }
         guard let url else { return }
-        delegate?.tabSwitcherDidRequestOpenURLInNewTab(url)
+        delegate?.tabSwitcherDidRequestOpenURLInNewTab(url, containerID: preferredContainerIDForNewTab)
     }
 
     func tableView(
@@ -635,6 +705,15 @@ extension TabSwitcherViewController: UITableViewDataSource, UITableViewDelegate 
     func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool { true }
 }
 
+extension TabSwitcherViewController: ContainerManageViewControllerDelegate {
+    func containerManageDidChange() {
+        if let selected = selectedContainerFilter, tabManager.container(id: selected) == nil {
+            selectedContainerFilter = nil
+        }
+        reload()
+    }
+}
+
 final class TabGridCell: UICollectionViewCell {
     static let reuseID = "TabGridCell"
     var onClose: (() -> Void)?
@@ -642,6 +721,7 @@ final class TabGridCell: UICollectionViewCell {
 
     private let card = UIView()
     private let titleLabel = UILabel()
+    private let avatarView = UIImageView()
     private let groupButton = UIButton(type: .system)
     private let closeButton = UIButton(type: .system)
     private let preview = UIImageView()
@@ -658,18 +738,25 @@ final class TabGridCell: UICollectionViewCell {
         titleLabel.textColor = BrowserTheme.textPrimary
         titleLabel.lineBreakMode = .byTruncatingTail
 
-        groupButton.titleLabel?.font = .systemFont(ofSize: 11, weight: .medium)
+        avatarView.contentMode = .scaleAspectFill
+        avatarView.clipsToBounds = true
+        avatarView.layer.cornerRadius = 11
+        avatarView.backgroundColor = BrowserTheme.secondaryCard
+        avatarView.isHidden = true
+
+        groupButton.titleLabel?.font = .systemFont(ofSize: 11, weight: .semibold)
         groupButton.titleLabel?.lineBreakMode = .byTruncatingTail
         groupButton.contentHorizontalAlignment = .leading
-        groupButton.setTitleColor(BrowserTheme.textSecondary, for: .normal)
-        groupButton.tintColor = BrowserTheme.textSecondary
+        groupButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
+        groupButton.tintColor = BrowserTheme.chromeBlue
         groupButton.setImage(
             UIImage(systemName: "folder", withConfiguration: UIImage.SymbolConfiguration(pointSize: 10, weight: .medium)),
             for: .normal
         )
         groupButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -2, bottom: 0, right: 2)
         groupButton.titleEdgeInsets = UIEdgeInsets(top: 0, left: 2, bottom: 0, right: -2)
-        groupButton.accessibilityLabel = "Move to Group"
+        groupButton.accessibilityLabel = "Move to Container"
+        groupButton.accessibilityHint = "Choose a container for this tab"
         groupButton.addTarget(self, action: #selector(groupTapped), for: .touchUpInside)
 
         closeButton.setImage(UIImage(systemName: "xmark"), for: .normal)
@@ -684,30 +771,37 @@ final class TabGridCell: UICollectionViewCell {
         placeholder.textAlignment = .center
         placeholder.isUserInteractionEnabled = false
 
-        card.addSubview(titleLabel)
-        card.addSubview(groupButton)
-        card.addSubview(closeButton)
+        // Preview first so chrome controls stay above it and remain tappable.
         card.addSubview(preview)
         card.addSubview(placeholder)
+        card.addSubview(titleLabel)
+        card.addSubview(avatarView)
+        card.addSubview(groupButton)
+        card.addSubview(closeButton)
 
         card.snp.makeConstraints { $0.edges.equalToSuperview() }
-        titleLabel.snp.makeConstraints { make in
-            make.top.leading.equalToSuperview().offset(10)
-            make.trailing.equalTo(closeButton.snp.leading).offset(-6)
-        }
-        groupButton.snp.makeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(0)
-            make.leading.equalToSuperview().offset(8)
-            make.trailing.lessThanOrEqualTo(closeButton.snp.leading).offset(-6)
-            make.height.equalTo(24)
-        }
         closeButton.snp.makeConstraints { make in
             make.top.equalToSuperview().offset(6)
             make.trailing.equalToSuperview().offset(-6)
             make.size.equalTo(28)
         }
+        avatarView.snp.makeConstraints { make in
+            make.centerY.equalTo(titleLabel)
+            make.trailing.equalTo(closeButton.snp.leading).offset(-4)
+            make.size.equalTo(22)
+        }
+        titleLabel.snp.makeConstraints { make in
+            make.top.leading.equalToSuperview().offset(10)
+            make.trailing.equalTo(avatarView.snp.leading).offset(-6)
+        }
+        groupButton.snp.makeConstraints { make in
+            make.top.equalTo(titleLabel.snp.bottom).offset(2)
+            make.leading.equalToSuperview().offset(8)
+            make.trailing.lessThanOrEqualTo(closeButton.snp.leading).offset(-6)
+            make.height.equalTo(28)
+        }
         preview.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(48)
+            make.top.equalTo(groupButton.snp.bottom).offset(4)
             make.leading.trailing.bottom.equalToSuperview()
         }
         placeholder.snp.makeConstraints { $0.center.equalTo(preview) }
@@ -715,10 +809,17 @@ final class TabGridCell: UICollectionViewCell {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(tab: BrowserTab, selected: Bool) {
+    func configure(tab: BrowserTab, containerName: String, selected: Bool) {
         titleLabel.text = tab.title
-        let group = tab.groupName.trimmingCharacters(in: .whitespacesAndNewlines)
-        groupButton.setTitle(group.isEmpty ? "Default" : group, for: .normal)
+        let name = containerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        groupButton.setTitle(name.isEmpty ? "Default" : name, for: .normal)
+        if let avatar = tab.sessionAvatar {
+            avatarView.image = avatar
+            avatarView.isHidden = false
+        } else {
+            avatarView.image = nil
+            avatarView.isHidden = true
+        }
         if AppSettings.showTabsPreviewImages, let snapshot = tab.snapshot {
             preview.image = snapshot
             placeholder.isHidden = true

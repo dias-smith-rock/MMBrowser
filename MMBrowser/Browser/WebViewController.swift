@@ -15,6 +15,7 @@ protocol WebViewControllerDelegate: AnyObject {
     func webViewController(_ controller: WebViewController, didUpdateBlockCount count: Int)
     func webViewControllerDidReportYouTubeDegraded(_ controller: WebViewController)
     func webViewController(_ controller: WebViewController, didTriggerGestureAction action: GestureBrowserAction)
+    func webViewController(_ controller: WebViewController, didDetectSessionAvatar url: URL?)
 }
 
 final class WebViewController: UIViewController {
@@ -1466,6 +1467,53 @@ extension WebViewController: WKNavigationDelegate {
         PageCleanerManager.apply(to: webView, url: webView.url)
         if isPageCleanerActive {
             PageCleanerManager.setPickMode(enabled: true, on: webView)
+        }
+        probeSessionAvatar(in: webView)
+    }
+
+    private static let sessionAvatarProbeScript = """
+    (function() {
+      function abs(u) {
+        try { return new URL(u, location.href).href; } catch (e) { return null; }
+      }
+      var selectors = [
+        'img[src*="googleusercontent.com/a/"]',
+        'img[src*="googleusercontent.com"]',
+        'img.avatar',
+        'img.Avatar',
+        'img[class*="avatar" i]',
+        'img[alt*="avatar" i]',
+        'img[alt*="profile" i]',
+        '[data-testid*="avatar" i] img',
+        'header img[src]',
+        'nav img[src]'
+      ];
+      for (var i = 0; i < selectors.length; i++) {
+        var nodes;
+        try { nodes = document.querySelectorAll(selectors[i]); } catch (e) { continue; }
+        for (var j = 0; j < nodes.length; j++) {
+          var img = nodes[j];
+          var w = img.naturalWidth || img.width || 0;
+          var h = img.naturalHeight || img.height || 0;
+          if ((w === 0 && h === 0) || (w >= 16 && w <= 256 && h >= 16 && h <= 256)) {
+            var src = abs(img.currentSrc || img.src);
+            if (src && src.indexOf('data:') !== 0) return src;
+          }
+        }
+      }
+      return null;
+    })();
+    """
+
+    private func probeSessionAvatar(in webView: WKWebView) {
+        guard !isIncognito else {
+            delegate?.webViewController(self, didDetectSessionAvatar: nil)
+            return
+        }
+        webView.evaluateJavaScript(Self.sessionAvatarProbeScript) { [weak self] result, _ in
+            guard let self else { return }
+            let url = (result as? String).flatMap(URL.init(string:))
+            self.delegate?.webViewController(self, didDetectSessionAvatar: url)
         }
     }
 
