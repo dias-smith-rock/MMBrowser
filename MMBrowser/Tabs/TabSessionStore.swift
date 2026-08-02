@@ -1,7 +1,7 @@
 import Foundation
 import WebKit
 
-/// Persistent per-tab (or shared-lineage) website data stores via `WKWebsiteDataStore(forIdentifier:)`.
+/// Persistent per-tab (or shared-lineage) website data stores via identifier-based data stores.
 enum TabSessionStore {
     static func dataStore(for sessionID: UUID) -> WKWebsiteDataStore {
         WKWebsiteDataStore(forIdentifier: sessionID)
