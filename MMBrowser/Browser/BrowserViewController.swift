@@ -1302,8 +1302,6 @@ extension BrowserViewController: MenuViewControllerDelegate {
             openDownloads()
         case .settings:
             openSettings()
-        case .accountLogin:
-            Toast.show("Sign-in coming soon", from: self)
         case .setDefaultBrowser:
             openDefaultBrowserSettings()
         case .passwords:

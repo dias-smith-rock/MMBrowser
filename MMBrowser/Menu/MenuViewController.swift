@@ -8,7 +8,7 @@ enum MenuAction: Equatable {
     case pageCleaner
     case copyURL, aboutSite, addToHomepage, printPage, translate, changeTextSize, adBlocker
     case pictureInPicture
-    case accountLogin, setDefaultBrowser, passwords, backgroundGallery, theme, feedback
+    case setDefaultBrowser, passwords, backgroundGallery, theme, feedback
     case placeholder(String)
 }
 
@@ -16,7 +16,7 @@ protocol MenuViewControllerDelegate: AnyObject {
     func menuDidSelect(_ action: MenuAction)
 }
 
-/// Toolbar app menu: account, libraries, appearance shortcuts.
+/// Toolbar app menu: libraries, appearance shortcuts, and default-browser promo.
 final class MenuViewController: UIViewController {
     weak var delegate: MenuViewControllerDelegate?
     private let isIncognito: Bool
@@ -54,7 +54,7 @@ final class MenuViewController: UIViewController {
             make.width.equalTo(scrollView).offset(-32)
         }
 
-        stack.addArrangedSubview(makeAccountCard())
+        stack.addArrangedSubview(makeDefaultBrowserCard())
         stack.addArrangedSubview(makeGridCard(items: libraryItems()))
         stack.addArrangedSubview(makeGridCard(items: extrasItems()))
     }
@@ -86,66 +86,16 @@ final class MenuViewController: UIViewController {
         ]
     }
 
-    // MARK: - Card 1: Account + default browser
+    // MARK: - Card 1: Default browser
 
-    private func makeAccountCard() -> UIView {
+    private func makeDefaultBrowserCard() -> UIView {
         let card = makeCard()
-
-        let avatar = UIImageView(image: UIImage(systemName: "person.crop.circle.fill"))
-        avatar.tintColor = BrowserTheme.textSecondary
-        avatar.contentMode = .scaleAspectFit
-
-        let name = UILabel()
-        name.text = "User"
-        name.font = .systemFont(ofSize: 16, weight: .semibold)
-        name.textColor = BrowserTheme.textPrimary
-
-        let status = UILabel()
-        status.text = "Not logged in"
-        status.font = .systemFont(ofSize: 13, weight: .regular)
-        status.textColor = BrowserTheme.textSecondary
-
-        let textStack = UIStackView(arrangedSubviews: [name, status])
-        textStack.axis = .vertical
-        textStack.spacing = 2
-
-        let login = UIButton(type: .system)
-        login.setTitle("Log in", for: .normal)
-        login.setTitleColor(BrowserTheme.background, for: .normal)
-        login.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
-        login.backgroundColor = BrowserTheme.textPrimary
-        login.layer.cornerRadius = 16
-        login.contentEdgeInsets = UIEdgeInsets(top: 8, left: 16, bottom: 8, right: 16)
-        login.addTarget(self, action: #selector(loginTapped), for: .touchUpInside)
-
-        let accountRow = UIView()
-        accountRow.addSubview(avatar)
-        accountRow.addSubview(textStack)
-        accountRow.addSubview(login)
-        avatar.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(14)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(40)
-        }
-        textStack.snp.makeConstraints { make in
-            make.leading.equalTo(avatar.snp.trailing).offset(12)
-            make.centerY.equalToSuperview()
-            make.trailing.lessThanOrEqualTo(login.snp.leading).offset(-10)
-        }
-        login.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-14)
-            make.centerY.equalToSuperview()
-            make.height.equalTo(32)
-        }
-        accountRow.snp.makeConstraints { make in make.height.equalTo(64) }
-
         let defaultBanner = makeDefaultBrowserBanner()
-
-        let column = UIStackView(arrangedSubviews: [accountRow, defaultBanner])
+        let column = UIStackView(arrangedSubviews: [defaultBanner])
         column.axis = .vertical
         column.spacing = 10
         column.isLayoutMarginsRelativeArrangement = true
-        column.layoutMargins = UIEdgeInsets(top: 6, left: 0, bottom: 12, right: 0)
+        column.layoutMargins = UIEdgeInsets(top: 12, left: 0, bottom: 12, right: 0)
         card.addSubview(column)
         column.snp.makeConstraints { make in
             make.edges.equalToSuperview()
@@ -312,10 +262,6 @@ final class MenuViewController: UIViewController {
 
     @objc private func actionTapped(_ sender: MenuActionButton) {
         delegate?.menuDidSelect(sender.menuAction)
-    }
-
-    @objc private func loginTapped() {
-        delegate?.menuDidSelect(.accountLogin)
     }
 }
 
