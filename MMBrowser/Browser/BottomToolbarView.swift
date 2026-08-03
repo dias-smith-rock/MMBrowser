@@ -16,6 +16,7 @@ final class BottomToolbarView: UIView {
     private let accountChip = UIButton(type: .custom)
     private let accountDot = UIView()
     private let accountTitle = UILabel()
+    private let accountChevron = UIImageView()
     private let backButton = UIButton(type: .system)
     private let forwardButton = UIButton(type: .system)
     private let plusButton = UIButton(type: .system)
@@ -28,34 +29,58 @@ final class BottomToolbarView: UIView {
     private var canGoForward = false
     private var tabCount = 1
     private var accountChipVisible = false
+    private var hidesNavigationButtons = false
+    private var accountName = ""
+    private var iconStackWidthConstraint: Constraint?
+    private var accountChipWidthConstraint: Constraint?
 
     private static let iconPointSize: CGFloat = 26
     private static let iconConfig = UIImage.SymbolConfiguration(pointSize: iconPointSize, weight: .regular)
+    private static let leadingInset: CGFloat = 8
+    private static let trailingInset: CGFloat = 4
+    private static let chipIconSpacing: CGFloat = 4
+    private static let chipMaxWidthCompact: CGFloat = 120
+    private static let chipMinWidth: CGFloat = 72
+    private static let chipHeight: CGFloat = 36
+    private static let iconSlotCount = 5
 
     override init(frame: CGRect) {
         super.init(frame: frame)
 
         accountDot.layer.cornerRadius = 4
         accountDot.clipsToBounds = true
-        accountTitle.font = .systemFont(ofSize: 12, weight: .semibold)
+        accountTitle.font = .systemFont(ofSize: 14, weight: .semibold)
         accountTitle.textColor = BrowserTheme.textPrimary
+        accountTitle.textAlignment = .center
         accountTitle.lineBreakMode = .byTruncatingTail
+        accountChevron.contentMode = .scaleAspectFit
+        accountChevron.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
+        accountChevron.image = UIImage(systemName: "chevron.up")
+        accountChevron.tintColor = BrowserTheme.textPrimary
+        accountChevron.setContentHuggingPriority(.required, for: .horizontal)
+        accountChevron.setContentCompressionResistancePriority(.required, for: .horizontal)
         accountChip.addSubview(accountDot)
         accountChip.addSubview(accountTitle)
-        accountChip.layer.cornerRadius = 14
+        accountChip.addSubview(accountChevron)
+        accountChip.layer.cornerRadius = Self.chipHeight / 2
         accountChip.clipsToBounds = true
         accountChip.isHidden = true
         accountChip.accessibilityLabel = "Account"
         accountChip.accessibilityHint = "Double tap to switch accounts"
         accountChip.addTarget(self, action: #selector(accountTapped), for: .touchUpInside)
         accountDot.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(8)
+            make.leading.equalToSuperview().offset(10)
             make.centerY.equalToSuperview()
             make.size.equalTo(8)
         }
+        accountChevron.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().offset(-10)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(CGSize(width: 10, height: 10))
+        }
         accountTitle.snp.makeConstraints { make in
             make.leading.equalTo(accountDot.snp.trailing).offset(5)
-            make.trailing.equalToSuperview().offset(-10)
+            make.trailing.equalTo(accountChevron.snp.leading).offset(-4)
             make.centerY.equalToSuperview()
         }
 
@@ -79,26 +104,23 @@ final class BottomToolbarView: UIView {
         iconStack.alignment = .center
         [backButton, forwardButton, plusButton, tabsButton, menuButton].forEach { iconStack.addArrangedSubview($0) }
 
-        let root = UIStackView(arrangedSubviews: [accountChip, iconStack])
-        root.axis = .horizontal
-        root.alignment = .center
-        root.spacing = 4
-        addSubview(root)
+        addSubview(accountChip)
+        addSubview(iconStack)
 
-        root.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(8)
-            make.trailing.equalToSuperview().offset(-4)
+        accountChip.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(Self.leadingInset)
+            make.centerY.equalToSuperview()
+            make.height.equalTo(Self.chipHeight)
+            accountChipWidthConstraint = make.width.equalTo(Self.chipMinWidth).constraint
+        }
+        // Trailing-aligned icon strip: width is N slots so +/tabs/menu keep the same
+        // absolute positions when back/forward slots are absorbed by the chip.
+        iconStack.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().offset(-Self.trailingInset)
             make.top.equalToSuperview()
             make.height.equalTo(BrowserTheme.toolbarHeight)
+            iconStackWidthConstraint = make.width.equalTo(200).constraint
         }
-        accountChip.snp.makeConstraints { make in
-            make.height.equalTo(28)
-            make.width.greaterThanOrEqualTo(56)
-            make.width.lessThanOrEqualTo(108)
-        }
-        accountChip.setContentHuggingPriority(.required, for: .horizontal)
-        accountChip.setContentCompressionResistancePriority(.required, for: .horizontal)
-        iconStack.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
         tabsBadgeLabel.snp.makeConstraints { make in
             make.centerX.equalTo(tabsButton.snp.centerX).offset(10)
@@ -115,31 +137,105 @@ final class BottomToolbarView: UIView {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func update(canGoBack: Bool, canGoForward: Bool, tabCount: Int, isPrivate: Bool = false) {
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        updateSlotLayout()
+    }
+
+    func update(
+        canGoBack: Bool,
+        canGoForward: Bool,
+        tabCount: Int,
+        isPrivate: Bool = false,
+        hidesNavigationButtons: Bool = false
+    ) {
         self.canGoBack = canGoBack
         self.canGoForward = canGoForward
         self.tabCount = max(tabCount, 1)
+        self.hidesNavigationButtons = hidesNavigationButtons
         tabsBadgeLabel.text = " \(min(self.tabCount, 99)) "
         tabsBadgeLabel.snp.updateConstraints { make in
             make.width.greaterThanOrEqualTo(self.tabCount >= 10 ? 20 : 14)
         }
+        rebuildIconStack()
+        refreshAccountTitle()
         setPrivateMode(isPrivate)
+        setNeedsLayout()
     }
 
     func setPrivateMode(_ isPrivate: Bool) {
         isPrivateMode = isPrivate
         accountChip.isHidden = isPrivate || !accountChipVisible
         applyTheme()
+        setNeedsLayout()
     }
 
     func setAccount(name: String, color: UIColor, visible: Bool) {
         accountChipVisible = visible
+        accountName = name
         let show = visible && !isPrivateMode
         accountChip.isHidden = !show
-        accountTitle.text = AccountColor.truncatedName(name)
+        refreshAccountTitle()
         accountDot.backgroundColor = color
         accountChip.backgroundColor = color.withAlphaComponent(0.18)
         accountChip.accessibilityValue = name
+        setNeedsLayout()
+    }
+
+    private func refreshAccountTitle() {
+        if hidesNavigationButtons {
+            accountTitle.text = accountName
+        } else {
+            accountTitle.text = AccountColor.truncatedName(accountName, maxChars: 10)
+        }
+    }
+
+    /// Keep + / tabs / menu in the same trailing slots as the 5-icon layout;
+    /// when back/forward are removed, their slot width is absorbed by the account chip.
+    private func updateSlotLayout() {
+        let contentWidth = bounds.width - Self.leadingInset - Self.trailingInset
+        guard contentWidth > 0 else { return }
+
+        let chipShowing = accountChipVisible && !isPrivateMode && !accountChip.isHidden
+        let compactChipWidth: CGFloat = {
+            guard chipShowing else { return 0 }
+            let fitting = accountChip.systemLayoutSizeFitting(
+                CGSize(width: UIView.layoutFittingCompressedSize.width, height: Self.chipHeight)
+            ).width
+            return min(Self.chipMaxWidthCompact, max(Self.chipMinWidth, fitting))
+        }()
+
+        let iconArea: CGFloat = {
+            if chipShowing {
+                return max(0, contentWidth - compactChipWidth - Self.chipIconSpacing)
+            }
+            return contentWidth
+        }()
+        let slotWidth = iconArea / CGFloat(Self.iconSlotCount)
+        let visibleIconCount = hidesNavigationButtons ? 3 : Self.iconSlotCount
+        let iconsWidth = slotWidth * CGFloat(visibleIconCount)
+
+        let chipWidth: CGFloat = {
+            guard chipShowing else { return 0 }
+            if hidesNavigationButtons {
+                return max(Self.chipMinWidth, contentWidth - Self.chipIconSpacing - iconsWidth)
+            }
+            return compactChipWidth
+        }()
+
+        accountChipWidthConstraint?.update(offset: chipWidth)
+        iconStackWidthConstraint?.update(offset: max(iconsWidth, 1))
+        accountChip.isHidden = !chipShowing
+    }
+
+    private func rebuildIconStack() {
+        let icons: [UIView] = hidesNavigationButtons
+            ? [plusButton, tabsButton, menuButton]
+            : [backButton, forwardButton, plusButton, tabsButton, menuButton]
+        let current = iconStack.arrangedSubviews
+        if current == icons { return }
+        current.forEach { iconStack.removeArrangedSubview($0); $0.removeFromSuperview() }
+        icons.forEach { iconStack.addArrangedSubview($0) }
     }
 
     @objc private func applyTheme() {
@@ -161,6 +257,7 @@ final class BottomToolbarView: UIView {
         }
 
         accountTitle.textColor = BrowserTheme.textPrimary
+        accountChevron.tintColor = BrowserTheme.textSecondary
         tabsBadgeLabel.backgroundColor = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
         tabsBadgeLabel.textColor = isPrivateMode ? BrowserTheme.privateBackground : .black
         tabsBadgeLabel.isHidden = false
@@ -169,6 +266,11 @@ final class BottomToolbarView: UIView {
 
     /// Soften unavailable back/forward without UIButton's disabled gray (keeps theme tint).
     private func applyNavigationEnabledState() {
+        guard !hidesNavigationButtons else {
+            backButton.alpha = 1
+            forwardButton.alpha = 1
+            return
+        }
         backButton.isEnabled = true
         forwardButton.isEnabled = true
         backButton.isUserInteractionEnabled = canGoBack

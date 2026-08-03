@@ -736,7 +736,8 @@ final class BrowserViewController: UIViewController {
             canGoBack: wv?.canGoBack ?? false,
             canGoForward: wv?.canGoForward ?? false,
             tabCount: tabManager.toolbarTabCount(incognito: isPrivate),
-            isPrivate: isPrivate
+            isPrivate: isPrivate,
+            hidesNavigationButtons: tabManager.selectedTab?.isNewTabPage == true
         )
         addressBar.setPageCleanerActive(tabManager.selectedTab?.webController?.isPageCleanerActive == true)
     }
