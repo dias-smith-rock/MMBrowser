@@ -285,6 +285,8 @@ final class WebViewController: UIViewController {
     private var pipEntryButtonOrigin: CGPoint?
     private static let pipEntryOriginXKey = "media.pip.button.originX"
     private static let pipEntryOriginYKey = "media.pip.button.originY"
+    /// Active `window.open` OAuth / GSI popup (must keep opener alive).
+    private var authPopup: AuthPopupViewController?
 
     private let desktopUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
@@ -315,6 +317,7 @@ final class WebViewController: UIViewController {
         didSetupWebView = true
         let config = WKWebViewConfiguration()
         config.websiteDataStore = isIncognito ? .nonPersistent() : websiteDataStore
+        config.preferences.javaScriptCanOpenWindowsAutomatically = true
         MediaPlaybackSupport.configureAudioSessionIfNeeded()
         MediaPlaybackSupport.apply(to: config)
         AdBlockManager.shared.apply(to: config) { [weak self] in
@@ -363,6 +366,10 @@ final class WebViewController: UIViewController {
         if AppSettings.pictureInPictureEnabled || AppSettings.backgroundAudioEnabled {
             config.userContentController.add(proxy, name: MediaPlaybackSupport.pipHandlerName)
         }
+        // X.com (and similar) treat missing `window.safari` as an in-app WebView and navigate to
+        // `x-safari-https://redirect…/?ct=rw-null`. Spoof enough of the Safari object to stay put.
+        // Must run before XSiteProbe so boot logs see hasSafari=true.
+        config.userContentController.addUserScript(Self.safariCompatibilityScript)
         if XSiteProbe.isEnabled {
             config.userContentController.add(proxy, name: XSiteProbe.handlerName)
             config.userContentController.addUserScript(XSiteProbe.userScript)
@@ -372,8 +379,6 @@ final class WebViewController: UIViewController {
         }
         // Default WKWebView UA omits "Safari/…" which makes x.com issue x-safari-https:// kickouts.
         config.applicationNameForUserAgent = "Version/18.0 Mobile/15E148 Safari/604.1"
-        // X.com also probes `window.safari`; missing it triggers a client-side kickout loop.
-        config.userContentController.addUserScript(Self.safariCompatibilityScript)
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.navigationDelegate = self
         wv.uiDelegate = self
@@ -969,6 +974,8 @@ final class WebViewController: UIViewController {
         PipSession.releaseIfOwner(self)
         prefersPictureInPicture = false
         setPictureInPictureActive(false)
+        authPopup?.dismissPopup()
+        authPopup = nil
         webView?.stopLoading()
         webView?.navigationDelegate = nil
         webView?.uiDelegate = nil
@@ -1655,14 +1662,17 @@ extension WebViewController: WKNavigationDelegate {
         YouTubeDarkMode.applyAppearance(to: webView, url: navigationAction.request.url)
         if let url = navigationAction.request.url {
             let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
-            if XSiteProbe.isRelevant(url) || (url.scheme ?? "").lowercased().hasPrefix("x-safari-") {
+            if XSiteProbe.isRelevant(url) || (url.scheme ?? "").lowercased().hasPrefix("x-safari-")
+                || url.absoluteString.lowercased().contains("oauth")
+                || url.absoluteString.lowercased().contains("accounts.google") {
                 XSiteProbe.log("nav.decide", [
                     "url": url.absoluteString,
                     "main": isMainFrame,
                     "type": navigationAction.navigationType.rawValue,
                     "source": navigationAction.sourceFrame.request.url?.absoluteString ?? "nil",
                     "adblock": AppSettings.trackerProtectionEnabled,
-                    "ct": Self.xConsentToken(from: url) ?? "nil"
+                    "ct": Self.xConsentToken(from: url) ?? "nil",
+                    "targetNil": navigationAction.targetFrame == nil
                 ])
             }
 
@@ -1692,7 +1702,8 @@ extension WebViewController: WKNavigationDelegate {
             // Ignore App/deeplink schemes (common on Chinese portals like Sogou) to avoid "Unsupported URL".
             let allowed = ["http", "https", "about", "blob", "data", "file"]
             if !scheme.isEmpty && !allowed.contains(scheme) {
-                if XSiteProbe.isRelevant(url) || scheme.contains("safari") || scheme.contains("twitter") || scheme.contains("x-") {
+                if XSiteProbe.isRelevant(url) || scheme.contains("safari") || scheme.contains("twitter")
+                    || scheme.contains("x-") || scheme.contains("google") {
                     XSiteProbe.log("nav.cancelScheme", ["url": url.absoluteString, "scheme": scheme])
                 }
                 decisionHandler(.cancel)
@@ -1765,11 +1776,18 @@ extension WebViewController: WKNavigationDelegate {
             XSiteProbe.log("nav.finish", [
                 "url": webView.url?.absoluteString ?? "nil",
                 "title": webView.title ?? "",
-                "adblock": AppSettings.trackerProtectionEnabled
+                "adblock": AppSettings.trackerProtectionEnabled,
+                "hasOpenerProbe": true
             ])
             // Dump effective UA once page is ready.
-            webView.evaluateJavaScript("navigator.userAgent") { result, _ in
-                XSiteProbe.log("ua.effective", ["ua": String(describing: result ?? "nil")])
+            webView.evaluateJavaScript(
+                "(function(){return {ua:navigator.userAgent,hasOpener:!!window.opener,href:location.href};})()"
+            ) { result, _ in
+                if let dict = result as? [String: Any] {
+                    XSiteProbe.log("page.state", dict)
+                } else {
+                    XSiteProbe.log("ua.effective", ["ua": String(describing: result ?? "nil")])
+                }
             }
         }
         errorContainer.isHidden = true
@@ -2030,18 +2048,106 @@ extension WebViewController: WKNavigationDelegate {
 
 extension WebViewController: WKUIDelegate {
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        if navigationAction.targetFrame == nil, let url = navigationAction.request.url {
-            if Self.isXSafariKickoutNavigation(url) {
-                XSiteProbe.log("ui.ignoreKickoutPopup", ["url": url.absoluteString])
-                return nil
-            }
+        let url = navigationAction.request.url
+        let urlString = url?.absoluteString ?? "nil"
+        let isAuth = XSiteProbe.isRelevant(url)
+            || XSiteProbe.isRelevant(webView.url)
+            || urlString.lowercased().contains("google")
+            || urlString.lowercased().contains("oauth")
+            || urlString == "about:blank"
+            || url == nil
+        if XSiteProbe.isEnabled, isAuth || (navigationAction.targetFrame == nil) {
+            XSiteProbe.log("ui.createWebView", [
+                "url": urlString,
+                "page": webView.url?.absoluteString ?? "nil",
+                "targetNil": navigationAction.targetFrame == nil,
+                "navType": navigationAction.navigationType.rawValue,
+                "hasWidth": windowFeatures.width != nil,
+                "hasHeight": windowFeatures.height != nil,
+                "configProcessPool": ObjectIdentifier(configuration.processPool).debugDescription
+            ])
+        }
+
+        guard navigationAction.targetFrame == nil else {
+            return nil
+        }
+
+        if let url, Self.isXSafariKickoutNavigation(url) {
+            XSiteProbe.log("ui.ignoreKickoutPopup", ["url": url.absoluteString])
+            return nil
+        }
+
+        let looksLikeWindowOpen = windowFeatures.width != nil || windowFeatures.height != nil
+        let looksLikeAuthPopup = isAuth || looksLikeWindowOpen
+            || urlString.lowercased().contains("accounts.google")
+            || urlString.lowercased().contains("oauth")
+            || urlString.lowercased().contains("appleid")
+
+        // Plain target=_blank links keep the old new-tab behavior.
+        if !looksLikeAuthPopup, let url {
             if let unwrapped = Self.urlByUnwrappingSafariEscapeScheme(url) {
                 load(url: unwrapped)
             } else {
+                XSiteProbe.log("ui.createWebView.newTab", ["url": url.absoluteString])
                 delegate?.webViewController(self, requestNewTabFor: url)
             }
+            return nil
         }
-        return nil
+
+        // Prefer a real popup WebView so window.open() returns a WindowProxy and
+        // Google GSI (ux_mode=popup) can postMessage back to the opener.
+        if authPopup != nil {
+            // Already have a popup — return the same web view. Do NOT load() here;
+            // WebKit will navigate the returned web view and keep window.opener.
+            XSiteProbe.log("ui.createWebView.reusePopup", ["url": urlString])
+            return authPopup?.popupWebView
+        }
+
+        // Use WebKit's configuration exactly once. Do not call load() — WebKit loads
+        // the request into the returned web view. Manual load() clears window.opener
+        // and leaves Google stuck on a blank /gsi/transform page.
+        let popupWebView = WKWebView(frame: CGRect(x: 0, y: 0, width: 1, height: 1), configuration: configuration)
+        // Must be in the view hierarchy before this method returns or opener stays null.
+        popupWebView.isHidden = true
+        view.addSubview(popupWebView)
+
+        let popup = AuthPopupViewController(webView: popupWebView)
+        popup.onDismissed = { [weak self] in
+            self?.authPopup = nil
+            XSiteProbe.log("ui.popupCleared", [:])
+        }
+        authPopup = popup
+
+        let host: UIViewController = {
+            var candidate: UIViewController = self
+            while let parent = candidate.parent { candidate = parent }
+            return candidate
+        }()
+        XSiteProbe.log("ui.createWebView.returnPopup", [
+            "url": urlString,
+            "inHierarchy": popupWebView.superview != nil,
+            "pool": ObjectIdentifier(configuration.processPool).debugDescription
+        ])
+        DispatchQueue.main.async { [weak host] in
+            guard let host else { return }
+            if host.presentedViewController is AuthPopupViewController { return }
+            if let presented = host.presentedViewController {
+                presented.dismiss(animated: false) {
+                    popup.present(from: host)
+                }
+            } else {
+                popup.present(from: host)
+            }
+        }
+        return popupWebView
+    }
+
+    func webViewDidClose(_ webView: WKWebView) {
+        if webView === authPopup?.popupWebView {
+            XSiteProbe.log("ui.webViewDidClose.popup", ["url": webView.url?.absoluteString ?? "nil"])
+            authPopup?.dismissPopup()
+            authPopup = nil
+        }
     }
 
     @available(iOS 13.0, *)

@@ -636,6 +636,11 @@ final class BrowserViewController: UIViewController {
             return nil
         }()
         let tab = tabManager.addTab(incognito: incognito, select: true, containerID: resolvedContainerID)
+        XSiteProbe.log("browser.openURLInNewTab", [
+            "url": url.absoluteString,
+            "incognito": incognito,
+            "tabID": tab.id.uuidString
+        ])
         navigate(to: url, in: tab)
     }
 
@@ -1172,6 +1177,10 @@ extension BrowserViewController: WebViewControllerDelegate {
     }
 
     func webViewController(_ controller: WebViewController, requestNewTabFor url: URL) {
+        XSiteProbe.log("browser.requestNewTab", [
+            "url": url.absoluteString,
+            "from": controller.webView?.url?.absoluteString ?? "nil"
+        ])
         let parent = tabManager.tabs.first(where: { $0.webController === controller })
             ?? tabManager.selectedTab
         openURLInNewTab(url, incognito: parent?.isIncognito ?? false, inheritContainerFrom: parent)
