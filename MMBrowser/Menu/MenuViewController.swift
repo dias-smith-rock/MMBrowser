@@ -6,6 +6,7 @@ enum MenuAction: Equatable {
     case reload, newTab, newIncognitoTab, addBookmark, addReadingList
     case readerMode, findInPage, share, desktopSite, sharePDF, screenshot, longScreenshot
     case pageCleaner
+    case downloadFile
     case copyURL, aboutSite, addToHomepage, printPage, translate, changeTextSize, adBlocker
     case pictureInPicture
     case setDefaultBrowser, passwords, backgroundGallery, theme, feedback

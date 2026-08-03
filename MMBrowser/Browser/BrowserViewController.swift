@@ -57,6 +57,42 @@ final class BrowserViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(pipProbeDumpTabs(_:)), name: PipProbe.dumpTabsNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(downloadDidFinish(_:)), name: DownloadManager.didFinishNotification, object: nil)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(openDownloadsFromNotification),
+            name: DownloadLocalNotifications.openDownloadsNotification,
+            object: nil
+        )
+    }
+
+    @objc private func downloadDidFinish(_ note: Notification) {
+        guard UIApplication.shared.applicationState == .active else { return }
+        guard let item = note.userInfo?["item"] as? DownloadItem else { return }
+        switch item.status {
+        case .completed:
+            Toast.show("Downloaded \(item.fileName)", from: self)
+        case .failed:
+            let detail = (item.errorMessage?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 } ?? "Unknown error"
+            Toast.show("Download failed · \(detail)", from: self)
+        default:
+            break
+        }
+    }
+
+    @objc private func openDownloadsFromNotification() {
+        if tabManager.selectedTab?.isIncognito == true {
+            Toast.show("Downloads are disabled in Private Browsing", from: self)
+            return
+        }
+        // Dismiss any presented sheets so Downloads can present cleanly.
+        if presentedViewController != nil {
+            dismiss(animated: false) { [weak self] in
+                self?.openDownloads()
+            }
+        } else {
+            openDownloads()
+        }
     }
 
     @objc private func pipProbeDumpTabs(_ note: Notification) {
@@ -1374,6 +1410,8 @@ extension BrowserViewController: MenuViewControllerDelegate {
             Toast.show(tab.preferDesktop ? "Desktop site" : "Mobile site", from: self)
         case .sharePDF:
             tabManager.selectedTab?.webController?.sharePDF()
+        case .downloadFile:
+            tabManager.selectedTab?.webController?.downloadCurrentIfFile()
         case .screenshot:
             tabManager.selectedTab?.webController?.screenshot()
         case .longScreenshot:

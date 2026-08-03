@@ -33,32 +33,16 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
 
     static func makeDefaults() -> [BrowserContainer] {
         let presets = SpoofLocationPreset.all
-        let defaultPreset = presets[0] // New York
-        let workPreset = presets.first(where: { $0.id == "london" }) ?? presets[2]
-        let personalPreset = presets.first(where: { $0.id == "tokyo" }) ?? presets[5]
-        return [
+        let names = ["FB-1", "FB-2", "Ins-1", "Ins-2"]
+        return names.enumerated().map { offset, name in
             BrowserContainer(
                 id: UUID(),
-                name: "Default",
+                name: name,
                 sessionID: UUID(),
-                sortIndex: 0,
-                location: defaultPreset
-            ),
-            BrowserContainer(
-                id: UUID(),
-                name: "Work",
-                sessionID: UUID(),
-                sortIndex: 1,
-                location: workPreset
-            ),
-            BrowserContainer(
-                id: UUID(),
-                name: "Personal",
-                sessionID: UUID(),
-                sortIndex: 2,
-                location: personalPreset
+                sortIndex: offset,
+                location: presets[offset % presets.count]
             )
-        ]
+        }
     }
 
     init(

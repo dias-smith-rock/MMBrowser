@@ -197,10 +197,16 @@ enum AppSettings {
         set { setClearOption(newValue, forKey: "clear.closeTabsOnExit") }
     }
 
-    /// Show webpage snapshots on tab cards. Default on.
+    /// Show tab card webpage snapshots. Default on.
     static var showTabsPreviewImages: Bool {
         get { d.object(forKey: "clear.showTabPreviews") == nil ? true : d.bool(forKey: "clear.showTabPreviews") }
         set { setClearOption(newValue, forKey: "clear.showTabPreviews") }
+    }
+
+    /// Local notification when a download finishes (or fails) in the background. Default on.
+    static var downloadCompletionNotificationsEnabled: Bool {
+        get { d.object(forKey: "downloads.notify") == nil ? true : d.bool(forKey: "downloads.notify") }
+        set { d.set(newValue, forKey: "downloads.notify") }
     }
 }
 

@@ -73,6 +73,14 @@ final class PageRichMenuViewController: UIViewController {
         stack.addArrangedSubview(makeRowsCard([
             row("Long screenshot", symbol: "rectangle.bottomthird.inset.filled", action: .longScreenshot, enabled: context.hasLoadablePage),
             row("Save as PDF", symbol: "doc.richtext", action: .sharePDF, enabled: context.hasLoadablePage),
+            row(
+                "Download File",
+                symbol: "arrow.down.circle",
+                action: .downloadFile,
+                enabled: context.hasLoadablePage
+                    && !context.isIncognito
+                    && (context.url.map { DownloadManager.isLikelyDownloadURL($0) } ?? false)
+            ),
             row("Print", symbol: "printer", action: .printPage, enabled: context.hasLoadablePage)
         ]))
         stack.addArrangedSubview(makeRowsCard([

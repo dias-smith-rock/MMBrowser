@@ -17,6 +17,8 @@ final class TabManager {
     private let sessionKey = "mmbrowser.tabs.session"
     private let containersKey = "mmbrowser.containers"
     private let lastContainerKey = "mmbrowser.containers.lastActive"
+    /// Marks migration from Default/Work/Personal → FB-1/FB-2/Ins-1/Ins-2.
+    private let containersPresetKey = "mmbrowser.containers.preset.v2"
     /// Set when tabs were intentionally closed on exit; cleared on next launch.
     private let cleanExitKey = "mmbrowser.tabs.cleanExit"
     private let defaults = UserDefaults.standard
@@ -495,9 +497,11 @@ final class TabManager {
            !saved.isEmpty {
             containers = saved
             reindexContainers()
+            migrateLegacyDefaultContainersIfNeeded()
         } else {
             containers = BrowserContainer.makeDefaults()
             persistContainers()
+            defaults.set(true, forKey: containersPresetKey)
         }
         if let raw = defaults.string(forKey: lastContainerKey),
            let id = UUID(uuidString: raw),
@@ -507,6 +511,59 @@ final class TabManager {
             lastActiveContainerID = defaultContainer.id
             defaults.set(defaultContainer.id.uuidString, forKey: lastContainerKey)
         }
+    }
+
+    /// Rename factory Default/Work/Personal chips to FB-1/FB-2/Ins-1 and add Ins-2.
+    private func migrateLegacyDefaultContainersIfNeeded() {
+        let legacyNames: Set<String> = ["default", "work", "personal"]
+        let currentNames = Set(containers.map { $0.name.lowercased() })
+        guard currentNames == legacyNames else {
+            if !defaults.bool(forKey: containersPresetKey) {
+                defaults.set(true, forKey: containersPresetKey)
+            }
+            return
+        }
+
+        let rename: [String: String] = [
+            "default": "FB-1",
+            "work": "FB-2",
+            "personal": "Ins-1"
+        ]
+        for i in containers.indices {
+            let key = containers[i].name.lowercased()
+            if let next = rename[key] {
+                containers[i].name = next
+            }
+        }
+
+        let desiredOrder = ["FB-1", "FB-2", "Ins-1", "Ins-2"]
+        let existing = Set(containers.map(\.name))
+        for (offset, name) in desiredOrder.enumerated() where !existing.contains(name) {
+            let preset = SpoofLocationPreset.all[offset % SpoofLocationPreset.all.count]
+            containers.append(
+                BrowserContainer(
+                    id: UUID(),
+                    name: name,
+                    sessionID: UUID(),
+                    sortIndex: containers.count,
+                    location: preset
+                )
+            )
+        }
+
+        var ordered: [BrowserContainer] = []
+        for name in desiredOrder {
+            if let match = containers.first(where: { $0.name == name }) {
+                ordered.append(match)
+            }
+        }
+        for container in containers where !desiredOrder.contains(container.name) {
+            ordered.append(container)
+        }
+        containers = ordered
+        reindexContainers()
+        persistContainers()
+        defaults.set(true, forKey: containersPresetKey)
     }
 
     private func persistContainers() {
@@ -590,6 +647,7 @@ final class TabManager {
             containers = Self.migrateContainers(from: session)
         }
         reindexContainers()
+        migrateLegacyDefaultContainersIfNeeded()
         persistContainers()
 
         let fallbackID = resolvedLastActiveContainerID
@@ -655,9 +713,9 @@ final class TabManager {
 
     private static func migrateContainers(from session: PersistedSession) -> [BrowserContainer] {
         var names = session.legacyGroupNames
-        if names.isEmpty { names = ["Default", "Work", "Personal"] }
-        if !names.contains(where: { $0.caseInsensitiveCompare("Default") == .orderedSame }) {
-            names.insert("Default", at: 0)
+        if names.isEmpty { names = ["FB-1", "FB-2", "Ins-1", "Ins-2"] }
+        if !names.contains(where: { $0.caseInsensitiveCompare("FB-1") == .orderedSame }) {
+            names.insert("FB-1", at: 0)
         }
         return names.enumerated().map { offset, name in
             let preset = SpoofLocationPreset.all[offset % SpoofLocationPreset.all.count]

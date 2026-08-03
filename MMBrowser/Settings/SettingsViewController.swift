@@ -3,7 +3,7 @@ import SnapKit
 
 final class SettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
-    private enum Section: Int, CaseIterable { case privacy, clearOption, tools, youtube, media, gestures, search, home, about }
+    private enum Section: Int, CaseIterable { case privacy, clearOption, tools, youtube, media, downloads, gestures, search, home, about }
     var onRequestRebuildWebViews: (() -> Void)?
 
     override func viewDidLoad() {
@@ -57,6 +57,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .tools: return 1
         case .youtube: return 2
         case .media: return 2
+        case .downloads: return 1
         case .gestures: return 1
         case .search: return SearchEngine.all.count
         case .home: return 1
@@ -71,6 +72,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .tools: return "Tools"
         case .youtube: return "Focus & Video"
         case .media: return "Media"
+        case .downloads: return "Downloads"
         case .gestures: return "Gestures"
         case .search: return "Search Engine"
         case .home: return "Appearance"
@@ -90,6 +92,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             return "Fewer YouTube interruptions is best-effort and may stop working when the site changes. Shorts Focus hides Shorts shelves and redirects Shorts links."
         case .media:
             return "Background audio keeps supported video sites playing when you leave the app. Picture in Picture requires system support."
+        case .downloads:
+            return "Get a notification when a download finishes or fails while the app is in the background."
         case .gestures:
             return "One-finger Hook → back, Hook ← forward, Hook ○ bookmark."
         default:
@@ -196,6 +200,14 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.addTarget(self, action: #selector(pipChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
             }
+        case .downloads:
+            cell.textLabel?.text = "Completion Alerts"
+            cell.detailTextLabel?.text = "Notify when downloads finish"
+            cell.selectionStyle = .none
+            let sw = UISwitch()
+            sw.isOn = AppSettings.downloadCompletionNotificationsEnabled
+            sw.addTarget(self, action: #selector(downloadNotifyChanged(_:)), for: .valueChanged)
+            cell.accessoryView = sw
         case .gestures:
             cell.textLabel?.text = "Gestures"
             cell.detailTextLabel?.text = GestureActionMap.summary
@@ -310,6 +322,21 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         AppSettings.pictureInPictureEnabled = sw.isOn
         onRequestRebuildWebViews?()
         Toast.show(sw.isOn ? "Picture in Picture on" : "Picture in Picture off", from: self)
+    }
+    @objc private func downloadNotifyChanged(_ sw: UISwitch) {
+        AppSettings.downloadCompletionNotificationsEnabled = sw.isOn
+        if sw.isOn {
+            DownloadLocalNotifications.shared.requestAuthorizationIfNeeded { [weak self] granted in
+                guard let self else { return }
+                if granted {
+                    Toast.show("Download alerts on", from: self)
+                } else {
+                    Toast.show("Allow notifications in Settings to get alerts", from: self)
+                }
+            }
+        } else {
+            Toast.show("Download alerts off", from: self)
+        }
     }
     @objc private func noImagesChanged(_ sw: UISwitch) {
         AppSettings.noImagesEnabled = sw.isOn

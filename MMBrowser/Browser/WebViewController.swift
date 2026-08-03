@@ -921,25 +921,36 @@ final class WebViewController: UIViewController {
     }
 
     func downloadCurrentIfFile() {
+        guard let url = webView?.url else {
+            Toast.show("No page to download", from: self)
+            return
+        }
+        guard DownloadManager.isLikelyDownloadURL(url) else {
+            Toast.show("Open a downloadable file URL first", from: self)
+            return
+        }
+        beginDownload(url: url, suggestedName: url.lastPathComponent)
+    }
+
+    /// Starts a cookie-aware download and shows a brief status toast.
+    func beginDownload(url: URL, suggestedName: String? = nil, mimeType: String? = nil) {
         guard !isIncognito else {
             Toast.show("Downloads are disabled in Private Browsing", from: self)
             return
         }
-        guard let url = webView?.url else { return }
-        let ext = url.pathExtension.lowercased()
-        let fileLike = ["pdf", "zip", "png", "jpg", "jpeg", "gif", "mp3", "mp4", "mov", "dmg", "pkg", "csv", "txt"].contains(ext)
-        guard fileLike else {
-            Toast.show("Open a downloadable file URL first", from: self)
+        let scheme = (url.scheme ?? "").lowercased()
+        guard scheme == "http" || scheme == "https" else {
+            Toast.show("Can't download this link", from: self)
             return
         }
-        DownloadManager.shared.download(from: url, suggestedName: url.lastPathComponent) { [weak self] result in
-            guard let self = self else { return }
-            switch result {
-            case .success(let item):
-                Toast.show("Downloaded \(item.fileName)", from: self)
-            case .failure(let error):
-                Toast.show(error.localizedDescription, from: self)
-            }
+        DownloadManager.shared.start(
+            url: url,
+            suggestedName: suggestedName,
+            mimeType: mimeType,
+            from: webView
+        ) { [weak self] item in
+            guard let self else { return }
+            Toast.show("Downloading \(item.fileName)…", from: self)
         }
     }
 
@@ -1870,19 +1881,10 @@ extension WebViewController: WKNavigationDelegate {
                 return
             }
 
-            let ext = url.pathExtension.lowercased()
-            if ["pdf", "zip", "dmg", "pkg"].contains(ext), navigationAction.navigationType == .linkActivated {
-                if self.isIncognito {
-                    Toast.show("Downloads are disabled in Private Browsing", from: self)
-                    decisionHandler(.cancel)
-                    return
-                }
-                DownloadManager.shared.download(from: url, suggestedName: url.lastPathComponent) { [weak self] result in
-                    if case .success(let item) = result {
-                        if let self = self { Toast.show("Downloaded \(item.fileName)", from: self) }
-                    }
-                }
+            if DownloadManager.isLikelyDownloadURL(url),
+               navigationAction.navigationType == .linkActivated {
                 decisionHandler(.cancel)
+                beginDownload(url: url, suggestedName: url.lastPathComponent)
                 return
             }
             if DangerousSiteGuard.isDangerous(url), navigationAction.navigationType == .linkActivated {
@@ -1901,6 +1903,28 @@ extension WebViewController: WKNavigationDelegate {
             }
         }
         decisionHandler(.allow)
+    }
+
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationResponse: WKNavigationResponse,
+        decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
+    ) {
+        let response = navigationResponse.response
+        let isMain = navigationResponse.isForMainFrame
+        guard DownloadManager.shouldDownload(response: response, isForMainFrame: isMain),
+              let url = response.url else {
+            decisionHandler(.allow)
+            return
+        }
+        let scheme = (url.scheme ?? "").lowercased()
+        guard scheme == "http" || scheme == "https" else {
+            decisionHandler(.allow)
+            return
+        }
+        decisionHandler(.cancel)
+        let name = DownloadManager.suggestedFileName(from: response, url: url)
+        beginDownload(url: url, suggestedName: name, mimeType: response.mimeType)
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
@@ -2347,6 +2371,13 @@ extension WebViewController: WKUIDelegate {
                 })
 
                 if !self.isIncognito {
+                    let canDownload = DownloadManager.isLikelyDownloadURL(linkURL)
+                        || ["http", "https"].contains((linkURL.scheme ?? "").lowercased())
+                    if canDownload {
+                        actions.append(UIAction(title: "Download Linked File", image: UIImage(systemName: "arrow.down.circle")) { [weak self] _ in
+                            self?.beginDownload(url: linkURL, suggestedName: linkURL.lastPathComponent)
+                        })
+                    }
                     actions.append(UIAction(title: "Add to Reading List", image: UIImage(systemName: "eyeglasses")) { [weak self] _ in
                         self?.addLinkToReadingList(linkURL)
                     })

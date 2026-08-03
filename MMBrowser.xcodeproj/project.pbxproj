@@ -14,6 +14,7 @@
 		225CD882697F4D4E83068A67 /* BrowserTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 094FFB3CDC234AA8BFFC8140 /* BrowserTab.swift */; };
 		2407C85515E24617A4EF10BA /* YouTubeShortsFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B4B9A76DFE4E32A1FD3ADD /* YouTubeShortsFocus.swift */; };
 		39B5B31AA5B34064830D0554 /* DownloadsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EF1A8CF7C4FDF9609AC37 /* DownloadsViewController.swift */; };
+		DLN000A1B2C3D4E5F6071829 /* DownloadLocalNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = DLN000B1B2C3D4E5F6071829 /* DownloadLocalNotifications.swift */; };
 		3E002237DEF54CE88D630EE4 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12BD4B168F4A48569EA59EC0 /* ViewController.swift */; };
 		47C017E84DF14D329312A9B6 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1779FCB4C5AF48C29F8F9FFA /* Theme.swift */; };
 		48C0A4946FCF422DB594031C /* ReadingListStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0348F54E284419696A84A8F /* ReadingListStore.swift */; };
@@ -226,6 +227,7 @@
 		E248C7687DE44E8C99A7001F /* ReaderViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderViewController.swift; sourceTree = "<group>"; };
 		E8CC67E16AD54E6D8184917D /* PrivacyInfoViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyInfoViewController.swift; sourceTree = "<group>"; };
 		ED5EF1A8CF7C4FDF9609AC37 /* DownloadsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsViewController.swift; sourceTree = "<group>"; };
+		DLN000B1B2C3D4E5F6071829 /* DownloadLocalNotifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadLocalNotifications.swift; sourceTree = "<group>"; };
 		F1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotPerf.swift; sourceTree = "<group>"; };
 		F1EE201BBF964C068F934786 /* YouTubeDarkMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeDarkMode.swift; sourceTree = "<group>"; };
 		F327BEAC2D914DAB9242A59E /* DiscoverMock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverMock.swift; sourceTree = "<group>"; };
@@ -282,6 +284,7 @@
 			isa = PBXGroup;
 			children = (
 				2647202205AE48D0A2EE427F /* DownloadManager.swift */,
+				DLN000B1B2C3D4E5F6071829 /* DownloadLocalNotifications.swift */,
 				ED5EF1A8CF7C4FDF9609AC37 /* DownloadsViewController.swift */,
 			);
 			path = Downloads;
@@ -778,6 +781,7 @@
 				E1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift in Sources */,
 				C58A1413B374481F93E6D824 /* URLInputResolver.swift in Sources */,
 				F28F14D6142F47C884D1BE09 /* DownloadManager.swift in Sources */,
+				DLN000A1B2C3D4E5F6071829 /* DownloadLocalNotifications.swift in Sources */,
 				39B5B31AA5B34064830D0554 /* DownloadsViewController.swift in Sources */,
 				F5FAA4028A4D495EA2A0FB69 /* BookmarkStore.swift in Sources */,
 				7037106A32B340B980EF47E4 /* BookmarksViewController.swift in Sources */,

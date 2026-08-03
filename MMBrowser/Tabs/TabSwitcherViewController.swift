@@ -46,11 +46,8 @@ final class TabSwitcherViewController: UIViewController {
     init(tabManager: TabManager) {
         self.tabManager = tabManager
         self.showingIncognito = tabManager.selectedTab?.isIncognito ?? false
-        if let selected = tabManager.selectedTab, !selected.isIncognito {
-            self.selectedContainerFilter = selected.containerID
-        } else {
-            self.selectedContainerFilter = tabManager.lastActiveContainerID
-        }
+        // Default filter: All containers.
+        self.selectedContainerFilter = nil
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -203,10 +200,8 @@ final class TabSwitcherViewController: UIViewController {
             withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
         )
         manage.setImage(manageIcon, for: .normal)
-        manage.setTitle(" Manage", for: .normal)
-        manage.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        manage.setTitle(nil, for: .normal)
         manage.tintColor = accent
-        manage.setTitleColor(accent, for: .normal)
         manage.backgroundColor = BrowserTheme.secondaryCard
         manage.layer.cornerRadius = 14
         manage.contentEdgeInsets = UIEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
@@ -963,7 +958,7 @@ final class TabGridCell: UICollectionViewCell {
     func configure(tab: BrowserTab, containerName: String, selected: Bool) {
         titleLabel.text = tab.title
         let name = containerName.trimmingCharacters(in: .whitespacesAndNewlines)
-        groupButton.setTitle(name.isEmpty ? "Default" : name, for: .normal)
+        groupButton.setTitle(name.isEmpty ? "Container" : name, for: .normal)
         if let avatar = tab.sessionAvatar {
             avatarView.image = avatar
             avatarView.isHidden = false
