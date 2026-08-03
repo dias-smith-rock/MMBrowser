@@ -82,12 +82,30 @@ final class BrowserViewController: UIViewController {
     }
 
     @objc private func appDidEnterBackground() {
+        let pipOwner = PipSession.owner
+        let pipActive = (pipOwner?.isPictureInPictureActive == true)
+            || tabManager.tabs.contains { $0.webController?.isPictureInPictureActive == true }
+
+        // While system PiP owns audio, do not touch AVAudioSession or snapshot any WebView —
+        // both cause a noticeable hitch in the floating video on suspend.
+        if pipActive {
+            startStickyPipBackgroundKeepAlive()
+            // Persist already-captured previews only.
+            if !AppSettings.closeAllTabsOnExit, AppSettings.showTabsPreviewImages {
+                for tab in tabManager.tabs where !tab.isIncognito && !tab.isNewTabPage {
+                    if let snapshot = tab.snapshot {
+                        TabSnapshotStore.save(snapshot, for: tab.id)
+                    }
+                }
+            }
+            tabManager.persistSessionIfNeeded()
+            return
+        }
+
         MediaPlaybackSupport.configureAudioSessionIfNeeded()
-        // YouTube Music (and similar) pause on visibility — re-assert playback immediately.
         for tab in tabManager.tabs {
             MediaPlaybackSupport.keepBackgroundMediaAlive(in: tab.webController?.webView)
         }
-        startStickyPipBackgroundKeepAlive()
 
         // Refresh previews for live tabs so thumbnails survive relaunch.
         guard !AppSettings.closeAllTabsOnExit, AppSettings.showTabsPreviewImages else {
@@ -738,6 +756,14 @@ final class BrowserViewController: UIViewController {
             return
         }
         guard let web = tab.webController else {
+            completion?()
+            return
+        }
+        // Snapshotting a WebView that owns system PiP stalls the floating video.
+        if web.isPictureInPictureActive || PipSession.isOwner(web) {
+            if let snapshot = tab.snapshot {
+                TabSnapshotStore.save(snapshot, for: tab.id)
+            }
             completion?()
             return
         }

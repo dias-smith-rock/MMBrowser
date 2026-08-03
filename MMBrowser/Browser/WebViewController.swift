@@ -1419,13 +1419,29 @@ final class WebViewController: UIViewController {
         guard PipSession.isOwner(self),
               prefersPictureInPicture || isPictureInPictureActive || AppSettings.stickyPictureInPicture,
               let webView else { return }
-        // Page script decides reenter vs user-dismiss; do not mark active here.
-        MediaPlaybackSupport.reinforcePictureInPictureIfNeeded(in: webView)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
-            guard let self, PipSession.isOwner(self),
-                  AppSettings.stickyPictureInPicture || self.prefersPictureInPicture else { return }
-            MediaPlaybackSupport.reinforcePictureInPictureIfNeeded(in: self.webView)
-            self.syncPictureInPictureActiveFromPage()
+        // User may have tapped the PiP window to restore the app — only reinforce if
+        // system PiP is still active. Forcing re-enter here leaves the page unresponsive.
+        MediaPlaybackSupport.configureAudioSessionIfNeeded(forceReactivate: true)
+        webView.evaluateJavaScript(
+            "(function(){try{return !!(window.__mmAnyInPiP&&window.__mmAnyInPiP());}catch(e){return false;}})();"
+        ) { [weak self] result, _ in
+            guard let self else { return }
+            let stillInPip = (result as? Bool) ?? false
+            guard stillInPip else {
+                // Restored to inline — clear sticky so we don't immediately reclaim PiP.
+                if self.prefersPictureInPicture || AppSettings.stickyPictureInPicture {
+                    self.persistPipPrefer(false)
+                }
+                self.setPictureInPictureActive(false)
+                return
+            }
+            MediaPlaybackSupport.reinforcePictureInPictureIfNeeded(in: webView)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                guard let self, PipSession.isOwner(self),
+                      AppSettings.stickyPictureInPicture || self.prefersPictureInPicture else { return }
+                MediaPlaybackSupport.reinforcePictureInPictureIfNeeded(in: self.webView)
+                self.syncPictureInPictureActiveFromPage()
+            }
         }
     }
 

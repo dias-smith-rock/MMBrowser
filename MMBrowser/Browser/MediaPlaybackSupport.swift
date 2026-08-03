@@ -6,9 +6,14 @@ import WebKit
 enum MediaPlaybackSupport {
     static let pipHandlerName = "mmMediaPip"
 
-    static func configureAudioSessionIfNeeded() {
+    static func configureAudioSessionIfNeeded(forceReactivate: Bool = false) {
         guard AppSettings.backgroundAudioEnabled || AppSettings.pictureInPictureEnabled else { return }
         let session = AVAudioSession.sharedInstance()
+        // Re-calling setActive while system PiP is playing causes a one-frame audio glitch
+        // as the app backgrounds. Skip when the session is already in .playback.
+        if !forceReactivate, session.category == .playback {
+            return
+        }
         do {
             // Avoid `.allowAirPlay` here — with `.playback` + `.default` it can return OSStatus -50.
             try session.setCategory(.playback, mode: .default, options: [])
@@ -38,17 +43,21 @@ enum MediaPlaybackSupport {
     }
 
     /// Re-assert playback after the app backgrounds (YouTube Music pauses on visibilitychange).
+    /// When system PiP is already healthy, do a single no-op check — repeated play()/audio-session
+    /// activation is what causes the double stutter as the app suspends.
     static func keepBackgroundMediaAlive(in webView: WKWebView?) {
         guard let webView else { return }
         guard AppSettings.backgroundAudioEnabled || AppSettings.stickyPictureInPicture else { return }
-        configureAudioSessionIfNeeded()
-        webView.evaluateJavaScript(keepBackgroundAliveJS, completionHandler: nil)
-        // YTM often pauses again a beat after the first resume — kick a few more times.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            webView.evaluateJavaScript(keepBackgroundAliveJS, completionHandler: nil)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            webView.evaluateJavaScript(keepBackgroundAliveJS, completionHandler: nil)
+        webView.evaluateJavaScript(keepBackgroundAliveJS) { result, _ in
+            let status = (result as? String) ?? ""
+            if status == "healthy" { return }
+            // YTM / non-PiP pages often pause again shortly after the first resume.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                webView.evaluateJavaScript(keepBackgroundAliveJS, completionHandler: nil)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
+                webView.evaluateJavaScript(keepBackgroundAliveJS, completionHandler: nil)
+            }
         }
     }
 
@@ -779,6 +788,18 @@ enum MediaPlaybackSupport {
                     if (this.ended || (window.__mmPipAdvanceUntil && Date.now() < window.__mmPipAdvanceUntil)) {
                       return originalSet.call(this, mode);
                     }
+                    // User tapped the PiP window (or app icon) to return — must allow inline
+                    // or the page stays non-interactive under a half-detached player.
+                    if (window.__mmAllowInlineRestoreUntil && Date.now() < window.__mmAllowInlineRestoreUntil) {
+                      try {
+                        window.__mmPreferPip = false;
+                        reenterToken += 1;
+                        if (this.dataset) {
+                          this.dataset.mmWantPip = '0';
+                        }
+                      } catch (err) {}
+                      return originalSet.call(this, mode);
+                    }
                     return;
                   }
                 } catch (e) {}
@@ -1237,11 +1258,17 @@ enum MediaPlaybackSupport {
                   postPip(true);
                 }
               } else if (window.__mmPreferPip && !window.__mmPipSuppressed) {
-                // Left PiP — may be next-video swap or user closing the PiP window.
+                // Left PiP — may be next-video swap or user closing / restoring to the app.
                 notePipLeft(v);
                 postDiag('presentation.leave', { keepPrefer: true, video: videoProbe(v) });
-                // Report inactive immediately so native does not reinforce a closed PiP.
                 postPip(false);
+                if (document.visibilityState === 'visible'
+                    && window.__mmAllowInlineRestoreUntil
+                    && Date.now() < window.__mmAllowInlineRestoreUntil) {
+                  // Restored into the app from the PiP window — do not fight to re-enter.
+                  clearPreferPip();
+                  return;
+                }
                 schedulePipReenter(v);
               } else {
                 postDiag('presentation.leave', { keepPrefer: false, video: videoProbe(v) });
@@ -1286,6 +1313,12 @@ enum MediaPlaybackSupport {
               notePipLeft(v && v.tagName === 'VIDEO' ? v : null);
               // Must not post active:true — that made native re-enter after a manual close.
               postPip(false);
+              if (document.visibilityState === 'visible'
+                  && window.__mmAllowInlineRestoreUntil
+                  && Date.now() < window.__mmAllowInlineRestoreUntil) {
+                clearPreferPip();
+                return;
+              }
               schedulePipReenter(v && v.tagName === 'VIDEO' ? v : null);
             } else {
               if (v && v.tagName === 'VIDEO') v.dataset.mmWantPip = '0';
@@ -1395,12 +1428,21 @@ enum MediaPlaybackSupport {
 
           document.addEventListener('visibilitychange', function(e) {
             var keep = wantsPip() || wantsKeepAlive();
+            if (document.visibilityState === 'visible') {
+              // Returning to the app (from background or by tapping the PiP window).
+              // Briefly allow presentationMode → inline so the page is interactive again.
+              window.__mmAllowInlineRestoreUntil = Date.now() + 3000;
+              resumeVideos();
+              return;
+            }
             if (keep && document.visibilityState === 'hidden') {
               try { e.stopImmediatePropagation(); } catch (err) { try { e.stopPropagation(); } catch (e2) {} }
               if (anyInPiP()) {
-                // System PiP owns playback — do not spam play() (causes play↔pause thrash).
-                postPip(true);
-                markPlayingState();
+                // System PiP owns playback — do nothing (no play(), no post spam).
+                if (!pipPlaybackHealthy()) {
+                  markPlayingState();
+                  postPip(true);
+                }
                 return;
               }
               markPlayingState();
@@ -1410,9 +1452,7 @@ enum MediaPlaybackSupport {
               }, 400);
               return;
             }
-            if (document.visibilityState === 'visible') {
-              resumeVideos();
-            } else if (!anyInPiP()) {
+            if (!anyInPiP()) {
               markPlayingState();
               resumeVideos();
             }
@@ -1421,16 +1461,19 @@ enum MediaPlaybackSupport {
           // pagehide / pageshow are also used by some players when the app backgrounds.
           window.addEventListener('pagehide', function(e) {
             if (!wantsPip() && !wantsKeepAlive()) return;
+            if (anyInPiP()) return;
             try { e.stopImmediatePropagation(); } catch (err) {}
-            if (anyInPiP()) {
-              markPlayingState();
-              return;
-            }
             markPlayingState();
             forceResumePlaying();
           }, true);
           window.addEventListener('pageshow', function(e) {
             if (!wantsPip() && !wantsKeepAlive()) return;
+            // Never block page lifecycle while the user is looking at the page.
+            if (document.visibilityState === 'visible') {
+              window.__mmAllowInlineRestoreUntil = Date.now() + 3000;
+              if (anyInPiP()) postPip(true);
+              return;
+            }
             try { e.stopImmediatePropagation(); } catch (err) {}
             if (anyInPiP()) {
               postPip(true);
