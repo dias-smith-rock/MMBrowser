@@ -378,12 +378,52 @@ enum MediaPlaybackSupport {
             try { pipLeftTime = pipLeftVideo ? (pipLeftVideo.currentTime || 0) : 0; } catch (e) { pipLeftTime = 0; }
           }
 
+          /// Decide sticky reenter vs honor user close.
+          /// Reenter only when the clip ended / next-track handoff is in progress.
+          /// Closing PiP while the same clip still plays (in or outside the app) clears prefer.
+          function handlePipLeave(v) {
+            var leaveV = v && v.tagName === 'VIDEO' ? v : null;
+            notePipLeft(leaveV);
+            var ended = false;
+            try { ended = !!(leaveV && leaveV.ended); } catch (e) {}
+            var advancing = !!(window.__mmPipAdvanceUntil && Date.now() < window.__mmPipAdvanceUntil);
+            postDiag('presentation.leave', {
+              ended: ended,
+              advancing: advancing,
+              visible: document.visibilityState,
+              video: videoProbe(leaveV)
+            });
+            if (ended || advancing) {
+              // Next-video handoff — keep sticky intent and try again shortly.
+              postPip(false);
+              schedulePipReenter(leaveV);
+              return;
+            }
+            // User closed the PiP window (app or Springboard). Block reenter immediately so
+            // scan / background reinforce / early reenter ticks cannot pop PiP open again.
+            // Natural `ended` can arrive a tick after leave — revive sticky only in that case.
+            window.__mmPipSuppressReenterUntil = Date.now() + 500;
+            clearPreferPip();
+            setTimeout(function() {
+              var cur = pickVideo() || leaveV;
+              var nowEnded = false;
+              try { nowEnded = !!(cur && cur.ended); } catch (e) {}
+              var nowAdvancing = !!(window.__mmPipAdvanceUntil && Date.now() < window.__mmPipAdvanceUntil);
+              if (!(nowEnded || nowAdvancing)) return;
+              window.__mmPreferPip = true;
+              window.__mmPipSuppressReenterUntil = 0;
+              postPip(false);
+              schedulePipReenter(cur);
+            }, 320);
+          }
+
           /// Same continuous clip still playing inline shortly after leave → user closed PiP.
           function looksLikeUserDismiss() {
             if (!pipLeftAt) return false;
             var age = Date.now() - pipLeftAt;
-            // Ignore sub-200ms glitches (WebKit / YouTube false leaves on foreground).
-            if (age < 200 || age > 4500) return false;
+            // Ignore only tiny WebKit glitches; 200ms was too wide and let the first
+            // reenter tick (120ms) reclaim PiP after a manual close.
+            if (age < 40 || age > 4500) return false;
             if (anyInPiP()) return false;
             // Clip finished → next-video handoff, not a user dismiss.
             try {
@@ -407,6 +447,7 @@ enum MediaPlaybackSupport {
 
           function tryReenterOrClear(reason) {
             if (window.__mmPipSuppressed) return;
+            if (window.__mmPipSuppressReenterUntil && Date.now() < window.__mmPipSuppressReenterUntil) return;
             // Music has no usable HTML PiP surface.
             if (isYouTubeMusic()) return;
             if (!window.__mmPreferPip || anyInPiP()) return;
@@ -713,6 +754,7 @@ enum MediaPlaybackSupport {
           /// After PiP drops (next video / element swap), re-enter unless the user dismissed.
           function schedulePipReenter(previousVideo) {
             if (!window.__mmPreferPip || isYouTubeMusic()) return;
+            if (window.__mmPipSuppressReenterUntil && Date.now() < window.__mmPipSuppressReenterUntil) return;
             var token = ++reenterToken;
             var prevSrc = videoSrc(previousVideo);
             var prevEnded = false;
@@ -724,6 +766,7 @@ enum MediaPlaybackSupport {
             delays.forEach(function(ms, idx) {
               setTimeout(function() {
                 if (token !== reenterToken || !window.__mmPreferPip) return;
+                if (window.__mmPipSuppressReenterUntil && Date.now() < window.__mmPipSuppressReenterUntil) return;
                 var stuck = pickVideo();
                 // Ended clip still reporting PiP — leave so the next item can start.
                 if (anyInPiP() && stuck && stuck.ended) {
@@ -798,6 +841,10 @@ enum MediaPlaybackSupport {
                           this.dataset.mmWantPip = '0';
                         }
                       } catch (err) {}
+                      return originalSet.call(this, mode);
+                    }
+                    // User closed PiP (X) — leave grace / already-cleared prefer must not be blocked.
+                    if (window.__mmPipSuppressReenterUntil && Date.now() < window.__mmPipSuppressReenterUntil) {
                       return originalSet.call(this, mode);
                     }
                     return;
@@ -1070,6 +1117,10 @@ enum MediaPlaybackSupport {
               postDiag('enter.fail', { reason: why, why: 'suppressed' });
               return false;
             }
+            if (window.__mmPipSuppressReenterUntil && Date.now() < window.__mmPipSuppressReenterUntil) {
+              postDiag('enter.fail', { reason: why, why: 'userLeaveGrace' });
+              return false;
+            }
             // YTM has no usable HTML video / PiP surface.
             if (isYouTubeMusic()) {
               exitInvisibleMusicHtmlPip();
@@ -1258,27 +1309,14 @@ enum MediaPlaybackSupport {
                   postPip(true);
                 }
               } else if (window.__mmPreferPip && !window.__mmPipSuppressed) {
-                // Left PiP — may be next-video swap or user closing / restoring to the app.
-                notePipLeft(v);
-                postDiag('presentation.leave', { keepPrefer: true, video: videoProbe(v) });
-                postPip(false);
-                if (document.visibilityState === 'visible'
-                    && window.__mmAllowInlineRestoreUntil
-                    && Date.now() < window.__mmAllowInlineRestoreUntil) {
-                  // Restored into the app from the PiP window — do not fight to re-enter.
-                  clearPreferPip();
-                  return;
-                }
-                schedulePipReenter(v);
+                handlePipLeave(v);
               } else {
                 postDiag('presentation.leave', { keepPrefer: false, video: videoProbe(v) });
                 v.dataset.mmWantPip = '0';
                 postPip(anyInPiP());
               }
             } else if (window.__mmPreferPip) {
-              notePipLeft(null);
-              postPip(false);
-              schedulePipReenter(null);
+              handlePipLeave(null);
             } else {
               postPip(anyInPiP());
             }
@@ -1310,16 +1348,7 @@ enum MediaPlaybackSupport {
           document.addEventListener('leavepictureinpicture', function(e) {
             var v = e.target;
             if (window.__mmPreferPip) {
-              notePipLeft(v && v.tagName === 'VIDEO' ? v : null);
-              // Must not post active:true — that made native re-enter after a manual close.
-              postPip(false);
-              if (document.visibilityState === 'visible'
-                  && window.__mmAllowInlineRestoreUntil
-                  && Date.now() < window.__mmAllowInlineRestoreUntil) {
-                clearPreferPip();
-                return;
-              }
-              schedulePipReenter(v && v.tagName === 'VIDEO' ? v : null);
+              handlePipLeave(v && v.tagName === 'VIDEO' ? v : null);
             } else {
               if (v && v.tagName === 'VIDEO') v.dataset.mmWantPip = '0';
               postPip(anyInPiP());
