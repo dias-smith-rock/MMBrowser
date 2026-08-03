@@ -37,6 +37,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private var focusActive = false
 
     private let cleanerMenuContainer = UIView()
+    private let cleanerTitleLabel = UILabel()
     private let cleanerSiteChip = UIButton(type: .system)
     private let cleanerPageChip = UIButton(type: .system)
     private let cleanerExitChip = UIButton(type: .system)
@@ -229,20 +230,41 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         cleanerPageChip.addTarget(self, action: #selector(cleanerPageTapped), for: .touchUpInside)
         cleanerExitChip.addTarget(self, action: #selector(cleanerExitTapped), for: .touchUpInside)
 
-        let title = makeBubbleTitleLabel("Cleaner mode")
-        let stack = UIStackView(arrangedSubviews: [title, cleanerSiteChip, cleanerPageChip, cleanerExitChip])
-        stack.axis = .vertical
-        stack.spacing = 8
-        stack.alignment = .fill
+        cleanerTitleLabel.text = "Cleaner"
+        cleanerTitleLabel.textColor = BrowserTheme.textSecondary
+        cleanerTitleLabel.font = .systemFont(ofSize: 12, weight: .semibold)
+        cleanerTitleLabel.setContentHuggingPriority(.required, for: .horizontal)
+        cleanerTitleLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        let chips = UIStackView(arrangedSubviews: [cleanerSiteChip, cleanerPageChip, cleanerExitChip])
+        chips.axis = .horizontal
+        chips.spacing = 6
+        chips.alignment = .fill
+        chips.distribution = .fillEqually
+
+        let stack = UIStackView(arrangedSubviews: [cleanerTitleLabel, chips])
+        stack.axis = .horizontal
+        stack.spacing = 10
+        stack.alignment = .center
         cleanerMenuContainer.addSubview(stack)
 
+        // Horizontal bar above the address field, edge-to-edge with the chrome container.
         cleanerMenuContainer.snp.makeConstraints { make in
+            make.leading.equalTo(container.snp.leading)
             make.trailing.equalTo(container.snp.trailing)
             make.bottom.equalTo(container.snp.top).offset(-8)
-            make.width.greaterThanOrEqualTo(132)
         }
         stack.snp.makeConstraints { make in
-            make.edges.equalToSuperview().inset(UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10))
+            make.edges.equalToSuperview().inset(UIEdgeInsets(top: 8, left: 10, bottom: 8, right: 10))
+        }
+        cleanerSiteChip.snp.makeConstraints { make in
+            make.height.greaterThanOrEqualTo(34)
+        }
+        cleanerPageChip.snp.makeConstraints { make in
+            make.height.equalTo(cleanerSiteChip)
+        }
+        cleanerExitChip.snp.makeConstraints { make in
+            make.height.equalTo(cleanerSiteChip)
         }
     }
 
@@ -251,7 +273,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         view.alpha = 0
         view.transform = CGAffineTransform(translationX: 0, y: 6)
         view.backgroundColor = BrowserTheme.elevated
-        view.layer.cornerRadius = 16
+        view.layer.cornerRadius = 14
         view.layer.borderWidth = 1
         view.layer.borderColor = UIColor.white.withAlphaComponent(0.12).cgColor
         view.layer.shadowColor = UIColor.black.cgColor
@@ -260,23 +282,14 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         view.layer.shadowOffset = CGSize(width: 0, height: 4)
     }
 
-    private func makeBubbleTitleLabel(_ text: String) -> UILabel {
-        let label = UILabel()
-        label.text = text
-        label.textColor = BrowserTheme.textSecondary
-        label.font = .systemFont(ofSize: 12, weight: .semibold)
-        label.textAlignment = .left
-        return label
-    }
-
     private func configureChip(_ button: UIButton, title: String) {
         button.setTitle(title, for: .normal)
         button.setTitleColor(BrowserTheme.textPrimary, for: .normal)
-        button.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+        button.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
         button.backgroundColor = BrowserTheme.secondaryCard
-        button.layer.cornerRadius = 12
+        button.layer.cornerRadius = 10
         button.contentHorizontalAlignment = .center
-        button.contentEdgeInsets = UIEdgeInsets(top: 10, left: 14, bottom: 10, right: 14)
+        button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
     }
 
     func setURLText(_ text: String) {
@@ -315,6 +328,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         progressView.progressTintColor = accent
         updateSearchPlaceholder()
         cleanerMenuContainer.backgroundColor = BrowserTheme.elevated
+        cleanerTitleLabel.textColor = BrowserTheme.textSecondary
         [cleanerSiteChip, cleanerPageChip, cleanerExitChip].forEach {
             $0.setTitleColor(BrowserTheme.textPrimary, for: .normal)
             $0.backgroundColor = BrowserTheme.secondaryCard
@@ -340,11 +354,12 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     func hideCleanerMenu() {
-        guard cleanerMenuVisible else { return }
+        // While cleaner mode is active, the bar stays until Exit.
+        guard cleanerMenuVisible, !isPageCleanerActive else { return }
         setCleanerMenuVisible(false)
     }
 
-    /// Opens the cleaner mode bubble (used when Webpage Cleaner is chosen from the rich menu).
+    /// Opens the cleaner mode bar (used when Webpage Cleaner is chosen from the rich menu).
     func presentCleanerMenu() {
         textField.resignFirstResponder()
         setCleanerMenuVisible(true)
@@ -352,11 +367,17 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
     func setPageCleanerActive(_ active: Bool) {
         isPageCleanerActive = active
-        if !active {
+        if active {
+            updateCleanerChipSelection()
+            setCleanerMenuVisible(true)
+        } else {
             cleanerURLOnly = nil
-            hideCleanerMenu()
+            updateCleanerChipSelection()
+            // Force-hide even though hideCleanerMenu() no-ops while active.
+            if cleanerMenuVisible {
+                setCleanerMenuVisible(false)
+            }
         }
-        updateCleanerChipSelection()
     }
 
     func setBlockCount(_ count: Int) {
@@ -468,21 +489,18 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     @objc private func cleanerSiteTapped() {
         cleanerURLOnly = false
         updateCleanerChipSelection()
-        setCleanerMenuVisible(false)
         delegate?.addressBarDidChoosePageCleaner(urlOnly: false)
     }
 
     @objc private func cleanerPageTapped() {
         cleanerURLOnly = true
         updateCleanerChipSelection()
-        setCleanerMenuVisible(false)
         delegate?.addressBarDidChoosePageCleaner(urlOnly: true)
     }
 
     @objc private func cleanerExitTapped() {
         cleanerURLOnly = nil
         updateCleanerChipSelection()
-        setCleanerMenuVisible(false)
         delegate?.addressBarDidExitPageCleaner()
     }
 
@@ -626,11 +644,20 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     @objc private func backgroundTapped(_ gesture: UITapGestureRecognizer) {
+        // Outside tap only dismisses before a mode is chosen.
+        guard !isPageCleanerActive else { return }
         setCleanerMenuVisible(false)
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
         guard let view = touch.view else { return true }
+        if gestureRecognizer === dismissTap {
+            if view === cleanerSiteChip || view === cleanerPageChip || view === cleanerExitChip
+                || view.isDescendant(of: cleanerMenuContainer) {
+                return false
+            }
+            return !isPageCleanerActive
+        }
         if gestureRecognizer === tabSwipe {
             if view === reloadButton || view.isDescendant(of: reloadButton) { return false }
             if view === richMenuButton || view.isDescendant(of: richMenuButton) { return false }
@@ -683,7 +710,12 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         bringSubviewToFront(cleanerMenuContainer)
 
         if visible {
-            installDismissTap()
+            // Outside dismiss only before entering cleaner mode.
+            if isPageCleanerActive {
+                removeDismissTap()
+            } else {
+                installDismissTap()
+            }
         } else {
             removeDismissTap()
         }
