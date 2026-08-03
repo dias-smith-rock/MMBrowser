@@ -509,9 +509,9 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             let dx = translation.x
             let canPrevious = delegate?.addressBarCanSwipeToPreviousTab() == true
             let canNext = delegate?.addressBarCanSwipeToNextTab() == true
-            // Swipe left → previous; swipe right → next.
-            let towardPrevious = dx < 0
-            let canCommitDirection = towardPrevious ? canPrevious : canNext
+            // Match tab-switcher left→right order: swipe left → next, swipe right → previous.
+            let towardNext = dx < 0
+            let canCommitDirection = towardNext ? canNext : canPrevious
             let distanceOK = abs(dx) > width * 0.28 || abs(velocity.x) > 520
             let mostlyHorizontal = abs(dx) > abs(translation.y) * 1.2
             let shouldCommit = gesture.state == .ended
@@ -521,18 +521,18 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
                 && abs(dx) > 8
 
             if shouldCommit {
-                let target = towardPrevious ? -width : width
+                let target = towardNext ? -width : width
                 UIView.animate(withDuration: 0.18, delay: 0, options: [.curveEaseOut, .allowUserInteraction]) {
                     self.applySwipeOffset(target, width: width, peekAlpha: 1)
                 } completion: { _ in
-                    if towardPrevious {
-                        self.delegate?.addressBarDidSwipeToPreviousTab()
-                    } else {
+                    if towardNext {
                         self.delegate?.addressBarDidSwipeToNextTab()
+                    } else {
+                        self.delegate?.addressBarDidSwipeToPreviousTab()
                     }
                     self.resetSwipeVisuals(animated: false)
                     // Settle the new URL in from the opposite side.
-                    let enterFrom = towardPrevious ? width * 0.35 : -width * 0.35
+                    let enterFrom = towardNext ? width * 0.35 : -width * 0.35
                     self.textField.transform = CGAffineTransform(translationX: enterFrom, y: 0)
                     self.textField.alpha = 0.35
                     UIView.animate(
@@ -568,9 +568,10 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         let canNext = delegate?.addressBarCanSwipeToNextTab() == true
         var offset = dx
 
-        if offset < 0, !canPrevious {
+        // offset < 0 (swipe left) peeks the next tab; offset > 0 peeks the previous.
+        if offset < 0, !canNext {
             offset = rubberBand(offset, limit: width)
-        } else if offset > 0, !canNext {
+        } else if offset > 0, !canPrevious {
             offset = rubberBand(offset, limit: width)
         } else {
             // Soft clamp so it doesn't overshoot too far while dragging.
@@ -578,10 +579,10 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             offset = max(-maxPull, min(maxPull, offset))
         }
 
-        let towardPrevious = offset < 0
-        let canShowPeek = towardPrevious ? canPrevious : canNext
+        let towardNext = offset < 0
+        let canShowPeek = towardNext ? canNext : canPrevious
         if canShowPeek, abs(offset) > 1 {
-            let adjacentOffset = towardPrevious ? -1 : 1
+            let adjacentOffset = towardNext ? 1 : -1
             peekLabel.text = delegate?.addressBarTitleForAdjacentTab(offset: adjacentOffset)
             let progress = min(1, abs(offset) / (width * 0.55))
             applySwipeOffset(offset, width: width, peekAlpha: progress)

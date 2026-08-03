@@ -928,8 +928,8 @@ extension BrowserViewController: AddressBarViewDelegate {
             return
         }
 
-        let towardPrevious = offset < 0
-        let adj = towardPrevious ? -1 : 1
+        let towardNext = offset < 0
+        let adj = towardNext ? 1 : -1
         if preparedAdjacentTabOffset != adj {
             preparedAdjacentTabOffset = adj
             if let tab = tabManager.selectedTab {
@@ -939,7 +939,7 @@ extension BrowserViewController: AddressBarViewDelegate {
         }
 
         contentContainer.transform = CGAffineTransform(translationX: contentOffset, y: 0)
-        let peekStart: CGFloat = towardPrevious ? width : -width
+        let peekStart: CGFloat = towardNext ? width : -width
         adjacentTabPreview.transform = CGAffineTransform(translationX: peekStart + contentOffset, y: 0)
         adjacentTabPreview.isHidden = false
     }

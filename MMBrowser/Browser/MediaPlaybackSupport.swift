@@ -993,22 +993,65 @@ enum MediaPlaybackSupport {
             return out;
           }
 
+          /// True when the video's layout box meaningfully intersects the visual viewport.
+          /// Already-in-PiP counts as eligible even if the inline element is off-screen.
+          function isVideoInViewport(v) {
+            if (!v) return false;
+            try {
+              if (isInPiP(v)) return true;
+              var r = v.getBoundingClientRect();
+              var vw = (window.visualViewport && window.visualViewport.width) || window.innerWidth
+                || document.documentElement.clientWidth || 0;
+              var vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight
+                || document.documentElement.clientHeight || 0;
+              var ox = (window.visualViewport && window.visualViewport.offsetLeft) || 0;
+              var oy = (window.visualViewport && window.visualViewport.offsetTop) || 0;
+              if (vw < 1 || vh < 1) return false;
+              if (r.width < 16 || r.height < 16) return false;
+              var left = Math.max(r.left, ox);
+              var top = Math.max(r.top, oy);
+              var right = Math.min(r.right, ox + vw);
+              var bottom = Math.min(r.bottom, oy + vh);
+              var iw = right - left;
+              var ih = bottom - top;
+              if (iw < 16 || ih < 16) return false;
+              var area = r.width * r.height;
+              var visible = iw * ih;
+              if (area < 1) return false;
+              // Require a meaningful on-screen portion (filters feed/list thumbs).
+              if (visible / area < 0.2 && visible < 96 * 96) return false;
+              var style = window.getComputedStyle(v);
+              if (!style) return true;
+              if (style.display === 'none' || style.visibility === 'hidden') return false;
+              if (parseFloat(style.opacity || '1') === 0) return false;
+              return true;
+            } catch (e) { return false; }
+          }
+          window.__mmIsVideoInViewport = isVideoInViewport;
+
           function pickVideo() {
             var vids = collectVideos(document, []);
             if (!vids.length) return null;
             vids.sort(function(a, b) {
-              var sa = (!a.paused && !a.ended ? 2000 : 0)
-                + ((a.readyState || 0) * 20)
-                + Math.min(a.videoWidth || 0, 800)
-                + (a.currentTime > 0 ? 50 : 0);
-              var sb = (!b.paused && !b.ended ? 2000 : 0)
-                + ((b.readyState || 0) * 20)
-                + Math.min(b.videoWidth || 0, 800)
-                + (b.currentTime > 0 ? 50 : 0);
-              return sb - sa;
+              function score(v) {
+                var inPip = isInPiP(v) ? 10000 : 0;
+                var visible = isVideoInViewport(v) ? 3000 : 0;
+                var playing = (!v.paused && !v.ended ? 2000 : 0);
+                return inPip + visible + playing
+                  + ((v.readyState || 0) * 20)
+                  + Math.min(v.videoWidth || 0, 800)
+                  + (v.currentTime > 0 ? 50 : 0)
+                  + Math.min((v.clientWidth || 0) * (v.clientHeight || 0) / 100, 500);
+              }
+              return score(b) - score(a);
             });
-            return vids[0];
+            // Multi-<video> pages: only target on-screen (or already-PiP) clips.
+            for (var i = 0; i < vids.length; i++) {
+              if (isInPiP(vids[i]) || isVideoInViewport(vids[i])) return vids[i];
+            }
+            return null;
           }
+          window.__mmPickVisibleVideo = pickVideo;
 
           function videoHasVisibleSize(v) {
             if (!v) return false;
@@ -1179,15 +1222,58 @@ enum MediaPlaybackSupport {
 
           function anyVideoPlaying() {
             try {
-              if (anyInPiP()) return true;
               var vids = collectVideos(document, []);
               for (var i = 0; i < vids.length; i++) {
                 var v = vids[i];
-                if (v && !v.paused && !v.ended) return true;
+                if (!v) continue;
+                if (isInPiP(v)) return true;
+                if (!isVideoInViewport(v)) continue;
+                if (!v.paused && !v.ended) return true;
               }
             } catch (e) {}
             return false;
           }
+
+          /// Shared chip / poll state — only viewport-visible (or PiP) videos count.
+          window.__mmPipChipState = function() {
+            try {
+              var vids = collectVideos(document, []);
+              var visible = 0;
+              var paused = 0;
+              var bestReady = -1;
+              var bestT = -1;
+              for (var i = 0; i < vids.length; i++) {
+                var v = vids[i];
+                if (isInPiP(v)) {
+                  return {
+                    state: 'pip', count: vids.length, visible: visible + 1,
+                    paused: paused, ready: v.readyState|0, t: v.currentTime||0
+                  };
+                }
+                if (!isVideoInViewport(v)) continue;
+                visible++;
+                bestReady = Math.max(bestReady, v.readyState|0);
+                if (typeof v.currentTime === 'number') bestT = Math.max(bestT, v.currentTime);
+                if (!v.paused && !v.ended) {
+                  return {
+                    state: 'playing', count: vids.length, visible: visible,
+                    paused: paused, ready: v.readyState|0, t: v.currentTime||0
+                  };
+                }
+                if (v.paused) paused++;
+              }
+              return {
+                state: visible ? 'idle' : 'none',
+                count: vids.length,
+                visible: visible,
+                paused: paused,
+                ready: bestReady,
+                t: bestT
+              };
+            } catch (e) {
+              return { state: 'none', count: 0, visible: 0, paused: 0, ready: -1, t: -1, err: String(e) };
+            }
+          };
 
           function postVideoReady() {
             try {
@@ -1199,6 +1285,36 @@ enum MediaPlaybackSupport {
                 || v.readyState >= 2
                 || (isYouTubeFamily() && !!v)
               ));
+              // Debounce "not playing" — multi-video pages (e.g. CNN) fire pause on
+              // idle clips while another video is still playing, which flickered the chip.
+              if (!playing) {
+                if (window.__mmVideoReadyHideTimer) return;
+                window.__mmVideoReadyHideTimer = setTimeout(function() {
+                  window.__mmVideoReadyHideTimer = null;
+                  try {
+                    var stillPlaying = anyVideoPlaying();
+                    var vv = pickVideo();
+                    var stillReady = !!(stillPlaying || (vv && (vv.currentTime > 0.05 || vv.readyState >= 2 || (isYouTubeFamily() && !!vv))));
+                    if (window.__mmLastVideoPlaying === stillPlaying && window.__mmLastVideoReady === stillReady) return;
+                    window.__mmLastVideoPlaying = stillPlaying;
+                    window.__mmLastVideoReady = stillReady;
+                    if (window.webkit && webkit.messageHandlers && webkit.messageHandlers.mmMediaPip) {
+                      webkit.messageHandlers.mmMediaPip.postMessage({
+                        videoReady: stillReady,
+                        videoPlaying: stillPlaying
+                      });
+                    }
+                  } catch (e2) {}
+                }, 700);
+                return;
+              }
+              if (window.__mmVideoReadyHideTimer) {
+                clearTimeout(window.__mmVideoReadyHideTimer);
+                window.__mmVideoReadyHideTimer = null;
+              }
+              if (window.__mmLastVideoPlaying === playing && window.__mmLastVideoReady === ready) return;
+              window.__mmLastVideoPlaying = playing;
+              window.__mmLastVideoReady = ready;
               if (window.webkit && webkit.messageHandlers && webkit.messageHandlers.mmMediaPip) {
                 webkit.messageHandlers.mmMediaPip.postMessage({
                   videoReady: ready,

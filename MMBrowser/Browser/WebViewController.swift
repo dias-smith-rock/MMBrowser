@@ -275,6 +275,13 @@ final class WebViewController: UIViewController {
     private var pipVideoPollTimer: Timer?
     /// True when the page reports an actively playing (or PiP) `<video>`.
     private var pageHasPlayingVideo = false
+    /// Chip flicker diagnostics — last visibility + rapid flip counter.
+    private var pipChipLastShown: Bool?
+    private var pipChipLastToggleAt: Date?
+    private var pipChipFlickerCount = 0
+    private var pipChipLastPollState: String?
+    /// Delay chip hide so brief pause / multi-video JS noise does not flicker.
+    private var pipChipHideWorkItem: DispatchWorkItem?
     /// Prevents stacked auto-enter retries while sticky PiP waits for a video element.
     private var stickyPipEnterInFlight = false
     /// After a PiP leave, suppress sticky auto-restore briefly so a manual close can clear prefer.
@@ -969,6 +976,8 @@ final class WebViewController: UIViewController {
         scriptMessageProxy = nil
         pipLeaveWorkItem?.cancel()
         pipLeaveWorkItem = nil
+        pipChipHideWorkItem?.cancel()
+        pipChipHideWorkItem = nil
         pipVideoPollTimer?.invalidate()
         pipVideoPollTimer = nil
         PipSession.releaseIfOwner(self)
@@ -1113,7 +1122,7 @@ final class WebViewController: UIViewController {
         if YouTubeDarkMode.isYouTubeMusic(webView?.url) || !AppSettings.pictureInPictureEnabled {
             pageHasPlayingVideo = false
         }
-        updatePipEntryButtonVisibility()
+        updatePipEntryButtonVisibility(reason: "refreshPolling")
         guard AppSettings.pictureInPictureEnabled,
               !YouTubeDarkMode.isYouTubeMusic(webView?.url)
         else { return }
@@ -1127,12 +1136,13 @@ final class WebViewController: UIViewController {
         guard AppSettings.pictureInPictureEnabled,
               !YouTubeDarkMode.isYouTubeMusic(webView?.url) else {
             pageHasPlayingVideo = false
-            updatePipEntryButtonVisibility()
+            updatePipEntryButtonVisibility(reason: "poll.disabled")
             return
         }
         let js = """
         (function(){
           try {
+            if (typeof window.__mmPipChipState === 'function') return window.__mmPipChipState();
             function walk(root, out) {
               if (!root) return out;
               try { root.querySelectorAll('video').forEach(function(v){ out.push(v); }); } catch (e) {}
@@ -1144,40 +1154,84 @@ final class WebViewController: UIViewController {
               } catch (e) {}
               return out;
             }
+            function inView(v) {
+              try {
+                if (v.webkitPresentationMode === 'picture-in-picture') return true;
+                if (document.pictureInPictureElement === v) return true;
+                var r = v.getBoundingClientRect();
+                var vw = window.innerWidth || 0, vh = window.innerHeight || 0;
+                if (r.width < 16 || r.height < 16 || vw < 1 || vh < 1) return false;
+                var left = Math.max(r.left, 0), top = Math.max(r.top, 0);
+                var right = Math.min(r.right, vw), bottom = Math.min(r.bottom, vh);
+                var iw = right - left, ih = bottom - top;
+                if (iw < 16 || ih < 16) return false;
+                var area = r.width * r.height, visible = iw * ih;
+                return visible / area >= 0.2 || visible >= 96 * 96;
+              } catch (e) { return false; }
+            }
             var vids = walk(document, []);
-            if (!vids.length) return 'none';
+            if (!vids.length) return { state: 'none', count: 0, visible: 0, paused: 0, ready: -1, t: -1 };
+            var paused = 0, visible = 0, bestReady = -1, bestT = -1;
             for (var i = 0; i < vids.length; i++) {
               var v = vids[i];
-              if (v.webkitPresentationMode === 'picture-in-picture') return 'pip';
-              if (document.pictureInPictureElement === v) return 'pip';
-              if (!v.paused && !v.ended) return 'playing';
+              if (v.webkitPresentationMode === 'picture-in-picture' || document.pictureInPictureElement === v) {
+                return { state: 'pip', count: vids.length, visible: visible + 1, paused: paused, ready: v.readyState|0, t: v.currentTime||0 };
+              }
+              if (!inView(v)) continue;
+              visible++;
+              bestReady = Math.max(bestReady, v.readyState|0);
+              if (typeof v.currentTime === 'number') bestT = Math.max(bestT, v.currentTime);
+              if (!v.paused && !v.ended) {
+                return { state: 'playing', count: vids.length, visible: visible, paused: paused, ready: v.readyState|0, t: v.currentTime||0 };
+              }
+              if (v.paused) paused++;
             }
-            return 'idle';
-          } catch (e) { return 'none'; }
+            return { state: visible ? 'idle' : 'none', count: vids.length, visible: visible, paused: paused, ready: bestReady, t: bestT };
+          } catch (e) { return { state: 'none', count: 0, visible: 0, paused: 0, ready: -1, t: -1, err: String(e) }; }
         })();
         """
         webView?.evaluateJavaScript(js) { [weak self] result, _ in
             DispatchQueue.main.async {
                 guard let self else { return }
-                let state = result as? String ?? "none"
+                let dict = result as? [String: Any]
+                let state = (dict?["state"] as? String) ?? (result as? String) ?? "none"
                 let inPip = state == "pip"
                 let playing = state == "playing" || inPip
+                let prevPlaying = self.pageHasPlayingVideo
+                let prevState = self.pipChipLastPollState
                 self.pageHasPlayingVideo = playing
+                if state != prevState || playing != prevPlaying {
+                    PipProbe.log("chip.poll", [
+                        "state": state,
+                        "prev": prevState ?? "nil",
+                        "playing": playing,
+                        "prevPlaying": prevPlaying,
+                        "nativeActive": self.isPictureInPictureActive,
+                        "chipShown": !(self.pipEntryButton.isHidden),
+                        "count": dict?["count"] ?? -1,
+                        "visible": dict?["visible"] ?? -1,
+                        "paused": dict?["paused"] ?? -1,
+                        "ready": dict?["ready"] ?? -1,
+                        "t": dict?["t"] ?? -1,
+                        "host": self.webView?.url?.host ?? "?"
+                    ])
+                }
+                self.pipChipLastPollState = state
                 if inPip {
                     if let until = self.suppressPipClaimUntil, Date() < until {
                         MediaPlaybackSupport.releasePictureInPicture(in: self.webView)
-                        self.setPictureInPictureActive(false)
+                        self.setPictureInPictureActive(false, reason: "poll.suppressYield")
                         return
                     }
                     self.stickyPipEnterInFlight = false
                     self.persistPipPrefer(true)
-                    self.setPictureInPictureActive(true)
+                    self.setPictureInPictureActive(true, reason: "poll.inPip")
                 } else if self.isPictureInPictureActive {
                     // Avoid a stuck "active" flag after a false leave.
                     // Do not auto-restore sticky here — that re-opened PiP after a manual close.
                     self.syncPictureInPictureActiveFromPage()
                 } else {
-                    self.updatePipEntryButtonVisibility()
+                    self.updatePipEntryButtonVisibility(reason: "poll.\(state)")
                 }
             }
         }
@@ -1347,13 +1401,94 @@ final class WebViewController: UIViewController {
         }
     }
 
-    private func updatePipEntryButtonVisibility() {
+    private func updatePipEntryButtonVisibility(reason: String = "unknown") {
         // Show while a page video is playing (or already in system PiP).
         // YouTube Music has no usable HTML video / PiP surface.
-        let show = AppSettings.pictureInPictureEnabled
+        let wantShow = AppSettings.pictureInPictureEnabled
             && !YouTubeDarkMode.isYouTubeMusic(webView?.url)
             && !(webView?.isHidden ?? false)
             && (pageHasPlayingVideo || isPictureInPictureActive)
+
+        if wantShow {
+            pipChipHideWorkItem?.cancel()
+            pipChipHideWorkItem = nil
+            applyPipChipVisibility(show: true, reason: reason)
+            return
+        }
+
+        // Hide path: debounce. CNN / multi-<video> pages spam pause → JS videoPlaying=false
+        // while another clip (or the same clip after a buffer blip) is still playing.
+        if pipEntryButton.isHidden {
+            pipChipHideWorkItem?.cancel()
+            pipChipHideWorkItem = nil
+            return
+        }
+        if pipChipHideWorkItem != nil {
+            PipProbe.log("chip.hide.pending", [
+                "reason": reason,
+                "playing": pageHasPlayingVideo,
+                "host": webView?.url?.host ?? "?"
+            ])
+            return
+        }
+        PipProbe.log("chip.hide.schedule", [
+            "reason": reason,
+            "playing": pageHasPlayingVideo,
+            "poll": pipChipLastPollState ?? "nil",
+            "host": webView?.url?.host ?? "?"
+        ])
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pipChipHideWorkItem = nil
+            let stillWantShow = AppSettings.pictureInPictureEnabled
+                && !YouTubeDarkMode.isYouTubeMusic(self.webView?.url)
+                && !(self.webView?.isHidden ?? false)
+                && (self.pageHasPlayingVideo || self.isPictureInPictureActive)
+            if stillWantShow {
+                PipProbe.log("chip.hide.cancelled", [
+                    "why": "playingAgain",
+                    "host": self.webView?.url?.host ?? "?"
+                ])
+                self.applyPipChipVisibility(show: true, reason: "hide.cancelled")
+                return
+            }
+            self.applyPipChipVisibility(show: false, reason: "\(reason).debounced")
+        }
+        pipChipHideWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.25, execute: work)
+    }
+
+    private func applyPipChipVisibility(show: Bool, reason: String) {
+        let wasHidden = pipEntryButton.isHidden
+        let previousShown = pipChipLastShown
+        if show != previousShown {
+            let now = Date()
+            var flicker = false
+            var dtMs = -1
+            if let last = pipChipLastToggleAt {
+                dtMs = Int(now.timeIntervalSince(last) * 1000)
+                if dtMs < 1500 {
+                    pipChipFlickerCount += 1
+                    flicker = true
+                }
+            }
+            pipChipLastToggleAt = now
+            pipChipLastShown = show
+            PipProbe.log(flicker ? "chip.flicker" : "chip.visibility", [
+                "show": show,
+                "wasHidden": wasHidden,
+                "reason": reason,
+                "playing": pageHasPlayingVideo,
+                "nativeActive": isPictureInPictureActive,
+                "webHidden": webView?.isHidden ?? false,
+                "ytMusic": YouTubeDarkMode.isYouTubeMusic(webView?.url),
+                "pipEnabled": AppSettings.pictureInPictureEnabled,
+                "poll": pipChipLastPollState ?? "nil",
+                "flickerN": pipChipFlickerCount,
+                "dtMs": dtMs,
+                "host": webView?.url?.host ?? "?"
+            ])
+        }
         pipEntryButton.isHidden = !show
         if show {
             if pipEntryButton.superview == nil {
@@ -1433,14 +1568,24 @@ final class WebViewController: UIViewController {
             if let playing = body["videoPlaying"] as? Bool {
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
+                    let prev = self.pageHasPlayingVideo
                     self.pageHasPlayingVideo = playing
-                    self.updatePipEntryButtonVisibility()
+                    if prev != playing {
+                        PipProbe.log("chip.js.videoPlaying", [
+                            "playing": playing,
+                            "prev": prev,
+                            "videoReady": body["videoReady"] as? Bool ?? false,
+                            "nativeActive": self.isPictureInPictureActive,
+                            "host": self.webView?.url?.host ?? "?"
+                        ])
+                    }
+                    self.updatePipEntryButtonVisibility(reason: "js.videoPlaying")
                 }
             } else if body["videoReady"] as? Bool != nil {
                 DispatchQueue.main.async { [weak self] in
                     // Sticky reenter after next-track / media swap is owned by page JS.
                     // Restoring from every videoReady pulse re-opened PiP after a manual close.
-                    self?.updatePipEntryButtonVisibility()
+                    self?.updatePipEntryButtonVisibility(reason: "js.videoReady")
                 }
             }
             if let active = body["active"] as? Bool {
@@ -1520,12 +1665,21 @@ final class WebViewController: UIViewController {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: work)
     }
 
-    private func setPictureInPictureActive(_ active: Bool) {
+    private func setPictureInPictureActive(_ active: Bool, reason: String = "setActive") {
+        let changed = isPictureInPictureActive != active
         isPictureInPictureActive = active
         // Keep WKWebView visible so comments / related content stay usable under the PiP window.
         // PiP survival on foreground relies on MediaPlaybackSupport (presentation-mode / visibility guards).
         webView?.isHidden = false
-        updatePipEntryButtonVisibility()
+        if changed {
+            PipProbe.log("chip.nativeActive", [
+                "active": active,
+                "reason": reason,
+                "playing": pageHasPlayingVideo,
+                "host": webView?.url?.host ?? "?"
+            ])
+        }
+        updatePipEntryButtonVisibility(reason: "nativeActive.\(reason)")
     }
 
     @objc private func retryTapped() {
