@@ -310,7 +310,8 @@ final class BrowserViewController: UIViewController {
     }
 
     /// Hides / shows the bottom address bar + toolbar while scrolling a web page.
-    /// When collapsed, the page extends under the status bar / Dynamic Island for a fuller view.
+    /// Only the bottom chrome moves — content top stays on the safe area. Extending under
+    /// the status bar / Dynamic Island breaks sticky mobile players (e.g. Bilibili) on device.
     private func setChromeCollapsed(_ collapsed: Bool, animated: Bool) {
         if collapsed {
             guard tabManager.selectedTab?.isNewTabPage != true else { return }
@@ -321,19 +322,9 @@ final class BrowserViewController: UIViewController {
         guard collapsed != isChromeCollapsed else { return }
         isChromeCollapsed = collapsed
 
-        contentTopConstraint?.deactivate()
-        contentClipView.snp.prepareConstraints { make in
-            if collapsed {
-                contentTopConstraint = make.top.equalToSuperview().constraint
-            } else {
-                contentTopConstraint = make.top.equalTo(view.safeAreaLayoutGuide.snp.top).constraint
-            }
-        }
-        contentTopConstraint?.activate()
         updateChromeBottomOffset(animated: false)
 
         let animations = {
-            self.statusBarFill.alpha = collapsed ? 0 : 1
             self.view.layoutIfNeeded()
         }
         if animated {
@@ -406,6 +397,9 @@ final class BrowserViewController: UIViewController {
     @objc private func keyboardWillHide(_ notification: Notification) {
         keyboardOverlap = 0
         animateChromeWithKeyboard(notification)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            self?.tabManager.selectedTab?.webController?.repairBilibiliStickyPlayerIfNeeded()
+        }
     }
 
     private func animateChromeWithKeyboard(_ notification: Notification) {
@@ -420,8 +414,8 @@ final class BrowserViewController: UIViewController {
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
-        // When chrome is collapsed, content draws under the status bar — prefer light icons.
-        isChromeCollapsed ? .lightContent : .default
+        // Content stays below the status bar fill even when chrome is collapsed.
+        .default
     }
 
     private func updateCollapsedProgressVisibility() {
@@ -1059,6 +1053,18 @@ extension BrowserViewController: WebViewControllerDelegate {
         guard tabManager.selectedTab?.webController === controller else { return }
         guard tabManager.selectedTab?.isNewTabPage != true, !addressBar.isHidden else { return }
 
+        // Sticky players reflow when WKWebView height oscillates (Bilibili / YouTube on device).
+        if WebViewController.isViewportFragileHost(controller.webView?.url) {
+            scrollAccumulator = 0
+            if isChromeCollapsed {
+                setChromeCollapsed(false, animated: false)
+            }
+            return
+        }
+
+        // Rubber-band / deceleration at maxOffset flips chrome hide↔show in a loop.
+        guard controller.webView?.scrollView.isDragging == true else { return }
+
         // Always reveal chrome near the top of the page.
         if offsetY <= 20 {
             scrollAccumulator = 0
@@ -1096,6 +1102,9 @@ extension BrowserViewController: WebViewControllerDelegate {
             addressBar.setURLText(Self.addressBarDisplayText(for: url))
             addressBar.setBlockCount(0)
             addressBar.setFocusIndicator(active: AppSettings.hideShortsEnabled && YouTubeDarkMode.isYouTube(url))
+            if WebViewController.isViewportFragileHost(url), isChromeCollapsed {
+                setChromeCollapsed(false, animated: false)
+            }
             refreshToolbar()
         }
         if !tab.isIncognito, let url, !url.absoluteString.hasPrefix("about:") {

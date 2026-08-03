@@ -22,12 +22,14 @@ final class WebViewController: UIViewController {
     weak var delegate: WebViewControllerDelegate?
 
     /// Rewrites viewport meta so pinch-zoom works like Safari on restrictive pages.
-    /// Skipped on YouTube: unlocking scale there commonly breaks mobile layout width.
+    /// Skipped on YouTube / Bilibili: unlocking scale breaks sticky players and list layout.
     private static let viewportZoomUnlockScript = WKUserScript(
         source: """
         (function() {
           var h = (location.hostname || '').toLowerCase();
-          if (h === 'youtu.be' || h.indexOf('youtube.com') !== -1 || h.indexOf('youtube-nocookie.com') !== -1) {
+          if (h === 'youtu.be' || h === 'b23.tv'
+              || h.indexOf('youtube.com') !== -1 || h.indexOf('youtube-nocookie.com') !== -1
+              || h.indexOf('bilibili.com') !== -1 || h.indexOf('bilibili.tv') !== -1) {
             return;
           }
           function unlock() {
@@ -56,7 +58,7 @@ final class WebViewController: UIViewController {
         forMainFrameOnly: true
     )
 
-    /// Forces YouTube (and similar) back to a sane mobile viewport if something widened it.
+    /// Forces YouTube back to a sane mobile viewport if something widened it.
     private static let youtubeViewportFixScript = """
     (function() {
       var h = (location.hostname || '').toLowerCase();
@@ -73,11 +75,129 @@ final class WebViewController: UIViewController {
           metas[i].setAttribute('content', content);
         }
       }
-      // Remove our older overflow clamp if a previous build injected it.
       var clamp = document.getElementById('mm-overflow-clamp');
       if (clamp && clamp.parentNode) clamp.parentNode.removeChild(clamp);
     })();
     """
+
+    /// Bilibili `/video/` pages: sticky player covers the in-flow meta block (title / open-app /
+    /// UP / tags). Measure with spacer collapsed, set an absolute height (never accumulate),
+    /// and keep scrollY stable when the spacer changes.
+    private static let bilibiliStickyPlayerPadScript = """
+    (function() {
+      var h = (location.hostname || '').toLowerCase();
+      if (h.indexOf('bilibili.com') === -1 && h.indexOf('bilibili.tv') === -1 && h !== 'b23.tv') {
+        return JSON.stringify({skip:1});
+      }
+      var path = location.pathname || '';
+      var spacer = document.getElementById('mm-bili-player-spacer');
+      if (path.indexOf('/video/') === -1) {
+        if (spacer && spacer.parentNode) spacer.parentNode.removeChild(spacer);
+        return JSON.stringify({action:'clear'});
+      }
+      function isFixedLike(el) {
+        while (el && el !== document.documentElement) {
+          var st = getComputedStyle(el);
+          if (st.position === 'fixed' || st.position === 'sticky') return true;
+          el = el.parentElement;
+        }
+        return false;
+      }
+      function playerBottom() {
+        var max = 0;
+        var nodes = document.querySelectorAll('.m-video-player,.fixed-wrapper,.m-navbar');
+        for (var i = 0; i < nodes.length; i++) {
+          var el = nodes[i];
+          if (!isFixedLike(el)) continue;
+          var r = el.getBoundingClientRect();
+          if (r.width < window.innerWidth * 0.5) continue;
+          if (r.bottom > max) max = r.bottom;
+        }
+        return Math.round(max);
+      }
+      // Document Y of first meta/card — independent of current scroll position.
+      function firstContentDocTop() {
+        var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+        var best = null;
+        function consider(el) {
+          if (!el || el.id === 'mm-bili-player-spacer') return;
+          if (isFixedLike(el)) return;
+          var r = el.getBoundingClientRect();
+          if (r.width < 40 || r.height < 16) return;
+          if (r.height > window.innerHeight * 0.75
+              && el.querySelector
+              && el.querySelector('.m-video-player,.fixed-wrapper,.m-navbar')) return;
+          var absTop = Math.round(r.top + scrollY);
+          if (best === null || absTop < best) best = absTop;
+        }
+        var info = document.querySelectorAll(
+          'h1,h2,.main-title,.video-title,[class*="video-title"],[class*="main-title"],' +
+          '.m-video-info,.video-info,[class*="video-info"],[class*="videoInfo"],' +
+          '.m-open-app,.open-app,[class*="open-app"],[class*="openapp"],' +
+          '.up-info,[class*="up-info"],[class*="upInfo"],' +
+          '[class*="video-desc"],[class*="desc-info"]'
+        );
+        for (var i = 0; i < info.length; i++) consider(info[i]);
+        if (best === null) {
+          var cards = document.querySelectorAll('.card-box,.video-card,[class*="recommend"] a');
+          for (var j = 0; j < cards.length; j++) consider(cards[j]);
+        }
+        return best;
+      }
+      var need = playerBottom();
+      if (need < 90) {
+        if (spacer && spacer.parentNode) spacer.parentNode.removeChild(spacer);
+        return JSON.stringify({action:'clear', need:need});
+      }
+      var clear = 6;
+      var prevH = spacer ? Math.round(parseFloat(spacer.style.height) || spacer.getBoundingClientRect().height) : 0;
+      var scrollY = window.pageYOffset || document.documentElement.scrollTop || 0;
+      if (!spacer) {
+        var root = document.querySelector('#app') || document.body;
+        if (!root) return JSON.stringify({action:'no-root'});
+        spacer = document.createElement('div');
+        spacer.id = 'mm-bili-player-spacer';
+        spacer.setAttribute('aria-hidden', 'true');
+        root.insertBefore(spacer, root.firstChild);
+      }
+      // Collapse spacer, measure natural document top, set absolute height (no accumulate).
+      spacer.style.cssText = 'display:block;width:100%;height:0;margin:0;padding:0;border:0;pointer-events:none;flex-shrink:0;';
+      void spacer.offsetHeight;
+      var top = firstContentDocTop();
+      var target = 0;
+      if (top !== null) {
+        target = Math.max(0, (need + clear) - top);
+        target = Math.min(target, need + clear);
+      }
+      if (Math.abs(target - prevH) < 2) {
+        spacer.style.height = prevH + 'px';
+        return JSON.stringify({action:'stable', need:need, top:top, target:prevH});
+      }
+      spacer.style.height = Math.round(target) + 'px';
+      var delta = Math.round(target) - prevH;
+      // Growing/shrinking content above the fold shifts layout; keep the same viewport content.
+      if (delta !== 0 && scrollY > 0) {
+        try { window.scrollTo(0, Math.max(0, scrollY + delta)); } catch (e) {}
+      }
+      return JSON.stringify({action: target > 0 ? 'pad' : 'shrink', need:need, top:top, prevH:prevH, target:Math.round(target), delta:delta});
+    })();
+    """
+
+    /// Hosts whose sticky players / lists break if viewport height or scale thrash.
+    static func isViewportFragileHost(_ url: URL?) -> Bool {
+        guard let host = url?.host?.lowercased() else { return false }
+        if host == "youtu.be" || host == "b23.tv" { return true }
+        if host.contains("youtube.com") || host.contains("youtube-nocookie.com") { return true }
+        if host.contains("bilibili.com") || host.contains("bilibili.tv") || host.contains("bilivideo.com") {
+            return true
+        }
+        return false
+    }
+
+    private static func isBilibiliVideoURL(_ url: URL?) -> Bool {
+        guard isViewportFragileHost(url), let path = url?.path else { return false }
+        return path.contains("/video/")
+    }
 
     static let externalAppHandlerName = "mmExternalApp"
 
@@ -203,6 +323,10 @@ final class WebViewController: UIViewController {
     private var scriptMessageProxy: WebViewScriptProxy?
     private var pageCleanerObserver: NSObjectProtocol?
     private var contentOffsetObservation: NSKeyValueObservation?
+    private var contentSizeObservation: NSKeyValueObservation?
+    private var stickyPlayerRepairWorkItem: DispatchWorkItem?
+    /// Last video URL we finished sticky-player padding for — avoids re-running on infinite scroll.
+    private var stickyPlayerRepairedURL: String?
     private let drawingGestures = DrawingGestureController()
     private var gestureSettingsObserver: NSObjectProtocol?
     private let autofillCoordinator = BrowserAutofillCoordinator()
@@ -287,7 +411,7 @@ final class WebViewController: UIViewController {
         }
         // Unlock pinch-zoom on pages that set user-scalable=no / maximum-scale=1
         // (UIScrollView.ignoresViewportScaleLimits is unavailable in this SDK).
-        // YouTube is excluded inside the script — unlocking breaks its mobile width.
+        // YouTube / Bilibili are excluded inside the script — unlocking breaks sticky players.
         config.userContentController.addUserScript(Self.viewportZoomUnlockScript)
         config.userContentController.addUserScript(
             WKUserScript(
@@ -326,7 +450,7 @@ final class WebViewController: UIViewController {
         wv.scrollView.bouncesZoom = true
         wv.scrollView.alwaysBounceVertical = true
         wv.scrollView.alwaysBounceHorizontal = false
-        wv.scrollView.isDirectionalLockEnabled = true
+        wv.scrollView.isDirectionalLockEnabled = false
         wv.scrollView.isScrollEnabled = true
         wv.scrollView.contentInsetAdjustmentBehavior = .never
         if #available(iOS 14.0, *) {
@@ -384,6 +508,8 @@ final class WebViewController: UIViewController {
                 YouTubeDarkMode.applyAppearance(to: webView, url: url)
                 $0.delegate?.webViewController($0, didUpdateURL: url)
                 $0.refreshPipEntryPolling()
+                // Bilibili SPA (search → video) often skips didFinish.
+                $0.scheduleBilibiliStickyPlayerRepair()
             }
         }
         canGoBackObservation = wv.observe(\.canGoBack, options: [.new]) { [weak self] webView, _ in
@@ -410,6 +536,18 @@ final class WebViewController: UIViewController {
             self.notifyDelegateOnMain {
                 $0.delegate?.webViewController($0, didScroll: delta, offsetY: newY)
             }
+        }
+        contentSizeObservation = wv.scrollView.observe(\.contentSize, options: [.new, .old]) { [weak self] scrollView, change in
+            guard let self else { return }
+            let old = change.oldValue ?? .zero
+            let new = scrollView.contentSize
+            guard abs(new.height - old.height) > 8 else { return }
+            // Infinite-scroll appends must not re-pad (that jumped scroll to the top and
+            // grew a blank gap). Only repair until this video URL has settled once.
+            let urlKey = self.webView?.url?.absoluteString
+            guard Self.isBilibiliVideoURL(self.webView?.url),
+                  urlKey != self.stickyPlayerRepairedURL else { return }
+            self.scheduleBilibiliStickyPlayerRepair()
         }
 
         if let pendingURL = pendingURL {
@@ -844,6 +982,9 @@ final class WebViewController: UIViewController {
         canGoBackObservation = nil
         canGoForwardObservation = nil
         contentOffsetObservation = nil
+        contentSizeObservation = nil
+        stickyPlayerRepairWorkItem?.cancel()
+        stickyPlayerRepairWorkItem = nil
         if let gestureSettingsObserver = gestureSettingsObserver {
             NotificationCenter.default.removeObserver(gestureSettingsObserver)
             self.gestureSettingsObserver = nil
@@ -1754,7 +1895,6 @@ extension WebViewController: WKNavigationDelegate {
         if YouTubeDarkMode.isYouTube(webView.url) {
             refreshPipEntryPolling()
             webView.evaluateJavaScript(Self.youtubeViewportFixScript, completionHandler: nil)
-            // Prevent accidental pinch from leaving YouTube zoomed wider than the screen.
             webView.scrollView.minimumZoomScale = 1
             webView.scrollView.maximumZoomScale = 1
             webView.scrollView.zoomScale = 1
@@ -1764,11 +1904,17 @@ extension WebViewController: WKNavigationDelegate {
                 offset.x = 0
                 webView.scrollView.contentOffset = offset
             }
+        } else if Self.isViewportFragileHost(webView.url) {
+            // Keep Bilibili zoom locked; do not rewrite their viewport meta.
+            webView.scrollView.minimumZoomScale = 1
+            webView.scrollView.maximumZoomScale = 1
+            webView.scrollView.zoomScale = 1
+            if #available(iOS 14.0, *) { webView.pageZoom = 1.0 }
+            scheduleBilibiliStickyPlayerRepair()
         } else {
             webView.scrollView.minimumZoomScale = 1
             webView.scrollView.maximumZoomScale = 5
             webView.evaluateJavaScript(Self.viewportZoomUnlockScript.source, completionHandler: nil)
-            // Drop leftover clamp from older builds.
             webView.evaluateJavaScript(
                 "(function(){var n=document.getElementById('mm-overflow-clamp');if(n&&n.parentNode)n.parentNode.removeChild(n);})();",
                 completionHandler: nil
@@ -1779,6 +1925,51 @@ extension WebViewController: WKNavigationDelegate {
             PageCleanerManager.setPickMode(enabled: true, on: webView)
         }
         probeSessionAvatar(in: webView)
+    }
+
+    /// Public entry used after keyboard hide / manual refresh.
+    func repairBilibiliStickyPlayerIfNeeded() {
+        scheduleBilibiliStickyPlayerRepair()
+    }
+
+    private func scheduleBilibiliStickyPlayerRepair() {
+        guard let host = webView?.url?.host?.lowercased() else { return }
+        let isBili = host.contains("bilibili.com") || host.contains("bilibili.tv") || host == "b23.tv"
+        guard isBili else { return }
+
+        let urlKey = webView?.url?.absoluteString
+        // New route → allow padding again.
+        if urlKey != stickyPlayerRepairedURL {
+            stickyPlayerRepairedURL = nil
+        }
+
+        stickyPlayerRepairWorkItem?.cancel()
+        let item = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.repairBilibiliStickyPlayerNow(markSettledAfterStable: true)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                guard let self, self.webView?.url?.absoluteString == urlKey else { return }
+                self.repairBilibiliStickyPlayerNow(markSettledAfterStable: true)
+            }
+        }
+        stickyPlayerRepairWorkItem = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: item)
+    }
+
+    private func repairBilibiliStickyPlayerNow(markSettledAfterStable: Bool) {
+        guard let webView else { return }
+        webView.evaluateJavaScript(Self.bilibiliStickyPlayerPadScript) { [weak self] result, _ in
+            guard let self else { return }
+            guard markSettledAfterStable,
+                  let raw = result as? String,
+                  let data = raw.data(using: .utf8),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let action = obj["action"] as? String else { return }
+            // stable / pad / clear all mean we are done fighting this URL's first paint.
+            if action == "stable" || action == "pad" || action == "shrink" || action == "clear" {
+                self.stickyPlayerRepairedURL = webView.url?.absoluteString
+            }
+        }
     }
 
     private static let sessionAvatarProbeScript = """
