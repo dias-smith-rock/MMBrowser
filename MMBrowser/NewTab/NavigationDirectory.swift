@@ -1,22 +1,39 @@
 import Foundation
 
-struct NavigationSite {
-    let title: String
-    let urlString: String
-    /// Asset catalog name, e.g. `nav_github`.
-    let logoAssetName: String
+struct NavigationSite: Codable, Equatable, Identifiable {
+    let id: UUID
+    var title: String
+    var urlString: String
+    /// Asset catalog name when known (preset logos); nil for user-added sites.
+    var logoAssetName: String?
 
     var url: URL? { URL(string: urlString) }
+
+    init(id: UUID = UUID(), title: String, urlString: String, logoAssetName: String? = nil) {
+        self.id = id
+        self.title = title
+        self.urlString = urlString
+        self.logoAssetName = logoAssetName
+    }
 }
 
-struct NavigationCategory {
-    let title: String
-    let sites: [NavigationSite]
+struct NavigationCategory: Codable, Equatable, Identifiable {
+    let id: UUID
+    var title: String
+    var sites: [NavigationSite]
+    var isHome: Bool
+
+    init(id: UUID = UUID(), title: String, sites: [NavigationSite], isHome: Bool = false) {
+        self.id = id
+        self.title = title
+        self.sites = sites
+        self.isHome = isHome
+    }
 }
 
-/// Curated, non-editable homepage directory (5 categories × 5 sites).
+/// Built-in seed catalog (also used by “Restore Defaults”).
 enum NavigationDirectory {
-    static let categories: [NavigationCategory] = [
+    static let defaultCategories: [NavigationCategory] = [
         NavigationCategory(
             title: "AI & Tech",
             sites: [
@@ -68,4 +85,26 @@ enum NavigationDirectory {
             ]
         )
     ]
+
+    static func makeSeedCategories(includingHome homeSites: [NavigationSite] = []) -> [NavigationCategory] {
+        var result: [NavigationCategory] = [
+            NavigationCategory(title: "Home", sites: homeSites, isHome: true)
+        ]
+        result.append(contentsOf: defaultCategories.map {
+            NavigationCategory(
+                id: UUID(),
+                title: $0.title,
+                sites: $0.sites.map {
+                    NavigationSite(
+                        id: UUID(),
+                        title: $0.title,
+                        urlString: $0.urlString,
+                        logoAssetName: $0.logoAssetName
+                    )
+                },
+                isHome: false
+            )
+        })
+        return result
+    }
 }

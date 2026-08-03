@@ -15,8 +15,8 @@ final class FaviconImageView: UIImageView {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func setLogo(assetName: String, fallbackTitle: String) {
-        if let image = UIImage(named: assetName) {
+    func setLogo(assetName: String?, fallbackTitle: String) {
+        if let assetName, let image = UIImage(named: assetName) {
             self.image = image
             return
         }

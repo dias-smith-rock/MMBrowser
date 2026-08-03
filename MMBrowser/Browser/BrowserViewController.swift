@@ -1390,12 +1390,15 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 Toast.show("No page to add", from: self)
                 return
             }
-            if ShortcutStore.shared.contains(url: url) {
+            if NavigationStore.shared.containsOnHome(url: url) {
                 Toast.show("Already on Home", from: self)
             } else {
                 let title = tab.title.trimmingCharacters(in: .whitespacesAndNewlines)
-                ShortcutStore.shared.add(title: title.isEmpty ? (url.host ?? "Site") : title, url: url)
-                Toast.show("Added to Home", from: self)
+                let ok = NavigationStore.shared.addToHome(
+                    title: title.isEmpty ? (url.host ?? "Site") : title,
+                    url: url
+                )
+                Toast.show(ok ? "Added to Home" : "Already on Home", from: self)
             }
         case .printPage:
             tabManager.selectedTab?.webController?.printPage()

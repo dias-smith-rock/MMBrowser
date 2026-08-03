@@ -208,6 +208,7 @@ extension Notification.Name {
     static let trackerProtectionChanged = Notification.Name("mmbrowser.tp.changed")
     static let noImagesChanged = Notification.Name("mmbrowser.noimages.changed")
     static let homeSettingsChanged = Notification.Name("mmbrowser.home.changed")
+    static let navigationDirectoryChanged = Notification.Name("mmbrowser.navigation.changed")
     static let searchEngineChanged = Notification.Name("mmbrowser.search.changed")
     static let shortsFocusChanged = Notification.Name("mmbrowser.shorts.changed")
     static let youtubeAdShieldChanged = Notification.Name("mmbrowser.yt.adshield.changed")
