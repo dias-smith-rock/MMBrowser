@@ -199,101 +199,6 @@ final class WebViewController: UIViewController {
         return path.contains("/video/")
     }
 
-    static let externalAppHandlerName = "mmExternalApp"
-
-    /// Catch custom-scheme opens that some sites fire via click / window.open / location
-    /// without a reliable WKNavigationDelegate callback (common on Bilibili).
-    private static let externalAppProbeScript = WKUserScript(
-        source: """
-        (function() {
-          if (window.__mmExtAppHooked) return;
-          window.__mmExtAppHooked = true;
-          var safe = {http:1, https:1, about:1, blob:1, data:1, javascript:1, file:1, ws:1, wss:1};
-          function schemeOf(url) {
-            try {
-              return (new URL(String(url), location.href).protocol || '').replace(':', '').toLowerCase();
-            } catch (e) {
-              var m = String(url).match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
-              return m ? m[1].toLowerCase() : '';
-            }
-          }
-          function isExternal(url) {
-            if (!url) return false;
-            var s = schemeOf(url);
-            return !!s && !safe[s];
-          }
-          function report(url) {
-            try {
-              if (window.webkit && webkit.messageHandlers && webkit.messageHandlers.mmExternalApp) {
-                webkit.messageHandlers.mmExternalApp.postMessage({ url: String(url) });
-              }
-            } catch (e) {}
-          }
-          document.addEventListener('click', function(e) {
-            var t = e.target;
-            for (var i = 0; t && i < 8; i++, t = t.parentElement) {
-              if (t.tagName === 'A' && t.href && isExternal(t.href)) {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                report(t.href);
-                return;
-              }
-            }
-          }, true);
-          var _open = window.open;
-          window.open = function(u) {
-            if (u && isExternal(u)) { report(u); return null; }
-            return _open.apply(this, arguments);
-          };
-          function wrapSetter(proto, name) {
-            try {
-              var desc = Object.getOwnPropertyDescriptor(proto, name);
-              if (!desc || !desc.set) return;
-              var orig = desc.set;
-              Object.defineProperty(proto, name, {
-                configurable: true,
-                enumerable: desc.enumerable,
-                get: desc.get,
-                set: function(v) {
-                  if (isExternal(v)) { report(v); return; }
-                  return orig.call(this, v);
-                }
-              });
-            } catch (e) {}
-          }
-          wrapSetter(Location.prototype, 'href');
-          var _assign = Location.prototype.assign;
-          Location.prototype.assign = function(u) {
-            if (isExternal(u)) { report(u); return; }
-            return _assign.call(this, u);
-          };
-          var _replace = Location.prototype.replace;
-          Location.prototype.replace = function(u) {
-            if (isExternal(u)) { report(u); return; }
-            return _replace.call(this, u);
-          };
-          // Hidden iframe src = app scheme (very common deeplink pattern).
-          try {
-            var iframeSrc = Object.getOwnPropertyDescriptor(HTMLIFrameElement.prototype, 'src');
-            if (iframeSrc && iframeSrc.set) {
-              var setSrc = iframeSrc.set;
-              Object.defineProperty(HTMLIFrameElement.prototype, 'src', {
-                configurable: true,
-                enumerable: iframeSrc.enumerable,
-                get: iframeSrc.get,
-                set: function(v) {
-                  if (isExternal(v)) { report(v); return; }
-                  return setSrc.call(this, v);
-                }
-              });
-            }
-          } catch (e) {}
-        })();
-        """,
-        injectionTime: .atDocumentStart,
-        forMainFrameOnly: false
-    )
-
     private(set) var webView: WKWebView?
     private let isIncognito: Bool
     /// Persistent store for normal tabs; ignored when `isIncognito` (uses non-persistent).
@@ -341,13 +246,6 @@ final class WebViewController: UIViewController {
     private var pipVideoPollTimer: Timer?
     /// True when the page reports an actively playing (or PiP) `<video>`.
     private var pageHasPlayingVideo = false
-    /// Prevents stacking multiple “open in app” prompts from redirect storms.
-    private var isPresentingExternalAppPrompt = false
-    /// Coalesce identical deeplink prompts fired by iframe storms.
-    private var lastExternalAppPromptURL: String?
-    private var lastExternalAppPromptAt: Date?
-    /// One-shot allow for http(s) App Store URLs after the user chooses “Open in Page”.
-    private var allowNextExternalHTTPURL: URL?
     /// Prevents stacked auto-enter retries while sticky PiP waits for a video element.
     private var stickyPipEnterInFlight = false
     /// After a PiP leave, suppress sticky auto-restore briefly so a manual close can clear prefer.
@@ -420,10 +318,8 @@ final class WebViewController: UIViewController {
                 forMainFrameOnly: true
             )
         )
-        config.userContentController.addUserScript(Self.externalAppProbeScript)
         let proxy = WebViewScriptProxy(target: self)
         scriptMessageProxy = proxy
-        config.userContentController.add(proxy, name: Self.externalAppHandlerName)
         config.userContentController.add(proxy, name: PageCleanerManager.handlerName)
         if AppSettings.trackerProtectionEnabled {
             config.userContentController.add(proxy, name: AdBlockManager.blockCountHandlerName)
@@ -999,7 +895,6 @@ final class WebViewController: UIViewController {
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: PageCleanerManager.handlerName)
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: BrowserAutofillCoordinator.messageName)
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: MediaPlaybackSupport.pipHandlerName)
-        webView?.configuration.userContentController.removeScriptMessageHandler(forName: Self.externalAppHandlerName)
         if let pipForegroundObserver {
             NotificationCenter.default.removeObserver(pipForegroundObserver)
             self.pipForegroundObserver = nil
@@ -1595,8 +1490,6 @@ private final class WebViewScriptProxy: NSObject, WKScriptMessageHandler {
             target?.handleYouTubeAdShieldMessage(message)
         case MediaPlaybackSupport.pipHandlerName:
             target?.handlePictureInPictureMessage(message)
-        case WebViewController.externalAppHandlerName:
-            target?.handleExternalAppScriptMessage(message)
         default:
             break
         }
@@ -1647,180 +1540,15 @@ extension WebViewController: FindInPageBarDelegate {
 }
 
 extension WebViewController: WKNavigationDelegate {
-    private static let inPageSchemes: Set<String> = ["http", "https", "about", "blob", "data", "file"]
-
-    /// WebKit private policy: allow navigation but do **not** hand off Universal Links / App Links
-    /// (`_WKNavigationActionPolicyAllowWithoutTryingAppLink`). Needed for sites like Bilibili.
-    private static let allowWithoutAppLink: WKNavigationActionPolicy =
-        WKNavigationActionPolicy(rawValue: WKNavigationActionPolicy.allow.rawValue + 2) ?? .allow
-
-    /// Custom schemes / App Store web links that would leave the browser.
-    private func isExternalAppNavigation(_ url: URL) -> Bool {
-        let scheme = (url.scheme ?? "").lowercased()
-        guard !scheme.isEmpty else { return false }
-        // Never intercept in-page script / resource schemes.
-        if scheme == "javascript" || scheme == "blob" || scheme == "data" || scheme == "about" {
-            return false
-        }
-        if Self.inPageSchemes.contains(scheme) {
-            return Self.isAppStoreWebURL(url) || Self.isAppHandoffWebURL(url)
-        }
-        return true
-    }
-
-    private static func isAppStoreWebURL(_ url: URL) -> Bool {
-        guard let host = url.host?.lowercased() else { return false }
-        return host == "apps.apple.com"
-            || host == "itunes.apple.com"
-            || host.hasSuffix(".apps.apple.com")
-    }
-
-    /// HTTPS “open the native app” landing / redirect hosts (not normal site pages).
-    private static func isAppHandoffWebURL(_ url: URL) -> Bool {
-        guard let host = url.host?.lowercased() else { return false }
-        let path = url.path.lowercased()
-        // Bilibili app-download / deeplink gateways.
-        if host == "app.bilibili.com" || host == "d.bilibili.com" || host == "dl.bilibili.com" {
-            return true
-        }
-        if host == "b23.tv" || host.hasSuffix(".b23.tv") {
-            // Short links often bounce straight into the app via Universal Links.
-            return path.hasPrefix("/app-") || path.contains("download")
-        }
-        // Generic mobile app-gate paths used by many Chinese portals.
-        if path.contains("/app/download")
-            || path.contains("/download/app")
-            || path.contains("openapp")
-            || path.contains("open_app") {
-            return true
-        }
-        return false
-    }
-
-    private func topPresenterForPrompt() -> UIViewController {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-        let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow)
-            ?? scenes.flatMap(\.windows).first(where: { !$0.isHidden })
-        var top: UIViewController = window?.rootViewController
-            ?? navigationController
-            ?? parent
-            ?? self
-        while let presented = top.presentedViewController {
-            top = presented
-        }
-        return top
-    }
-
-    fileprivate func handleExternalAppScriptMessage(_ message: WKScriptMessage) {
-        guard message.name == Self.externalAppHandlerName else { return }
-        let raw: String?
-        if let body = message.body as? [String: Any] {
-            raw = body["url"] as? String
-        } else {
-            raw = message.body as? String
-        }
-        guard let raw, let url = URL(string: raw), isExternalAppNavigation(url) else { return }
-        notifyDelegateOnMain { $0.presentExternalAppPrompt(for: url) }
-    }
-
-    /// Ask whether to hand off to another app or keep browsing in-page.
-    fileprivate func presentExternalAppPrompt(for url: URL) {
-        let presentBlock = { [weak self] in
-            guard let self else { return }
-            let key = url.absoluteString
-            if self.isPresentingExternalAppPrompt { return }
-            if let last = self.lastExternalAppPromptURL,
-               last == key,
-               let at = self.lastExternalAppPromptAt,
-               Date().timeIntervalSince(at) < 1.2 {
-                return
-            }
-
-            let presenter = self.topPresenterForPrompt()
-            // Don't present on top of an existing alert; retry once it clears.
-            if presenter is UIAlertController || presenter.presentedViewController != nil {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
-                    self?.presentExternalAppPrompt(for: url)
-                }
-                return
-            }
-
-            self.isPresentingExternalAppPrompt = true
-            self.lastExternalAppPromptURL = key
-            self.lastExternalAppPromptAt = Date()
-
-            let display = key
-            let trimmed = display.count > 160
-                ? String(display.prefix(157)) + "…"
-                : display
-            let alert = UIAlertController(
-                title: "Open in Another App?",
-                message: "This page wants to leave the browser.\n\(trimmed)",
-                preferredStyle: .alert
-            )
-            let finish: () -> Void = { [weak self] in
-                self?.isPresentingExternalAppPrompt = false
-            }
-            alert.addAction(UIAlertAction(title: "Open in App", style: .default) { [weak self] _ in
-                finish()
-                UIApplication.shared.open(url, options: [:]) { ok in
-                    guard !ok else { return }
-                    DispatchQueue.main.async {
-                        guard let self else { return }
-                        Toast.show("Couldn't open app", from: self)
-                    }
-                }
-            })
-            alert.addAction(UIAlertAction(title: "Open in Page", style: .cancel) { [weak self] _ in
-                finish()
-                guard let self else { return }
-                // Custom schemes cannot render in WKWebView — stay on the current page.
-                // App Store / handoff https links can load as a normal webpage (bypass once).
-                let scheme = (url.scheme ?? "").lowercased()
-                if ["http", "https"].contains(scheme) {
-                    self.allowNextExternalHTTPURL = url
-                    self.load(url: url)
-                }
-            })
-            presenter.present(alert, animated: true)
-        }
-
-        if Thread.isMainThread {
-            presentBlock()
-        } else {
-            DispatchQueue.main.async(execute: presentBlock)
-        }
-    }
-
-    private func decideNavigationPolicy(
-        _ policy: WKNavigationActionPolicy,
-        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
-    ) {
-        // Prefer in-page browsing: never let Universal Links steal http(s) navigations.
-        if policy == .allow {
-            decisionHandler(Self.allowWithoutAppLink)
-        } else {
-            decisionHandler(policy)
-        }
-    }
-
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         YouTubeDarkMode.applyAppearance(to: webView, url: navigationAction.request.url)
         if let url = navigationAction.request.url {
             let scheme = (url.scheme ?? "").lowercased()
-
-            // Intercept app deeplinks / App Store handoff — ask before leaving the browser.
-            if isExternalAppNavigation(url) {
-                if let allowed = allowNextExternalHTTPURL,
-                   allowed.absoluteString == url.absoluteString,
-                   ["http", "https"].contains(scheme) {
-                    allowNextExternalHTTPURL = nil
-                    // Fall through and allow in-page load (without Universal Link handoff).
-                } else {
-                    decideNavigationPolicy(.cancel, decisionHandler: decisionHandler)
-                    presentExternalAppPrompt(for: url)
-                    return
-                }
+            // Ignore App/deeplink schemes (common on Chinese portals like Sogou) to avoid "Unsupported URL".
+            let allowed = ["http", "https", "about", "blob", "data", "file"]
+            if !scheme.isEmpty && !allowed.contains(scheme) {
+                decisionHandler(.cancel)
+                return
             }
 
             if let redirected = YouTubeShortsFocus.redirectTarget(for: url), redirected != url {
@@ -1860,8 +1588,7 @@ extension WebViewController: WKNavigationDelegate {
                 }
             }
         }
-        // Allow in WKWebView without opening the site’s native app via Universal Links.
-        decideNavigationPolicy(.allow, decisionHandler: decisionHandler)
+        decisionHandler(.allow)
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
@@ -2045,21 +1772,13 @@ extension WebViewController: WKNavigationDelegate {
     private func handleFailure(_ error: Error) {
         let nsError = error as NSError
         if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled { return }
-        // App-link / unsupported scheme — offer Open in App / Open in Page instead of an error page.
+        // App-link / unsupported scheme failures should not blank the page.
         if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorUnsupportedURL {
-            let failing = (nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL)
-                ?? (nsError.userInfo[NSURLErrorFailingURLStringErrorKey] as? String).flatMap(URL.init(string:))
-            if let failing, isExternalAppNavigation(failing) {
-                presentExternalAppPrompt(for: failing)
-            }
             return
         }
         if let failing = nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL {
             let scheme = (failing.scheme ?? "").lowercased()
             if !["http", "https", "about", "blob", "data", "file"].contains(scheme) {
-                if isExternalAppNavigation(failing) {
-                    presentExternalAppPrompt(for: failing)
-                }
                 return
             }
         }
@@ -2089,11 +1808,7 @@ extension WebViewController: WKNavigationDelegate {
 extension WebViewController: WKUIDelegate {
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         if navigationAction.targetFrame == nil, let url = navigationAction.request.url {
-            if isExternalAppNavigation(url) {
-                presentExternalAppPrompt(for: url)
-            } else {
-                delegate?.webViewController(self, requestNewTabFor: url)
-            }
+            delegate?.webViewController(self, requestNewTabFor: url)
         }
         return nil
     }
