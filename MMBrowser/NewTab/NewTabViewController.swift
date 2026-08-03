@@ -2,7 +2,6 @@ import UIKit
 import SnapKit
 
 protocol NewTabViewControllerDelegate: AnyObject {
-    func newTabDidSubmit(_ text: String)
     func newTabDidRequestIncognito()
     func newTabDidOpenURL(_ url: URL)
     func newTabDidTapSeeMoreContinue()
@@ -10,7 +9,7 @@ protocol NewTabViewControllerDelegate: AnyObject {
     func newTabDidRequestSettings()
 }
 
-/// Clean NTP: brand, search, curated navigation directory (non-editable).
+/// Clean NTP: brand + curated navigation directory. Search uses the bottom address bar.
 final class NewTabViewController: UIViewController {
     weak var delegate: NewTabViewControllerDelegate?
 
@@ -18,9 +17,6 @@ final class NewTabViewController: UIViewController {
     private let contentView = UIView()
     private let settingsButton = UIButton(type: .system)
     private let logoView = GoogleLogoView()
-    private let searchContainer = UIView()
-    private let searchIcon = UIImageView()
-    private let searchField = UITextField()
     private let directoryStack = UIStackView()
 
     override func viewDidLoad() {
@@ -29,7 +25,6 @@ final class NewTabViewController: UIViewController {
         buildDirectory()
         applyHomeSettings()
         NotificationCenter.default.addObserver(self, selector: #selector(applyHomeSettings), name: .homeSettingsChanged, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(engineChanged), name: .searchEngineChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(applyHomeSettings), name: .themeDidChange, object: nil)
     }
 
@@ -39,21 +34,8 @@ final class NewTabViewController: UIViewController {
         view.backgroundColor = BrowserTheme.homeWallpaperColor()
         settingsButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
         settingsButton.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.45).cgColor
-        searchContainer.backgroundColor = BrowserTheme.elevated
-        searchIcon.tintColor = BrowserTheme.chromeBlue
-        searchField.textColor = BrowserTheme.textPrimary
-        searchField.tintColor = BrowserTheme.chromeBlue
         logoView.applyTheme()
         buildDirectory()
-        engineChanged()
-    }
-
-    @objc private func engineChanged() {
-        let name = SearchEngineManager.current.name
-        searchField.attributedPlaceholder = NSAttributedString(
-            string: "Search \(name) or type URL",
-            attributes: [.foregroundColor: BrowserTheme.textSecondary]
-        )
     }
 
     /// Kept for BrowserViewController call sites.
@@ -85,30 +67,11 @@ final class NewTabViewController: UIViewController {
         settingsButton.contentEdgeInsets = UIEdgeInsets(top: 6, left: 14, bottom: 6, right: 14)
         settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
 
-        searchContainer.backgroundColor = BrowserTheme.elevated
-        searchContainer.layer.cornerRadius = 28
-
-        searchIcon.image = UIImage(systemName: "magnifyingglass")
-        searchIcon.tintColor = BrowserTheme.chromeBlue
-        searchIcon.contentMode = .scaleAspectFit
-
-        searchField.textColor = BrowserTheme.textPrimary
-        searchField.tintColor = BrowserTheme.chromeBlue
-        searchField.font = .systemFont(ofSize: 16)
-        searchField.returnKeyType = .go
-        searchField.autocapitalizationType = .none
-        searchField.autocorrectionType = .no
-        searchField.delegate = self
-        searchField.clearButtonMode = .whileEditing
-
-        searchContainer.addSubview(searchIcon)
-        searchContainer.addSubview(searchField)
-
         directoryStack.axis = .vertical
         directoryStack.spacing = 28
         directoryStack.alignment = .fill
 
-        [settingsButton, logoView, searchContainer, directoryStack].forEach {
+        [settingsButton, logoView, directoryStack].forEach {
             contentView.addSubview($0)
         }
 
@@ -122,24 +85,8 @@ final class NewTabViewController: UIViewController {
             make.height.equalTo(52)
             make.width.equalTo(260)
         }
-        searchContainer.snp.makeConstraints { make in
-            make.top.equalTo(logoView.snp.bottom).offset(28)
-            make.leading.equalToSuperview().offset(20)
-            make.trailing.equalToSuperview().offset(-20)
-            make.height.equalTo(56)
-        }
-        searchIcon.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(16)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(22)
-        }
-        searchField.snp.makeConstraints { make in
-            make.leading.equalTo(searchIcon.snp.trailing).offset(10)
-            make.trailing.equalToSuperview().offset(-16)
-            make.centerY.equalToSuperview()
-        }
         directoryStack.snp.makeConstraints { make in
-            make.top.equalTo(searchContainer.snp.bottom).offset(36)
+            make.top.equalTo(logoView.snp.bottom).offset(36)
             make.leading.equalToSuperview().offset(16)
             make.trailing.equalToSuperview().offset(-16)
             make.bottom.equalToSuperview().offset(-32)
@@ -253,12 +200,4 @@ private final class NavigationSiteButton: UIButton {
         super.init(frame: .zero)
     }
     required init?(coder: NSCoder) { fatalError() }
-}
-
-extension NewTabViewController: UITextFieldDelegate {
-    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        delegate?.newTabDidSubmit(textField.text ?? "")
-        textField.resignFirstResponder()
-        return true
-    }
 }

@@ -480,15 +480,14 @@ final class BrowserViewController: UIViewController {
         }
         applyPrivateChrome(tab.isIncognito)
         resetChromeForCurrentTab()
+        addressBar.isHidden = false
         if tab.isNewTabPage {
-            addressBar.isHidden = true
             if tab.isIncognito {
                 showPrivateNewTab()
             } else {
                 showNewTab(for: tab)
             }
         } else {
-            addressBar.isHidden = false
             showWeb(for: tab)
         }
         refreshToolbar()
@@ -1039,10 +1038,6 @@ extension BrowserViewController: BottomToolbarViewDelegate {
 }
 
 extension BrowserViewController: NewTabViewControllerDelegate {
-    func newTabDidSubmit(_ text: String) {
-        navigate(to: URLInputResolver.resolve(text))
-    }
-
     func newTabDidRequestIncognito() {
         _ = tabManager.addTab(incognito: true, select: true)
         showSelectedTab()
@@ -1064,10 +1059,6 @@ extension BrowserViewController: NewTabViewControllerDelegate {
 }
 
 extension BrowserViewController: PrivateNewTabViewControllerDelegate {
-    func privateNewTabDidSubmit(_ text: String) {
-        navigate(to: URLInputResolver.resolve(text))
-    }
-
     func privateNewTabDidRequestClosePrivate() {
         tabManager.closeAllIncognitoTabs()
         showSelectedTab()

@@ -2,19 +2,17 @@ import UIKit
 import SnapKit
 
 protocol PrivateNewTabViewControllerDelegate: AnyObject {
-    func privateNewTabDidSubmit(_ text: String)
     func privateNewTabDidRequestClosePrivate()
 }
 
-/// Minimal private NTP: search only — no Continue / Discover / history chrome.
-final class PrivateNewTabViewController: UIViewController, UITextFieldDelegate {
+/// Minimal private NTP — no Continue / Discover / history chrome.
+/// Search uses the bottom address bar (same chrome as normal pages).
+final class PrivateNewTabViewController: UIViewController {
     weak var delegate: PrivateNewTabViewControllerDelegate?
 
     private let iconView = UIImageView()
     private let titleLabel = UILabel()
     private let subtitleLabel = UILabel()
-    private let searchField = UITextField()
-    private let searchBox = UIView()
     private let closePrivateButton = UIButton(type: .system)
 
     override func viewDidLoad() {
@@ -32,15 +30,6 @@ final class PrivateNewTabViewController: UIViewController, UITextFieldDelegate {
         subtitleLabel.numberOfLines = 0
         subtitleLabel.textAlignment = .center
 
-        searchBox.layer.cornerRadius = 22
-        searchField.font = .systemFont(ofSize: 16)
-        searchField.returnKeyType = .go
-        searchField.autocapitalizationType = .none
-        searchField.autocorrectionType = .no
-        searchField.keyboardType = .webSearch
-        searchField.delegate = self
-        searchBox.addSubview(searchField)
-
         closePrivateButton.setTitle("Close Private Tabs", for: .normal)
         closePrivateButton.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
         closePrivateButton.addTarget(self, action: #selector(closePrivateTapped), for: .touchUpInside)
@@ -51,7 +40,6 @@ final class PrivateNewTabViewController: UIViewController, UITextFieldDelegate {
         view.addSubview(iconView)
         view.addSubview(titleLabel)
         view.addSubview(subtitleLabel)
-        view.addSubview(searchBox)
         view.addSubview(closePrivateButton)
 
         iconView.snp.makeConstraints { make in
@@ -67,17 +55,8 @@ final class PrivateNewTabViewController: UIViewController, UITextFieldDelegate {
             make.top.equalTo(titleLabel.snp.bottom).offset(12)
             make.leading.trailing.equalToSuperview().inset(32)
         }
-        searchBox.snp.makeConstraints { make in
-            make.top.equalTo(subtitleLabel.snp.bottom).offset(28)
-            make.leading.trailing.equalToSuperview().inset(24)
-            make.height.equalTo(44)
-        }
-        searchField.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(16)
-            make.centerY.equalToSuperview()
-        }
         closePrivateButton.snp.makeConstraints { make in
-            make.top.equalTo(searchBox.snp.bottom).offset(24)
+            make.top.equalTo(subtitleLabel.snp.bottom).offset(28)
             make.centerX.equalToSuperview()
         }
     }
@@ -89,22 +68,7 @@ final class PrivateNewTabViewController: UIViewController, UITextFieldDelegate {
         iconView.tintColor = BrowserTheme.privateAccent
         titleLabel.textColor = BrowserTheme.textPrimary
         subtitleLabel.textColor = BrowserTheme.textSecondary
-        searchBox.backgroundColor = BrowserTheme.privateElevated
-        searchField.textColor = BrowserTheme.textPrimary
-        searchField.tintColor = BrowserTheme.privateAccent
-        searchField.attributedPlaceholder = NSAttributedString(
-            string: "Search or type URL",
-            attributes: [.foregroundColor: BrowserTheme.textSecondary]
-        )
         closePrivateButton.setTitleColor(BrowserTheme.privateAccent, for: .normal)
-    }
-
-    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        let text = textField.text ?? ""
-        textField.resignFirstResponder()
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return true }
-        delegate?.privateNewTabDidSubmit(text)
-        return true
     }
 
     @objc private func closePrivateTapped() {

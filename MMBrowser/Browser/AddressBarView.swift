@@ -97,10 +97,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         textField.autocorrectionType = .no
         textField.keyboardType = .webSearch
         textField.delegate = self
-        textField.attributedPlaceholder = NSAttributedString(
-            string: "Search or type URL",
-            attributes: [.foregroundColor: BrowserTheme.textSecondary]
-        )
+        updateSearchPlaceholder()
 
         progressView.progressTintColor = BrowserTheme.chromeBlue
         progressView.trackTintColor = .clear
@@ -127,6 +124,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         setupTabSwipe()
         applyTheme()
         NotificationCenter.default.addObserver(self, selector: #selector(applyTheme), name: .themeDidChange, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(updateSearchPlaceholder), name: .searchEngineChanged, object: nil)
 
         container.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(12)
@@ -315,6 +313,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         textField.tintColor = accent
         peekLabel.textColor = BrowserTheme.textSecondary
         progressView.progressTintColor = accent
+        updateSearchPlaceholder()
         cleanerMenuContainer.backgroundColor = BrowserTheme.elevated
         [cleanerSiteChip, cleanerPageChip, cleanerExitChip].forEach {
             $0.setTitleColor(BrowserTheme.textPrimary, for: .normal)
@@ -322,6 +321,14 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         }
         updateCleanerChipSelection()
         updateShieldAppearance()
+    }
+
+    @objc private func updateSearchPlaceholder() {
+        let name = SearchEngineManager.current.name
+        textField.attributedPlaceholder = NSAttributedString(
+            string: "Search \(name) or type URL",
+            attributes: [.foregroundColor: BrowserTheme.textSecondary]
+        )
     }
 
     func setProgress(_ progress: Double, isLoading: Bool) {
