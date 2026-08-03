@@ -3,8 +3,10 @@ import SnapKit
 
 final class SettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
-    private enum Section: Int, CaseIterable { case privacy, clearOption, tools, youtube, media, downloads, gestures, search, home, about }
+    private enum Section: Int, CaseIterable { case privacy, accounts, clearOption, tools, youtube, media, downloads, gestures, search, home, about }
     var onRequestRebuildWebViews: (() -> Void)?
+    var onAccountsChanged: (() -> Void)?
+    weak var tabManager: TabManager?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -53,6 +55,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
         case .privacy: return 6
+        case .accounts: return 1
         case .clearOption: return 1
         case .tools: return 1
         case .youtube: return 2
@@ -68,6 +71,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .privacy: return "Privacy & Security"
+        case .accounts: return "Accounts"
         case .clearOption: return "Clear Option"
         case .tools: return "Tools"
         case .youtube: return "Focus & Video"
@@ -84,6 +88,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         switch Section(rawValue: section)! {
         case .privacy:
             return "Location Deny/Spoof only affects GPS-like browser APIs—not your network IP."
+        case .accounts:
+            return "Accounts keep separate cookies and logins. Optional virtual location per account does not change your IP."
         case .clearOption:
             return "Choose what is removed automatically when you leave the app. History is still recorded during the session; turn History auto-clear off to keep it across launches."
         case .tools:
@@ -158,6 +164,10 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 cell.textLabel?.text = "Privacy Explained"
                 cell.accessoryType = .disclosureIndicator
             }
+        case .accounts:
+            cell.textLabel?.text = "Accounts"
+            cell.detailTextLabel?.text = "Separate logins and cookies"
+            cell.accessoryType = .disclosureIndicator
         case .clearOption:
             cell.textLabel?.text = "Clear Option"
             cell.detailTextLabel?.text = AppSettings.clearOptionSummary
@@ -254,6 +264,14 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             } else if indexPath.row == 5 {
                 navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
             }
+        case .accounts:
+            guard let tabManager else { return }
+            let manage = ContainerManageViewController(tabManager: tabManager)
+            manage.showsDoneButton = false
+            manage.onChanged = { [weak self] in
+                self?.onAccountsChanged?()
+            }
+            navigationController?.pushViewController(manage, animated: true)
         case .clearOption:
             navigationController?.pushViewController(ClearOptionSettingsViewController(), animated: true)
         case .tools:
@@ -286,7 +304,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             } else if indexPath.row == 2 {
                 let alert = UIAlertController(
                     title: "What's New",
-                    message: "Block Ads & Trackers, Focus Mode (hide Shorts), fewer YouTube interruptions (best-effort), background audio & Picture in Picture, Reader Mode, Reading List, Downloads, and a home page you control.",
+                    message: "Accounts: separate logins with a switcher in the address bar, plus lock, clear, and tracker blocking. Webpage Cleaner, Reader Mode, Reading List, Downloads, and a home page you control.",
                     preferredStyle: .alert
                 )
                 alert.addAction(UIAlertAction(title: "OK", style: .default))

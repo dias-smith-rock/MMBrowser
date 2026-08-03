@@ -7,27 +7,57 @@ protocol BottomToolbarViewDelegate: AnyObject {
     func toolbarDidTapNewTab()
     func toolbarDidTapTabs()
     func toolbarDidTapMenu()
+    func toolbarDidTapAccount()
 }
 
 final class BottomToolbarView: UIView {
     weak var delegate: BottomToolbarViewDelegate?
 
+    private let accountChip = UIButton(type: .custom)
+    private let accountDot = UIView()
+    private let accountTitle = UILabel()
     private let backButton = UIButton(type: .system)
     private let forwardButton = UIButton(type: .system)
     private let plusButton = UIButton(type: .system)
     private let tabsButton = UIButton(type: .system)
     private let menuButton = UIButton(type: .system)
     private let tabsBadgeLabel = UILabel()
+    private let iconStack = UIStackView()
     private var isPrivateMode = false
     private var canGoBack = false
     private var canGoForward = false
     private var tabCount = 1
+    private var accountChipVisible = false
 
     private static let iconPointSize: CGFloat = 26
     private static let iconConfig = UIImage.SymbolConfiguration(pointSize: iconPointSize, weight: .regular)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+
+        accountDot.layer.cornerRadius = 4
+        accountDot.clipsToBounds = true
+        accountTitle.font = .systemFont(ofSize: 12, weight: .semibold)
+        accountTitle.textColor = BrowserTheme.textPrimary
+        accountTitle.lineBreakMode = .byTruncatingTail
+        accountChip.addSubview(accountDot)
+        accountChip.addSubview(accountTitle)
+        accountChip.layer.cornerRadius = 14
+        accountChip.clipsToBounds = true
+        accountChip.isHidden = true
+        accountChip.accessibilityLabel = "Account"
+        accountChip.accessibilityHint = "Double tap to switch accounts"
+        accountChip.addTarget(self, action: #selector(accountTapped), for: .touchUpInside)
+        accountDot.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(8)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(8)
+        }
+        accountTitle.snp.makeConstraints { make in
+            make.leading.equalTo(accountDot.snp.trailing).offset(5)
+            make.trailing.equalToSuperview().offset(-10)
+            make.centerY.equalToSuperview()
+        }
 
         configure(backButton, action: #selector(backTapped), label: "Back")
         configure(forwardButton, action: #selector(forwardTapped), label: "Forward")
@@ -44,17 +74,32 @@ final class BottomToolbarView: UIView {
         tabsBadgeLabel.isUserInteractionEnabled = false
         tabsButton.addSubview(tabsBadgeLabel)
 
-        let stack = UIStackView(arrangedSubviews: [backButton, forwardButton, plusButton, tabsButton, menuButton])
-        stack.axis = .horizontal
-        stack.distribution = .fillEqually
-        stack.alignment = .center
-        addSubview(stack)
+        iconStack.axis = .horizontal
+        iconStack.distribution = .fillEqually
+        iconStack.alignment = .center
+        [backButton, forwardButton, plusButton, tabsButton, menuButton].forEach { iconStack.addArrangedSubview($0) }
 
-        stack.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview()
+        let root = UIStackView(arrangedSubviews: [accountChip, iconStack])
+        root.axis = .horizontal
+        root.alignment = .center
+        root.spacing = 4
+        addSubview(root)
+
+        root.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(8)
+            make.trailing.equalToSuperview().offset(-4)
             make.top.equalToSuperview()
             make.height.equalTo(BrowserTheme.toolbarHeight)
         }
+        accountChip.snp.makeConstraints { make in
+            make.height.equalTo(28)
+            make.width.greaterThanOrEqualTo(56)
+            make.width.lessThanOrEqualTo(108)
+        }
+        accountChip.setContentHuggingPriority(.required, for: .horizontal)
+        accountChip.setContentCompressionResistancePriority(.required, for: .horizontal)
+        iconStack.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
         tabsBadgeLabel.snp.makeConstraints { make in
             make.centerX.equalTo(tabsButton.snp.centerX).offset(10)
             make.centerY.equalTo(tabsButton.snp.centerY).offset(-10)
@@ -83,7 +128,18 @@ final class BottomToolbarView: UIView {
 
     func setPrivateMode(_ isPrivate: Bool) {
         isPrivateMode = isPrivate
+        accountChip.isHidden = isPrivate || !accountChipVisible
         applyTheme()
+    }
+
+    func setAccount(name: String, color: UIColor, visible: Bool) {
+        accountChipVisible = visible
+        let show = visible && !isPrivateMode
+        accountChip.isHidden = !show
+        accountTitle.text = AccountColor.truncatedName(name)
+        accountDot.backgroundColor = color
+        accountChip.backgroundColor = color.withAlphaComponent(0.18)
+        accountChip.accessibilityValue = name
     }
 
     @objc private func applyTheme() {
@@ -104,6 +160,7 @@ final class BottomToolbarView: UIView {
             button.setPreferredSymbolConfiguration(config, forImageIn: .normal)
         }
 
+        accountTitle.textColor = BrowserTheme.textPrimary
         tabsBadgeLabel.backgroundColor = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
         tabsBadgeLabel.textColor = isPrivateMode ? BrowserTheme.privateBackground : .black
         tabsBadgeLabel.isHidden = false
@@ -128,6 +185,7 @@ final class BottomToolbarView: UIView {
         button.addTarget(self, action: action, for: .touchUpInside)
     }
 
+    @objc private func accountTapped() { delegate?.toolbarDidTapAccount() }
     @objc private func backTapped() { delegate?.toolbarDidTapBack() }
     @objc private func forwardTapped() { delegate?.toolbarDidTapForward() }
     @objc private func plusTapped() { delegate?.toolbarDidTapNewTab() }

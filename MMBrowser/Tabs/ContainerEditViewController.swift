@@ -6,16 +6,17 @@ protocol ContainerEditViewControllerDelegate: AnyObject {
 }
 
 /// Add / edit a container name and its Geolocation spoof settings.
-final class ContainerEditViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+final class ContainerEditViewController: UIViewController, UITableViewDataSource, UITableViewDelegate, UIColorPickerViewControllerDelegate {
     weak var delegate: ContainerEditViewControllerDelegate?
 
     private let isNew: Bool
     private var draft: BrowserContainer
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private let nameField = UITextField()
+    private let colorSwatches = AccountColorSwatchView()
 
     private enum Section: Int, CaseIterable {
-        case name, mode, spoofPreset, spoofCustom
+        case name, color, mode, spoofPreset, spoofCustom
     }
 
     init(container: BrowserContainer?, suggestedPresetIndex: Int = 0) {
@@ -30,6 +31,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
                 name: "",
                 sessionID: UUID(),
                 sortIndex: 0,
+                colorIndex: suggestedPresetIndex % AccountColor.palette.count,
                 location: preset
             )
         }
@@ -40,7 +42,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = isNew ? "Add Container" : "Edit Container"
+        title = isNew ? "Add Account" : "Edit Account"
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .cancel,
@@ -61,6 +63,16 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
         nameField.returnKeyType = .done
         nameField.addTarget(self, action: #selector(nameChanged), for: .editingChanged)
 
+        colorSwatches.onSelectPreset = { [weak self] index in
+            guard let self else { return }
+            self.draft.colorIndex = index
+            self.draft.customColorHex = nil
+            self.refreshColorSwatches()
+        }
+        colorSwatches.onSelectCustom = { [weak self] in
+            self?.presentColorPicker()
+        }
+
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
@@ -73,12 +85,14 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+        refreshColorSwatches()
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.reloadData()
+        refreshColorSwatches()
     }
 
     @objc private func cancelTapped() {
@@ -96,7 +110,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
         view.endEditing(true)
         draft.name = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !draft.name.isEmpty else {
-            presentAlert("Enter a container name.")
+            presentAlert("Enter an account name.")
             return
         }
         delegate?.containerEditDidSave(draft, isNew: isNew)
@@ -108,9 +122,52 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
     }
 
     private func presentAlert(_ message: String) {
-        let alert = UIAlertController(title: "Container", message: message, preferredStyle: .alert)
+        let alert = UIAlertController(title: "Account", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+
+    private func refreshColorSwatches() {
+        colorSwatches.configure(
+            selectedPresetIndex: draft.colorIndex,
+            customHex: draft.customColorHex
+        )
+    }
+
+    private func presentColorPicker() {
+        let picker = UIColorPickerViewController()
+        picker.delegate = self
+        picker.supportsAlpha = false
+        if let hex = draft.customColorHex, let color = AccountColor.uiColor(fromHex: hex) {
+            picker.selectedColor = color
+        } else {
+            picker.selectedColor = AccountColor.color(at: draft.colorIndex)
+        }
+        present(picker, animated: true)
+    }
+
+    func colorPickerViewControllerDidFinish(_ viewController: UIColorPickerViewController) {
+        applyPickedColor(viewController.selectedColor)
+    }
+
+    func colorPickerViewControllerDidSelectColor(_ viewController: UIColorPickerViewController) {
+        // Live preview while dragging; commit on finish as well.
+        applyPickedColor(viewController.selectedColor)
+    }
+
+    private func applyPickedColor(_ color: UIColor) {
+        let hex = AccountColor.hexString(from: color)
+        // If user lands exactly on a palette color, treat as preset.
+        for i in 0..<AccountColor.palette.count {
+            if AccountColor.matchesPalette(color, at: i) {
+                draft.colorIndex = i
+                draft.customColorHex = nil
+                refreshColorSwatches()
+                return
+            }
+        }
+        draft.customColorHex = hex
+        refreshColorSwatches()
     }
 
     private var isCustomSpoofSelected: Bool {
@@ -135,6 +192,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
         case .name: return 1
+        case .color: return 1
         case .mode: return LocationPrivacyMode.allCases.count
         case .spoofPreset: return draft.locationMode == .spoof ? SpoofLocationPreset.all.count : 0
         case .spoofCustom: return draft.locationMode == .spoof ? 1 : 0
@@ -144,7 +202,8 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .name: return "Name"
-        case .mode: return "Location for Sites in This Container"
+        case .color: return "Color"
+        case .mode: return "Location for Sites in This Account"
         case .spoofPreset: return draft.locationMode == .spoof ? "Virtual City" : nil
         case .spoofCustom: return draft.locationMode == .spoof ? "Custom" : nil
         }
@@ -152,6 +211,8 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
 
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
+        case .color:
+            return "Tap a swatch, or + to pick a custom color."
         case .mode:
             return "Deny and Spoof only affect the browser Geolocation API. Network IP is unchanged."
         case .spoofPreset:
@@ -161,6 +222,10 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
         default:
             return nil
         }
+    }
+
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        Section(rawValue: indexPath.section) == .color ? 98 : UITableView.automaticDimension
     }
 
     func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
@@ -176,13 +241,14 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
         BrowserTheme.styleListCell(cell)
         cell.accessoryType = .none
         cell.selectionStyle = .default
-        cell.contentView.subviews.filter { $0 is UITextField }.forEach { $0.removeFromSuperview() }
+        cell.contentView.subviews.filter { $0 is UITextField || $0 is AccountColorSwatchView }.forEach { $0.removeFromSuperview() }
+        cell.imageView?.image = nil
+        cell.textLabel?.text = nil
+        cell.detailTextLabel?.text = nil
 
         switch Section(rawValue: indexPath.section)! {
         case .name:
             cell.selectionStyle = .none
-            cell.textLabel?.text = nil
-            cell.detailTextLabel?.text = nil
             if nameField.superview != cell.contentView {
                 nameField.removeFromSuperview()
                 cell.contentView.addSubview(nameField)
@@ -194,6 +260,20 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
                     nameField.bottomAnchor.constraint(equalTo: cell.contentView.bottomAnchor, constant: -12)
                 ])
             }
+        case .color:
+            cell.selectionStyle = .none
+            if colorSwatches.superview != cell.contentView {
+                colorSwatches.removeFromSuperview()
+                cell.contentView.addSubview(colorSwatches)
+                colorSwatches.translatesAutoresizingMaskIntoConstraints = false
+                NSLayoutConstraint.activate([
+                    colorSwatches.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor, constant: 12),
+                    colorSwatches.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor, constant: -12),
+                    colorSwatches.topAnchor.constraint(equalTo: cell.contentView.topAnchor),
+                    colorSwatches.bottomAnchor.constraint(equalTo: cell.contentView.bottomAnchor)
+                ])
+            }
+            refreshColorSwatches()
         case .mode:
             let mode = LocationPrivacyMode.allCases[indexPath.row]
             cell.textLabel?.text = mode.displayName
@@ -228,6 +308,8 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
         switch Section(rawValue: indexPath.section)! {
         case .name:
             nameField.becomeFirstResponder()
+        case .color:
+            break
         case .mode:
             draft.locationMode = LocationPrivacyMode.allCases[indexPath.row]
             tableView.reloadData()
@@ -242,7 +324,6 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
                 self.draft.latitude = coordinate.latitude
                 self.draft.longitude = coordinate.longitude
                 self.draft.locationPresetID = nil
-                // Keep previous TZ unless empty; custom pin does not infer timezone.
                 if self.draft.timeZoneIdentifier.isEmpty {
                     self.draft.timeZoneIdentifier = SpoofLocationPreset.all[0].timeZoneIdentifier
                 }

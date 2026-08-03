@@ -117,6 +117,8 @@
 		TSS0000101010101010173 /* BrowserContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020273 /* BrowserContainer.swift */; };
 		TSS0000101010101010174 /* ContainerManageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020274 /* ContainerManageViewController.swift */; };
 		TSS0000101010101010175 /* ContainerEditViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020275 /* ContainerEditViewController.swift */; };
+		0AEF738692D7472790850ABA /* AccountColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 816144A277FA4A77BF09DA4E /* AccountColor.swift */; };
+		3482941CAE41470B96988EF9 /* AccountSwitcherViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 227B279F47CA4EFE986E5EC9 /* AccountSwitcherViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -259,6 +261,8 @@
 		TSS0000202020202020273 /* BrowserContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserContainer.swift; sourceTree = "<group>"; };
 		TSS0000202020202020274 /* ContainerManageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerManageViewController.swift; sourceTree = "<group>"; };
 		TSS0000202020202020275 /* ContainerEditViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerEditViewController.swift; sourceTree = "<group>"; };
+		816144A277FA4A77BF09DA4E /* AccountColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountColor.swift; sourceTree = "<group>"; };
+		227B279F47CA4EFE986E5EC9 /* AccountSwitcherViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSwitcherViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -430,6 +434,8 @@
 			children = (
 				094FFB3CDC234AA8BFFC8140 /* BrowserTab.swift */,
 				TSS0000202020202020273 /* BrowserContainer.swift */,
+				227B279F47CA4EFE986E5EC9 /* AccountSwitcherViewController.swift */,
+				816144A277FA4A77BF09DA4E /* AccountColor.swift */,
 				BFE04E67D090450B987F05FB /* TabManager.swift */,
 				TSS0000202020202020271 /* TabSnapshotStore.swift */,
 				TSS0000202020202020272 /* TabSessionStore.swift */,
@@ -822,6 +828,8 @@
 				TSS0000101010101010171 /* TabSnapshotStore.swift in Sources */,
 				TSS0000101010101010172 /* TabSessionStore.swift in Sources */,
 				TSS0000101010101010173 /* BrowserContainer.swift in Sources */,
+				3482941CAE41470B96988EF9 /* AccountSwitcherViewController.swift in Sources */,
+				0AEF738692D7472790850ABA /* AccountColor.swift in Sources */,
 				TSS0000101010101010174 /* ContainerManageViewController.swift in Sources */,
 				TSS0000101010101010175 /* ContainerEditViewController.swift in Sources */,
 				E275E26CE7D145A49D4259E8 /* TabSwitcherViewController.swift in Sources */,

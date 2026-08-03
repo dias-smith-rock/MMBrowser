@@ -2,7 +2,7 @@ import UIKit
 import SnapKit
 
 enum MenuAction: Equatable {
-    case bookmarks, history, readingList, downloads, settings
+    case bookmarks, history, readingList, downloads, settings, accounts
     case reload, newTab, newIncognitoTab, addBookmark, addReadingList
     case readerMode, findInPage, share, desktopSite, sharePDF, screenshot, longScreenshot
     case pageCleaner
@@ -65,6 +65,7 @@ final class MenuViewController: UIViewController {
     private func libraryItems() -> [(String, String, MenuAction)] {
         var items: [(String, String, MenuAction)] = [
             ("Settings", "gearshape", .settings),
+            ("Accounts", "person.2", .accounts),
             ("New tab", "plus.square", .newTab),
             ("Incognito tab", "theatermasks", .newIncognitoTab),
             ("Passwords", "key", .passwords),

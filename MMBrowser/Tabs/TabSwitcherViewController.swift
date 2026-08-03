@@ -205,7 +205,7 @@ final class TabSwitcherViewController: UIViewController {
         manage.backgroundColor = BrowserTheme.secondaryCard
         manage.layer.cornerRadius = 14
         manage.contentEdgeInsets = UIEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
-        manage.accessibilityLabel = "Manage Containers"
+        manage.accessibilityLabel = "Manage Accounts"
         manage.addTarget(self, action: #selector(manageContainersTapped), for: .touchUpInside)
         return manage
     }
@@ -239,7 +239,17 @@ final class TabSwitcherViewController: UIViewController {
             let selected = (chip.id == "__all__" && selectedContainerFilter == nil)
                 || (selectedContainerFilter?.uuidString == chip.id)
             let title = count > 0 ? "\(chip.title) (\(count))" : chip.title
-            buttons.append(makeContainerChipButton(title: title, id: chip.id, selected: selected, accent: accent))
+            let button = makeContainerChipButton(title: title, id: chip.id, selected: selected, accent: accent)
+            if chip.id != "__all__", let uuid = UUID(uuidString: chip.id) {
+                let color = tabManager.accountColor(forContainer: uuid)
+                if selected {
+                    button.backgroundColor = color.withAlphaComponent(0.28)
+                    button.setTitleColor(color, for: .normal)
+                } else {
+                    button.setTitleColor(BrowserTheme.textPrimary, for: .normal)
+                }
+            }
+            buttons.append(button)
         }
 
         let availableWidth = max(
@@ -620,12 +630,11 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func promptMoveGroup(for tab: BrowserTab) {
-        let alert = UIAlertController(title: "Move to Container", message: tab.title, preferredStyle: .actionSheet)
+        let alert = UIAlertController(title: "Move to Account", message: tab.title, preferredStyle: .actionSheet)
         for container in tabManager.sortedContainers {
             let title = container.id == tab.containerID ? "\(container.name) ✓" : container.name
-            alert.addAction(UIAlertAction(title: title, style: .default, handler: { _ in
-                self.tabManager.moveTab(tab.id, toContainer: container.id)
-                self.reload()
+            alert.addAction(UIAlertAction(title: title, style: .default, handler: { [weak self] _ in
+                self?.confirmMove(tab: tab, to: container)
             }))
         }
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -636,9 +645,26 @@ final class TabSwitcherViewController: UIViewController {
         present(alert, animated: true)
     }
 
+    private func confirmMove(tab: BrowserTab, to container: BrowserContainer) {
+        if tab.containerID == container.id {
+            return
+        }
+        let alert = UIAlertController(
+            title: "Move to “\(container.name)”?",
+            message: "This tab will use that account’s cookies and login. It may look logged out of the previous account.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Move", style: .default, handler: { [weak self] _ in
+            self?.tabManager.moveTab(tab.id, toContainer: container.id)
+            self?.reload()
+        }))
+        present(alert, animated: true)
+    }
+
     @objc private func searchPlaceholder() {
         let alert = UIAlertController(title: "Search tabs", message: nil, preferredStyle: .alert)
-        alert.addTextField { $0.placeholder = "Title, URL, or container"; $0.text = self.searchQuery }
+        alert.addTextField { $0.placeholder = "Title, URL, or account"; $0.text = self.searchQuery }
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Search", style: .default, handler: { _ in
             self.searchQuery = alert.textFields?.first?.text ?? ""
@@ -660,6 +686,7 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
         cell.configure(
             tab: tab,
             containerName: tabManager.containerName(for: tab),
+            accountColor: tabManager.accountColor(for: tab),
             selected: selected
         )
         cell.onClose = { [weak self] in
@@ -704,11 +731,11 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
                     image: UIImage(systemName: checked ? "checkmark.circle.fill" : "circle"),
                     state: checked ? .on : .off
                 ) { [weak self] _ in
-                    self?.tabManager.moveTab(tab.id, toContainer: container.id)
-                    self?.reload()
+                    guard let self else { return }
+                    self.confirmMove(tab: tab, to: container)
                 }
             }
-            let moveMenu = UIMenu(title: "Move to Container", options: .displayInline, children: moveChildren)
+            let moveMenu = UIMenu(title: "Move to Account", options: .displayInline, children: moveChildren)
             return UIMenu(title: "", children: [moveMenu])
         }
     }
@@ -866,6 +893,7 @@ final class TabGridCell: UICollectionViewCell {
     var onMoveGroup: (() -> Void)?
 
     private let card = UIView()
+    private let colorBar = UIView()
     private let titleLabel = UILabel()
     private let avatarView = UIImageView()
     private let groupButton = UIButton(type: .system)
@@ -879,6 +907,9 @@ final class TabGridCell: UICollectionViewCell {
         card.layer.cornerRadius = 16
         card.clipsToBounds = true
         contentView.addSubview(card)
+
+        colorBar.backgroundColor = BrowserTheme.chromeBlue
+        card.addSubview(colorBar)
 
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = BrowserTheme.textPrimary
@@ -901,8 +932,8 @@ final class TabGridCell: UICollectionViewCell {
         )
         groupButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -2, bottom: 0, right: 2)
         groupButton.titleEdgeInsets = UIEdgeInsets(top: 0, left: 2, bottom: 0, right: -2)
-        groupButton.accessibilityLabel = "Move to Container"
-        groupButton.accessibilityHint = "Choose a container for this tab"
+        groupButton.accessibilityLabel = "Move to Account"
+        groupButton.accessibilityHint = "Choose an account for this tab"
         groupButton.addTarget(self, action: #selector(groupTapped), for: .touchUpInside)
 
         closeButton.setImage(UIImage(systemName: "xmark"), for: .normal)
@@ -926,6 +957,10 @@ final class TabGridCell: UICollectionViewCell {
         card.addSubview(closeButton)
 
         card.snp.makeConstraints { $0.edges.equalToSuperview() }
+        colorBar.snp.makeConstraints { make in
+            make.leading.top.bottom.equalToSuperview()
+            make.width.equalTo(3)
+        }
         closeButton.snp.makeConstraints { make in
             make.top.equalToSuperview().offset(6)
             make.trailing.equalToSuperview().offset(-6)
@@ -937,7 +972,8 @@ final class TabGridCell: UICollectionViewCell {
             make.size.equalTo(22)
         }
         titleLabel.snp.makeConstraints { make in
-            make.top.leading.equalToSuperview().offset(10)
+            make.top.equalToSuperview().offset(10)
+            make.leading.equalToSuperview().offset(12)
             make.trailing.equalTo(avatarView.snp.leading).offset(-6)
         }
         groupButton.snp.makeConstraints { make in
@@ -955,10 +991,13 @@ final class TabGridCell: UICollectionViewCell {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(tab: BrowserTab, containerName: String, selected: Bool) {
+    func configure(tab: BrowserTab, containerName: String, accountColor: UIColor, selected: Bool) {
         titleLabel.text = tab.title
         let name = containerName.trimmingCharacters(in: .whitespacesAndNewlines)
-        groupButton.setTitle(name.isEmpty ? "Container" : name, for: .normal)
+        groupButton.setTitle(name.isEmpty ? "Account" : name, for: .normal)
+        groupButton.setTitleColor(accountColor, for: .normal)
+        groupButton.tintColor = accountColor
+        colorBar.backgroundColor = accountColor
         if let avatar = tab.sessionAvatar {
             avatarView.image = avatar
             avatarView.isHidden = false
@@ -974,7 +1013,7 @@ final class TabGridCell: UICollectionViewCell {
             placeholder.isHidden = false
         }
         card.layer.borderWidth = selected ? 2 : 0
-        card.layer.borderColor = BrowserTheme.chromeBlue.cgColor
+        card.layer.borderColor = accountColor.cgColor
     }
 
     @objc private func closeTapped() { onClose?() }

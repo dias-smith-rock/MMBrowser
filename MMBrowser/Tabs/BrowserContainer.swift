@@ -6,6 +6,10 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
     /// Shared `WKWebsiteDataStore(forIdentifier:)` for all normal tabs in this container.
     var sessionID: UUID
     var sortIndex: Int
+    /// Index into `AccountColor.palette` when `customColorHex` is nil.
+    var colorIndex: Int
+    /// Optional `#RRGGBB` override; when set, wins over `colorIndex`.
+    var customColorHex: String?
     /// Per-container Geolocation API behavior for sites in this container.
     var locationMode: LocationPrivacyMode
     var latitude: Double
@@ -33,14 +37,31 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
 
     static func makeDefaults() -> [BrowserContainer] {
         let presets = SpoofLocationPreset.all
-        let names = ["FB-1", "FB-2", "Ins-1", "Ins-2"]
+        let names = ["Personal", "Work", "Social 1", "Social 2"]
+        // Personal → Ask; others Spoof with rotating cities.
         return names.enumerated().map { offset, name in
-            BrowserContainer(
+            let preset = presets[offset % presets.count]
+            if offset == 0 {
+                return BrowserContainer(
+                    id: UUID(),
+                    name: name,
+                    sessionID: UUID(),
+                    sortIndex: offset,
+                    colorIndex: offset,
+                    locationMode: .ask,
+                    latitude: preset.latitude,
+                    longitude: preset.longitude,
+                    timeZoneIdentifier: preset.timeZoneIdentifier,
+                    locationPresetID: preset.id
+                )
+            }
+            return BrowserContainer(
                 id: UUID(),
                 name: name,
                 sessionID: UUID(),
                 sortIndex: offset,
-                location: presets[offset % presets.count]
+                colorIndex: offset,
+                location: preset
             )
         }
     }
@@ -50,6 +71,8 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
         name: String,
         sessionID: UUID,
         sortIndex: Int,
+        colorIndex: Int? = nil,
+        customColorHex: String? = nil,
         locationMode: LocationPrivacyMode = .spoof,
         latitude: Double,
         longitude: Double,
@@ -60,6 +83,8 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
         self.name = name
         self.sessionID = sessionID
         self.sortIndex = sortIndex
+        self.colorIndex = colorIndex ?? sortIndex
+        self.customColorHex = customColorHex
         self.locationMode = locationMode
         self.latitude = latitude
         self.longitude = longitude
@@ -67,12 +92,14 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
         self.locationPresetID = locationPresetID
     }
 
-    init(id: UUID, name: String, sessionID: UUID, sortIndex: Int, location preset: SpoofLocationPreset) {
+    init(id: UUID, name: String, sessionID: UUID, sortIndex: Int, colorIndex: Int? = nil, customColorHex: String? = nil, location preset: SpoofLocationPreset) {
         self.init(
             id: id,
             name: name,
             sessionID: sessionID,
             sortIndex: sortIndex,
+            colorIndex: colorIndex ?? sortIndex,
+            customColorHex: customColorHex,
             locationMode: .spoof,
             latitude: preset.latitude,
             longitude: preset.longitude,
@@ -82,7 +109,7 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, sessionID, sortIndex
+        case id, name, sessionID, sortIndex, colorIndex, customColorHex
         case locationMode, latitude, longitude, timeZoneIdentifier, locationPresetID
     }
 
@@ -92,6 +119,8 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
         name = try c.decode(String.self, forKey: .name)
         sessionID = try c.decode(UUID.self, forKey: .sessionID)
         sortIndex = try c.decode(Int.self, forKey: .sortIndex)
+        colorIndex = try c.decodeIfPresent(Int.self, forKey: .colorIndex) ?? sortIndex
+        customColorHex = try c.decodeIfPresent(String.self, forKey: .customColorHex)
 
         let fallback = SpoofLocationPreset.all[0]
         if let raw = try c.decodeIfPresent(String.self, forKey: .locationMode),
@@ -113,6 +142,8 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
         try c.encode(name, forKey: .name)
         try c.encode(sessionID, forKey: .sessionID)
         try c.encode(sortIndex, forKey: .sortIndex)
+        try c.encode(colorIndex, forKey: .colorIndex)
+        try c.encodeIfPresent(customColorHex, forKey: .customColorHex)
         try c.encode(locationMode.rawValue, forKey: .locationMode)
         try c.encode(latitude, forKey: .latitude)
         try c.encode(longitude, forKey: .longitude)

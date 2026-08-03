@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 protocol TabManagerDelegate: AnyObject {
     func tabManagerDidUpdate(_ manager: TabManager)
@@ -17,8 +18,9 @@ final class TabManager {
     private let sessionKey = "mmbrowser.tabs.session"
     private let containersKey = "mmbrowser.containers"
     private let lastContainerKey = "mmbrowser.containers.lastActive"
-    /// Marks migration from Default/Work/Personal → FB-1/FB-2/Ins-1/Ins-2.
+    /// Marks migration from Default/Work/Personal → FB-1… then → Personal/Work/Social.
     private let containersPresetKey = "mmbrowser.containers.preset.v2"
+    private let containersPresetV3Key = "mmbrowser.containers.preset.v3"
     /// Set when tabs were intentionally closed on exit; cleared on next launch.
     private let cleanExitKey = "mmbrowser.tabs.cleanExit"
     private let defaults = UserDefaults.standard
@@ -43,6 +45,37 @@ final class TabManager {
     var resolvedLastActiveContainerID: UUID {
         if let id = lastActiveContainerID, container(id: id) != nil { return id }
         return defaultContainer.id
+    }
+
+    /// Switch browsing identity: select most-recent tab in the account, or open a new tab.
+    @discardableResult
+    func switchToAccount(_ id: UUID) -> BrowserTab? {
+        guard container(id: id) != nil else { return nil }
+        lastActiveContainerID = id
+        defaults.set(id.uuidString, forKey: lastContainerKey)
+
+        let candidates = normalTabs
+            .filter { $0.containerID == id }
+            .sorted { $0.lastAccessed > $1.lastAccessed }
+        if let best = candidates.first {
+            selectTab(id: best.id)
+            return best
+        }
+        return addTab(incognito: false, select: true, containerID: id)
+    }
+
+    func accountColor(for tab: BrowserTab) -> UIColor {
+        if let c = container(id: tab.containerID) {
+            return AccountColor.color(for: c)
+        }
+        return AccountColor.color(at: 0)
+    }
+
+    func accountColor(forContainer id: UUID) -> UIColor {
+        if let c = container(id: id) {
+            return AccountColor.color(for: c)
+        }
+        return AccountColor.color(at: 0)
     }
 
     init() {
@@ -273,6 +306,8 @@ final class TabManager {
             name: trimmed,
             sessionID: UUID(),
             sortIndex: nextIndex,
+            colorIndex: draft.colorIndex >= 0 ? draft.colorIndex : nextIndex,
+            customColorHex: draft.customColorHex,
             locationMode: draft.locationMode,
             latitude: draft.latitude,
             longitude: draft.longitude,
@@ -326,6 +361,8 @@ final class TabManager {
             name: trimmed,
             sessionID: previous.sessionID,
             sortIndex: previous.sortIndex,
+            colorIndex: updated.colorIndex,
+            customColorHex: updated.customColorHex,
             locationMode: updated.locationMode,
             latitude: updated.latitude,
             longitude: updated.longitude,
@@ -495,13 +532,20 @@ final class TabManager {
         if let data = defaults.data(forKey: containersKey),
            let saved = try? JSONDecoder().decode([BrowserContainer].self, from: data),
            !saved.isEmpty {
-            containers = saved
+            let deduped = Self.deduplicatedContainers(saved)
+            let collapsedDuplicates = deduped.count != saved.count
+            containers = deduped
             reindexContainers()
             migrateLegacyDefaultContainersIfNeeded()
+            migrateAccountNamesV3IfNeeded()
+            if collapsedDuplicates {
+                persistContainers()
+            }
         } else {
             containers = BrowserContainer.makeDefaults()
             persistContainers()
             defaults.set(true, forKey: containersPresetKey)
+            defaults.set(true, forKey: containersPresetV3Key)
         }
         if let raw = defaults.string(forKey: lastContainerKey),
            let id = UUID(uuidString: raw),
@@ -564,6 +608,81 @@ final class TabManager {
         reindexContainers()
         persistContainers()
         defaults.set(true, forKey: containersPresetKey)
+    }
+
+    private static let legacyAccountNames: Set<String> = [
+        "Default", "default", "FB-1", "FB-2", "Ins-1", "Ins-2"
+    ]
+
+    private static let accountRenameV3: [String: String] = [
+        "FB-1": "Social 1",
+        "FB-2": "Social 2",
+        "Ins-1": "Work",
+        "Ins-2": "Personal"
+    ]
+
+    /// Collapse duplicate UUIDs (can appear after name-only session reconcile). Prefer non-legacy names.
+    private static func deduplicatedContainers(_ items: [BrowserContainer]) -> [BrowserContainer] {
+        var byID: [UUID: BrowserContainer] = [:]
+        var order: [UUID] = []
+        for item in items.sorted(by: { $0.sortIndex < $1.sortIndex }) {
+            if let existing = byID[item.id] {
+                let existingLegacy = legacyAccountNames.contains(existing.name)
+                let incomingLegacy = legacyAccountNames.contains(item.name)
+                if existingLegacy && !incomingLegacy {
+                    byID[item.id] = item
+                }
+                continue
+            }
+            order.append(item.id)
+            byID[item.id] = item
+        }
+        return order.enumerated().map { offset, id in
+            var copy = byID[id]!
+            copy.sortIndex = offset
+            return copy
+        }
+    }
+
+    /// Rename factory FB-1/Ins-* chips to Personal/Work/Social; assign colorIndex if missing.
+    private func migrateAccountNamesV3IfNeeded() {
+        defer {
+            // Ensure every container has a stable colorIndex after load.
+            for i in containers.indices where containers[i].colorIndex < 0 {
+                containers[i].colorIndex = containers[i].sortIndex
+            }
+        }
+        var changed = false
+        // Apply leftover legacy renames even after the v3 flag is set (session can reintroduce FB-1).
+        for i in containers.indices {
+            if let next = Self.accountRenameV3[containers[i].name] {
+                let taken = containers.contains {
+                    $0.id != containers[i].id && $0.name.caseInsensitiveCompare(next) == .orderedSame
+                }
+                if !taken {
+                    containers[i].name = next
+                    changed = true
+                }
+            }
+        }
+        if !defaults.bool(forKey: containersPresetV3Key) {
+            for i in containers.indices {
+                if containers[i].colorIndex == containers[i].sortIndex || containers[i].colorIndex == 0 {
+                    let preferred: [String: Int] = [
+                        "Personal": 0, "Work": 1, "Social 1": 2, "Social 2": 3
+                    ]
+                    if let idx = preferred[containers[i].name] {
+                        containers[i].colorIndex = idx
+                        changed = true
+                    }
+                }
+            }
+            defaults.set(true, forKey: containersPresetV3Key)
+        }
+        if changed {
+            reindexContainers()
+            persistContainers()
+        }
     }
 
     private func persistContainers() {
@@ -646,8 +765,11 @@ final class TabManager {
         } else if containers.isEmpty {
             containers = Self.migrateContainers(from: session)
         }
+        containers = Self.deduplicatedContainers(containers)
         reindexContainers()
         migrateLegacyDefaultContainersIfNeeded()
+        // Session may still carry pre-v3 names (FB-1); containers disk already migrated.
+        migrateAccountNamesV3IfNeeded()
         persistContainers()
 
         let fallbackID = resolvedLastActiveContainerID
@@ -688,17 +810,41 @@ final class TabManager {
         return true
     }
 
-    /// Keep primary (session) IDs/sessionIDs so saved tabs still resolve; append any extra secondary containers by name.
+    /// Keep primary (session) IDs/sessionIDs so saved tabs still resolve; append extras by id+name.
+    /// Same UUID under a renamed label (FB-1 → Social 1) must not be appended as a second row.
     private func reconcileContainers(primary: [BrowserContainer], secondary: [BrowserContainer]) -> [BrowserContainer] {
-        var merged = primary.sorted { $0.sortIndex < $1.sortIndex }
-        let primaryNames = Set(merged.map { $0.name.lowercased() })
-        for extra in secondary.sorted(by: { $0.sortIndex < $1.sortIndex }) {
-            if primaryNames.contains(extra.name.lowercased()) { continue }
-            var copy = extra
-            copy.sortIndex = merged.count
-            merged.append(copy)
+        var byID: [UUID: BrowserContainer] = [:]
+        var order: [UUID] = []
+        for item in primary.sorted(by: { $0.sortIndex < $1.sortIndex }) {
+            guard byID[item.id] == nil else { continue }
+            order.append(item.id)
+            byID[item.id] = item
         }
-        return merged
+        var knownNames = Set(byID.values.map { $0.name.lowercased() })
+        for extra in secondary.sorted(by: { $0.sortIndex < $1.sortIndex }) {
+            if var existing = byID[extra.id] {
+                // Same account: keep session identity, adopt migrated display name/color from disk.
+                if Self.legacyAccountNames.contains(existing.name),
+                   !Self.legacyAccountNames.contains(extra.name) {
+                    knownNames.remove(existing.name.lowercased())
+                    existing.name = extra.name
+                    existing.colorIndex = extra.colorIndex
+                    existing.customColorHex = extra.customColorHex
+                    byID[extra.id] = existing
+                    knownNames.insert(extra.name.lowercased())
+                }
+                continue
+            }
+            if knownNames.contains(extra.name.lowercased()) { continue }
+            byID[extra.id] = extra
+            order.append(extra.id)
+            knownNames.insert(extra.name.lowercased())
+        }
+        return order.enumerated().map { offset, id in
+            var copy = byID[id]!
+            copy.sortIndex = offset
+            return copy
+        }
     }
 
     /// Tab count shown on the toolbar badge for the current browsing context.

@@ -7,6 +7,9 @@ protocol ContainerManageViewControllerDelegate: AnyObject {
 
 final class ContainerManageViewController: UIViewController {
     weak var delegate: ContainerManageViewControllerDelegate?
+    /// When pushed from Settings, hide Done and use back navigation.
+    var showsDoneButton = true
+    var onChanged: (() -> Void)?
 
     private let tabManager: TabManager
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
@@ -21,19 +24,21 @@ final class ContainerManageViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Containers"
+        title = "Accounts"
         BrowserTheme.applyScreenChrome(to: self)
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .add,
             target: self,
             action: #selector(addTapped)
         )
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
-            title: "Done",
-            style: .done,
-            target: self,
-            action: #selector(doneTapped)
-        )
+        if showsDoneButton {
+            navigationItem.leftBarButtonItem = UIBarButtonItem(
+                title: "Done",
+                style: .done,
+                target: self,
+                action: #selector(doneTapped)
+            )
+        }
 
         tableView.backgroundColor = .clear
         tableView.dataSource = self
@@ -78,12 +83,12 @@ final class ContainerManageViewController: UIViewController {
 
     private func confirmDelete(_ container: BrowserContainer) {
         guard tabManager.containers.count > 1 else {
-            presentError("Keep at least one container.")
+            presentError("Keep at least one account.")
             return
         }
         let alert = UIAlertController(
-            title: "Delete Container?",
-            message: "Tabs in “\(container.name)” will move to another container. Their login session for this container will be removed.",
+            title: "Delete Account?",
+            message: "Tabs in “\(container.name)” will move to another account. Their login session for this account will be removed.",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -92,12 +97,13 @@ final class ContainerManageViewController: UIViewController {
             _ = self.tabManager.deleteContainer(id: container.id)
             self.reload()
             self.delegate?.containerManageDidChange()
+            self.onChanged?()
         }))
         present(alert, animated: true)
     }
 
     private func presentError(_ message: String) {
-        let alert = UIAlertController(title: "Containers", message: message, preferredStyle: .alert)
+        let alert = UIAlertController(title: "Accounts", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
@@ -117,6 +123,7 @@ extension ContainerManageViewController: ContainerEditViewControllerDelegate {
         }
         reload()
         delegate?.containerManageDidChange()
+        onChanged?()
     }
 }
 
@@ -133,6 +140,13 @@ extension ContainerManageViewController: UITableViewDataSource, UITableViewDeleg
         cell.textLabel?.text = item.name
         cell.detailTextLabel?.text = "\(count == 1 ? "1 tab" : "\(count) tabs") · \(item.locationSummary)"
         cell.accessoryType = .disclosureIndicator
+        let size = CGSize(width: 12, height: 12)
+        UIGraphicsBeginImageContextWithOptions(size, false, 0)
+        AccountColor.color(for: item).setFill()
+        UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).fill()
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        cell.imageView?.image = image
         return cell
     }
 
@@ -162,6 +176,7 @@ extension ContainerManageViewController: UITableViewDataSource, UITableViewDeleg
         tabManager.reorderContainers(ids: ids)
         reload()
         delegate?.containerManageDidChange()
+        onChanged?()
     }
 }
 
@@ -189,6 +204,7 @@ extension ContainerManageViewController: UITableViewDragDelegate, UITableViewDro
             tableView.moveRow(at: source, to: dest)
         } completion: { [weak self] _ in
             self?.delegate?.containerManageDidChange()
+            self?.onChanged?()
         }
         coordinator.drop(item.dragItem, toRowAt: dest)
     }

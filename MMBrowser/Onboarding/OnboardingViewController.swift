@@ -8,18 +8,18 @@ final class OnboardingViewController: UIViewController {
 
     private let pageCopy: [(title: String, body: String, image: String)] = [
         (
-            "Privacy & Security",
-            "Spoof or deny location so sites don’t get your real GPS. Turn on App Lock with Face ID, PIN, or pattern to keep your browsing private.",
+            "Separate Accounts",
+            "Create identities with separate cookies and logins. Switch accounts anytime—without logging out of the others.",
             "onboarding_privacy"
         ),
         (
-            "Fast & Clean",
-            "Block ads and trackers, hide images when you need speed, clean cluttered pages, and auto-clear history and junk when you leave the app.",
+            "Privacy & Security",
+            "Spoof or deny location per account. Lock MMBrowser with Face ID, PIN, or pattern to keep your browsing private.",
             "onboarding_cleaner"
         ),
         (
-            "Easy to Use",
-            "Capture long screenshots of full pages, and use one-finger Hook → / Hook ← to go back and forward, or Hook ○ to bookmark.",
+            "Fast & Clean",
+            "Block ads and trackers, clean cluttered pages, and auto-clear data when you leave the app.",
             "onboarding_focus"
         )
     ]

@@ -517,6 +517,7 @@ final class BrowserViewController: UIViewController {
         applyPrivateChrome(tab.isIncognito)
         resetChromeForCurrentTab()
         addressBar.isHidden = false
+        refreshAccountChip()
         if tab.isNewTabPage {
             if tab.isIncognito {
                 showPrivateNewTab()
@@ -527,6 +528,54 @@ final class BrowserViewController: UIViewController {
             showWeb(for: tab)
         }
         refreshToolbar()
+    }
+
+    private func refreshAccountChip() {
+        guard let tab = tabManager.selectedTab else {
+            toolbar.setAccount(name: "", color: .clear, visible: false)
+            return
+        }
+        if tab.isIncognito {
+            toolbar.setAccount(name: "", color: .clear, visible: false)
+            return
+        }
+        let container = tabManager.container(id: tab.containerID) ?? tabManager.defaultContainer
+        toolbar.setAccount(
+            name: container.name,
+            color: AccountColor.color(for: container),
+            visible: true
+        )
+    }
+
+    private func presentAccountSwitcher() {
+        let switcher = AccountSwitcherViewController(tabManager: tabManager)
+        switcher.delegate = self
+        let nav = UINavigationController(rootViewController: switcher)
+        nav.modalPresentationStyle = .pageSheet
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        present(nav, animated: true)
+    }
+
+    private func presentAccountManager() {
+        let vc = ContainerManageViewController(tabManager: tabManager)
+        vc.delegate = self
+        let nav = UINavigationController(rootViewController: vc)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        present(nav, animated: true)
+    }
+
+    private func presentAddAccount() {
+        let edit = ContainerEditViewController(
+            container: nil,
+            suggestedPresetIndex: tabManager.containers.count
+        )
+        edit.delegate = self
+        let nav = UINavigationController(rootViewController: edit)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        present(nav, animated: true)
     }
 
     private func applyPrivateChrome(_ isPrivate: Bool) {
@@ -889,6 +938,7 @@ final class BrowserViewController: UIViewController {
 extension BrowserViewController: TabManagerDelegate {
     func tabManagerDidUpdate(_ manager: TabManager) {
         refreshToolbar()
+        refreshAccountChip()
     }
 
     func tabManager(_ manager: TabManager, didSelect tab: BrowserTab) {
@@ -1065,6 +1115,7 @@ extension BrowserViewController: AddressBarViewDelegate {
 }
 
 extension BrowserViewController: BottomToolbarViewDelegate {
+    func toolbarDidTapAccount() { presentAccountSwitcher() }
     func toolbarDidTapBack() { tabManager.selectedTab?.webController?.goBack() }
     func toolbarDidTapForward() { tabManager.selectedTab?.webController?.goForward() }
     func toolbarDidTapNewTab() {
@@ -1338,6 +1389,8 @@ extension BrowserViewController: MenuViewControllerDelegate {
             openDownloads()
         case .settings:
             openSettings()
+        case .accounts:
+            presentAccountSwitcher()
         case .setDefaultBrowser:
             openDefaultBrowserSettings()
         case .passwords:
@@ -1527,9 +1580,13 @@ extension BrowserViewController: MenuViewControllerDelegate {
 
     private func openSettings() {
         let settings = SettingsViewController()
+        settings.tabManager = tabManager
         settings.onRequestRebuildWebViews = { [weak self] in
             self?.tabManager.invalidateAllWebViews()
             self?.showSelectedTab()
+        }
+        settings.onAccountsChanged = { [weak self] in
+            self?.refreshAccountChip()
         }
         let nav = UINavigationController(rootViewController: settings)
         nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
@@ -1602,6 +1659,56 @@ extension BrowserViewController: PageRichMenuViewControllerDelegate {
     func pageRichMenuDidSelect(_ action: MenuAction) {
         dismiss(animated: true) { [weak self] in
             self?.performMenuAction(action)
+        }
+    }
+}
+
+extension BrowserViewController: AccountSwitcherViewControllerDelegate {
+    func accountSwitcher(_ controller: AccountSwitcherViewController, didSelectAccount id: UUID) {
+        let name = tabManager.container(id: id)?.name ?? "Account"
+        controller.dismiss(animated: true) { [weak self] in
+            guard let self else { return }
+            _ = self.tabManager.switchToAccount(id)
+            self.showSelectedTab()
+            Toast.show("Switched to \(name)", from: self)
+        }
+    }
+
+    func accountSwitcherDidRequestManage(_ controller: AccountSwitcherViewController) {
+        controller.dismiss(animated: true) { [weak self] in
+            self?.presentAccountManager()
+        }
+    }
+
+    func accountSwitcherDidRequestAdd(_ controller: AccountSwitcherViewController) {
+        controller.dismiss(animated: true) { [weak self] in
+            self?.presentAddAccount()
+        }
+    }
+}
+
+extension BrowserViewController: ContainerManageViewControllerDelegate {
+    func containerManageDidChange() {
+        refreshAccountChip()
+    }
+}
+
+extension BrowserViewController: ContainerEditViewControllerDelegate {
+    func containerEditDidSave(_ container: BrowserContainer, isNew: Bool) {
+        if isNew {
+            guard let created = tabManager.addContainer(container) else {
+                Toast.show("Could not save. Choose a unique non-empty name.", from: self)
+                return
+            }
+            _ = tabManager.switchToAccount(created.id)
+            showSelectedTab()
+            Toast.show("Opened \(created.name)", from: self)
+        } else {
+            guard tabManager.updateContainer(container) else {
+                Toast.show("Could not save. Choose a unique non-empty name.", from: self)
+                return
+            }
+            refreshAccountChip()
         }
     }
 }
