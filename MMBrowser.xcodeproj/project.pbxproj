@@ -91,6 +91,7 @@
 		F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B4BFF2E376570F7159D72FDE /* Pods_MMBrowser.framework */; };
 		F5FAA4028A4D495EA2A0FB69 /* BookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD046D8ACFAE4B96AF0715F6 /* BookmarkStore.swift */; };
 		PIP0000101010101010101 /* PipProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = PIP0000202020202020202 /* PipProbe.swift */; };
+		XSP0000101010101010101 /* XSiteProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = XSP0000202020202020202 /* XSiteProbe.swift */; };
 		PWD0000077F415072B01A /* PasswordVaultGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000425FA6C14C5A95C /* PasswordVaultGate.swift */; };
 		PWD0000985731419635E3 /* MasterPasswordSetupViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00066762D6E1CB6128 /* MasterPasswordSetupViewController.swift */; };
 		PWD00014B8688591864B8 /* BankCardStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00047B4C58A4C8E24E /* BankCardStore.swift */; };
@@ -230,6 +231,7 @@
 		F327BEAC2D914DAB9242A59E /* DiscoverMock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscoverMock.swift; sourceTree = "<group>"; };
 		FE55FD77142842FAB1482D62 /* BookmarksViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarksViewController.swift; sourceTree = "<group>"; };
 		PIP0000202020202020202 /* PipProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PipProbe.swift; sourceTree = "<group>"; };
+		XSP0000202020202020202 /* XSiteProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XSiteProbe.swift; sourceTree = "<group>"; };
 		PWD0000177186C24076BD /* MMBrowserCredentialProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MMBrowserCredentialProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		PWD00009064676E784F66 /* VaultCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultCrypto.swift; sourceTree = "<group>"; };
 		PWD000107214DC0A060D3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -484,6 +486,7 @@
 				F1EE201BBF964C068F934786 /* YouTubeDarkMode.swift */,
 				2F17FA7E6B9649618EC381DB /* MediaPlaybackSupport.swift */,
 				PIP0000202020202020202 /* PipProbe.swift */,
+				XSP0000202020202020202 /* XSiteProbe.swift */,
 				06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */,
 				80B4B9A76DFE4E32A1FD3ADD /* YouTubeShortsFocus.swift */,
 			);
@@ -740,6 +743,7 @@
 				C718289B0C194FE69766C497 /* YouTubeAdShield.swift in Sources */,
 				09FB7CC9808A4DD0A7C8E3AC /* MediaPlaybackSupport.swift in Sources */,
 				PIP0000101010101010101 /* PipProbe.swift in Sources */,
+				XSP0000101010101010101 /* XSiteProbe.swift in Sources */,
 				7327DB1D31CC49F6AF6A888E /* FilterUpdateManager.swift in Sources */,
 				E465FC0279854A2096A2DF80 /* AdBlockManager.swift in Sources */,
 				82A1B2C3D4E54678A9B0C1D2 /* ImageBlockManager.swift in Sources */,

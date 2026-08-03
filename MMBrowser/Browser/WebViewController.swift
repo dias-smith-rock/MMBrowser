@@ -58,6 +58,33 @@ final class WebViewController: UIViewController {
         forMainFrameOnly: true
     )
 
+    /// X.com (and similar) treat missing `window.safari` as an in-app WebView and navigate to
+    /// `x-safari-https://redirect…/?ct=rw-null`. Spoof enough of the Safari object to stay put.
+    private static let safariCompatibilityScript = WKUserScript(
+        source: """
+        (function() {
+          try {
+            if (window.safari && window.safari.pushNotification) return;
+            var perm = function() {
+              return { state: 'denied', permission: 'denied' };
+            };
+            Object.defineProperty(window, 'safari', {
+              configurable: true,
+              enumerable: false,
+              value: {
+                pushNotification: {
+                  toString: function() { return '[object SafariRemoteNotification]'; },
+                  permission: perm
+                }
+              }
+            });
+          } catch (e) {}
+        })();
+        """,
+        injectionTime: .atDocumentStart,
+        forMainFrameOnly: false
+    )
+
     /// Forces YouTube back to a sane mobile viewport if something widened it.
     private static let youtubeViewportFixScript = """
     (function() {
@@ -336,11 +363,17 @@ final class WebViewController: UIViewController {
         if AppSettings.pictureInPictureEnabled || AppSettings.backgroundAudioEnabled {
             config.userContentController.add(proxy, name: MediaPlaybackSupport.pipHandlerName)
         }
+        if XSiteProbe.isEnabled {
+            config.userContentController.add(proxy, name: XSiteProbe.handlerName)
+            config.userContentController.addUserScript(XSiteProbe.userScript)
+        }
         if !isIncognito {
             config.userContentController.addUserScript(BrowserAutofillCoordinator.userScript)
         }
         // Default WKWebView UA omits "Safari/…" which makes x.com issue x-safari-https:// kickouts.
         config.applicationNameForUserAgent = "Version/18.0 Mobile/15E148 Safari/604.1"
+        // X.com also probes `window.safari`; missing it triggers a client-side kickout loop.
+        config.userContentController.addUserScript(Self.safariCompatibilityScript)
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.navigationDelegate = self
         wv.uiDelegate = self
@@ -609,6 +642,13 @@ final class WebViewController: UIViewController {
 
     private func actuallyLoad(_ url: URL, in webView: WKWebView) {
         lastRequestedURL = url
+        if XSiteProbe.isRelevant(url) || (url.scheme ?? "").lowercased().hasPrefix("x-safari-") {
+            XSiteProbe.log("load.start", [
+                "url": url.absoluteString,
+                "ct": Self.xConsentToken(from: url) ?? "nil",
+                "adblock": AppSettings.trackerProtectionEnabled
+            ])
+        }
         YouTubeDarkMode.applyAppearance(to: webView, url: url)
         applyDesktopPreference(to: webView)
         let go = {
@@ -916,6 +956,7 @@ final class WebViewController: UIViewController {
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: PageCleanerManager.handlerName)
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: BrowserAutofillCoordinator.messageName)
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: MediaPlaybackSupport.pipHandlerName)
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: XSiteProbe.handlerName)
         if let pipForegroundObserver {
             NotificationCenter.default.removeObserver(pipForegroundObserver)
             self.pipForegroundObserver = nil
@@ -1361,6 +1402,14 @@ final class WebViewController: UIViewController {
         }
     }
 
+    fileprivate func handleXSiteProbeMessage(_ message: WKScriptMessage) {
+        guard let body = message.body as? [String: Any] else {
+            XSiteProbe.log("js.unparsed", ["raw": String(describing: message.body)])
+            return
+        }
+        XSiteProbe.logJS(body)
+    }
+
     fileprivate func handlePictureInPictureMessage(_ message: WKScriptMessage) {
         guard message.name == MediaPlaybackSupport.pipHandlerName else { return }
         if let body = message.body as? [String: Any] {
@@ -1511,6 +1560,8 @@ private final class WebViewScriptProxy: NSObject, WKScriptMessageHandler {
             target?.handleYouTubeAdShieldMessage(message)
         case MediaPlaybackSupport.pipHandlerName:
             target?.handlePictureInPictureMessage(message)
+        case XSiteProbe.handlerName:
+            target?.handleXSiteProbeMessage(message)
         default:
             break
         }
@@ -1570,15 +1621,20 @@ extension WebViewController: WKNavigationDelegate {
         guard realScheme == "http" || realScheme == "https" else { return nil }
         var comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
         comps?.scheme = realScheme
-        guard let unwrapped = comps?.url else { return nil }
-        // Only the empty kickout (`ct=rw-null`) is a dead end — rewrite to x.com.
-        // Other `redirect.x.com/?ct=…` URLs carry cookie-consent state and must be kept.
-        if let host = unwrapped.host?.lowercased(),
-           (host == "redirect.x.com" || host == "redirect.twitter.com"),
-           isXSafariKickoutURL(unwrapped) {
-            return URL(string: "https://x.com")!
+        return comps?.url
+    }
+
+    /// Empty kickout (`ct=rw-null`) — X detected a non-Safari client. Reloading x.com loops forever.
+    private static func isXSafariKickoutNavigation(_ url: URL) -> Bool {
+        let candidate: URL
+        if let unwrapped = urlByUnwrappingSafariEscapeScheme(url) {
+            candidate = unwrapped
+        } else {
+            candidate = url
         }
-        return unwrapped
+        guard let host = candidate.host?.lowercased(),
+              host == "redirect.x.com" || host == "redirect.twitter.com" else { return false }
+        return isXSafariKickoutURL(candidate)
     }
 
     private static func isXSafariKickoutURL(_ url: URL) -> Bool {
@@ -1587,21 +1643,48 @@ extension WebViewController: WKNavigationDelegate {
         return ct == nil || ct == "rw-null" || ct == "null" || ct?.isEmpty == true
     }
 
+    private static func xConsentToken(from url: URL) -> String? {
+        let candidate = urlByUnwrappingSafariEscapeScheme(url) ?? url
+        return URLComponents(url: candidate, resolvingAgainstBaseURL: false)?
+            .queryItems?
+            .first(where: { $0.name.lowercased() == "ct" })?
+            .value
+    }
+
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         YouTubeDarkMode.applyAppearance(to: webView, url: navigationAction.request.url)
         if let url = navigationAction.request.url {
-            if let unwrapped = Self.urlByUnwrappingSafariEscapeScheme(url) {
+            let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
+            if XSiteProbe.isRelevant(url) || (url.scheme ?? "").lowercased().hasPrefix("x-safari-") {
+                XSiteProbe.log("nav.decide", [
+                    "url": url.absoluteString,
+                    "main": isMainFrame,
+                    "type": navigationAction.navigationType.rawValue,
+                    "source": navigationAction.sourceFrame.request.url?.absoluteString ?? "nil",
+                    "adblock": AppSettings.trackerProtectionEnabled,
+                    "ct": Self.xConsentToken(from: url) ?? "nil"
+                ])
+            }
+
+            // Drop Safari kickouts — reloading https://x.com causes an endless loop.
+            if Self.isXSafariKickoutNavigation(url) {
+                XSiteProbe.log("nav.ignoreKickout", [
+                    "url": url.absoluteString,
+                    "page": webView.url?.absoluteString ?? "nil",
+                    "ct": Self.xConsentToken(from: url) ?? "nil"
+                ])
                 decisionHandler(.cancel)
-                load(url: unwrapped)
                 return
             }
 
-            // Same kickout may arrive as plain https after some WebKit paths.
-            if Self.isXSafariKickoutURL(url),
-               let host = url.host?.lowercased(),
-               host == "redirect.x.com" || host == "redirect.twitter.com" {
+            if let unwrapped = Self.urlByUnwrappingSafariEscapeScheme(url) {
+                XSiteProbe.log("nav.rewriteXSafari", [
+                    "from": url.absoluteString,
+                    "to": unwrapped.absoluteString,
+                    "main": isMainFrame
+                ])
                 decisionHandler(.cancel)
-                load(url: URL(string: "https://x.com")!)
+                load(url: unwrapped)
                 return
             }
 
@@ -1609,6 +1692,9 @@ extension WebViewController: WKNavigationDelegate {
             // Ignore App/deeplink schemes (common on Chinese portals like Sogou) to avoid "Unsupported URL".
             let allowed = ["http", "https", "about", "blob", "data", "file"]
             if !scheme.isEmpty && !allowed.contains(scheme) {
+                if XSiteProbe.isRelevant(url) || scheme.contains("safari") || scheme.contains("twitter") || scheme.contains("x-") {
+                    XSiteProbe.log("nav.cancelScheme", ["url": url.absoluteString, "scheme": scheme])
+                }
                 decisionHandler(.cancel)
                 return
             }
@@ -1643,7 +1729,6 @@ extension WebViewController: WKNavigationDelegate {
             }
 
             // Optimistic address-bar update for main-frame navigations (links / typed URL / redirects).
-            let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
             if isMainFrame, ["http", "https"].contains(scheme) {
                 notifyDelegateOnMain {
                     $0.delegate?.webViewController($0, didUpdateURL: url)
@@ -1676,6 +1761,17 @@ extension WebViewController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if XSiteProbe.isRelevant(webView.url) {
+            XSiteProbe.log("nav.finish", [
+                "url": webView.url?.absoluteString ?? "nil",
+                "title": webView.title ?? "",
+                "adblock": AppSettings.trackerProtectionEnabled
+            ])
+            // Dump effective UA once page is ready.
+            webView.evaluateJavaScript("navigator.userAgent") { result, _ in
+                XSiteProbe.log("ua.effective", ["ua": String(describing: result ?? "nil")])
+            }
+        }
         errorContainer.isHidden = true
         httpsFallbackAttempted = false
         lastFailedURL = nil
@@ -1837,18 +1933,47 @@ extension WebViewController: WKNavigationDelegate {
 
     private func handleFailure(_ error: Error) {
         let nsError = error as NSError
+        if XSiteProbe.isRelevant(webView?.url)
+            || XSiteProbe.isRelevant(Self.urlFromNavigationError(nsError))
+            || ((nsError.userInfo[NSURLErrorFailingURLStringErrorKey] as? String)?.contains("x.com") == true)
+            || ((nsError.userInfo[NSURLErrorFailingURLStringErrorKey] as? String)?.contains("x-safari") == true) {
+            XSiteProbe.log("nav.fail", [
+                "code": nsError.code,
+                "domain": nsError.domain,
+                "desc": nsError.localizedDescription,
+                "failing": (nsError.userInfo[NSURLErrorFailingURLStringErrorKey] as? String) ?? "nil",
+                "page": webView?.url?.absoluteString ?? "nil"
+            ])
+        }
         if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled { return }
         // App-link / unsupported scheme failures should not blank the page.
         if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorUnsupportedURL {
             if let failing = Self.urlFromNavigationError(nsError)
-                ?? (nsError.userInfo[NSURLErrorFailingURLStringErrorKey] as? String).flatMap(URL.init(string:)),
-               let unwrapped = Self.urlByUnwrappingSafariEscapeScheme(failing) {
-                load(url: unwrapped)
+                ?? (nsError.userInfo[NSURLErrorFailingURLStringErrorKey] as? String).flatMap(URL.init(string:)) {
+                if Self.isXSafariKickoutNavigation(failing) {
+                    XSiteProbe.log("nav.fail.ignoreKickout", ["from": failing.absoluteString])
+                    return
+                }
+                if let unwrapped = Self.urlByUnwrappingSafariEscapeScheme(failing) {
+                    XSiteProbe.log("nav.fail.unwrap", [
+                        "from": failing.absoluteString,
+                        "to": unwrapped.absoluteString
+                    ])
+                    load(url: unwrapped)
+                }
             }
             return
         }
         if let failing = nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL {
+            if Self.isXSafariKickoutNavigation(failing) {
+                XSiteProbe.log("nav.fail.ignoreKickoutKey", ["from": failing.absoluteString])
+                return
+            }
             if let unwrapped = Self.urlByUnwrappingSafariEscapeScheme(failing) {
+                XSiteProbe.log("nav.fail.unwrapKey", [
+                    "from": failing.absoluteString,
+                    "to": unwrapped.absoluteString
+                ])
                 load(url: unwrapped)
                 return
             }
@@ -1906,6 +2031,10 @@ extension WebViewController: WKNavigationDelegate {
 extension WebViewController: WKUIDelegate {
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         if navigationAction.targetFrame == nil, let url = navigationAction.request.url {
+            if Self.isXSafariKickoutNavigation(url) {
+                XSiteProbe.log("ui.ignoreKickoutPopup", ["url": url.absoluteString])
+                return nil
+            }
             if let unwrapped = Self.urlByUnwrappingSafariEscapeScheme(url) {
                 load(url: unwrapped)
             } else {
