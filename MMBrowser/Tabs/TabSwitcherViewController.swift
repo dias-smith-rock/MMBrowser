@@ -38,8 +38,10 @@ final class TabSwitcherViewController: UIViewController {
     private var showingIncognito = false
     /// `nil` means All containers.
     private var selectedContainerFilter: UUID?
-    private let groupFilterBar = UIScrollView()
+    private let groupFilterBar = UIView()
     private let groupFilterStack = UIStackView()
+    private var groupFilterHeightConstraint: Constraint?
+    private var lastGroupFilterLayoutWidth: CGFloat = 0
 
     init(tabManager: TabManager) {
         self.tabManager = tabManager
@@ -99,6 +101,11 @@ final class TabSwitcherViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         updateCollectionHeight()
+        let width = groupFilterBar.bounds.width
+        if width > 0, abs(width - lastGroupFilterLayoutWidth) > 0.5 {
+            lastGroupFilterLayoutWidth = width
+            rebuildGroupFilterBar()
+        }
     }
 
     private func setupTop() {
@@ -150,23 +157,62 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func setupGroupFilterBar() {
-        groupFilterBar.showsHorizontalScrollIndicator = false
-        groupFilterBar.alwaysBounceHorizontal = true
-        groupFilterStack.axis = .horizontal
+        groupFilterStack.axis = .vertical
         groupFilterStack.spacing = 8
-        groupFilterStack.alignment = .center
+        groupFilterStack.alignment = .leading
         groupFilterBar.addSubview(groupFilterStack)
         view.addSubview(groupFilterBar)
 
         groupFilterBar.snp.makeConstraints { make in
             make.top.equalTo(topBar.snp.bottom)
             make.leading.trailing.equalToSuperview()
-            make.height.equalTo(40)
+            groupFilterHeightConstraint = make.height.equalTo(40).constraint
         }
         groupFilterStack.snp.makeConstraints { make in
-            make.edges.equalToSuperview().inset(UIEdgeInsets(top: 4, left: 16, bottom: 4, right: 16))
-            make.height.equalToSuperview().offset(-8)
+            make.top.bottom.equalToSuperview().inset(4)
+            make.leading.trailing.equalToSuperview().inset(16)
         }
+    }
+
+    private func makeGroupFilterRow() -> UIStackView {
+        let row = UIStackView()
+        row.axis = .horizontal
+        row.spacing = 8
+        row.alignment = .center
+        row.distribution = .fill
+        return row
+    }
+
+    private func makeContainerChipButton(title: String, id: String, selected: Bool, accent: UIColor) -> UIButton {
+        let button = UIButton(type: .system)
+        button.setTitle(title, for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 13, weight: selected ? .semibold : .medium)
+        button.setTitleColor(selected ? .white : BrowserTheme.textPrimary, for: .normal)
+        button.backgroundColor = selected ? accent : BrowserTheme.secondaryCard
+        button.layer.cornerRadius = 14
+        button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
+        button.accessibilityIdentifier = id
+        button.addTarget(self, action: #selector(groupFilterTapped(_:)), for: .touchUpInside)
+        return button
+    }
+
+    private func makeManageContainersButton(accent: UIColor) -> UIButton {
+        let manage = UIButton(type: .system)
+        let manageIcon = UIImage(
+            systemName: "slider.horizontal.3",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+        )
+        manage.setImage(manageIcon, for: .normal)
+        manage.setTitle(" Manage", for: .normal)
+        manage.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        manage.tintColor = accent
+        manage.setTitleColor(accent, for: .normal)
+        manage.backgroundColor = BrowserTheme.secondaryCard
+        manage.layer.cornerRadius = 14
+        manage.contentEdgeInsets = UIEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
+        manage.accessibilityLabel = "Manage Containers"
+        manage.addTarget(self, action: #selector(manageContainersTapped), for: .touchUpInside)
+        return manage
     }
 
     private func rebuildGroupFilterBar() {
@@ -181,6 +227,11 @@ final class TabSwitcherViewController: UIViewController {
         }
 
         let accent = showingIncognito ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
+        var buttons: [UIButton] = []
+
+        // Manage stays first so it remains reachable when there are many containers.
+        buttons.append(makeManageContainersButton(accent: accent))
+
         let chips: [(title: String, id: String)] =
             [("All", "__all__")] + tabManager.sortedContainers.map { ($0.name, $0.id.uuidString) }
 
@@ -192,31 +243,45 @@ final class TabSwitcherViewController: UIViewController {
             }()
             let selected = (chip.id == "__all__" && selectedContainerFilter == nil)
                 || (selectedContainerFilter?.uuidString == chip.id)
-            let button = UIButton(type: .system)
-            button.setTitle(count > 0 ? "\(chip.title) (\(count))" : chip.title, for: .normal)
-            button.titleLabel?.font = .systemFont(ofSize: 13, weight: selected ? .semibold : .medium)
-            button.setTitleColor(selected ? .white : BrowserTheme.textPrimary, for: .normal)
-            button.backgroundColor = selected ? accent : BrowserTheme.secondaryCard
-            button.layer.cornerRadius = 14
-            button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
-            button.accessibilityIdentifier = chip.id
-            button.addTarget(self, action: #selector(groupFilterTapped(_:)), for: .touchUpInside)
-            groupFilterStack.addArrangedSubview(button)
+            let title = count > 0 ? "\(chip.title) (\(count))" : chip.title
+            buttons.append(makeContainerChipButton(title: title, id: chip.id, selected: selected, accent: accent))
         }
 
-        let manage = UIButton(type: .system)
-        let manageIcon = UIImage(
-            systemName: "slider.horizontal.3",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+        let availableWidth = max(
+            groupFilterBar.bounds.width - 32,
+            view.bounds.width - 32,
+            1
         )
-        manage.setImage(manageIcon, for: .normal)
-        manage.tintColor = accent
-        manage.backgroundColor = BrowserTheme.secondaryCard
-        manage.layer.cornerRadius = 14
-        manage.contentEdgeInsets = UIEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
-        manage.accessibilityLabel = "Manage Containers"
-        manage.addTarget(self, action: #selector(manageContainersTapped), for: .touchUpInside)
-        groupFilterStack.addArrangedSubview(manage)
+        var row = makeGroupFilterRow()
+        var used: CGFloat = 0
+        for button in buttons {
+            let width = ceil(
+                button.systemLayoutSizeFitting(
+                    CGSize(width: UIView.layoutFittingCompressedSize.width, height: 28),
+                    withHorizontalFittingPriority: .fittingSizeLevel,
+                    verticalFittingPriority: .required
+                ).width
+            )
+            let gap: CGFloat = used > 0 ? 8 : 0
+            if used > 0, used + gap + width > availableWidth {
+                groupFilterStack.addArrangedSubview(row)
+                row = makeGroupFilterRow()
+                used = 0
+            }
+            row.addArrangedSubview(button)
+            used += (used > 0 ? 8 : 0) + max(width, 1)
+        }
+        if !row.arrangedSubviews.isEmpty {
+            groupFilterStack.addArrangedSubview(row)
+        }
+
+        let rows = max(groupFilterStack.arrangedSubviews.count, 1)
+        let chipHeight: CGFloat = 28
+        let height = 8 + CGFloat(rows) * chipHeight + CGFloat(max(0, rows - 1)) * 8
+        groupFilterHeightConstraint?.update(offset: height)
+        if groupFilterBar.bounds.width > 0 {
+            lastGroupFilterLayoutWidth = groupFilterBar.bounds.width
+        }
     }
 
     @objc private func groupFilterTapped(_ sender: UIButton) {

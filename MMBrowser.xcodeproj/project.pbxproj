@@ -50,7 +50,6 @@
 		A1B2C3D4E5F6010101010109 /* AppLockSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020209 /* AppLockSettingsViewController.swift */; };
 		A1B2C3D4E5F6010101010110 /* PasscodeKeypadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020210 /* PasscodeKeypadView.swift */; };
 		A1B2C3D4E5F6010101010120 /* NavigationDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020220 /* NavigationDirectory.swift */; };
-		A1B2C3D4E5F6010101010122 /* NavigationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020222 /* NavigationStore.swift */; };
 		A1B2C3D4E5F6010101010121 /* FaviconImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020221 /* FaviconImageView.swift */; };
 		A1B2C3D4E5F6010101010130 /* GeolocationSpoof.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020230 /* GeolocationSpoof.swift */; };
 		A1B2C3D4E5F6010101010131 /* LocationSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */; };
@@ -190,7 +189,6 @@
 		A1B2C3D4E5F6020202020209 /* AppLockSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockSettingsViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020210 /* PasscodeKeypadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasscodeKeypadView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020220 /* NavigationDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationDirectory.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F6020202020222 /* NavigationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationStore.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020221 /* FaviconImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaviconImageView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020230 /* GeolocationSpoof.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeolocationSpoof.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSettingsViewController.swift; sourceTree = "<group>"; };
@@ -344,7 +342,6 @@
 				DCDC601B9D5949C3A37929EE /* NewTabViewController.swift */,
 				A1B2C3D4E5F6020202020221 /* FaviconImageView.swift */,
 				A1B2C3D4E5F6020202020220 /* NavigationDirectory.swift */,
-				A1B2C3D4E5F6020202020222 /* NavigationStore.swift */,
 				81A1B2C3D4E54678A9B0C1D3 /* PrivateNewTabViewController.swift */,
 			);
 			path = NewTab;
@@ -791,7 +788,6 @@
 				7C778606C8964F36874899A1 /* NewTabViewController.swift in Sources */,
 				A1B2C3D4E5F6010101010121 /* FaviconImageView.swift in Sources */,
 				A1B2C3D4E5F6010101010120 /* NavigationDirectory.swift in Sources */,
-				A1B2C3D4E5F6010101010122 /* NavigationStore.swift in Sources */,
 				81A1B2C3D4E54678A9B0C1D2 /* PrivateNewTabViewController.swift in Sources */,
 				C5CC3025D67544A09B52DB05 /* OnboardingViewController.swift in Sources */,
 				81FD47C9E67B4DE0B05CED50 /* ClearBrowsingDataViewController.swift in Sources */,

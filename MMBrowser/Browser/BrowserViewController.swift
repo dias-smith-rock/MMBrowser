@@ -1109,10 +1109,12 @@ extension BrowserViewController: WebViewControllerDelegate {
 
     func webViewController(_ controller: WebViewController, didUpdateURL url: URL?) {
         guard let tab = tabManager.tabs.first(where: { $0.webController === controller }) else { return }
+        // Ignore nil — provisional failures clear WKWebView.url and would wipe the address bar.
+        guard let url else { return }
         let previousHost = tab.url?.host
         tab.url = url
         tab.isNewTabPage = false
-        if previousHost != url?.host {
+        if previousHost != url.host {
             tab.clearSessionAvatar()
         }
         if tabManager.selectedTab?.id == tab.id {
@@ -1124,7 +1126,7 @@ extension BrowserViewController: WebViewControllerDelegate {
             }
             refreshToolbar()
         }
-        if !tab.isIncognito, let url, !url.absoluteString.hasPrefix("about:") {
+        if !tab.isIncognito, !url.absoluteString.hasPrefix("about:") {
             HistoryStore.shared.add(title: tab.title, url: url)
         }
         tabManager.persistSessionIfNeeded()

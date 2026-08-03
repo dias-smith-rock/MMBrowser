@@ -200,14 +200,30 @@ final class NewTabViewController: UIViewController {
         grid.alignment = .fill
 
         var tiles: [UIView] = []
-        for (siteIndex, site) in category.sites.enumerated() {
-            tiles.append(makeSiteTile(site, category: category, siteIndex: siteIndex))
-        }
+        let columns = 5
         if isEditingDirectory {
+            for (siteIndex, site) in category.sites.enumerated() {
+                tiles.append(makeSiteTile(site, category: category, siteIndex: siteIndex))
+            }
             tiles.append(makeAddSiteTile(categoryID: category.id))
+        } else if category.isHome {
+            // Home: show sites only — no "+" edit entry.
+            for (siteIndex, site) in category.sites.enumerated() {
+                tiles.append(makeSiteTile(site, category: category, siteIndex: siteIndex))
+            }
+        } else {
+            // Show all sites; "+" is always the last tile (wraps to next row when count > 4).
+            for (siteIndex, site) in category.sites.enumerated() {
+                tiles.append(makeSiteTile(site, category: category, siteIndex: siteIndex))
+            }
+            if category.sites.count < columns - 1 {
+                while tiles.count < columns - 1 {
+                    tiles.append(UIView())
+                }
+            }
+            tiles.append(makeEnterEditTile())
         }
 
-        let columns = 5
         var row = UIStackView()
         row.axis = .horizontal
         row.alignment = .top
@@ -347,6 +363,52 @@ final class NewTabViewController: UIViewController {
         return container
     }
 
+    private func makeEnterEditTile() -> UIView {
+        let container = UIView()
+        let iconSize: CGFloat = 48
+
+        let iconWell = UIView()
+        iconWell.backgroundColor = BrowserTheme.elevated
+        iconWell.layer.cornerRadius = iconSize / 2
+        iconWell.layer.borderWidth = 1
+        iconWell.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.35).cgColor
+
+        let plus = UIImageView(image: UIImage(systemName: "plus"))
+        plus.tintColor = BrowserTheme.chromeBlue
+        plus.contentMode = .scaleAspectFit
+
+        let label = UILabel()
+        label.text = "Edit"
+        label.textColor = BrowserTheme.textSecondary
+        label.font = .systemFont(ofSize: 11, weight: .medium)
+        label.textAlignment = .center
+
+        let button = UIButton(type: .system)
+        button.accessibilityLabel = "Edit"
+        button.addTarget(self, action: #selector(enterEditFromPlus), for: .touchUpInside)
+
+        container.addSubview(iconWell)
+        iconWell.addSubview(plus)
+        container.addSubview(label)
+        container.addSubview(button)
+
+        iconWell.snp.makeConstraints { make in
+            make.top.centerX.equalToSuperview()
+            make.size.equalTo(iconSize)
+        }
+        plus.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+            make.size.equalTo(22)
+        }
+        label.snp.makeConstraints { make in
+            make.top.equalTo(iconWell.snp.bottom).offset(8)
+            make.leading.trailing.equalToSuperview().inset(2)
+            make.bottom.equalToSuperview()
+        }
+        button.snp.makeConstraints { $0.edges.equalToSuperview() }
+        return container
+    }
+
     private func makeAddSiteTile(categoryID: UUID) -> UIView {
         let container = UIView()
         let iconSize: CGFloat = 48
@@ -436,6 +498,13 @@ final class NewTabViewController: UIViewController {
             self?.buildDirectory()
         })
         present(alert, animated: true)
+    }
+
+    @objc private func enterEditFromPlus() {
+        guard !isEditingDirectory else { return }
+        isEditingDirectory = true
+        editButton.setTitle("Done", for: .normal)
+        buildDirectory()
     }
 
     @objc private func editTapped() {

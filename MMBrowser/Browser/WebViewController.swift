@@ -216,6 +216,8 @@ final class WebViewController: UIViewController {
     private let errorLabel = UILabel()
     private let retryButton = UIButton(type: .system)
     private var lastFailedURL: URL?
+    /// Last URL we intentionally started loading — kept when provisional loads fail and `webView.url` is nil.
+    private var lastRequestedURL: URL?
     private var pendingURL: URL?
     private var didSetupWebView = false
     private var httpsFallbackAttempted = false
@@ -337,6 +339,8 @@ final class WebViewController: UIViewController {
         if !isIncognito {
             config.userContentController.addUserScript(BrowserAutofillCoordinator.userScript)
         }
+        // Default WKWebView UA omits "Safari/…" which makes x.com issue x-safari-https:// kickouts.
+        config.applicationNameForUserAgent = "Version/18.0 Mobile/15E148 Safari/604.1"
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.navigationDelegate = self
         wv.uiDelegate = self
@@ -401,6 +405,10 @@ final class WebViewController: UIViewController {
         urlObservation = wv.observe(\.url, options: [.new]) { [weak self] webView, _ in
             let url = webView.url
             self?.notifyDelegateOnMain {
+                // Provisional failures often clear `webView.url` — keep the failed address visible.
+                if url == nil, let failed = $0.lastFailedURL, !$0.errorContainer.isHidden {
+                    return
+                }
                 YouTubeDarkMode.applyAppearance(to: webView, url: url)
                 $0.delegate?.webViewController($0, didUpdateURL: url)
                 $0.refreshPipEntryPolling()
@@ -580,6 +588,7 @@ final class WebViewController: UIViewController {
     func load(url: URL) {
         errorContainer.isHidden = true
         lastFailedURL = nil
+        lastRequestedURL = url
         httpsFallbackAttempted = false
         guard let webView = webView else {
             pendingURL = url
@@ -599,6 +608,7 @@ final class WebViewController: UIViewController {
     }
 
     private func actuallyLoad(_ url: URL, in webView: WKWebView) {
+        lastRequestedURL = url
         YouTubeDarkMode.applyAppearance(to: webView, url: url)
         applyDesktopPreference(to: webView)
         let go = {
@@ -615,7 +625,18 @@ final class WebViewController: UIViewController {
 
     func goBack() { if webView?.canGoBack == true { webView?.goBack() } }
     func goForward() { if webView?.canGoForward == true { webView?.goForward() } }
-    func reload() { webView?.reload() }
+    func reload() {
+        if let url = lastFailedURL ?? lastRequestedURL,
+           webView?.url == nil || !errorContainer.isHidden {
+            load(url: url)
+            return
+        }
+        if let url = lastRequestedURL, webView?.url == nil {
+            load(url: url)
+            return
+        }
+        webView?.reload()
+    }
 
     func pageUp() {
         webView?.evaluateJavaScript(
@@ -1540,9 +1561,50 @@ extension WebViewController: FindInPageBarDelegate {
 }
 
 extension WebViewController: WKNavigationDelegate {
+    /// X.com (and similar) kick embedded WebViews to Safari via Apple's private
+    /// `x-safari-https://…` / `x-safari-http://…` schemes. Rewrite to normal https/http.
+    private static func urlByUnwrappingSafariEscapeScheme(_ url: URL) -> URL? {
+        let scheme = (url.scheme ?? "").lowercased()
+        guard scheme.hasPrefix("x-safari-") else { return nil }
+        let realScheme = String(scheme.dropFirst("x-safari-".count))
+        guard realScheme == "http" || realScheme == "https" else { return nil }
+        var comps = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        comps?.scheme = realScheme
+        guard let unwrapped = comps?.url else { return nil }
+        // Only the empty kickout (`ct=rw-null`) is a dead end — rewrite to x.com.
+        // Other `redirect.x.com/?ct=…` URLs carry cookie-consent state and must be kept.
+        if let host = unwrapped.host?.lowercased(),
+           (host == "redirect.x.com" || host == "redirect.twitter.com"),
+           isXSafariKickoutURL(unwrapped) {
+            return URL(string: "https://x.com")!
+        }
+        return unwrapped
+    }
+
+    private static func isXSafariKickoutURL(_ url: URL) -> Bool {
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let ct = items.first(where: { $0.name.lowercased() == "ct" })?.value?.lowercased()
+        return ct == nil || ct == "rw-null" || ct == "null" || ct?.isEmpty == true
+    }
+
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         YouTubeDarkMode.applyAppearance(to: webView, url: navigationAction.request.url)
         if let url = navigationAction.request.url {
+            if let unwrapped = Self.urlByUnwrappingSafariEscapeScheme(url) {
+                decisionHandler(.cancel)
+                load(url: unwrapped)
+                return
+            }
+
+            // Same kickout may arrive as plain https after some WebKit paths.
+            if Self.isXSafariKickoutURL(url),
+               let host = url.host?.lowercased(),
+               host == "redirect.x.com" || host == "redirect.twitter.com" {
+                decisionHandler(.cancel)
+                load(url: URL(string: "https://x.com")!)
+                return
+            }
+
             let scheme = (url.scheme ?? "").lowercased()
             // Ignore App/deeplink schemes (common on Chinese portals like Sogou) to avoid "Unsupported URL".
             let allowed = ["http", "https", "about", "blob", "data", "file"]
@@ -1616,6 +1678,10 @@ extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         errorContainer.isHidden = true
         httpsFallbackAttempted = false
+        lastFailedURL = nil
+        if let url = webView.url {
+            lastRequestedURL = url
+        }
         delegate?.webViewController(self, didUpdateProgress: 1, isLoading: false)
         delegate?.webViewController(self, didUpdateTitle: webView.title)
         delegate?.webViewController(self, didUpdateURL: webView.url)
@@ -1774,41 +1840,77 @@ extension WebViewController: WKNavigationDelegate {
         if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorCancelled { return }
         // App-link / unsupported scheme failures should not blank the page.
         if nsError.domain == NSURLErrorDomain && nsError.code == NSURLErrorUnsupportedURL {
+            if let failing = Self.urlFromNavigationError(nsError)
+                ?? (nsError.userInfo[NSURLErrorFailingURLStringErrorKey] as? String).flatMap(URL.init(string:)),
+               let unwrapped = Self.urlByUnwrappingSafariEscapeScheme(failing) {
+                load(url: unwrapped)
+            }
             return
         }
         if let failing = nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL {
+            if let unwrapped = Self.urlByUnwrappingSafariEscapeScheme(failing) {
+                load(url: unwrapped)
+                return
+            }
             let scheme = (failing.scheme ?? "").lowercased()
             if !["http", "https", "about", "blob", "data", "file"].contains(scheme) {
                 return
             }
         }
 
+        let failedURL = Self.urlFromNavigationError(nsError)
+            ?? webView?.url
+            ?? lastRequestedURL
+            ?? lastFailedURL
+
         // HTTPS first fallback to http once
         if !AppSettings.httpsOnly,
            !httpsFallbackAttempted,
-           let url = webView?.url ?? lastFailedURL,
+           let url = failedURL,
            url.scheme == "https",
            var comps = URLComponents(url: url, resolvingAgainstBaseURL: false) {
             httpsFallbackAttempted = true
             comps.scheme = "http"
             if let httpURL = comps.url {
+                lastRequestedURL = httpURL
                 webView?.load(URLRequest(url: httpURL))
                 return
             }
         }
 
-        lastFailedURL = webView?.url
+        lastFailedURL = failedURL
+        if let failedURL {
+            lastRequestedURL = failedURL
+            notifyDelegateOnMain {
+                $0.delegate?.webViewController($0, didUpdateURL: failedURL)
+            }
+        }
         errorLabel.text = "Couldn't load page.\n\(error.localizedDescription)"
         errorContainer.isHidden = false
         delegate?.webViewControllerDidFail(self, error: error)
         delegate?.webViewController(self, didUpdateProgress: 0, isLoading: false)
+    }
+
+    private static func urlFromNavigationError(_ error: NSError) -> URL? {
+        if let url = error.userInfo[NSURLErrorFailingURLErrorKey] as? URL {
+            return url
+        }
+        if let raw = error.userInfo[NSURLErrorFailingURLStringErrorKey] as? String,
+           let url = URL(string: raw) {
+            return url
+        }
+        return nil
     }
 }
 
 extension WebViewController: WKUIDelegate {
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         if navigationAction.targetFrame == nil, let url = navigationAction.request.url {
-            delegate?.webViewController(self, requestNewTabFor: url)
+            if let unwrapped = Self.urlByUnwrappingSafariEscapeScheme(url) {
+                load(url: unwrapped)
+            } else {
+                delegate?.webViewController(self, requestNewTabFor: url)
+            }
         }
         return nil
     }

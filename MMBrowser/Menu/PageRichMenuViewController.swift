@@ -64,13 +64,13 @@ final class PageRichMenuViewController: UIViewController {
         }
 
         stack.addArrangedSubview(makeHeaderCard())
+        stack.addArrangedSubview(makeToolsGridCard())
         stack.addArrangedSubview(makeRowsCard([
             row("Add to Bookmarks", symbol: "bookmark", action: .addBookmark, enabled: context.hasLoadablePage && !context.isIncognito),
             row("Add to Reading List", symbol: "eyeglasses", action: .addReadingList, enabled: context.hasLoadablePage && !context.isIncognito),
             row("Add to Home", symbol: "plus.app", action: .addToHomepage, enabled: context.hasLoadablePage && !context.isIncognito)
         ]))
         stack.addArrangedSubview(makeRowsCard([
-            row("Screenshot", symbol: "camera", action: .screenshot, enabled: context.hasLoadablePage),
             row("Long screenshot", symbol: "rectangle.bottomthird.inset.filled", action: .longScreenshot, enabled: context.hasLoadablePage),
             row("Save as PDF", symbol: "doc.richtext", action: .sharePDF, enabled: context.hasLoadablePage),
             row("Print", symbol: "printer", action: .printPage, enabled: context.hasLoadablePage)
@@ -83,23 +83,92 @@ final class PageRichMenuViewController: UIViewController {
                 action: .desktopSite,
                 enabled: context.hasLoadablePage
             ),
-            row("Picture in Picture", symbol: "pip.enter", action: .pictureInPicture, enabled: context.hasLoadablePage && AppSettings.pictureInPictureEnabled),
             row("Find on page", symbol: "magnifyingglass", action: .findInPage, enabled: context.hasLoadablePage),
             row("Enable Reader mode", symbol: "doc.plaintext", action: .readerMode, enabled: context.hasLoadablePage),
             row("Change text size", symbol: "textformat.size", action: .changeTextSize, enabled: context.hasLoadablePage)
         ]))
-        stack.addArrangedSubview(makeRowsCard([
-            row(
-                context.adBlockerEnabled ? "Ad blocker · On" : "Ad blocker · Off",
-                symbol: "hand.raised",
-                action: .adBlocker,
-                enabled: true
-            ),
-            row("Webpage Cleaner", symbol: "wand.and.stars", action: .pageCleaner, enabled: context.hasLoadablePage)
-        ]))
     }
 
     // MARK: - Cards
+
+    private func makeToolsGridCard() -> UIView {
+        let card = makeCardContainer()
+        let items: [(String, String, MenuAction, Bool)] = [
+            ("PiP", "pip.enter", .pictureInPicture, context.hasLoadablePage && AppSettings.pictureInPictureEnabled),
+            ("Web Cleaner", "wand.and.stars", .pageCleaner, context.hasLoadablePage),
+            ("Screenshot", "camera", .screenshot, context.hasLoadablePage),
+            (
+                context.adBlockerEnabled ? "Ad block On" : "Ad block Off",
+                "hand.raised",
+                .adBlocker,
+                true
+            )
+        ]
+
+        let row = UIStackView()
+        row.axis = .horizontal
+        row.spacing = 8
+        row.distribution = .fillEqually
+        row.alignment = .top
+        row.isLayoutMarginsRelativeArrangement = true
+        row.layoutMargins = UIEdgeInsets(top: 14, left: 12, bottom: 14, right: 12)
+
+        for item in items {
+            row.addArrangedSubview(
+                makeGridItem(title: item.0, symbol: item.1, action: item.2, enabled: item.3)
+            )
+        }
+
+        card.addSubview(row)
+        row.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
+        }
+        return card
+    }
+
+    private func makeGridItem(title: String, symbol: String, action: MenuAction, enabled: Bool) -> UIView {
+        let container = UIView()
+        let box = UIView()
+        box.backgroundColor = BrowserTheme.secondaryCard
+        box.layer.cornerRadius = 14
+
+        let image = UIImageView(image: UIImage(systemName: symbol))
+        image.tintColor = context.isIncognito ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
+        image.contentMode = .scaleAspectFit
+
+        let label = UILabel()
+        label.text = title
+        label.font = .systemFont(ofSize: 11, weight: .medium)
+        label.textColor = BrowserTheme.textSecondary
+        label.textAlignment = .center
+        label.numberOfLines = 2
+
+        let button = MenuActionButton(action: action)
+        button.isEnabled = enabled
+        button.alpha = enabled ? 1 : 0.38
+        button.addTarget(self, action: #selector(rowTapped(_:)), for: .touchUpInside)
+        button.accessibilityLabel = title
+
+        container.addSubview(box)
+        box.addSubview(image)
+        container.addSubview(label)
+        container.addSubview(button)
+
+        box.snp.makeConstraints { make in
+            make.top.centerX.equalToSuperview()
+            make.size.equalTo(52)
+        }
+        image.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+            make.size.equalTo(22)
+        }
+        label.snp.makeConstraints { make in
+            make.top.equalTo(box.snp.bottom).offset(6)
+            make.leading.trailing.bottom.equalToSuperview()
+        }
+        button.snp.makeConstraints { make in make.edges.equalToSuperview() }
+        return container
+    }
 
     private func makeHeaderCard() -> UIView {
         let card = makeCardContainer()

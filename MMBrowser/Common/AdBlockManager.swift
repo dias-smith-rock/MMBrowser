@@ -107,14 +107,21 @@ final class AdBlockManager {
 
     private func currentFingerprint() -> String {
         let f = FilterUpdateManager.shared
-        return "\(f.manifestVersion)-\(f.networkDomains.count)-\(f.cosmeticSelectors.count)"
+        // v2: unless-domain exceptions for Twitter/X first-party consent requests.
+        return "v2-\(f.manifestVersion)-\(f.networkDomains.count)-\(f.cosmeticSelectors.count)"
     }
 
     private static func networkRules() -> [[String: Any]] {
         FilterUpdateManager.shared.networkDomains.map { domain in
             let escaped = domain.replacingOccurrences(of: ".", with: "\\.")
+            var trigger: [String: Any] = ["url-filter": ".*\(escaped).*"]
+            // On X/Twitter pages, allow first-party analytics used by the cookie consent flow.
+            let lowered = domain.lowercased()
+            if lowered.contains("twitter") || lowered.contains("t.co") {
+                trigger["unless-domain"] = ["*x.com", "*twitter.com", "*t.co", "*twimg.com"]
+            }
             return [
-                "trigger": ["url-filter": ".*\(escaped).*"] as [String: Any],
+                "trigger": trigger,
                 "action": ["type": "block"]
             ]
         }

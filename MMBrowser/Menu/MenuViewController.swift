@@ -68,10 +68,10 @@ final class MenuViewController: UIViewController {
             ("Incognito tab", "theatermasks", .newIncognitoTab),
             ("Passwords", "key", .passwords),
             ("Downloads", "arrow.down.circle", .downloads),
-            ("Bookmarks", "bookmark", .bookmarks)
+            ("Bookmarks", "bookmark", .bookmarks),
+            ("History", "clock", .history),
+            ("Reading list", "text.book.closed", .readingList)
         ]
-        items.append(("History", "clock", .history))
-        items.append(("Reading list", "text.book.closed", .readingList))
         if isIncognito {
             items.removeAll { $0.2 == .downloads }
         }
