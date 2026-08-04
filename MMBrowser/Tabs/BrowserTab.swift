@@ -15,6 +15,8 @@ final class BrowserTab {
     /// Best-effort logged-in account avatar from the current page.
     var sessionAvatarURL: URL?
     var sessionAvatar: UIImage?
+    /// Back/forward URLs for this tab (persisted for normal tabs).
+    let navigationHistory = TabNavigationHistory()
 
     init(isIncognito: Bool = false, containerID: UUID) {
         self.id = UUID()
@@ -39,7 +41,9 @@ final class BrowserTab {
         url: URL?,
         isNewTabPage: Bool,
         lastAccessed: Date,
-        preferDesktop: Bool
+        preferDesktop: Bool,
+        historyURLs: [String] = [],
+        historyIndex: Int = -1
     ) {
         self.id = id
         self.containerID = containerID
@@ -53,6 +57,11 @@ final class BrowserTab {
         self.preferDesktop = preferDesktop
         self.sessionAvatarURL = nil
         self.sessionAvatar = nil
+        if !historyURLs.isEmpty {
+            navigationHistory.restore(urls: historyURLs, index: historyIndex)
+        } else if let url, !isNewTabPage {
+            navigationHistory.restore(urls: [url.absoluteString], index: 0)
+        }
     }
 
     var displayHost: String {
@@ -63,5 +72,9 @@ final class BrowserTab {
     func clearSessionAvatar() {
         sessionAvatarURL = nil
         sessionAvatar = nil
+    }
+
+    func clearNavigationHistory() {
+        navigationHistory.clear()
     }
 }

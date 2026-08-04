@@ -46,11 +46,28 @@ final class TabSwitcherViewController: UIViewController {
     init(tabManager: TabManager) {
         self.tabManager = tabManager
         self.showingIncognito = tabManager.selectedTab?.isIncognito ?? false
-        // Default to the current browsing account (not All).
-        let currentID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
-            ?? tabManager.resolvedLastActiveContainerID
-        self.selectedContainerFilter = tabManager.container(id: currentID)?.id
+        self.selectedContainerFilter = Self.containerFilterForCurrentTab(
+            tabManager: tabManager,
+            showingIncognito: showingIncognito
+        )
         super.init(nibName: nil, bundle: nil)
+    }
+
+    /// Prefer the selected tab's account; fall back to last-active / default. `nil` = All (incognito).
+    private static func containerFilterForCurrentTab(
+        tabManager: TabManager,
+        showingIncognito: Bool
+    ) -> UUID? {
+        guard !showingIncognito else { return nil }
+        if let tab = tabManager.selectedTab, !tab.isIncognito,
+           tabManager.container(id: tab.containerID) != nil {
+            return tab.containerID
+        }
+        let fallback = tabManager.resolvedLastActiveContainerID
+        if tabManager.container(id: fallback) != nil {
+            return fallback
+        }
+        return tabManager.defaultContainer.id
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -220,7 +237,9 @@ final class TabSwitcherViewController: UIViewController {
 
         if let selected = selectedContainerFilter,
            tabManager.container(id: selected) == nil {
-            selectedContainerFilter = nil
+            selectedContainerFilter = showingIncognito
+                ? nil
+                : tabManager.defaultContainer.id
         }
 
         let accent = showingIncognito ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
@@ -245,8 +264,9 @@ final class TabSwitcherViewController: UIViewController {
             if chip.id != "__all__", let uuid = UUID(uuidString: chip.id) {
                 let color = tabManager.accountColor(forContainer: uuid)
                 if selected {
-                    button.backgroundColor = color.withAlphaComponent(0.28)
-                    button.setTitleColor(color, for: .normal)
+                    // Solid account color so the active account reads clearly vs All.
+                    button.backgroundColor = color
+                    button.setTitleColor(.white, for: .normal)
                 } else {
                     button.setTitleColor(BrowserTheme.textPrimary, for: .normal)
                 }
@@ -566,11 +586,15 @@ final class TabSwitcherViewController: UIViewController {
     @objc private func modeChanged() {
         showingIncognito = modeControl.selectedSegmentIndex == 1
         searchQuery = ""
-        selectedContainerFilter = nil
+        // Keep filter aligned with the tab that becomes active in the new mode.
         let pool = showingIncognito ? tabManager.incognitoTabs : tabManager.normalTabs
         if let tab = pool.sorted(by: { $0.lastAccessed > $1.lastAccessed }).first {
             tabManager.selectTab(id: tab.id)
         }
+        selectedContainerFilter = Self.containerFilterForCurrentTab(
+            tabManager: tabManager,
+            showingIncognito: showingIncognito
+        )
         reload()
     }
 

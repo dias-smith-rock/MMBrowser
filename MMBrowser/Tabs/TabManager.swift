@@ -197,6 +197,7 @@ final class TabManager {
         let privateTabs = incognitoTabs
         guard !privateTabs.isEmpty else { return }
         for tab in privateTabs {
+            tab.clearNavigationHistory()
             tab.webController?.cleanup()
             tab.webController = nil
             tab.snapshot = nil
@@ -224,6 +225,7 @@ final class TabManager {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
         let closing = tabs[index]
         let wasIncognito = closing.isIncognito
+        closing.clearNavigationHistory()
         closing.webController?.cleanup()
         closing.webController = nil
         closing.snapshot = nil
@@ -257,6 +259,7 @@ final class TabManager {
 
     func closeAllTabsAndReset() {
         for tab in tabs {
+            tab.clearNavigationHistory()
             tab.webController?.cleanup()
             tab.webController = nil
             tab.snapshot = nil
@@ -714,6 +717,8 @@ final class TabManager {
                     isNewTabPage: $0.isNewTabPage,
                     lastAccessed: $0.lastAccessed,
                     preferDesktop: $0.preferDesktop,
+                    historyURLs: $0.navigationHistory.urls,
+                    historyIndex: $0.navigationHistory.index,
                     groupName: containerName(for: $0)
                 )
             },
@@ -787,7 +792,9 @@ final class TabManager {
                 url: url,
                 isNewTabPage: url == nil,
                 lastAccessed: $0.lastAccessed,
-                preferDesktop: $0.preferDesktop
+                preferDesktop: $0.preferDesktop,
+                historyURLs: $0.historyURLs,
+                historyIndex: $0.historyIndex
             )
             if AppSettings.showTabsPreviewImages {
                 tab.snapshot = TabSnapshotStore.load(for: $0.id)
@@ -913,12 +920,15 @@ private struct PersistedTab: Codable {
     var isNewTabPage: Bool
     var lastAccessed: Date
     var preferDesktop: Bool
+    var historyURLs: [String]
+    var historyIndex: Int
     /// Legacy fields.
     var sessionID: UUID?
     var groupName: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, containerID, title, urlString, isNewTabPage, lastAccessed, preferDesktop, sessionID, groupName
+        case id, containerID, title, urlString, isNewTabPage, lastAccessed, preferDesktop
+        case historyURLs, historyIndex, sessionID, groupName
     }
 
     init(
@@ -929,6 +939,8 @@ private struct PersistedTab: Codable {
         isNewTabPage: Bool,
         lastAccessed: Date,
         preferDesktop: Bool,
+        historyURLs: [String] = [],
+        historyIndex: Int = -1,
         groupName: String? = nil
     ) {
         self.id = id
@@ -938,6 +950,8 @@ private struct PersistedTab: Codable {
         self.isNewTabPage = isNewTabPage
         self.lastAccessed = lastAccessed
         self.preferDesktop = preferDesktop
+        self.historyURLs = historyURLs
+        self.historyIndex = historyIndex
         self.sessionID = nil
         self.groupName = groupName
     }
@@ -951,6 +965,8 @@ private struct PersistedTab: Codable {
         isNewTabPage = try c.decode(Bool.self, forKey: .isNewTabPage)
         lastAccessed = try c.decode(Date.self, forKey: .lastAccessed)
         preferDesktop = try c.decodeIfPresent(Bool.self, forKey: .preferDesktop) ?? false
+        historyURLs = try c.decodeIfPresent([String].self, forKey: .historyURLs) ?? []
+        historyIndex = try c.decodeIfPresent(Int.self, forKey: .historyIndex) ?? -1
         sessionID = try c.decodeIfPresent(UUID.self, forKey: .sessionID)
         groupName = try c.decodeIfPresent(String.self, forKey: .groupName)
     }

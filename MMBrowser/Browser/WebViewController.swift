@@ -246,6 +246,8 @@ final class WebViewController: UIViewController {
     /// Last URL we intentionally started loading — kept when provisional loads fail and `webView.url` is nil.
     private var lastRequestedURL: URL?
     private var pendingURL: URL?
+    /// Shared with `BrowserTab` so back/forward survives WKWebView recreation.
+    var navigationHistory: TabNavigationHistory?
     private var didSetupWebView = false
     private var httpsFallbackAttempted = false
     private var preferDesktop = false
@@ -456,24 +458,17 @@ final class WebViewController: UIViewController {
                 }
                 YouTubeDarkMode.applyAppearance(to: webView, url: url)
                 $0.delegate?.webViewController($0, didUpdateURL: url)
+                $0.recordNavigationHistory(from: url)
                 $0.refreshPipEntryPolling()
                 // Bilibili SPA (search → video) often skips didFinish.
                 $0.scheduleBilibiliStickyPlayerRepair()
             }
         }
-        canGoBackObservation = wv.observe(\.canGoBack, options: [.new]) { [weak self] webView, _ in
-            let back = webView.canGoBack
-            let forward = webView.canGoForward
-            self?.notifyDelegateOnMain {
-                $0.delegate?.webViewController($0, didUpdateNavigationState: back, canGoForward: forward)
-            }
+        canGoBackObservation = wv.observe(\.canGoBack, options: [.new]) { [weak self] _, _ in
+            self?.notifyDelegateOnMain { $0.publishNavigationState() }
         }
-        canGoForwardObservation = wv.observe(\.canGoForward, options: [.new]) { [weak self] webView, _ in
-            let back = webView.canGoBack
-            let forward = webView.canGoForward
-            self?.notifyDelegateOnMain {
-                $0.delegate?.webViewController($0, didUpdateNavigationState: back, canGoForward: forward)
-            }
+        canGoForwardObservation = wv.observe(\.canGoForward, options: [.new]) { [weak self] _, _ in
+            self?.notifyDelegateOnMain { $0.publishNavigationState() }
         }
         contentOffsetObservation = wv.scrollView.observe(\.contentOffset, options: [.new, .old]) { [weak self] scrollView, change in
             guard let self = self else { return }
@@ -675,8 +670,62 @@ final class WebViewController: UIViewController {
         go()
     }
 
-    func goBack() { if webView?.canGoBack == true { webView?.goBack() } }
-    func goForward() { if webView?.canGoForward == true { webView?.goForward() } }
+    func goBack() {
+        if webView?.canGoBack == true {
+            // Keep persisted stack aligned with the native list when possible.
+            if navigationHistory?.canGoBack == true {
+                _ = navigationHistory?.goBack()
+            } else {
+                navigationHistory?.suppressNextRecord = true
+            }
+            webView?.goBack()
+            publishNavigationState()
+            return
+        }
+        if let url = navigationHistory?.goBack() {
+            load(url: url)
+            publishNavigationState()
+        }
+    }
+
+    func goForward() {
+        if webView?.canGoForward == true {
+            if navigationHistory?.canGoForward == true {
+                _ = navigationHistory?.goForward()
+            } else {
+                navigationHistory?.suppressNextRecord = true
+            }
+            webView?.goForward()
+            publishNavigationState()
+            return
+        }
+        if let url = navigationHistory?.goForward() {
+            load(url: url)
+            publishNavigationState()
+        }
+    }
+
+    var canGoBack: Bool {
+        (webView?.canGoBack == true) || (navigationHistory?.canGoBack == true)
+    }
+
+    var canGoForward: Bool {
+        (webView?.canGoForward == true) || (navigationHistory?.canGoForward == true)
+    }
+
+    private func publishNavigationState() {
+        delegate?.webViewController(
+            self,
+            didUpdateNavigationState: canGoBack,
+            canGoForward: canGoForward
+        )
+    }
+
+    private func recordNavigationHistory(from url: URL?) {
+        guard let url else { return }
+        navigationHistory?.record(url)
+        publishNavigationState()
+    }
     func reload() {
         if let url = lastFailedURL ?? lastRequestedURL,
            webView?.url == nil || !errorContainer.isHidden {
@@ -1929,6 +1978,7 @@ extension WebViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         PageCleanerManager.apply(to: webView, url: webView.url)
+        recordNavigationHistory(from: webView.url)
         notifyDelegateOnMain {
             $0.delegate?.webViewController($0, didUpdateURL: webView.url)
             $0.delegate?.webViewController($0, didUpdateTitle: webView.title)
@@ -1973,6 +2023,7 @@ extension WebViewController: WKNavigationDelegate {
         lastFailedURL = nil
         if let url = webView.url {
             lastRequestedURL = url
+            recordNavigationHistory(from: url)
         }
         delegate?.webViewController(self, didUpdateProgress: 1, isLoading: false)
         delegate?.webViewController(self, didUpdateTitle: webView.title)

@@ -619,27 +619,6 @@ final class BrowserViewController: UIViewController {
         addressBar.setProgress(0, isLoading: false)
     }
 
-    private func showWeb(for tab: BrowserTab) {
-        let web: WebViewController
-        if let existing = tab.webController {
-            web = existing
-            configureWebController(web)
-        } else {
-            web = makeWebController(for: tab)
-            configureWebController(web)
-            tab.webController = web
-            if let url = tab.url {
-                // load after embed
-                DispatchQueue.main.async {
-                    web.load(url: url)
-                }
-            }
-        }
-        embed(web)
-        addressBar.setURLText(Self.addressBarDisplayText(for: tab.url ?? web.webView?.url))
-        refreshToolbar()
-    }
-
     private func makeWebController(for tab: BrowserTab) -> WebViewController {
         if tab.isIncognito {
             return WebViewController(isIncognito: true, geoConfiguration: .fromAppSettings())
@@ -683,10 +662,10 @@ final class BrowserViewController: UIViewController {
         let web: WebViewController
         if let existing = tab.webController {
             web = existing
-            configureWebController(web)
+            configureWebController(web, for: tab)
         } else {
             web = makeWebController(for: tab)
-            configureWebController(web)
+            configureWebController(web, for: tab)
             tab.webController = web
         }
         embed(web)
@@ -730,11 +709,11 @@ final class BrowserViewController: UIViewController {
     }
 
     func refreshToolbar() {
-        let wv = tabManager.selectedTab?.webController?.webView
+        let web = tabManager.selectedTab?.webController
         let isPrivate = tabManager.selectedTab?.isIncognito ?? false
         toolbar.update(
-            canGoBack: wv?.canGoBack ?? false,
-            canGoForward: wv?.canGoForward ?? false,
+            canGoBack: web?.canGoBack ?? false,
+            canGoForward: web?.canGoForward ?? false,
             tabCount: tabManager.toolbarTabCount(incognito: isPrivate),
             isPrivate: isPrivate,
             hidesNavigationButtons: tabManager.selectedTab?.isNewTabPage == true
@@ -742,13 +721,38 @@ final class BrowserViewController: UIViewController {
         addressBar.setPageCleanerActive(tabManager.selectedTab?.webController?.isPageCleanerActive == true)
     }
 
-    private func configureWebController(_ web: WebViewController) {
+    private func configureWebController(_ web: WebViewController, for tab: BrowserTab? = nil) {
         web.delegate = self
+        if let tab {
+            web.navigationHistory = tab.navigationHistory
+        }
         web.onPageCleanerActiveChanged = { [weak self, weak web] active in
             guard let self = self, let web = web else { return }
             guard self.tabManager.selectedTab?.webController === web else { return }
             self.addressBar.setPageCleanerActive(active)
         }
+    }
+
+    private func showWeb(for tab: BrowserTab) {
+        let web: WebViewController
+        if let existing = tab.webController {
+            web = existing
+            configureWebController(web, for: tab)
+        } else {
+            web = makeWebController(for: tab)
+            configureWebController(web, for: tab)
+            tab.webController = web
+            if let url = tab.url {
+                // Restore without pushing a duplicate history entry.
+                tab.navigationHistory.suppressNextRecord = true
+                DispatchQueue.main.async {
+                    web.load(url: url)
+                }
+            }
+        }
+        embed(web)
+        addressBar.setURLText(Self.addressBarDisplayText(for: tab.url ?? web.webView?.url))
+        refreshToolbar()
     }
 
     private func presentTabSwitcher() {
