@@ -1116,18 +1116,34 @@ extension BrowserViewController: AddressBarViewDelegate {
 }
 
 extension BrowserViewController: BottomToolbarViewDelegate {
-    func toolbarDidTapAccount() { presentAccountSwitcher() }
-    func toolbarDidTapBack() { tabManager.selectedTab?.webController?.goBack() }
-    func toolbarDidTapForward() { tabManager.selectedTab?.webController?.goForward() }
+    func toolbarDidTapAccount() {
+        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_account")
+        presentAccountSwitcher()
+    }
+    func toolbarDidTapBack() {
+        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_back")
+        tabManager.selectedTab?.webController?.goBack()
+    }
+    func toolbarDidTapForward() {
+        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_forward")
+        tabManager.selectedTab?.webController?.goForward()
+    }
     func toolbarDidTapNewTab() {
+        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_new_tab")
         // Always open a normal tab; private browsing is opt-in only.
         // Inherit the currently selected tab's container (Firefox Container semantics).
         let containerID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
         _ = tabManager.addTab(incognito: false, select: true, containerID: containerID)
         showSelectedTab()
     }
-    func toolbarDidTapTabs() { presentTabSwitcher() }
-    func toolbarDidTapMenu() { presentMenu() }
+    func toolbarDidTapTabs() {
+        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_tabs")
+        presentTabSwitcher()
+    }
+    func toolbarDidTapMenu() {
+        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_menu")
+        presentMenu()
+    }
 }
 
 extension BrowserViewController: NewTabViewControllerDelegate {
@@ -1672,6 +1688,7 @@ extension BrowserViewController: AccountSwitcherViewControllerDelegate {
             _ = self.tabManager.switchToAccount(id)
             self.showSelectedTab()
             Toast.show("Switched to \(name)", from: self)
+            AppAnalytics.logAccountSwitch(accountName: name)
         }
     }
 

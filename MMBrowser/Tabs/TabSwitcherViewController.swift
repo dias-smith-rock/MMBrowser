@@ -46,8 +46,10 @@ final class TabSwitcherViewController: UIViewController {
     init(tabManager: TabManager) {
         self.tabManager = tabManager
         self.showingIncognito = tabManager.selectedTab?.isIncognito ?? false
-        // Default filter: All containers.
-        self.selectedContainerFilter = nil
+        // Default to the current browsing account (not All).
+        let currentID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
+            ?? tabManager.resolvedLastActiveContainerID
+        self.selectedContainerFilter = tabManager.container(id: currentID)?.id
         super.init(nibName: nil, bundle: nil)
     }
 

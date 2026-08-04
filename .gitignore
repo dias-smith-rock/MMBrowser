@@ -51,6 +51,10 @@ playground.xcworkspace
 # CocoaPods
 Pods/
 
+# Firebase — keep example only; real plist from Console stays local
+MMBrowser/GoogleService-Info.plist
+Vendor/
+
 # macOS
 .DS_Store
 

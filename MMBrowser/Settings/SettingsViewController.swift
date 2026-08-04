@@ -54,7 +54,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
-        case .privacy: return 6
+        case .privacy: return 7
         case .accounts: return 1
         case .clearOption: return 1
         case .tools: return 1
@@ -160,6 +160,11 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 cell.textLabel?.text = "App Lock"
                 cell.detailTextLabel?.text = AppLockSettings.isEnabled ? "On" : "Off"
                 cell.accessoryType = .disclosureIndicator
+            case 5:
+                cell.textLabel?.text = "Ad Privacy Choices"
+                cell.detailTextLabel?.text = AdConsentManager.isPrivacyOptionsRequired ? "Manage" : "Not required"
+                cell.accessoryType = .disclosureIndicator
+                cell.selectionStyle = AdConsentManager.isPrivacyOptionsRequired ? .default : .none
             default:
                 cell.textLabel?.text = "Privacy Explained"
                 cell.accessoryType = .disclosureIndicator
@@ -262,6 +267,16 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             } else if indexPath.row == 4 {
                 navigationController?.pushViewController(AppLockSettingsViewController(), animated: true)
             } else if indexPath.row == 5 {
+                guard AdConsentManager.isPrivacyOptionsRequired else { return }
+                Task { @MainActor in
+                    do {
+                        try await AdConsentManager.presentPrivacyOptions(from: self)
+                        self.tableView.reloadData()
+                    } catch {
+                        Toast.show("Could not open privacy options", from: self)
+                    }
+                }
+            } else if indexPath.row == 6 {
                 navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
             }
         case .accounts:
