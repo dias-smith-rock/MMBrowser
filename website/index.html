@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MMBrowser — Dual accounts. Cleaner browsing.</title>
+  <meta name="description" content="MMBrowser is a private browser with dual accounts, ad & tracker blocking, Shorts Focus, App Lock, and auto-clear when you leave." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="assets/logo.png" />
+  <!-- Local preview: open this file, or `npx serve website` / any static host. Deploy website/ to GitHub Pages or Cloudflare Pages. -->
+</head>
+<body>
+  <div class="site-wrap">
+    <header class="site-header">
+      <div class="site-header__inner">
+        <a class="brand" href="index.html">
+          <img class="brand__mark" src="assets/logo.png" alt="" width="36" height="36" />
+          <span class="brand__name">MMBrowser</span>
+        </a>
+        <nav aria-label="Primary">
+          <ul class="nav-links">
+            <li class="nav-hide-sm"><a href="#features">Features</a></li>
+            <li><a href="privacy.html">Privacy</a></li>
+            <li><a href="terms.html">Terms</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" aria-label="Introduction">
+        <div class="hero__plane" aria-hidden="true">
+          <img src="assets/onboarding_privacy.png" alt="" />
+        </div>
+        <div class="hero__content">
+          <h1 class="hero__brand reveal reveal-delay-1">MMBrowser</h1>
+          <p class="hero__headline reveal reveal-delay-2">Identity-first browsing on the open web.</p>
+          <p class="hero__support reveal reveal-delay-3">
+            Separate accounts, fewer ads and Shorts, plus lock and clear when you leave—so your sessions stay yours.
+          </p>
+          <div class="btn-row reveal reveal-delay-4">
+            <a class="btn btn--primary" data-app-store href="#download">
+              Available on the App Store
+              <span data-coming-soon style="font-weight:500;opacity:0.75"> · Coming soon</span>
+            </a>
+            <a class="btn btn--ghost" href="privacy.html">Privacy Policy</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="features">
+        <div class="container">
+          <p class="section__label">Why MMBrowser</p>
+          <h2 class="section__title">Built around how you actually browse</h2>
+          <p class="section__lead">
+            Three practical controls—identity, clutter, and what stays on the device—without pretending to make you invisible on the internet.
+          </p>
+
+          <article class="feature">
+            <div class="feature__copy">
+              <h3>Dual Accounts</h3>
+              <p>
+                Keep separate logins and cookies for work and personal. Spoof or deny location per account—so sites see the identity you choose. Location spoofing only affects browser geolocation APIs; it does not change your network IP.
+              </p>
+            </div>
+            <div class="feature__media">
+              <img src="assets/onboarding_privacy.png" alt="Illustration of dual browsing accounts with location control" width="1024" height="1024" loading="lazy" />
+            </div>
+          </article>
+
+          <article class="feature feature--flip">
+            <div class="feature__copy">
+              <h3>Fewer Ads &amp; Shorts</h3>
+              <p>
+                Block ads and trackers as you browse. Turn on Shorts Focus to hide YouTube Shorts shelves and stay on the videos you want. Filters are best-effort and may need updates when sites change.
+              </p>
+            </div>
+            <div class="feature__media">
+              <img src="assets/onboarding_cleaner.png" alt="Illustration of ad blocking and Shorts focus" width="1024" height="1024" loading="lazy" />
+            </div>
+          </article>
+
+          <article class="feature">
+            <div class="feature__copy">
+              <h3>Lock &amp; Clear</h3>
+              <p>
+                Protect MMBrowser with Face ID, PIN, or pattern. Auto-clear browsing data when you leave—so nothing lingers on a shared device.
+              </p>
+            </div>
+            <div class="feature__media">
+              <img src="assets/onboarding_focus.png" alt="Illustration of app lock and auto-clear" width="1024" height="1024" loading="lazy" />
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="site-footer__inner">
+        <div>
+          <p class="site-footer__brand">MMBrowser</p>
+          <p class="site-footer__note">
+            A product by <span data-company>GoodCraft</span>.
+            Questions: <a data-contact-email href="mailto:support@goodcraft.app">support@goodcraft.app</a>
+          </p>
+        </div>
+        <ul class="site-footer__links">
+          <li><a href="privacy.html">Privacy Policy</a></li>
+          <li><a href="terms.html">Terms of Use</a></li>
+          <li><a data-app-store href="#download">App Store</a></li>
+        </ul>
+      </div>
+    </footer>
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>
