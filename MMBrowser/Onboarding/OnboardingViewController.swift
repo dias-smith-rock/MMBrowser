@@ -8,18 +8,18 @@ final class OnboardingViewController: UIViewController {
 
     private let pageCopy: [(title: String, body: String, image: String)] = [
         (
-            "Separate Accounts",
-            "Create identities with separate cookies and logins. Switch accounts anytime—without logging out of the others.",
+            "Dual Accounts",
+            "Keep separate logins and cookies for work and personal. Spoof or deny location per account—so sites see the identity you choose.",
             "onboarding_privacy"
         ),
         (
-            "Privacy & Security",
-            "Spoof or deny location per account. Lock MMBrowser with Face ID, PIN, or pattern to keep your browsing private.",
+            "Fewer Ads & Shorts",
+            "Block ads and trackers as you browse. Turn on Shorts Focus to hide YouTube Shorts shelves and stay on the videos you want.",
             "onboarding_cleaner"
         ),
         (
-            "Fast & Clean",
-            "Block ads and trackers, clean cluttered pages, and auto-clear data when you leave the app.",
+            "Lock & Clear",
+            "Protect MMBrowser with Face ID, PIN, or pattern. Auto-clear browsing data when you leave—so nothing lingers on a shared device.",
             "onboarding_focus"
         )
     ]
