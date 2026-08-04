@@ -515,6 +515,72 @@ final class TabManager {
         }
     }
 
+    /// Soft caps for live `WKWebView`s (LRU). Keeps URL + navigation history so tabs restore on next open.
+    static let maxLiveWebViewsPerAccount = 5
+    static let maxLiveWebViewsGlobal = 8
+
+    /// Drop least-recently-used WebViews over the account / global caps.
+    /// - Parameter protecting: Tab that must stay loaded (usually the one about to be shown).
+    func evictExcessWebViews(protecting protected: BrowserTab? = nil) {
+        let keep = protected ?? selectedTab
+        let keepID = keep?.id
+
+        func isProtected(_ tab: BrowserTab) -> Bool {
+            if tab.id == keepID { return true }
+            guard let web = tab.webController else { return false }
+            if web.isPictureInPictureActive { return true }
+            if PipSession.isOwner(web) { return true }
+            return false
+        }
+
+        func unload(_ tab: BrowserTab) {
+            guard let web = tab.webController else { return }
+            if let url = web.webView?.url {
+                tab.url = url
+                tab.isNewTabPage = false
+            }
+            if let title = web.webView?.title?.trimmingCharacters(in: .whitespacesAndNewlines), !title.isEmpty {
+                tab.title = title
+            }
+            if let snapshot = tab.snapshot, AppSettings.showTabsPreviewImages {
+                TabSnapshotStore.save(snapshot, for: tab.id)
+            }
+            web.cleanup()
+            tab.webController = nil
+        }
+
+        // 1) Current account (same container + browsing mode).
+        if let keep {
+            let accountLive = tabs.filter { tab in
+                guard tab.webController != nil else { return false }
+                guard tab.isIncognito == keep.isIncognito else { return false }
+                if keep.isIncognito { return true }
+                return tab.containerID == keep.containerID
+            }
+            let accountExcess = accountLive.count - Self.maxLiveWebViewsPerAccount
+            if accountExcess > 0 {
+                let victims = accountLive
+                    .filter { !isProtected($0) }
+                    .sorted { $0.lastAccessed < $1.lastAccessed }
+                for tab in victims.prefix(accountExcess) {
+                    unload(tab)
+                }
+            }
+        }
+
+        // 2) Global cap across all accounts / modes.
+        let globalLive = tabs.filter { $0.webController != nil }
+        let globalExcess = globalLive.count - Self.maxLiveWebViewsGlobal
+        if globalExcess > 0 {
+            let victims = globalLive
+                .filter { !isProtected($0) }
+                .sorted { $0.lastAccessed < $1.lastAccessed }
+            for tab in victims.prefix(globalExcess) {
+                unload(tab)
+            }
+        }
+    }
+
     // MARK: - Persistence
 
     private func notifyUpdated() {

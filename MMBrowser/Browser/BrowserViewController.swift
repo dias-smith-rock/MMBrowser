@@ -232,6 +232,12 @@ final class BrowserViewController: UIViewController {
         privateNewTabController?.applyTheme()
     }
 
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        // Keep the visible tab; reclaim everything else under the normal LRU caps.
+        tabManager.evictExcessWebViews(protecting: tabManager.selectedTab)
+    }
+
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         guard !didAttemptOnboarding else { return }
@@ -524,6 +530,8 @@ final class BrowserViewController: UIViewController {
             } else {
                 showNewTab(for: tab)
             }
+            // NTP has no WebView; still reclaim others under the global/account caps.
+            tabManager.evictExcessWebViews(protecting: tab)
         } else {
             showWeb(for: tab)
         }
@@ -670,6 +678,7 @@ final class BrowserViewController: UIViewController {
         }
         embed(web)
         web.load(url: url)
+        tabManager.evictExcessWebViews(protecting: tab)
         refreshToolbar()
         newTabController?.reloadContinue(from: tabManager.recentBrowsedTabs(limit: 1))
         tabManager.persistSessionIfNeeded()
@@ -750,8 +759,10 @@ final class BrowserViewController: UIViewController {
                 }
             }
         }
+        tab.lastAccessed = Date()
         embed(web)
         addressBar.setURLText(Self.addressBarDisplayText(for: tab.url ?? web.webView?.url))
+        tabManager.evictExcessWebViews(protecting: tab)
         refreshToolbar()
     }
 
