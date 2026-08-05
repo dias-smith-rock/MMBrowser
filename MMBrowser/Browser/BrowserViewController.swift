@@ -188,13 +188,14 @@ final class BrowserViewController: UIViewController {
             self?.stopStickyPipBackgroundKeepAlive()
         }
         var ticks = 0
+        // ≤ ~20s total; JS tick no-ops when PiP playback is already healthy.
         let timer = Timer(timeInterval: 3.5, repeats: true) { [weak self] t in
             guard let self else {
                 t.invalidate()
                 return
             }
             ticks += 1
-            guard ticks <= 16,
+            guard ticks <= 6,
                   AppSettings.stickyPictureInPicture,
                   let owner = PipSession.owner else {
                 self.stopStickyPipBackgroundKeepAlive()

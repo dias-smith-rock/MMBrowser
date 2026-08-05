@@ -290,6 +290,8 @@ final class WebViewController: UIViewController {
     private var pipChipHideWorkItem: DispatchWorkItem?
     /// Prevents stacked auto-enter retries while sticky PiP waits for a video element.
     private var stickyPipEnterInFlight = false
+    /// Bumps to cancel an in-flight sticky enter retry chain (video change / leave).
+    private var stickyPipEnterGeneration = 0
     /// After a PiP leave, suppress sticky auto-restore briefly so a manual close can clear prefer.
     private var suppressStickyPipRestoreUntil: Date?
     /// After yielding to another tab, ignore stale active:true while system PiP tears down.
@@ -1357,6 +1359,7 @@ final class WebViewController: UIViewController {
             "wasActive": isPictureInPictureActive,
             "wasPrefer": prefersPictureInPicture
         ])
+        stickyPipEnterGeneration += 1
         stickyPipEnterInFlight = false
         pipLeaveWorkItem?.cancel()
         pipLeaveWorkItem = nil
@@ -1408,11 +1411,17 @@ final class WebViewController: UIViewController {
             PipProbe.log("sticky.restore.skip", ["why": "inFlight"])
             return
         }
+        stickyPipEnterGeneration += 1
         stickyPipEnterInFlight = true
-        attemptStickyPipEnter(retriesLeft: 10)
+        attemptStickyPipEnter(retriesLeft: 4, delay: 0.35)
     }
 
-    private func attemptStickyPipEnter(retriesLeft: Int) {
+    private func cancelStickyPipEnterAttempts() {
+        stickyPipEnterGeneration += 1
+        stickyPipEnterInFlight = false
+    }
+
+    private func attemptStickyPipEnter(retriesLeft: Int, delay: TimeInterval) {
         guard AppSettings.pictureInPictureEnabled,
               AppSettings.stickyPictureInPicture,
               !YouTubeDarkMode.isYouTubeMusic(webView?.url),
@@ -1425,6 +1434,7 @@ final class WebViewController: UIViewController {
             stickyPipEnterInFlight = false
             return
         }
+        let generation = stickyPipEnterGeneration
         PipProbe.log("sticky.attempt", [
             "left": retriesLeft,
             "host": webView?.url?.host ?? "?",
@@ -1434,6 +1444,7 @@ final class WebViewController: UIViewController {
         MediaPlaybackSupport.enterPictureInPicture(in: webView) { [weak self] ok in
             DispatchQueue.main.async {
                 guard let self else { return }
+                guard self.stickyPipEnterGeneration == generation else { return }
                 guard AppSettings.stickyPictureInPicture else {
                     self.stickyPipEnterInFlight = false
                     PipProbe.log("sticky.attempt.abort", ["why": "stickyCleared"])
@@ -1451,10 +1462,13 @@ final class WebViewController: UIViewController {
                 }
                 PipProbe.log("sticky.attempt.retry", [
                     "left": retriesLeft - 1,
+                    "delay": delay,
                     "host": self.webView?.url?.host ?? "?"
                 ])
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { [weak self] in
-                    self?.attemptStickyPipEnter(retriesLeft: retriesLeft - 1)
+                let nextDelay = min(delay * 1.7, 2.0)
+                DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+                    guard let self, self.stickyPipEnterGeneration == generation else { return }
+                    self.attemptStickyPipEnter(retriesLeft: retriesLeft - 1, delay: nextDelay)
                 }
             }
         }
@@ -1742,7 +1756,7 @@ final class WebViewController: UIViewController {
         if prefer == false {
             // Explicit clear from page (user dismissed PiP).
             PipProbe.log("native.preferCleared", ["host": webView?.url?.host ?? "?"])
-            stickyPipEnterInFlight = false
+            cancelStickyPipEnterAttempts()
             persistPipPrefer(false)
             suppressStickyPipRestoreUntil = nil
             return
@@ -2034,6 +2048,7 @@ extension WebViewController: WKNavigationDelegate {
                 "isMusic": YouTubeDarkMode.isYouTubeMusic(webView.url),
                 "sticky": true
             ])
+            stickyPipEnterGeneration += 1
             stickyPipEnterInFlight = false
             prefersPictureInPicture = true
             MediaPlaybackSupport.seedStickyPrefer(in: webView)

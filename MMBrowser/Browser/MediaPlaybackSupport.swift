@@ -333,6 +333,8 @@ enum MediaPlaybackSupport {
           // Sticky user/system intent to stay in PiP across YouTube "next video" swaps.
           if (typeof window.__mmPreferPip === 'undefined') window.__mmPreferPip = false;
           var reenterToken = 0;
+          var reenterTimer = null;
+          var playRetryToken = 0;
           // Snapshot taken on PiP leave — used to tell "user closed PiP" from "next video swap".
           var pipLeftAt = 0;
           var pipLeftVideo = null;
@@ -376,16 +378,18 @@ enum MediaPlaybackSupport {
 
           function retryPlayAfterTakeover(v) {
             if (!v) return;
-            [160, 400, 700].forEach(function(ms) {
-              setTimeout(function() {
-                try {
-                  if (!v || v.ended) return;
-                  if (!v.paused) return;
-                  var p = v.play();
-                  if (p && p.catch) p.catch(function(){});
-                } catch (e) {}
-              }, ms);
-            });
+            var token = ++playRetryToken;
+            var attempt = 0;
+            function tick() {
+              try {
+                if (token !== playRetryToken || !v || v.ended || !v.paused) return;
+                var p = v.play();
+                if (p && p.catch) p.catch(function(){});
+              } catch (e) {}
+              attempt += 1;
+              if (attempt < 2) setTimeout(tick, 450);
+            }
+            setTimeout(tick, 180);
           }
 
           function notePipLeft(v) {
@@ -670,6 +674,7 @@ enum MediaPlaybackSupport {
             postDiag('prefer.clear', { videos: window.__mmPipVideoSnapshot ? window.__mmPipVideoSnapshot() : [] });
             window.__mmPreferPip = false;
             reenterToken += 1;
+            if (reenterTimer) { try { clearTimeout(reenterTimer); } catch (e) {} reenterTimer = null; }
             pipLeftAt = 0;
             pipLeftVideo = null;
             pipLeftSrc = '';
@@ -724,9 +729,6 @@ enum MediaPlaybackSupport {
             }
             postDiag('track.reenter', { reason: String(reason || '') });
             schedulePipReenter(v);
-            setTimeout(function() {
-              if (window.__mmPreferPip && !anyInPiP()) enterPiP('track:' + reason);
-            }, 150);
           }
 
           function ytMusicPlayerTitle() {
@@ -768,48 +770,44 @@ enum MediaPlaybackSupport {
             } catch (e) {}
           }
 
-          /// After PiP drops (next video / element swap), re-enter unless the user dismissed.
+          /// After PiP drops (next video / element swap), re-enter with a single exponential scheduler.
           function schedulePipReenter(previousVideo) {
             if (!window.__mmPreferPip || isYouTubeMusic()) return;
             if (window.__mmPipSuppressReenterUntil && Date.now() < window.__mmPipSuppressReenterUntil) return;
             var token = ++reenterToken;
+            if (reenterTimer) { try { clearTimeout(reenterTimer); } catch (e) {} reenterTimer = null; }
             var prevSrc = videoSrc(previousVideo);
             var prevEnded = false;
             try { prevEnded = !!(previousVideo && previousVideo.ended); } catch (e) {}
-            // Background timers are throttled — keep trying longer after a natural end.
-            var delays = prevEnded || (window.__mmPipAdvanceUntil && Date.now() < window.__mmPipAdvanceUntil)
-              ? [200, 500, 1000, 1800, 3000, 5000, 8000, 12000]
-              : [120, 280, 550, 1000, 1800, 3200];
-            delays.forEach(function(ms, idx) {
-              setTimeout(function() {
-                if (token !== reenterToken || !window.__mmPreferPip) return;
-                if (window.__mmPipSuppressReenterUntil && Date.now() < window.__mmPipSuppressReenterUntil) return;
-                var stuck = pickVideo();
-                // Ended clip still reporting PiP — leave so the next item can start.
-                if (anyInPiP() && stuck && stuck.ended) {
-                  postDiag('reenter.forceLeaveEnded', { idx: idx, video: videoProbe(stuck) });
-                  forceLeaveHtmlPip(stuck);
-                  tryAdvanceYouTubeNext();
-                } else if (anyInPiP()) {
-                  postPip(true);
-                  return;
-                }
-                // User closed the PiP window while the same clip kept playing.
-                if (looksLikeUserDismiss()) {
-                  postDiag('prefer.userDismiss', { reason: 'reenterTick', idx: idx });
-                  clearPreferPip();
-                  return;
-                }
-                var v = pickVideo();
-                if (!v) {
-                  if (idx >= 2) tryAdvanceYouTubeNext();
-                  return;
-                }
-                if (v.ended) {
-                  if (idx >= 1) tryAdvanceYouTubeNext();
-                  return;
-                }
+            var advancing = !!(window.__mmPipAdvanceUntil && Date.now() < window.__mmPipAdvanceUntil);
+            var maxAttempts = (prevEnded || advancing) ? 4 : 3;
+            var attempt = 0;
+            var delay = (prevEnded || advancing) ? 280 : 160;
 
+            function tick() {
+              reenterTimer = null;
+              if (token !== reenterToken || !window.__mmPreferPip) return;
+              if (window.__mmPipSuppressReenterUntil && Date.now() < window.__mmPipSuppressReenterUntil) return;
+              var stuck = pickVideo();
+              if (anyInPiP() && stuck && stuck.ended) {
+                postDiag('reenter.forceLeaveEnded', { idx: attempt, video: videoProbe(stuck) });
+                forceLeaveHtmlPip(stuck);
+                tryAdvanceYouTubeNext();
+              } else if (anyInPiP()) {
+                postPip(true);
+                return;
+              }
+              if (looksLikeUserDismiss()) {
+                postDiag('prefer.userDismiss', { reason: 'reenterTick', idx: attempt });
+                clearPreferPip();
+                return;
+              }
+              var v = pickVideo();
+              if (!v) {
+                if (attempt >= 1) tryAdvanceYouTubeNext();
+              } else if (v.ended) {
+                if (attempt >= 0) tryAdvanceYouTubeNext();
+              } else {
                 var src = videoSrc(v);
                 var sameClip = previousVideo
                   && v === previousVideo
@@ -817,14 +815,21 @@ enum MediaPlaybackSupport {
                   && src === prevSrc
                   && !v.ended;
                 if (sameClip && !prevEnded) {
-                  // Same clip still inline → user closed PiP (wait one tick for false leaves).
-                  if (idx >= 1) clearPreferPip();
-                  return;
+                  if (attempt >= 1) {
+                    clearPreferPip();
+                    return;
+                  }
+                } else {
+                  enterPiP(prevEnded ? 'ended.next:' + attempt : 'reenter:' + attempt);
+                  if (anyInPiP()) return;
                 }
-                // New / replaced / next media — put it back in PiP.
-                enterPiP(prevEnded ? 'ended.next:' + idx : 'reenter:' + idx);
-              }, ms);
-            });
+              }
+              attempt += 1;
+              if (attempt >= maxAttempts) return;
+              delay = Math.min(Math.round(delay * 1.9), 4000);
+              reenterTimer = setTimeout(tick, delay);
+            }
+            reenterTimer = setTimeout(tick, delay);
           }
 
           function unlockVideo(v) {
@@ -1222,12 +1227,20 @@ enum MediaPlaybackSupport {
             });
             postPip(true);
             setTimeout(function() {
-              var still = anyInPiP();
-              if (!still && window.__mmPreferPip) {
-                postDiag('enter.retry', { reason: why });
-                prepareVideoForPiP(pickVideo() || v);
-                requestPiPOnVideo(pickVideo() || v);
+              if (!window.__mmPreferPip) return;
+              if (anyInPiP()) {
+                postDiag('enter.result', {
+                  reason: why,
+                  inPip: true,
+                  prefer: true,
+                  video: videoProbe(pickVideo())
+                });
+                return;
               }
+              postDiag('enter.retry', { reason: why });
+              var v2 = pickVideo() || v;
+              prepareVideoForPiP(v2);
+              requestPiPOnVideo(v2);
               setTimeout(function() {
                 postDiag('enter.result', {
                   reason: why,
@@ -1235,8 +1248,8 @@ enum MediaPlaybackSupport {
                   prefer: !!window.__mmPreferPip,
                   video: videoProbe(pickVideo())
                 });
-              }, 280);
-            }, 200);
+              }, 240);
+            }, 280);
             return inPipNow || claimed;
           }
           window.__mmEnterPiP = enterPiP;
@@ -1404,8 +1417,7 @@ enum MediaPlaybackSupport {
             if (!window.__mmPreferPip) return;
             if (anyInPiP()) return;
             // New decode pipeline after song tap — restore PiP (not after user closed PiP).
-            setTimeout(function() { tryReenterOrClear('playing:80'); }, 80);
-            setTimeout(function() { tryReenterOrClear('playing:400'); }, 400);
+            schedulePipReenter(v);
           }, true);
 
           ['pause', 'ended', 'emptied'].forEach(function(type) {
@@ -1531,9 +1543,7 @@ enum MediaPlaybackSupport {
               // Music has no PiP reenter path.
               if (isYouTubeMusic()) return;
               if (window.__mmPreferPip && !isInPiP(v)) {
-                // Song taps on YTM often only fire play (no navigation).
-                setTimeout(function() { tryReenterOrClear('play:60'); }, 60);
-                setTimeout(function() { tryReenterOrClear('play:300'); }, 300);
+                schedulePipReenter(v);
               }
             }
           }, true);
@@ -1543,18 +1553,11 @@ enum MediaPlaybackSupport {
             if (!v || v.tagName !== 'VIDEO') return;
             if (!window.__mmPreferPip || isYouTubeMusic()) return;
             // Natural end while sticky: leave PiP, advance playlist, re-enter on next item.
-            window.__mmPipAdvanceUntil = Date.now() + 15000;
+            window.__mmPipAdvanceUntil = Date.now() + 12000;
             postDiag('ended.next', { video: videoProbe(v), hidden: document.visibilityState === 'hidden' });
             forceLeaveHtmlPip(v);
             tryAdvanceYouTubeNext();
             schedulePipReenter(v);
-            [2500, 5000, 9000].forEach(function(ms) {
-              setTimeout(function() {
-                if (!window.__mmPreferPip || anyInPiP()) return;
-                tryAdvanceYouTubeNext();
-                tryReenterOrClear('ended+' + ms);
-              }, ms);
-            });
           }, true);
 
           // YouTube SPA next / related navigation.
