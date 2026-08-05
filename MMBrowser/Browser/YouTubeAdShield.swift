@@ -14,7 +14,8 @@ enum YouTubeAdShield {
     static var userScript: WKUserScript {
         let remote = FilterUpdateManager.shared.youtubeAdShieldScript
         let source = remote.isEmpty ? bundledScript : remote
-        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+        // Player / ad UI lives in the main YouTube document.
+        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
     }
 
     /// Bundled fallback when CDN has not supplied a script yet.
@@ -41,21 +42,138 @@ enum YouTubeAdShield {
             delete pr.auxiliaryUi.messageRenderers.premiumUpsellDialogRenderer;
           }
           if (pr.messages) pr.messages = [];
-          var vd = pr.videoDetails;
-          if (vd) {
-            vd.isLive = vd.isLive || false;
-          }
         } catch (e) {}
         return pr;
       }
 
+      /** Replace a JSON array value for `key` with `[]` (bracket-balanced, string-aware). */
+      function stripJsonArrayField(text, key) {
+        var needle = '"' + key + '"';
+        var idx = 0;
+        var out = text;
+        while ((idx = out.indexOf(needle, idx)) !== -1) {
+          var colon = out.indexOf(':', idx + needle.length);
+          if (colon === -1) break;
+          var i = colon + 1;
+          while (i < out.length && (out.charCodeAt(i) <= 32)) i++;
+          if (out[i] !== '[') { idx = i; continue; }
+          var depth = 0;
+          var start = i;
+          var j = i;
+          for (; j < out.length; j++) {
+            var ch = out[j];
+            if (ch === '"') {
+              j++;
+              while (j < out.length) {
+                if (out[j] === '\\\\') { j += 2; continue; }
+                if (out[j] === '"') break;
+                j++;
+              }
+              continue;
+            }
+            if (ch === '[') depth++;
+            else if (ch === ']') {
+              depth--;
+              if (depth === 0) { j++; break; }
+            }
+          }
+          out = out.slice(0, start) + '[]' + out.slice(j);
+          idx = start + 2;
+        }
+        return out;
+      }
+
+      /** Delete `"key": <value>` (object/array/primitive) when value is a simple JSON token or balanced structure. */
+      function stripJsonField(text, key) {
+        var needle = '"' + key + '"';
+        var idx = 0;
+        var out = text;
+        while ((idx = out.indexOf(needle, idx)) !== -1) {
+          var colon = out.indexOf(':', idx + needle.length);
+          if (colon === -1) break;
+          var i = colon + 1;
+          while (i < out.length && (out.charCodeAt(i) <= 32)) i++;
+          var startKey = idx;
+          // Include a preceding comma when present.
+          var pre = startKey - 1;
+          while (pre >= 0 && (out.charCodeAt(pre) <= 32)) pre--;
+          var dropCommaBefore = pre >= 0 && out[pre] === ',';
+          var from = dropCommaBefore ? pre : startKey;
+          var j = i;
+          var ch = out[j];
+          if (ch === '{' || ch === '[') {
+            var open = ch;
+            var close = ch === '{' ? '}' : ']';
+            var depth = 0;
+            for (; j < out.length; j++) {
+              var c = out[j];
+              if (c === '"') {
+                j++;
+                while (j < out.length) {
+                  if (out[j] === '\\\\') { j += 2; continue; }
+                  if (out[j] === '"') break;
+                  j++;
+                }
+                continue;
+              }
+              if (c === open) depth++;
+              else if (c === close) {
+                depth--;
+                if (depth === 0) { j++; break; }
+              }
+            }
+          } else if (ch === '"') {
+            j++;
+            while (j < out.length) {
+              if (out[j] === '\\\\') { j += 2; continue; }
+              if (out[j] === '"') { j++; break; }
+              j++;
+            }
+          } else {
+            while (j < out.length && /[\\w.+\\-eE]/.test(out[j])) j++;
+          }
+          // Drop trailing comma if we did not drop a preceding one.
+          var k = j;
+          while (k < out.length && (out.charCodeAt(k) <= 32)) k++;
+          if (!dropCommaBefore && out[k] === ',') j = k + 1;
+          out = out.slice(0, from) + out.slice(j);
+          idx = from;
+        }
+        return out;
+      }
+
+      function looksLikeAdPayload(text) {
+        return text.indexOf('adPlacement') !== -1
+          || text.indexOf('playerAds') !== -1
+          || text.indexOf('"adSlots"') !== -1
+          || text.indexOf('adBreakHeartbeat') !== -1
+          || text.indexOf('premiumUpsell') !== -1;
+      }
+
+      function isPlayerURL(url) {
+        return /\\/youtubei\\/v1\\/player/i.test(url) || /\\/get_video_info/i.test(url);
+      }
+
+      /** Prefer light string rewrite; fall back to JSON.parse only if needed. */
       function cleanJSONText(text) {
+        if (!text || !looksLikeAdPayload(text)) return text;
+        try {
+          var light = text;
+          light = stripJsonArrayField(light, 'adPlacements');
+          light = stripJsonArrayField(light, 'adSlots');
+          light = stripJsonArrayField(light, 'playerAds');
+          light = stripJsonArrayField(light, 'messages');
+          light = stripJsonField(light, 'adBreakHeartbeatParams');
+          if (light !== text) return light;
+        } catch (e) {}
         try {
           var obj = JSON.parse(text);
           if (obj.playerResponse) obj.playerResponse = cleanPlayerResponse(obj.playerResponse);
-          if (obj.adPlacements) obj = cleanPlayerResponse(obj);
+          else obj = cleanPlayerResponse(obj);
           return JSON.stringify(obj);
-        } catch (e) { return text; }
+        } catch (e2) {
+          return text;
+        }
       }
 
       // ytInitialPlayerResponse
@@ -74,14 +192,7 @@ enum YouTubeAdShield {
         }
       } catch (e) {}
 
-      // ytInitialData path for home ads (best-effort)
-      try {
-        if (window.ytInitialData) {
-          // leave structure; shorts handled elsewhere
-        }
-      } catch (e) {}
-
-      // Fetch / XHR youtubei player
+      // Fetch: only player / video-info URLs; avoid clone when rewriting.
       try {
         var origFetch = window.fetch;
         if (typeof origFetch === 'function') {
@@ -89,20 +200,21 @@ enum YouTubeAdShield {
             var args = arguments;
             var input = args[0];
             var url = (typeof input === 'string') ? input : (input && input.url) || '';
+            var rewrite = isPlayerURL(url);
             return origFetch.apply(this, args).then(function(resp) {
+              if (!rewrite) return resp;
               try {
-                if (/\\/youtubei\\/v1\\/player/i.test(url) || /\\/get_video_info/i.test(url)) {
-                  return resp.clone().text().then(function(t) {
-                    var cleaned = cleanJSONText(t);
-                    return new Response(cleaned, {
-                      status: resp.status,
-                      statusText: resp.statusText,
-                      headers: resp.headers
-                    });
+                return resp.text().then(function(t) {
+                  var cleaned = cleanJSONText(t);
+                  return new Response(cleaned, {
+                    status: resp.status,
+                    statusText: resp.statusText,
+                    headers: resp.headers
                   });
-                }
-              } catch (e) {}
-              return resp;
+                });
+              } catch (e) {
+                return resp;
+              }
             });
           };
         }
@@ -117,11 +229,12 @@ enum YouTubeAdShield {
         };
         XMLHttpRequest.prototype.send = function() {
           var self = this;
-          if (this.__mmUrl && /\\/youtubei\\/v1\\/player/i.test(String(this.__mmUrl))) {
+          if (this.__mmUrl && isPlayerURL(String(this.__mmUrl))) {
             this.addEventListener('readystatechange', function() {
               if (self.readyState !== 4) return;
               try {
                 var t = self.responseText;
+                if (!looksLikeAdPayload(t)) return;
                 var cleaned = cleanJSONText(t);
                 if (cleaned !== t) {
                   Object.defineProperty(self, 'responseText', { get: function() { return cleaned; } });
@@ -134,42 +247,103 @@ enum YouTubeAdShield {
         };
       } catch (e) {}
 
-      // Skip UI when .ad-showing appears
       function skipAdDom() {
+        if (document.hidden) return;
         try {
-          var player = document.querySelector('.html5-video-player.ad-showing, .ad-showing');
+          var player = document.querySelector('.html5-video-player.ad-showing, .ad-showing.html5-video-player');
           if (!player) return;
-          var skip = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, button[class*="skip"]');
+          var skip = player.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, button.ytp-ad-skip-button-container')
+            || document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button');
           if (skip) { try { skip.click(); } catch (e) {} }
           var v = player.querySelector('video');
           if (v && isFinite(v.duration) && v.duration > 0) {
             try { v.currentTime = Math.max(v.duration - 0.2, 0); } catch (e) {}
           }
-          try {
-            if (window.webkit && webkit.messageHandlers && webkit.messageHandlers.mmYouTubeAdShield) {
-              webkit.messageHandlers.mmYouTubeAdShield.postMessage({ type: 'skipped' });
-            }
-          } catch (e) {}
         } catch (e) {}
       }
-      setInterval(skipAdDom, 700);
 
-      // Detect anti-adblock / locked player
-      var degradedSent = false;
-      function checkDegraded() {
-        if (degradedSent) return;
+      var skipTimer = null;
+      var playerMO = null;
+      function ensurePlayerMO() {
+        if (document.hidden) return;
+        var player = document.querySelector('.html5-video-player');
+        if (!player) return;
+        if (player.__mmAdMOAttached) return;
+        if (playerMO) {
+          try { playerMO.disconnect(); } catch (e) {}
+          playerMO = null;
+        }
         try {
-          var lock = document.querySelector('ytd-enforcement-message-view-model, .yt-playability-error-supported-renderers');
-          var text = (document.body && document.body.innerText) || '';
-          if (lock || /ad blocker|blockers are not allowed|video player will resume/i.test(text)) {
-            degradedSent = true;
-            if (window.webkit && webkit.messageHandlers && webkit.messageHandlers.mmYouTubeAdShieldDegraded) {
-              webkit.messageHandlers.mmYouTubeAdShieldDegraded.postMessage({ type: 'degraded' });
-            }
+          var pending = null;
+          playerMO = new MutationObserver(function() {
+            if (document.hidden) return;
+            if (pending) return;
+            pending = setTimeout(function() {
+              pending = null;
+              skipAdDom();
+            }, 120);
+          });
+          playerMO.observe(player, { attributes: true, attributeFilter: ['class'] });
+          player.__mmAdMOAttached = true;
+        } catch (e) {
+          playerMO = null;
+        }
+      }
+      function startSkipLoop() {
+        if (skipTimer || document.hidden) return;
+        skipTimer = setInterval(function() {
+          ensurePlayerMO();
+          skipAdDom();
+        }, 1400);
+        ensurePlayerMO();
+      }
+      function stopSkipLoop() {
+        if (skipTimer) {
+          clearInterval(skipTimer);
+          skipTimer = null;
+        }
+        if (playerMO) {
+          try { playerMO.disconnect(); } catch (e) {}
+          playerMO = null;
+        }
+      }
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) stopSkipLoop();
+        else { startSkipLoop(); skipAdDom(); }
+      });
+      startSkipLoop();
+
+      // Detect anti-adblock / locked player via DOM only (no body.innerText).
+      var degradedSent = false;
+      var degradeTimer = null;
+      function checkDegraded() {
+        if (degradedSent || document.hidden) return;
+        try {
+          var lock = document.querySelector(
+            'ytd-enforcement-message-view-model, .yt-playability-error-supported-renderers'
+          );
+          if (!lock) return;
+          degradedSent = true;
+          stopDegradeLoop();
+          if (window.webkit && webkit.messageHandlers && webkit.messageHandlers.mmYouTubeAdShieldDegraded) {
+            webkit.messageHandlers.mmYouTubeAdShieldDegraded.postMessage({ type: 'degraded' });
           }
         } catch (e) {}
       }
-      setInterval(checkDegraded, 2500);
+      function startDegradeLoop() {
+        if (degradeTimer || degradedSent || document.hidden) return;
+        degradeTimer = setInterval(checkDegraded, 4000);
+      }
+      function stopDegradeLoop() {
+        if (!degradeTimer) return;
+        clearInterval(degradeTimer);
+        degradeTimer = null;
+      }
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) stopDegradeLoop();
+        else startDegradeLoop();
+      });
+      startDegradeLoop();
     })();
     """
 }
