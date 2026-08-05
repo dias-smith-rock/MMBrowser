@@ -66,6 +66,16 @@ enum AppSettings {
         get { d.bool(forKey: "no.images.enabled") }
         set {
             d.set(newValue, forKey: "no.images.enabled")
+            if !newValue { d.set(false, forKey: "no.images.aggressive") }
+            NotificationCenter.default.post(name: .noImagesChanged, object: nil)
+        }
+    }
+
+    /// When true, No Images script also runs in iframes (heavier). Default off = main frame only.
+    static var aggressiveNoImagesEnabled: Bool {
+        get { d.bool(forKey: "no.images.aggressive") }
+        set {
+            d.set(newValue, forKey: "no.images.aggressive")
             NotificationCenter.default.post(name: .noImagesChanged, object: nil)
         }
     }

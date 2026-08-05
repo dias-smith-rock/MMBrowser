@@ -256,6 +256,8 @@ final class WebViewController: UIViewController {
     private(set) var isPageCleanerActive = false
     private var cleanerURLOnly = false
     var onPageCleanerActiveChanged: ((Bool) -> Void)?
+    /// Rules changed while this tab was not visible — re-apply on next appear / finish.
+    private var pageCleanerNeedsReapply = false
     private var scriptMessageProxy: WebViewScriptProxy?
     private var pageCleanerObserver: NSObjectProtocol?
     private var contentOffsetObservation: NSKeyValueObservation?
@@ -321,6 +323,11 @@ final class WebViewController: UIViewController {
         view.backgroundColor = BrowserTheme.background
         setupErrorView()
         setupWebView()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        applyPageCleanerIfNeeded()
     }
 
     private func setupWebView() {
@@ -506,9 +513,20 @@ final class WebViewController: UIViewController {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            guard let self = self, let webView = self.webView else { return }
-            PageCleanerManager.apply(to: webView, url: webView.url)
+            guard let self = self else { return }
+            self.pageCleanerNeedsReapply = true
+            // Only refresh the visible tab immediately; others wait until shown.
+            guard self.view.window != nil else { return }
+            self.applyPageCleanerIfNeeded(force: true)
         }
+    }
+
+    /// Apply stored cleaner CSS when dirty or forced (visible tab / navigation finish).
+    func applyPageCleanerIfNeeded(force: Bool = false) {
+        guard let webView else { return }
+        guard force || pageCleanerNeedsReapply else { return }
+        pageCleanerNeedsReapply = false
+        PageCleanerManager.apply(to: webView, url: webView.url)
     }
 
     fileprivate func handleNoImageScriptMessage(_ message: WKScriptMessage) {
@@ -2001,7 +2019,9 @@ extension WebViewController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-        PageCleanerManager.apply(to: webView, url: webView.url)
+        if PageCleanerManager.shouldApplyEarly(on: webView.url) {
+            PageCleanerManager.apply(to: webView, url: webView.url)
+        }
         recordNavigationHistory(from: webView.url)
         notifyDelegateOnMain {
             $0.delegate?.webViewController($0, didUpdateURL: webView.url)
@@ -2096,6 +2116,7 @@ extension WebViewController: WKNavigationDelegate {
                 completionHandler: nil
             )
         }
+        pageCleanerNeedsReapply = false
         PageCleanerManager.apply(to: webView, url: webView.url)
         if isPageCleanerActive {
             PageCleanerManager.setPickMode(enabled: true, on: webView)

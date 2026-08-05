@@ -78,22 +78,32 @@ enum YouTubeShortsFocus {
             return el.closest(ITEM_SELECTORS.join(','));
           }
 
-          function hideShortsItems() {
-            var links = document.querySelectorAll('a[href*="/shorts/"]');
-            for (var i = 0; i < links.length; i++) {
-              var a = links[i];
-              if (!isShortsHref(a.getAttribute('href') || a.href)) continue;
-              // Keep bottom/pivot nav tabs — only hide feed cards.
-              if (a.closest('ytm-pivot-bar-renderer, ytd-mini-guide-renderer, ytd-guide-renderer, nav, [role="navigation"]')) {
-                var tab = a.closest('ytm-pivot-bar-item-renderer, ytd-guide-entry-renderer, ytd-mini-guide-entry-renderer, a');
-                if (tab) tab.classList.add('mm-hide-shorts-item');
-                continue;
-              }
-              var item = closestItem(a);
-              if (item) {
-                item.classList.add('mm-hide-shorts-item');
-              }
+          function hideLink(a) {
+            if (!a || !a.getAttribute) return;
+            if (!isShortsHref(a.getAttribute('href') || a.href)) return;
+            // Keep bottom/pivot nav tabs — only hide feed cards.
+            if (a.closest('ytm-pivot-bar-renderer, ytd-mini-guide-renderer, ytd-guide-renderer, nav, [role="navigation"]')) {
+              var tab = a.closest('ytm-pivot-bar-item-renderer, ytd-guide-entry-renderer, ytd-mini-guide-entry-renderer, a');
+              if (tab) tab.classList.add('mm-hide-shorts-item');
+              return;
             }
+            var item = closestItem(a);
+            if (item) item.classList.add('mm-hide-shorts-item');
+          }
+
+          function hideShortsIn(root) {
+            if (!root) return;
+            if (root.nodeType === 1 && root.tagName === 'A') {
+              hideLink(root);
+              return;
+            }
+            if (!root.querySelectorAll) return;
+            var links = root.querySelectorAll('a[href*="/shorts/"]');
+            for (var i = 0; i < links.length; i++) hideLink(links[i]);
+          }
+
+          function hideShortsItems() {
+            hideShortsIn(document);
           }
 
           function videoIdFromShortsPath(pathname) {
@@ -130,16 +140,35 @@ enum YouTubeShortsFocus {
           window.addEventListener('popstate', function() { redirectIfShorts(location.href); });
 
           var scheduled = false;
+          var pendingRoots = null;
+          var needsFull = false;
           function tick() {
             scheduled = false;
             ensureStyle();
-            hideShortsItems();
+            var full = needsFull;
+            var roots = pendingRoots;
+            needsFull = false;
+            pendingRoots = null;
+            if (full || !roots || !roots.length) {
+              hideShortsItems();
+            } else {
+              for (var i = 0; i < roots.length; i++) hideShortsIn(roots[i]);
+            }
             redirectIfShorts(location.href);
           }
-          function schedule() {
+          function schedule(roots) {
+            if (roots && roots.length) {
+              if (!needsFull) {
+                if (!pendingRoots) pendingRoots = [];
+                for (var i = 0; i < roots.length; i++) pendingRoots.push(roots[i]);
+              }
+            } else {
+              needsFull = true;
+              pendingRoots = null;
+            }
             if (scheduled) return;
             scheduled = true;
-            setTimeout(tick, 50);
+            setTimeout(tick, 250);
           }
 
           ensureStyle();
@@ -147,12 +176,24 @@ enum YouTubeShortsFocus {
           schedule();
 
           try {
-            new MutationObserver(schedule).observe(document.documentElement, { childList: true, subtree: true });
+            new MutationObserver(function(mutations) {
+              var roots = [];
+              for (var i = 0; i < mutations.length; i++) {
+                var nodes = mutations[i].addedNodes;
+                for (var j = 0; j < nodes.length; j++) {
+                  var n = nodes[j];
+                  if (!n || n.nodeType !== 1) continue;
+                  roots.push(n);
+                }
+              }
+              if (roots.length) schedule(roots);
+            }).observe(document.documentElement, { childList: true, subtree: true });
           } catch (e) {}
-          document.addEventListener('DOMContentLoaded', schedule, { once: true });
+          document.addEventListener('DOMContentLoaded', function() { schedule(); }, { once: true });
         })();
         """
-        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+        // Shorts UI lives in the main YouTube document; skip iframe spam.
+        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: true)
     }
 
     private static func jsonString(_ values: [String]) -> String {

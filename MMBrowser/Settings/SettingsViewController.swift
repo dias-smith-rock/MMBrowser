@@ -54,7 +54,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
-        case .privacy: return 8
+        case .privacy: return 9
         case .accounts: return 1
         case .clearOption: return 1
         case .tools: return 1
@@ -155,21 +155,30 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.addTarget(self, action: #selector(noImagesChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
             case 3:
+                cell.textLabel?.text = "Aggressive Image Block"
+                cell.detailTextLabel?.text = "Also scrub images inside iframes"
+                cell.selectionStyle = .none
+                let sw = UISwitch()
+                sw.isOn = AppSettings.aggressiveNoImagesEnabled
+                sw.isEnabled = AppSettings.noImagesEnabled
+                sw.addTarget(self, action: #selector(aggressiveNoImagesChanged(_:)), for: .valueChanged)
+                cell.accessoryView = sw
+            case 4:
                 cell.textLabel?.text = "HTTPS First"
                 cell.selectionStyle = .none
                 let sw = UISwitch()
                 sw.isOn = AppSettings.httpsOnly
                 sw.addTarget(self, action: #selector(httpsChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
-            case 4:
+            case 5:
                 cell.textLabel?.text = "Location"
                 cell.detailTextLabel?.text = AppSettings.locationSummary
                 cell.accessoryType = .disclosureIndicator
-            case 5:
+            case 6:
                 cell.textLabel?.text = "App Lock"
                 cell.detailTextLabel?.text = AppLockSettings.isEnabled ? "On" : "Off"
                 cell.accessoryType = .disclosureIndicator
-            case 6:
+            case 7:
                 cell.textLabel?.text = "Ad Privacy Choices"
                 cell.detailTextLabel?.text = AdConsentManager.isPrivacyOptionsRequired ? "Manage" : "Not required"
                 cell.accessoryType = .disclosureIndicator
@@ -266,16 +275,16 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         tableView.deselectRow(at: indexPath, animated: true)
         switch Section(rawValue: indexPath.section)! {
         case .privacy:
-            if indexPath.row == 4 {
+            if indexPath.row == 5 {
                 let location = LocationSettingsViewController()
                 location.onChanged = { [weak self] in
                     self?.onRequestRebuildWebViews?()
                     self?.tableView.reloadData()
                 }
                 navigationController?.pushViewController(location, animated: true)
-            } else if indexPath.row == 5 {
-                navigationController?.pushViewController(AppLockSettingsViewController(), animated: true)
             } else if indexPath.row == 6 {
+                navigationController?.pushViewController(AppLockSettingsViewController(), animated: true)
+            } else if indexPath.row == 7 {
                 guard AdConsentManager.isPrivacyOptionsRequired else { return }
                 Task { @MainActor in
                     do {
@@ -285,7 +294,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                         Toast.show("Could not open privacy options", from: self)
                     }
                 }
-            } else if indexPath.row == 7 {
+            } else if indexPath.row == 8 {
                 navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
             }
         case .accounts:
@@ -385,7 +394,12 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     }
     @objc private func noImagesChanged(_ sw: UISwitch) {
         AppSettings.noImagesEnabled = sw.isOn
+        tableView.reloadSections(IndexSet(integer: Section.privacy.rawValue), with: .none)
         Toast.show(sw.isOn ? "Block images on" : "Block images off", from: self)
+    }
+    @objc private func aggressiveNoImagesChanged(_ sw: UISwitch) {
+        AppSettings.aggressiveNoImagesEnabled = sw.isOn
+        Toast.show(sw.isOn ? "Aggressive image block on" : "Aggressive image block off", from: self)
     }
     @objc private func httpsChanged(_ sw: UISwitch) { AppSettings.httpsOnly = sw.isOn }
     @objc private func close() { dismiss(animated: true) }

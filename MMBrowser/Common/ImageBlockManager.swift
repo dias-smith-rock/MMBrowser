@@ -17,11 +17,13 @@ final class ImageBlockManager {
     }
 
     /// Document-start script: gate imgs/videos and overlay a centered “Turn off No Images” chip.
-    static let placeholderUserScript = WKUserScript(
-        source: placeholderJS,
-        injectionTime: .atDocumentStart,
-        forMainFrameOnly: false
-    )
+    static var placeholderUserScript: WKUserScript {
+        WKUserScript(
+            source: placeholderJS,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: !AppSettings.aggressiveNoImagesEnabled
+        )
+    }
 
     private init() {}
 
@@ -398,9 +400,14 @@ final class ImageBlockManager {
       function boot() {
         scan(document);
         hardenAll();
-        var mo = new MutationObserver(function(mutations) {
-          for (var i = 0; i < mutations.length; i++) {
-            var nodes = mutations[i].addedNodes;
+        var queued = [];
+        var pending = null;
+        function flushMutations() {
+          pending = null;
+          var batch = queued;
+          queued = [];
+          for (var i = 0; i < batch.length; i++) {
+            var nodes = batch[i].addedNodes;
             for (var j = 0; j < nodes.length; j++) {
               var n = nodes[j];
               if (!n || n.nodeType !== 1) continue;
@@ -412,10 +419,22 @@ final class ImageBlockManager {
               }
             }
           }
+        }
+        var mo = new MutationObserver(function(mutations) {
+          for (var i = 0; i < mutations.length; i++) queued.push(mutations[i]);
+          if (pending) return;
+          pending = setTimeout(flushMutations, 200);
         });
         mo.observe(document.documentElement || document, { childList: true, subtree: true });
+        var resizePending = null;
         window.addEventListener('load', hardenAll);
-        window.addEventListener('resize', hardenAll);
+        window.addEventListener('resize', function() {
+          if (resizePending) return;
+          resizePending = setTimeout(function() {
+            resizePending = null;
+            hardenAll();
+          }, 200);
+        });
       }
 
       if (document.readyState === 'loading') {

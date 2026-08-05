@@ -54,6 +54,18 @@ enum PageCleanerManager {
         webView.evaluateJavaScript(js, completionHandler: nil)
     }
 
+    /// Hosts that flash cleaned UI before `didFinish` — apply once at `didCommit` too.
+    static func shouldApplyEarly(on url: URL?) -> Bool {
+        guard let host = url?.host?.lowercased() else { return false }
+        let keys = [
+            "youtube.com", "youtu.be", "youtube-nocookie.com",
+            "facebook.com", "fb.com", "instagram.com",
+            "x.com", "twitter.com",
+            "tiktok.com", "reddit.com", "redd.it"
+        ]
+        return keys.contains { host == $0 || host.hasSuffix(".\($0)") }
+    }
+
     static func setPickMode(enabled: Bool, on webView: WKWebView) {
         let js = enabled ? enablePickModeJS : disablePickModeJS
         webView.evaluateJavaScript(js, completionHandler: nil)

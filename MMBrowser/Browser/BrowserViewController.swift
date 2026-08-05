@@ -796,6 +796,7 @@ final class BrowserViewController: UIViewController {
         }
         tab.lastAccessed = Date()
         embed(web)
+        web.applyPageCleanerIfNeeded()
         addressBar.setURLText(Self.addressBarDisplayText(for: tab.url ?? web.webView?.url))
         tabManager.evictExcessWebViews(protecting: tab)
         refreshToolbar()
