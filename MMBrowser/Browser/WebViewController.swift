@@ -681,16 +681,15 @@ final class WebViewController: UIViewController {
     }
 
     /// Install heavy host-specific user scripts before the document loads (document-start).
+    /// Media / YouTube payloads stay off generic sites unless this tab already has PiP intent.
     private func ensureOnDemandScripts(for url: URL?) {
         guard let webView else { return }
         let ucc = webView.configuration.userContentController
         let mediaFeaturesOn = AppSettings.pictureInPictureEnabled || AppSettings.backgroundAudioEnabled
         if mediaFeaturesOn, !didInstallMediaScript {
-            let needMedia = MediaPlaybackSupport.shouldInstallScript(for: url)
-                || prefersPictureInPicture
-                || isPictureInPictureActive
-                || (AppSettings.stickyPictureInPicture && PipSession.isOwner(self))
-            if needMedia {
+            let onMediaHost = MediaPlaybackSupport.shouldInstallScript(for: url)
+            let pipIntent = prefersPictureInPicture || isPictureInPictureActive
+            if onMediaHost || pipIntent {
                 didInstallMediaScript = true
                 ucc.addUserScript(MediaPlaybackSupport.mediaUserScript)
             }
@@ -713,7 +712,7 @@ final class WebViewController: UIViewController {
         }
     }
 
-    /// Ensures the media bridge exists before PiP enter (may require a reload on cold pages).
+    /// Install media bridge when the user explicitly starts PiP on a non-listed host (then reload).
     private func ensureMediaScriptForPictureInPicture() {
         guard AppSettings.pictureInPictureEnabled || AppSettings.backgroundAudioEnabled else { return }
         guard !didInstallMediaScript, let webView else { return }
@@ -2036,7 +2035,7 @@ extension WebViewController: WKNavigationDelegate {
             }
 
             // Document-start scripts only apply to loads that begin after they are added.
-            // Cancel and re-load once when first hitting YouTube / a media host in this WebView.
+            // First hit on YouTube / a media host: install then cancel+reload so scripts run.
             if isMainFrame, ["http", "https"].contains(scheme) {
                 let mediaFeaturesOn = AppSettings.pictureInPictureEnabled || AppSettings.backgroundAudioEnabled
                 let needsYouTubeScripts = YouTubeDarkMode.isYouTube(url) && !didInstallYouTubeScripts

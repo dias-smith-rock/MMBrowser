@@ -47,18 +47,68 @@ enum MediaPlaybackSupport {
         isLikelyMediaHost(url)
     }
 
+    /// Hosts where the heavy media/PiP document-start script is worth installing.
+    /// Sourced from US Similarweb Top 100 (May 2026) sites with native/embedded video pages,
+    /// plus common streamers and existing international video hosts.
+    static let mediaHostSuffixes: [String] = [
+        // YouTube
+        "youtube.com", "youtu.be", "youtube-nocookie.com",
+        // Social / short video (US Top 100 + peers)
+        "x.com", "twitter.com",
+        "facebook.com", "fb.watch", "fb.com", "instagram.com",
+        "tiktok.com", "reddit.com", "linkedin.com", "pinterest.com",
+        "discord.com", "threads.net",
+        // Subscription / live streaming
+        "netflix.com", "twitch.tv", "hulu.com", "disneyplus.com",
+        "max.com", "hbomax.com", "peacocktv.com", "primevideo.com",
+        "paramountplus.com", "apple.com", // TV+ / product trailers on apple.com
+        "tv.apple.com", "spotify.com", "kick.com", "rumble.com",
+        "tubi.tv", "pluto.tv", "crunchyroll.com", "vimeo.com", "dailymotion.com",
+        // Sports / entertainment video
+        "espn.com", "mlb.com", "nba.com", "nfl.com", "nhl.com",
+        "imdb.com", "fandom.com", "roblox.com",
+        // News with HTML5 video players (US Top 100)
+        "cnn.com", "foxnews.com", "nytimes.com", "bbc.com", "bbc.co.uk",
+        "msn.com", "yahoo.com", "aol.com", "people.com", "weather.com",
+        "nbcnews.com", "abcnews.go.com", "cbsnews.com", "usatoday.com",
+        "washingtonpost.com", "theguardian.com",
+        // Adult video (US Top 100)
+        "pornhub.com", "xvideos.com", "xhamster.com", "xnxx.com",
+        "onlyfans.com", "chaturbate.com", "stripchat.com",
+        // Commerce with frequent product / Prime video
+        "amazon.com",
+        // China / regional video (kept for multi-market users)
+        "bilibili.com", "bilibili.tv", "b23.tv",
+        "iqiyi.com", "youku.com", "douyin.com"
+    ]
+
     static func isLikelyMediaHost(_ url: URL?) -> Bool {
-        guard let host = url?.host?.lowercased() else { return false }
+        isLikelyMediaHost(url?.host)
+    }
+
+    static func isLikelyMediaHost(_ host: String?) -> Bool {
+        guard let host = host?.lowercased(), !host.isEmpty else { return false }
         if YouTubeDarkMode.isYouTubeHost(host) { return true }
-        let keys = [
-            "bilibili.com", "bilibili.tv", "b23.tv",
-            "vimeo.com", "twitch.tv", "netflix.com",
-            "disneyplus.com", "hulu.com", "max.com",
-            "iqiyi.com", "youku.com", "tiktok.com", "douyin.com",
-            "pornhub.com", "xvideos.com",
-            "dailymotion.com", "facebook.com", "fb.watch", "instagram.com"
-        ]
-        return keys.contains { host == $0 || host.hasSuffix(".\($0)") }
+        return mediaHostSuffixes.contains { host == $0 || host.hasSuffix(".\($0)") }
+    }
+
+    /// Shared with the injected script so runtime gating matches install policy.
+    private static var mediaHostGateJS: String {
+        let json = (try? JSONSerialization.data(withJSONObject: mediaHostSuffixes, options: []))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+        return """
+        function __mmIsLikelyMediaHost(hostname) {
+          var h = (hostname || '').toLowerCase();
+          if (!h) return false;
+          if (h === 'youtu.be' || h.indexOf('youtube.com') !== -1 || h.indexOf('youtube-nocookie.com') !== -1) return true;
+          var keys = \(json);
+          for (var i = 0; i < keys.length; i++) {
+            var k = keys[i];
+            if (h === k || (h.length > k.length && h.slice(-(k.length + 1)) === '.' + k)) return true;
+          }
+          return false;
+        }
+        """
     }
 
     /// Re-assert playback after the app backgrounds (YouTube Music pauses on visibilitychange).
@@ -329,12 +379,29 @@ enum MediaPlaybackSupport {
         let source = """
         (function() {
           if (window.__mmMediaKeepAlive) return;
+          \(mediaHostGateJS)
+          var onMediaHost = __mmIsLikelyMediaHost(location.hostname);
+          var preferPip = !!window.__mmPreferPip;
+
+          // Non-target pages: skip the heavy bridge (script may remain installed after a prior media visit).
+          if (!onMediaHost && !preferPip) {
+            window.__mmMediaKeepAlive = 'skipped';
+            window.__mmAnyInPiP = function() { return false; };
+            window.__mmPipPlaybackHealthy = function() { return false; };
+            window.__mmPipChipState = function() { return { state: 'none', count: 0, visible: 0 }; };
+            window.__mmEnterPiP = function() { return false; };
+            window.__mmTryReenterOrClear = function() {};
+            window.__mmStickyPipBackgroundTick = function() { return 'skipped'; };
+            return;
+          }
+
           window.__mmMediaKeepAlive = true;
           window.__mmBackgroundAudio = \(bgFlag);
 
-          // Subframes: light probe only — full PiP stack runs in the top frame.
+          // Subframes: light probe only on media hosts — full PiP stack runs in the top frame.
           try {
             if (window.top && window.top !== window) {
+              if (!onMediaHost && !preferPip) return;
               function postTop(msg) {
                 try { window.top.postMessage({ __mmMedia: true, msg: msg }, '*'); } catch (e) {}
               }
