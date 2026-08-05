@@ -4,7 +4,11 @@ import UIKit
 /// Lightweight timing / counter logs for screenshot open + editor interaction.
 /// Filter Xcode console with: `[ShotPerf]`
 enum ScreenshotPerf {
+    #if DEBUG
     static let enabled = true
+    #else
+    static let enabled = false
+    #endif
     private static let tag = "[ShotPerf]"
 
     private static var sessionStart: CFAbsoluteTime?

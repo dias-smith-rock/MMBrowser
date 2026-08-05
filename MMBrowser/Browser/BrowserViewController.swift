@@ -134,18 +134,20 @@ final class BrowserViewController: UIViewController {
                     }
                 }
             }
-            tabManager.persistSessionIfNeeded()
+            HistoryStore.shared.flush()
+            tabManager.persistSessionIfNeeded(force: true)
             return
         }
 
         MediaPlaybackSupport.configureAudioSessionIfNeeded()
-        for tab in tabManager.tabs {
+        for tab in tabManager.tabs where tab.webController?.needsBackgroundMediaKeepAlive == true {
             MediaPlaybackSupport.keepBackgroundMediaAlive(in: tab.webController?.webView)
         }
 
         // Refresh previews for live tabs so thumbnails survive relaunch.
         guard !AppSettings.closeAllTabsOnExit, AppSettings.showTabsPreviewImages else {
-            tabManager.persistSessionIfNeeded()
+            HistoryStore.shared.flush()
+            tabManager.persistSessionIfNeeded(force: true)
             return
         }
         var bgTask = UIBackgroundTaskIdentifier.invalid
@@ -155,24 +157,11 @@ final class BrowserViewController: UIViewController {
                 bgTask = .invalid
             }
         }
-        let group = DispatchGroup()
-        for tab in tabManager.tabs where !tab.isIncognito && !tab.isNewTabPage {
-            if tab.webController != nil {
-                group.enter()
-                captureSnapshot(for: tab) {
-                    MediaPlaybackSupport.keepBackgroundMediaAlive(in: tab.webController?.webView)
-                    group.leave()
-                }
-            } else if let snapshot = tab.snapshot {
-                TabSnapshotStore.save(snapshot, for: tab.id)
-            }
-        }
-        group.notify(queue: .main) { [weak self] in
+        let snapshotTabs = tabManager.tabs.filter { !$0.isIncognito && !$0.isNewTabPage }
+        captureSnapshotsSerially(tabs: snapshotTabs, index: 0) { [weak self] in
             guard let self else { return }
-            for tab in self.tabManager.tabs {
-                MediaPlaybackSupport.keepBackgroundMediaAlive(in: tab.webController?.webView)
-            }
-            self.tabManager.persistSessionIfNeeded()
+            HistoryStore.shared.flush()
+            self.tabManager.persistSessionIfNeeded(force: true)
             if bgTask != .invalid {
                 UIApplication.shared.endBackgroundTask(bgTask)
                 bgTask = .invalid
@@ -878,7 +867,8 @@ final class BrowserViewController: UIViewController {
         web.captureSnapshot { [weak tab] image in
             DispatchQueue.main.async {
                 if AppSettings.showTabsPreviewImages, let image {
-                    tab?.snapshot = image
+                    let thumb = TabSnapshotStore.thumbnailForMemory(image)
+                    tab?.snapshot = thumb
                     if let id = tab?.id {
                         TabSnapshotStore.save(image, for: id)
                     }
@@ -900,6 +890,25 @@ final class BrowserViewController: UIViewController {
         }
     }
 
+    /// Capture tab previews one at a time to avoid parallel WK snapshot pressure.
+    private func captureSnapshotsSerially(tabs: [BrowserTab], index: Int, completion: @escaping () -> Void) {
+        guard index < tabs.count else {
+            completion()
+            return
+        }
+        let tab = tabs[index]
+        if tab.webController != nil {
+            captureSnapshot(for: tab) { [weak self] in
+                self?.captureSnapshotsSerially(tabs: tabs, index: index + 1, completion: completion)
+            }
+        } else if let snapshot = tab.snapshot {
+            TabSnapshotStore.save(snapshot, for: tab.id)
+            captureSnapshotsSerially(tabs: tabs, index: index + 1, completion: completion)
+        } else {
+            captureSnapshotsSerially(tabs: tabs, index: index + 1, completion: completion)
+        }
+    }
+
     /// Refresh previews for non-selected tabs that still have a live WebView.
     private func refreshBackgroundTabSnapshots(completion: (() -> Void)?) {
         guard AppSettings.showTabsPreviewImages else {
@@ -914,12 +923,7 @@ final class BrowserViewController: UIViewController {
             completion?()
             return
         }
-        let group = DispatchGroup()
-        for tab in candidates {
-            group.enter()
-            captureSnapshot(for: tab) { group.leave() }
-        }
-        group.notify(queue: .main) {
+        captureSnapshotsSerially(tabs: candidates, index: 0) {
             completion?()
         }
     }
@@ -1064,12 +1068,13 @@ extension BrowserViewController: AddressBarViewDelegate {
             // Best-effort live snapshot for a smoother peek.
             tab.webController?.captureSnapshot { [weak self, weak tab] image in
                 guard let self = self, let tab = tab, let image else { return }
-                tab.snapshot = image
+                let thumb = TabSnapshotStore.thumbnailForMemory(image)
+                tab.snapshot = thumb
                 if AppSettings.showTabsPreviewImages {
                     TabSnapshotStore.save(image, for: tab.id)
                 }
                 guard self.preparedAdjacentTabOffset == offset else { return }
-                self.adjacentTabPreview.image = image
+                self.adjacentTabPreview.image = thumb
             }
         }
     }

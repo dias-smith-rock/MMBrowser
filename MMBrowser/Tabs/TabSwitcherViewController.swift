@@ -926,6 +926,7 @@ final class TabGridCell: UICollectionViewCell {
     private let closeButton = UIButton(type: .system)
     private let preview = UIImageView()
     private let placeholder = UILabel()
+    private var configuredTabID: UUID?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -1018,6 +1019,7 @@ final class TabGridCell: UICollectionViewCell {
     required init?(coder: NSCoder) { fatalError() }
 
     func configure(tab: BrowserTab, containerName: String, accountColor: UIColor, selected: Bool) {
+        configuredTabID = tab.id
         titleLabel.text = tab.title
         let name = containerName.trimmingCharacters(in: .whitespacesAndNewlines)
         groupButton.setTitle(name.isEmpty ? "Account" : name, for: .normal)
@@ -1034,12 +1036,20 @@ final class TabGridCell: UICollectionViewCell {
         if AppSettings.showTabsPreviewImages, let snapshot = tab.snapshot {
             preview.image = snapshot
             placeholder.isHidden = true
+            upgradePreviewToStandard(for: tab.id)
         } else {
             preview.image = nil
             placeholder.isHidden = false
         }
         card.layer.borderWidth = selected ? 2 : 0
         card.layer.borderColor = accountColor.cgColor
+    }
+
+    private func upgradePreviewToStandard(for tabID: UUID) {
+        TabSnapshotStore.loadStandardAsync(for: tabID) { [weak self] image in
+            guard let self, self.configuredTabID == tabID, let image else { return }
+            self.preview.image = image
+        }
     }
 
     @objc private func closeTapped() { onClose?() }

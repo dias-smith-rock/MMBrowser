@@ -46,7 +46,7 @@ enum PipProbe {
         #if DEBUG
         true
         #else
-        UserDefaults.standard.bool(forKey: "debug.pip.probe")
+        false
         #endif
     }
 

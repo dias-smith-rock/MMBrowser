@@ -77,6 +77,10 @@ final class DownloadManager: NSObject {
     private var tasks: [UUID: URLSessionDownloadTask] = [:]
     private var taskIDToItem: [Int: UUID] = [:]
     private var backgroundCompletionHandler: (() -> Void)?
+    private var lastProgressSaveTime: CFAbsoluteTime = 0
+    private var lastProgressNotifyTime: CFAbsoluteTime = 0
+    private let progressSaveInterval: TimeInterval = 0.5
+    private let progressNotifyInterval: TimeInterval = 0.1
 
     static var directory: URL {
         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -390,11 +394,23 @@ final class DownloadManager: NSObject {
         DownloadLocalNotifications.shared.postFinished(item)
     }
 
-    private func updateItem(id: UUID, _ mutate: (inout DownloadItem) -> Void) {
+    private func updateItem(
+        id: UUID,
+        persistImmediately: Bool = true,
+        notifyImmediately: Bool = true,
+        _ mutate: (inout DownloadItem) -> Void
+    ) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         mutate(&items[index])
-        save()
-        notify()
+        let now = CFAbsoluteTimeGetCurrent()
+        if persistImmediately || (now - lastProgressSaveTime) >= progressSaveInterval {
+            lastProgressSaveTime = now
+            save()
+        }
+        if notifyImmediately || (now - lastProgressNotifyTime) >= progressNotifyInterval {
+            lastProgressNotifyTime = now
+            notify()
+        }
     }
 
     private func removeMetadataOnly(id: UUID, deleteFile: Bool) {
@@ -487,7 +503,7 @@ extension DownloadManager: URLSessionDownloadDelegate {
         totalBytesExpectedToWrite: Int64
     ) {
         guard let id = itemID(for: downloadTask) else { return }
-        updateItem(id: id) { item in
+        updateItem(id: id, persistImmediately: false, notifyImmediately: false) { item in
             item.bytesWritten = totalBytesWritten
             item.totalBytes = totalBytesExpectedToWrite
             item.status = .downloading

@@ -16,6 +16,8 @@ final class TabManager {
     private(set) var lastActiveContainerID: UUID?
 
     private let sessionKey = "mmbrowser.tabs.session"
+    private static let sessionFileName = "mmbrowser.session.json"
+    private var persistSessionWorkItem: DispatchWorkItem?
     private let containersKey = "mmbrowser.containers"
     private let lastContainerKey = "mmbrowser.containers.lastActive"
     /// Marks migration from Default/Work/Personal → FB-1… then → Personal/Work/Social.
@@ -764,7 +766,38 @@ final class TabManager {
         }
     }
 
-    func persistSessionIfNeeded() {
+    func persistSessionIfNeeded(force: Bool = false) {
+        persistSessionWorkItem?.cancel()
+        persistSessionWorkItem = nil
+        if force {
+            flushPersistedSession(synchronizeDefaults: true)
+            return
+        }
+        let work = DispatchWorkItem { [weak self] in
+            self?.flushPersistedSession(synchronizeDefaults: false)
+        }
+        persistSessionWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: work)
+    }
+
+    private var sessionFileURL: URL {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return dir.appendingPathComponent(Self.sessionFileName)
+    }
+
+    private func loadSessionData() -> Data? {
+        if let data = try? Data(contentsOf: sessionFileURL), !data.isEmpty {
+            return data
+        }
+        if let data = defaults.data(forKey: sessionKey) {
+            try? data.write(to: sessionFileURL, options: .atomic)
+            defaults.removeObject(forKey: sessionKey)
+            return data
+        }
+        return nil
+    }
+
+    private func flushPersistedSession(synchronizeDefaults: Bool) {
         persistContainers()
         let normal = normalTabs
         guard !normal.isEmpty else {
@@ -792,10 +825,12 @@ final class TabManager {
             containers: sortedContainers
         )
         if let data = try? JSONEncoder().encode(payload) {
-            defaults.set(data, forKey: sessionKey)
+            try? data.write(to: sessionFileURL, options: .atomic)
+            defaults.removeObject(forKey: sessionKey)
         }
-        // Flush promptly so a sudden termination still has the latest tab/container map.
-        defaults.synchronize()
+        if synchronizeDefaults {
+            defaults.synchronize()
+        }
         var keep = Set<UUID>()
         for tab in normal {
             keep.insert(tab.id)
@@ -808,6 +843,8 @@ final class TabManager {
 
     /// Intentional leave with "Close All Tabs on Exit" — next launch starts fresh.
     func markCleanExitAndClearSession() {
+        persistSessionWorkItem?.cancel()
+        persistSessionWorkItem = nil
         defaults.set(true, forKey: cleanExitKey)
         clearPersistedSession()
         defaults.synchronize()
@@ -815,12 +852,13 @@ final class TabManager {
 
     func clearPersistedSession() {
         defaults.removeObject(forKey: sessionKey)
+        try? FileManager.default.removeItem(at: sessionFileURL)
         TabSnapshotStore.removeAll()
     }
 
     @discardableResult
     private func restorePersistedSession() -> Bool {
-        guard let data = defaults.data(forKey: sessionKey),
+        guard let data = loadSessionData(),
               let session = try? JSONDecoder().decode(PersistedSession.self, from: data),
               !session.tabs.isEmpty else {
             return false
@@ -863,7 +901,7 @@ final class TabManager {
                 historyIndex: $0.historyIndex
             )
             if AppSettings.showTabsPreviewImages {
-                tab.snapshot = TabSnapshotStore.load(for: $0.id)
+                tab.snapshot = TabSnapshotStore.loadMicro(for: $0.id)
             }
             return tab
         }

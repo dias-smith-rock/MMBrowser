@@ -15,6 +15,8 @@ final class HistoryStore {
     private let key = "mmbrowser.history.items"
     private let defaults = UserDefaults.standard
     private(set) var items: [HistoryItem] = []
+    private var saveWorkItem: DispatchWorkItem?
+    private let saveDebounceInterval: TimeInterval = 1.5
 
     private init() {
         load()
@@ -38,23 +40,23 @@ final class HistoryStore {
         }
         items.insert(item, at: 0)
         if items.count > 300 { items = Array(items.prefix(300)) }
-        save()
+        scheduleSave()
     }
 
     func clear() {
         items = []
-        save()
+        saveNow()
     }
 
     func remove(id: UUID) {
         items.removeAll { $0.id == id }
-        save()
+        saveNow()
     }
 
     func remove(ids: Set<UUID>) {
         guard !ids.isEmpty else { return }
         items.removeAll { ids.contains($0.id) }
-        save()
+        saveNow()
     }
 
     /// Removes history entries for a host, optionally limited to one local calendar day.
@@ -65,7 +67,7 @@ final class HistoryStore {
             guard let day else { return true }
             return calendar.isDate(item.date, inSameDayAs: day)
         }
-        save()
+        saveNow()
     }
 
     /// Removes every history entry whose local calendar day matches `day`.
@@ -73,7 +75,7 @@ final class HistoryStore {
         let start = calendar.startOfDay(for: day)
         guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return }
         items.removeAll { $0.date >= start && $0.date < end }
-        save()
+        saveNow()
     }
 
     /// Groups items by local day, newest day first; items within a day newest first.
@@ -107,13 +109,28 @@ final class HistoryStore {
         return host.lowercased()
     }
 
+    func flush() {
+        saveWorkItem?.cancel()
+        saveWorkItem = nil
+        saveNow()
+    }
+
     private func load() {
         guard let data = defaults.data(forKey: key),
               let decoded = try? JSONDecoder().decode([HistoryItem].self, from: data) else { return }
         items = decoded
     }
 
-    private func save() {
+    private func scheduleSave() {
+        saveWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.saveNow()
+        }
+        saveWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + saveDebounceInterval, execute: work)
+    }
+
+    private func saveNow() {
         if let data = try? JSONEncoder().encode(items) {
             defaults.set(data, forKey: key)
         }

@@ -1,7 +1,13 @@
 import UIKit
 
 /// Disk cache for tab-switcher preview thumbnails (survives relaunch).
+/// Stores a fast micro thumbnail and a higher-quality standard thumbnail per tab.
 enum TabSnapshotStore {
+    private static let microMaxSide: CGFloat = 140
+    private static let microQuality: CGFloat = 0.45
+    private static let standardMaxSide: CGFloat = 480
+    private static let standardQuality: CGFloat = 0.72
+
     private static var directory: URL {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
         let dir = base.appendingPathComponent("TabSnapshots", isDirectory: true)
@@ -11,23 +17,57 @@ enum TabSnapshotStore {
         return dir
     }
 
-    private static func fileURL(for id: UUID) -> URL {
+    private static func standardFileURL(for id: UUID) -> URL {
         directory.appendingPathComponent("\(id.uuidString).jpg")
     }
 
-    static func save(_ image: UIImage, for id: UUID) {
-        let thumbnail = scaled(image, maxSide: 480)
-        guard let data = thumbnail.jpegData(compressionQuality: 0.72) else { return }
-        try? data.write(to: fileURL(for: id), options: .atomic)
+    private static func microFileURL(for id: UUID) -> URL {
+        directory.appendingPathComponent("\(id.uuidString).micro.jpg")
     }
 
-    static func load(for id: UUID) -> UIImage? {
-        guard let data = try? Data(contentsOf: fileURL(for: id)) else { return nil }
+    /// Standard-scaled image for in-memory `tab.snapshot` — never retain full WK snapshot pixels.
+    static func thumbnailForMemory(_ image: UIImage) -> UIImage {
+        scaled(image, maxSide: standardMaxSide)
+    }
+
+    static func save(_ image: UIImage, for id: UUID) {
+        let micro = scaled(image, maxSide: microMaxSide)
+        let standard = scaled(image, maxSide: standardMaxSide)
+        if let data = micro.jpegData(compressionQuality: microQuality) {
+            try? data.write(to: microFileURL(for: id), options: .atomic)
+        }
+        if let data = standard.jpegData(compressionQuality: standardQuality) {
+            try? data.write(to: standardFileURL(for: id), options: .atomic)
+        }
+    }
+
+    static func loadMicro(for id: UUID) -> UIImage? {
+        guard let data = try? Data(contentsOf: microFileURL(for: id)) else { return nil }
         return UIImage(data: data)
     }
 
+    static func loadStandard(for id: UUID) -> UIImage? {
+        guard let data = try? Data(contentsOf: standardFileURL(for: id)) else { return nil }
+        return UIImage(data: data)
+    }
+
+    /// Backward-compatible alias — returns standard quality when available.
+    static func load(for id: UUID) -> UIImage? {
+        loadStandard(for: id) ?? loadMicro(for: id)
+    }
+
+    static func loadStandardAsync(for id: UUID, completion: @escaping (UIImage?) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let image = loadStandard(for: id)
+            DispatchQueue.main.async {
+                completion(image)
+            }
+        }
+    }
+
     static func remove(for id: UUID) {
-        try? FileManager.default.removeItem(at: fileURL(for: id))
+        try? FileManager.default.removeItem(at: standardFileURL(for: id))
+        try? FileManager.default.removeItem(at: microFileURL(for: id))
     }
 
     static func removeAll(except keep: Set<UUID> = []) {
@@ -36,10 +76,18 @@ enum TabSnapshotStore {
             includingPropertiesForKeys: nil
         ) else { return }
         for file in files where file.pathExtension.lowercased() == "jpg" {
-            let name = file.deletingPathExtension().lastPathComponent
-            if let id = UUID(uuidString: name), keep.contains(id) { continue }
+            guard let id = tabID(from: file) else { continue }
+            if keep.contains(id) { continue }
             try? FileManager.default.removeItem(at: file)
         }
+    }
+
+    private static func tabID(from file: URL) -> UUID? {
+        let base = file.deletingPathExtension().lastPathComponent
+        if base.hasSuffix(".micro") {
+            return UUID(uuidString: String(base.dropLast(6)))
+        }
+        return UUID(uuidString: base)
     }
 
     private static func scaled(_ image: UIImage, maxSide: CGFloat) -> UIImage {

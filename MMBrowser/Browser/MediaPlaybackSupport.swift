@@ -313,6 +313,23 @@ enum MediaPlaybackSupport {
           window.__mmMediaKeepAlive = true;
           window.__mmBackgroundAudio = \(bgFlag);
 
+          // Subframes: light probe only — full PiP stack runs in the top frame.
+          try {
+            if (window.top && window.top !== window) {
+              function postTop(msg) {
+                try { window.top.postMessage({ __mmMedia: true, msg: msg }, '*'); } catch (e) {}
+              }
+              function hasVideo() {
+                try { return document.querySelector('video') != null; } catch (e) { return false; }
+              }
+              setInterval(function() {
+                if (document.visibilityState === 'hidden') return;
+                if (hasVideo()) postTop('video');
+              }, 2000);
+              return;
+            }
+          } catch (e) {}
+
           // Sticky user/system intent to stay in PiP across YouTube "next video" swaps.
           if (typeof window.__mmPreferPip === 'undefined') window.__mmPreferPip = false;
           var reenterToken = 0;
@@ -983,11 +1000,15 @@ enum MediaPlaybackSupport {
             try {
               root.querySelectorAll('video').forEach(function(v) { out.push(v); });
             } catch (e) {}
+            // Limit shadow walks — full querySelectorAll('*') is too expensive on large SPAs.
             try {
-              var all = root.querySelectorAll('*');
-              for (var i = 0; i < all.length; i++) {
-                var sr = all[i].shadowRoot;
-                if (sr) collectVideos(sr, out);
+              var hosts = root.querySelectorAll('[class*="player"],[id*="player"],[class*="video"],yt-hover-card,ytd-player,video-stream');
+              var limit = Math.min(hosts.length, 40);
+              for (var i = 0; i < limit; i++) {
+                var sr = hosts[i].shadowRoot;
+                if (sr) {
+                  try { sr.querySelectorAll('video').forEach(function(v) { out.push(v); }); } catch (e2) {}
+                }
               }
             } catch (e) {}
             return out;
@@ -1471,12 +1492,25 @@ enum MediaPlaybackSupport {
             }
           }, true);
 
-          setInterval(markPlayingState, 800);
-          setInterval(scanVideos, 1000);
+          function tickMedia() {
+            if (document.visibilityState === 'hidden' && !anyInPiP() && !window.__mmPreferPip) return;
+            markPlayingState();
+            scanVideos();
+          }
+          setInterval(tickMedia, 1200);
           scanVideos();
+          markPlayingState();
 
           try {
-            var mo = new MutationObserver(function() { scanVideos(); });
+            var moTimer = null;
+            var mo = new MutationObserver(function() {
+              if (moTimer) return;
+              moTimer = setTimeout(function() {
+                moTimer = null;
+                if (document.visibilityState === 'hidden' && !anyInPiP()) return;
+                scanVideos();
+              }, 280);
+            });
             mo.observe(document.documentElement || document, { childList: true, subtree: true });
           } catch (e) {}
 

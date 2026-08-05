@@ -276,7 +276,9 @@ final class WebViewController: UIViewController {
     private lazy var pipEntryButton: UIButton = makePipEntryButton()
     private var pipVideoPollTimer: Timer?
     /// True when the page reports an actively playing (or PiP) `<video>`.
-    private var pageHasPlayingVideo = false
+    private(set) var pageHasPlayingVideo = false
+    /// Last time media was reported playing (for selective background keep-alive).
+    private(set) var lastMediaPlayingAt: Date?
     /// Chip flicker diagnostics — last visibility + rapid flip counter.
     private var pipChipLastShown: Bool?
     private var pipChipLastToggleAt: Date?
@@ -1186,10 +1188,29 @@ final class WebViewController: UIViewController {
         guard AppSettings.pictureInPictureEnabled,
               !YouTubeDarkMode.isYouTubeMusic(webView?.url)
         else { return }
+
+        let isForegroundTab = view.window != nil
+        let isPipOwner = isPictureInPictureActive || PipSession.isOwner(self)
+        // Background live tabs: no native poll (page script still runs at reduced rate).
+        guard isForegroundTab || isPipOwner else {
+            pollPlayableVideoForPiP()
+            return
+        }
+
         pollPlayableVideoForPiP()
-        pipVideoPollTimer = Timer.scheduledTimer(withTimeInterval: 0.8, repeats: true) { [weak self] _ in
+        let interval: TimeInterval = isPipOwner && !isForegroundTab ? 2.0 : 0.8
+        pipVideoPollTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             self?.pollPlayableVideoForPiP()
         }
+    }
+
+    /// Whether this tab should receive background media keep-alive.
+    var needsBackgroundMediaKeepAlive: Bool {
+        if isPictureInPictureActive || PipSession.isOwner(self) { return true }
+        guard AppSettings.backgroundAudioEnabled else { return false }
+        if pageHasPlayingVideo { return true }
+        if let last = lastMediaPlayingAt, Date().timeIntervalSince(last) < 4 { return true }
+        return false
     }
 
     private func pollPlayableVideoForPiP() {
@@ -1260,6 +1281,7 @@ final class WebViewController: UIViewController {
                 let prevPlaying = self.pageHasPlayingVideo
                 let prevState = self.pipChipLastPollState
                 self.pageHasPlayingVideo = playing
+                if playing { self.lastMediaPlayingAt = Date() }
                 if state != prevState || playing != prevPlaying {
                     PipProbe.log("chip.poll", [
                         "state": state,
@@ -1630,6 +1652,7 @@ final class WebViewController: UIViewController {
                     guard let self else { return }
                     let prev = self.pageHasPlayingVideo
                     self.pageHasPlayingVideo = playing
+                if playing { self.lastMediaPlayingAt = Date() }
                     if prev != playing {
                         PipProbe.log("chip.js.videoPlaying", [
                             "playing": playing,
