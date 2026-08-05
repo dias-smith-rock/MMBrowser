@@ -364,7 +364,7 @@ final class WebViewController: UIViewController {
         let proxy = WebViewScriptProxy(target: self)
         scriptMessageProxy = proxy
         config.userContentController.add(proxy, name: PageCleanerManager.handlerName)
-        if AppSettings.trackerProtectionEnabled {
+        if AppSettings.trackerProtectionEnabled, AppSettings.accurateBlockCountEnabled {
             config.userContentController.add(proxy, name: AdBlockManager.blockCountHandlerName)
         }
         if YouTubeAdShield.isEffectivelyEnabled {
@@ -1031,6 +1031,7 @@ final class WebViewController: UIViewController {
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: BrowserAutofillCoordinator.messageName)
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: MediaPlaybackSupport.pipHandlerName)
         webView?.configuration.userContentController.removeScriptMessageHandler(forName: XSiteProbe.handlerName)
+        webView?.configuration.userContentController.removeScriptMessageHandler(forName: AdBlockManager.blockCountHandlerName)
         if let pipForegroundObserver {
             NotificationCenter.default.removeObserver(pipForegroundObserver)
             self.pipForegroundObserver = nil

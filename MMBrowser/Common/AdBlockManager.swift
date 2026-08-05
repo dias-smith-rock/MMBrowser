@@ -48,7 +48,7 @@ final class AdBlockManager {
             if let cosmetic = cosmetic {
                 configuration.userContentController.add(cosmetic)
             }
-            if AppSettings.trackerProtectionEnabled {
+            if AppSettings.trackerProtectionEnabled, AppSettings.accurateBlockCountEnabled {
                 configuration.userContentController.addUserScript(Self.blockCountUserScript)
             }
             completion()
@@ -59,6 +59,34 @@ final class AdBlockManager {
         }
         DispatchQueue.main.async {
             self.resolveRuleLists(completion: finish)
+        }
+    }
+
+    /// Hot-swap content rule lists on live WebViews (AdBlock + Image Block) without destroying them.
+    func refreshContentRuleLists(on webViews: [WKWebView], completion: @escaping () -> Void) {
+        let finishApply: (WKContentRuleList?, WKContentRuleList?, WKContentRuleList?) -> Void = { network, cosmetic, image in
+            for webView in webViews {
+                let ucc = webView.configuration.userContentController
+                ucc.removeAllContentRuleLists()
+                if let network { ucc.add(network) }
+                if let cosmetic { ucc.add(cosmetic) }
+                if let image { ucc.add(image) }
+            }
+            completion()
+        }
+        DispatchQueue.main.async {
+            let withImage: (WKContentRuleList?, WKContentRuleList?) -> Void = { network, cosmetic in
+                ImageBlockManager.shared.currentRuleList { image in
+                    finishApply(network, cosmetic, image)
+                }
+            }
+            if AppSettings.trackerProtectionEnabled {
+                self.resolveRuleLists { network, cosmetic in
+                    withImage(network, cosmetic)
+                }
+            } else {
+                withImage(nil, nil)
+            }
         }
     }
 
@@ -153,7 +181,7 @@ final class AdBlockManager {
         return String(data: data, encoding: .utf8)!
     }
 
-    /// Counts cosmetic ad nodes still present in the DOM for light shield feedback.
+    /// Counts cosmetic ad nodes for the shield badge. Debounced; main frame only.
     private static var blockCountUserScript: WKUserScript {
         let selectors = FilterUpdateManager.shared.cosmeticSelectors
         let json = (try? JSONSerialization.data(withJSONObject: selectors, options: [])).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
@@ -163,7 +191,8 @@ final class AdBlockManager {
           window.__mmBlockCountInstalled = true;
           var SELECTORS = \(json);
           var last = -1;
-          function count() {
+          var pending = null;
+          function countNow() {
             var n = 0;
             try {
               for (var i = 0; i < SELECTORS.length; i++) {
@@ -179,10 +208,17 @@ final class AdBlockManager {
               } catch (e) {}
             }
           }
-          document.addEventListener('DOMContentLoaded', count, { once: true });
-          setInterval(count, 2000);
+          function scheduleCount() {
+            if (pending) return;
+            pending = setTimeout(function() {
+              pending = null;
+              countNow();
+            }, 750);
+          }
+          document.addEventListener('DOMContentLoaded', scheduleCount, { once: true });
+          setInterval(scheduleCount, 5000);
           try {
-            new MutationObserver(function() { count(); }).observe(document.documentElement, { childList: true, subtree: true });
+            new MutationObserver(scheduleCount).observe(document.documentElement, { childList: true, subtree: true });
           } catch (e) {}
         })();
         """

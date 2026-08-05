@@ -34,6 +34,8 @@ final class BrowserViewController: UIViewController {
     /// Keeps sticky PiP advancing to the next video while JS timers are throttled in background.
     private var stickyPipBackgroundTimer: Timer?
     private var stickyPipBackgroundTask = UIBackgroundTaskIdentifier.invalid
+    private var webViewRebuildWorkItem: DispatchWorkItem?
+    private var contentRulesRefreshWorkItem: DispatchWorkItem?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -43,11 +45,12 @@ final class BrowserViewController: UIViewController {
         setupChrome()
         showSelectedTab()
         NotificationCenter.default.addObserver(self, selector: #selector(trackerChanged), name: .trackerProtectionChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(accurateBlockCountChanged), name: .accurateBlockCountChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(noImagesChanged), name: .noImagesChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .shortsFocusChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .youtubeAdShieldChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .mediaPlaybackSettingsChanged, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .filterManifestUpdated, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(contentRulesChanged), name: .filterManifestUpdated, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .locationPrivacyChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSessionCleanup), name: .clearOptionSessionCleanup, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSettingsChanged), name: .clearOptionSettingsChanged, object: nil)
@@ -268,18 +271,61 @@ final class BrowserViewController: UIViewController {
     }
 
     @objc private func trackerChanged() {
-        tabManager.invalidateAllWebViews()
-        showSelectedTab()
+        scheduleContentRulesRefresh()
+    }
+
+    @objc private func contentRulesChanged() {
+        scheduleContentRulesRefresh()
+    }
+
+    @objc private func accurateBlockCountChanged() {
+        scheduleFullWebViewRebuild()
     }
 
     @objc private func noImagesChanged() {
-        tabManager.invalidateAllWebViews()
-        showSelectedTab()
+        // Image-block user script is baked at WebView creation; recreate after debounce.
+        scheduleFullWebViewRebuild()
     }
 
     @objc private func rebuildWebViews() {
-        tabManager.invalidateAllWebViews()
-        showSelectedTab()
+        scheduleFullWebViewRebuild()
+    }
+
+    /// Debounced destroy/recreate — needed when document-start scripts / handlers change.
+    private func scheduleFullWebViewRebuild() {
+        contentRulesRefreshWorkItem?.cancel()
+        contentRulesRefreshWorkItem = nil
+        webViewRebuildWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.webViewRebuildWorkItem = nil
+            self.tabManager.invalidateAllWebViews()
+            self.showSelectedTab()
+        }
+        webViewRebuildWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
+    }
+
+    /// Debounced hot-swap of WK content rule lists + reload live tabs (no WebView destroy).
+    private func scheduleContentRulesRefresh() {
+        guard webViewRebuildWorkItem == nil else { return }
+        contentRulesRefreshWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.contentRulesRefreshWorkItem = nil
+            let webs = self.tabManager.liveWebViews
+            guard !webs.isEmpty else {
+                self.addressBar.setBlockCount(0)
+                return
+            }
+            AdBlockManager.shared.refreshContentRuleLists(on: webs) { [weak self] in
+                guard let self else { return }
+                self.addressBar.setBlockCount(0)
+                self.tabManager.reloadLiveWebViews()
+            }
+        }
+        contentRulesRefreshWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
     }
 
     private func presentOnboarding() {
@@ -1110,6 +1156,8 @@ extension BrowserViewController: AddressBarViewDelegate {
         var lines: [String] = []
         if blockCount > 0 {
             lines.append("Blocked \(blockCount) ads & trackers on this page.")
+        } else if tpOn, !AppSettings.accurateBlockCountEnabled {
+            lines.append("Ads & trackers are blocked. Turn on Accurate Block Count in Settings for a page badge.")
         } else {
             lines.append("No ads or trackers blocked on this page yet.")
         }
@@ -1553,8 +1601,6 @@ extension BrowserViewController: MenuViewControllerDelegate {
             AppSettings.trackerProtectionEnabled.toggle()
             let on = AppSettings.trackerProtectionEnabled
             Toast.show(on ? "Ad blocker on" : "Ad blocker off", from: self)
-            tabManager.invalidateAllWebViews()
-            showSelectedTab()
         case .placeholder(let name):
             Toast.show("\(name) coming soon", from: self)
         }
@@ -1619,8 +1665,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
         let settings = SettingsViewController()
         settings.tabManager = tabManager
         settings.onRequestRebuildWebViews = { [weak self] in
-            self?.tabManager.invalidateAllWebViews()
-            self?.showSelectedTab()
+            self?.scheduleFullWebViewRebuild()
         }
         settings.onAccountsChanged = { [weak self] in
             self?.refreshAccountChip()

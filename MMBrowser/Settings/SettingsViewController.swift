@@ -54,7 +54,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
-        case .privacy: return 7
+        case .privacy: return 8
         case .accounts: return 1
         case .clearOption: return 1
         case .tools: return 1
@@ -138,6 +138,15 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.addTarget(self, action: #selector(tpChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
             case 1:
+                cell.textLabel?.text = "Accurate Block Count"
+                cell.detailTextLabel?.text = "Shield badge via page scan · uses more CPU"
+                cell.selectionStyle = .none
+                let sw = UISwitch()
+                sw.isOn = AppSettings.accurateBlockCountEnabled
+                sw.isEnabled = AppSettings.trackerProtectionEnabled
+                sw.addTarget(self, action: #selector(accurateBlockCountChanged(_:)), for: .valueChanged)
+                cell.accessoryView = sw
+            case 2:
                 cell.textLabel?.text = "Block Images"
                 cell.detailTextLabel?.text = "No-image mode for all tabs"
                 cell.selectionStyle = .none
@@ -145,22 +154,22 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.isOn = AppSettings.noImagesEnabled
                 sw.addTarget(self, action: #selector(noImagesChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
-            case 2:
+            case 3:
                 cell.textLabel?.text = "HTTPS First"
                 cell.selectionStyle = .none
                 let sw = UISwitch()
                 sw.isOn = AppSettings.httpsOnly
                 sw.addTarget(self, action: #selector(httpsChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
-            case 3:
+            case 4:
                 cell.textLabel?.text = "Location"
                 cell.detailTextLabel?.text = AppSettings.locationSummary
                 cell.accessoryType = .disclosureIndicator
-            case 4:
+            case 5:
                 cell.textLabel?.text = "App Lock"
                 cell.detailTextLabel?.text = AppLockSettings.isEnabled ? "On" : "Off"
                 cell.accessoryType = .disclosureIndicator
-            case 5:
+            case 6:
                 cell.textLabel?.text = "Ad Privacy Choices"
                 cell.detailTextLabel?.text = AdConsentManager.isPrivacyOptionsRequired ? "Manage" : "Not required"
                 cell.accessoryType = .disclosureIndicator
@@ -257,16 +266,16 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         tableView.deselectRow(at: indexPath, animated: true)
         switch Section(rawValue: indexPath.section)! {
         case .privacy:
-            if indexPath.row == 3 {
+            if indexPath.row == 4 {
                 let location = LocationSettingsViewController()
                 location.onChanged = { [weak self] in
                     self?.onRequestRebuildWebViews?()
                     self?.tableView.reloadData()
                 }
                 navigationController?.pushViewController(location, animated: true)
-            } else if indexPath.row == 4 {
-                navigationController?.pushViewController(AppLockSettingsViewController(), animated: true)
             } else if indexPath.row == 5 {
+                navigationController?.pushViewController(AppLockSettingsViewController(), animated: true)
+            } else if indexPath.row == 6 {
                 guard AdConsentManager.isPrivacyOptionsRequired else { return }
                 Task { @MainActor in
                     do {
@@ -276,7 +285,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                         Toast.show("Could not open privacy options", from: self)
                     }
                 }
-            } else if indexPath.row == 6 {
+            } else if indexPath.row == 7 {
                 navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
             }
         case .accounts:
@@ -311,7 +320,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                         if let self = self {
                             Toast.show(ok ? "Filters updated" : "Using cached / bundled filters", from: self)
                         }
-                        self?.onRequestRebuildWebViews?()
+                        // Content-rule hot refresh is driven by `.filterManifestUpdated`.
                     }
                 })
                 alert.addAction(UIAlertAction(title: "OK", style: .cancel))
@@ -332,28 +341,31 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
 
     @objc private func tpChanged(_ sw: UISwitch) {
         AppSettings.trackerProtectionEnabled = sw.isOn
-        onRequestRebuildWebViews?()
+        if !sw.isOn, AppSettings.accurateBlockCountEnabled {
+            AppSettings.accurateBlockCountEnabled = false
+        }
+        tableView.reloadSections(IndexSet(integer: Section.privacy.rawValue), with: .none)
         Toast.show(sw.isOn ? "Ads & trackers blocked" : "Ads & trackers allowed", from: self)
+    }
+    @objc private func accurateBlockCountChanged(_ sw: UISwitch) {
+        AppSettings.accurateBlockCountEnabled = sw.isOn
+        Toast.show(sw.isOn ? "Accurate block count on" : "Accurate block count off", from: self)
     }
     @objc private func shortsChanged(_ sw: UISwitch) {
         AppSettings.hideShortsEnabled = sw.isOn
-        onRequestRebuildWebViews?()
         Toast.show(sw.isOn ? "Shorts Focus on" : "Shorts Focus off", from: self)
     }
     @objc private func ytShieldChanged(_ sw: UISwitch) {
         AppSettings.youtubeAdShieldEnabled = sw.isOn
-        onRequestRebuildWebViews?()
         Toast.show(sw.isOn ? "YouTube video filter on" : "YouTube video filter off", from: self)
     }
     @objc private func bgAudioChanged(_ sw: UISwitch) {
         AppSettings.backgroundAudioEnabled = sw.isOn
         MediaPlaybackSupport.configureAudioSessionIfNeeded()
-        onRequestRebuildWebViews?()
         Toast.show(sw.isOn ? "Background audio on" : "Background audio off", from: self)
     }
     @objc private func pipChanged(_ sw: UISwitch) {
         AppSettings.pictureInPictureEnabled = sw.isOn
-        onRequestRebuildWebViews?()
         Toast.show(sw.isOn ? "Picture in Picture on" : "Picture in Picture off", from: self)
     }
     @objc private func downloadNotifyChanged(_ sw: UISwitch) {
@@ -373,7 +385,6 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     }
     @objc private func noImagesChanged(_ sw: UISwitch) {
         AppSettings.noImagesEnabled = sw.isOn
-        onRequestRebuildWebViews?()
         Toast.show(sw.isOn ? "Block images on" : "Block images off", from: self)
     }
     @objc private func httpsChanged(_ sw: UISwitch) { AppSettings.httpsOnly = sw.isOn }

@@ -44,6 +44,17 @@ final class ImageBlockManager {
         }
     }
 
+    /// Resolves the image-block content rule list when no-image mode is on (for hot-reload).
+    func currentRuleList(completion: @escaping (WKContentRuleList?) -> Void) {
+        guard isEnabled else {
+            DispatchQueue.main.async { completion(nil) }
+            return
+        }
+        DispatchQueue.main.async {
+            self.resolveRuleList(completion: completion)
+        }
+    }
+
     private func resolveRuleList(completion: @escaping (WKContentRuleList?) -> Void) {
         dispatchPrecondition(condition: .onQueue(.main))
         if let cached = cachedList {

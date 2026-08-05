@@ -9,6 +9,15 @@ enum AppSettings {
         set { d.set(newValue, forKey: "tp.enabled"); NotificationCenter.default.post(name: .trackerProtectionChanged, object: nil) }
     }
 
+    /// When true, inject a DOM counter for the address-bar shield badge. Default off (CPU-heavy).
+    static var accurateBlockCountEnabled: Bool {
+        get { d.bool(forKey: "tp.accurateBlockCount") }
+        set {
+            d.set(newValue, forKey: "tp.accurateBlockCount")
+            NotificationCenter.default.post(name: .accurateBlockCountChanged, object: nil)
+        }
+    }
+
     static var hideShortsEnabled: Bool {
         get { d.object(forKey: "shorts.hide") == nil ? true : d.bool(forKey: "shorts.hide") }
         set {
@@ -212,6 +221,7 @@ enum AppSettings {
 
 extension Notification.Name {
     static let trackerProtectionChanged = Notification.Name("mmbrowser.tp.changed")
+    static let accurateBlockCountChanged = Notification.Name("mmbrowser.tp.accurateBlockCount.changed")
     static let noImagesChanged = Notification.Name("mmbrowser.noimages.changed")
     static let homeSettingsChanged = Notification.Name("mmbrowser.home.changed")
     static let navigationDirectoryChanged = Notification.Name("mmbrowser.navigation.changed")

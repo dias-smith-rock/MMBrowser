@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import WebKit
 
 protocol TabManagerDelegate: AnyObject {
     func tabManagerDidUpdate(_ manager: TabManager)
@@ -514,6 +515,17 @@ final class TabManager {
         delegate?.tabManagerDidUpdate(self)
         if let selected = selectedTab {
             delegate?.tabManager(self, didSelect: selected)
+        }
+    }
+
+    /// Live `WKWebView`s currently attached to tabs.
+    var liveWebViews: [WKWebView] {
+        tabs.compactMap { $0.webController?.webView }
+    }
+
+    func reloadLiveWebViews() {
+        for tab in tabs {
+            tab.webController?.reload()
         }
     }
 
