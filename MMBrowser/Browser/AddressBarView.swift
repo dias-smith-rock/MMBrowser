@@ -49,6 +49,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private let peekLabel = UILabel()
     private var shortcutAccessoryView: UIView?
     private var shortcutButtons: [UIButton] = []
+    private let keyboardDismissButton = UIButton(type: .system)
     /// Skip expanding to the live page URL on the next begin-editing (used after clear).
     private var suppressNextEditingURLExpand = false
 
@@ -550,7 +551,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         let scroll = UIScrollView()
         scroll.showsHorizontalScrollIndicator = false
         scroll.alwaysBounceHorizontal = true
-        scroll.contentInset = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
+        scroll.contentInset = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 8)
         bar.addSubview(scroll)
 
         let stack = UIStackView()
@@ -573,8 +574,26 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             shortcutButtons.append(button)
         }
 
+        let dismissConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
+        keyboardDismissButton.setImage(
+            UIImage(systemName: "keyboard.chevron.compact.down", withConfiguration: dismissConfig),
+            for: .normal
+        )
+        keyboardDismissButton.accessibilityLabel = "Dismiss keyboard"
+        keyboardDismissButton.layer.cornerRadius = 8
+        keyboardDismissButton.clipsToBounds = true
+        keyboardDismissButton.addTarget(self, action: #selector(dismissKeyboardTapped), for: .touchUpInside)
+        bar.addSubview(keyboardDismissButton)
+
+        keyboardDismissButton.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().offset(-8)
+            make.centerY.equalToSuperview()
+            make.width.equalTo(40)
+            make.height.equalTo(32)
+        }
         scroll.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
+            make.leading.top.bottom.equalToSuperview()
+            make.trailing.equalTo(keyboardDismissButton.snp.leading).offset(-4)
         }
         stack.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview()
@@ -594,6 +613,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             button.backgroundColor = BrowserTheme.secondaryCard
             button.tintColor = BrowserTheme.textPrimary
         }
+        keyboardDismissButton.tintColor = BrowserTheme.textPrimary
+        keyboardDismissButton.backgroundColor = BrowserTheme.secondaryCard
     }
 
     @objc private func shortcutTapped(_ sender: UIButton) {
@@ -601,6 +622,10 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         // Replaces the current selection (e.g. full URL after focus) or inserts at the caret.
         textField.insertText(token)
         updateClearButtonVisibility()
+    }
+
+    @objc private func dismissKeyboardTapped() {
+        textField.resignFirstResponder()
     }
 
     @objc private func reloadTapped() {
