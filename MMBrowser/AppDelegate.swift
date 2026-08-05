@@ -14,6 +14,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         FirebaseBootstrap.configureIfNeeded()
         FilterUpdateManager.shared.prepare()
         AdBlockManager.shared.prepare()
+        ImageBlockManager.shared.prepare()
         MediaPlaybackSupport.configureAudioSessionIfNeeded()
         DownloadLocalNotifications.shared.configure()
         // Warm the download session so background tasks can reconnect.

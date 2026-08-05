@@ -21,9 +21,12 @@ final class AdBlockManager {
     private init() {}
 
     func prepare() {
-        guard isEnabled else { return }
         DispatchQueue.main.async { [weak self] in
-            self?.resolveRuleLists { _, _ in }
+            guard let self else { return }
+            // Always warm the compiled lists when tracker protection is on so the first
+            // WebView can attach them synchronously and start loading without waiting.
+            guard self.isEnabled else { return }
+            self.resolveRuleLists { _, _ in }
         }
     }
 
@@ -40,25 +43,44 @@ final class AdBlockManager {
         prepare()
     }
 
+    /// Attach rule lists without blocking WebView creation.
+    /// Uses cache immediately when warm; otherwise starts compile and adds lists when ready
+    /// (applies to in-flight / subsequent resource loads on the same configuration).
     func apply(to configuration: WKWebViewConfiguration, completion: @escaping () -> Void) {
-        let finish: (WKContentRuleList?, WKContentRuleList?) -> Void = { network, cosmetic in
-            if let network = network {
-                configuration.userContentController.add(network)
-            }
-            if let cosmetic = cosmetic {
-                configuration.userContentController.add(cosmetic)
-            }
+        let ucc = configuration.userContentController
+        let attachScriptsIfNeeded = {
             if AppSettings.trackerProtectionEnabled, AppSettings.accurateBlockCountEnabled {
-                configuration.userContentController.addUserScript(Self.blockCountUserScript)
+                ucc.addUserScript(Self.blockCountUserScript)
             }
+        }
+        let attachLists: (WKContentRuleList?, WKContentRuleList?) -> Void = { network, cosmetic in
+            if let network { ucc.add(network) }
+            if let cosmetic { ucc.add(cosmetic) }
+        }
+
+        let run: () -> Void = {
+            guard self.isEnabled else {
+                completion()
+                return
+            }
+            let fingerprint = self.currentFingerprint()
+            if let n = self.cachedNetworkList, let c = self.cachedCosmeticList, fingerprint == self.compiledFingerprint {
+                attachLists(n, c)
+                attachScriptsIfNeeded()
+                completion()
+                return
+            }
+            // Do not wait for compile — create the WebView and start navigation now.
             completion()
+            self.resolveRuleLists { network, cosmetic in
+                attachLists(network, cosmetic)
+                attachScriptsIfNeeded()
+            }
         }
-        guard isEnabled else {
-            DispatchQueue.main.async { finish(nil, nil) }
-            return
-        }
-        DispatchQueue.main.async {
-            self.resolveRuleLists(completion: finish)
+        if Thread.isMainThread {
+            run()
+        } else {
+            DispatchQueue.main.async(execute: run)
         }
     }
 

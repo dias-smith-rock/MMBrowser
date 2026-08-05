@@ -36,10 +36,29 @@ enum MediaPlaybackSupport {
             // Prefer HTML5 media without forcing user gesture on mute-friendly sites.
             configuration.mediaTypesRequiringUserActionForPlayback = []
         }
-        if AppSettings.backgroundAudioEnabled || AppSettings.pictureInPictureEnabled {
-            // Install before page scripts so YouTube cannot observe presentation-mode changes.
-            configuration.userContentController.addUserScript(makeMediaScript())
-        }
+        // Media user script is installed on demand for likely video hosts (see WebViewController)
+        // so non-video pages skip the large document-start payload.
+    }
+
+    /// Full PiP / background-audio bridge. Install before loading a media host document.
+    static var mediaUserScript: WKUserScript { makeMediaScript() }
+
+    static func shouldInstallScript(for url: URL?) -> Bool {
+        isLikelyMediaHost(url)
+    }
+
+    static func isLikelyMediaHost(_ url: URL?) -> Bool {
+        guard let host = url?.host?.lowercased() else { return false }
+        if YouTubeDarkMode.isYouTubeHost(host) { return true }
+        let keys = [
+            "bilibili.com", "bilibili.tv", "b23.tv",
+            "vimeo.com", "twitch.tv", "netflix.com",
+            "disneyplus.com", "hulu.com", "max.com",
+            "iqiyi.com", "youku.com", "tiktok.com", "douyin.com",
+            "pornhub.com", "xvideos.com",
+            "dailymotion.com", "facebook.com", "fb.watch", "instagram.com"
+        ]
+        return keys.contains { host == $0 || host.hasSuffix(".\($0)") }
     }
 
     /// Re-assert playback after the app backgrounds (YouTube Music pauses on visibilitychange).

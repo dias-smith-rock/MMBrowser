@@ -27,22 +27,42 @@ final class ImageBlockManager {
 
     private init() {}
 
+    /// Warm the compiled image-block list so the first No Images WebView need not wait.
+    func prepare() {
+        DispatchQueue.main.async { [weak self] in
+            self?.resolveRuleList { _ in }
+        }
+    }
+
+    /// Attach without blocking WebView creation (cache hit sync; otherwise compile in background).
     func apply(to configuration: WKWebViewConfiguration, completion: @escaping () -> Void) {
-        let finish: (WKContentRuleList?) -> Void = { [weak self] list in
-            if let list = list {
-                configuration.userContentController.add(list)
-            }
+        let ucc = configuration.userContentController
+        let finishCached: (WKContentRuleList?) -> Void = { [weak self] list in
+            if let list { ucc.add(list) }
             if self?.isEnabled == true {
-                configuration.userContentController.addUserScript(Self.placeholderUserScript)
+                ucc.addUserScript(Self.placeholderUserScript)
             }
             completion()
         }
-        guard isEnabled else {
-            DispatchQueue.main.async { finish(nil) }
-            return
+        let run: () -> Void = {
+            guard self.isEnabled else {
+                completion()
+                return
+            }
+            if let cached = self.cachedList {
+                finishCached(cached)
+                return
+            }
+            completion()
+            self.resolveRuleList { list in
+                if let list { ucc.add(list) }
+                ucc.addUserScript(Self.placeholderUserScript)
+            }
         }
-        DispatchQueue.main.async {
-            self.resolveRuleList(completion: finish)
+        if Thread.isMainThread {
+            run()
+        } else {
+            DispatchQueue.main.async(execute: run)
         }
     }
 

@@ -249,6 +249,10 @@ final class WebViewController: UIViewController {
     /// Shared with `BrowserTab` so back/forward survives WKWebView recreation.
     var navigationHistory: TabNavigationHistory?
     private var didSetupWebView = false
+    /// YouTube Dark / Shorts / AdShield / YT viewport — installed before first YT document load.
+    private var didInstallYouTubeScripts = false
+    /// Large media/PiP bridge — installed before first likely-media document load (or PiP intent).
+    private var didInstallMediaScript = false
     private var httpsFallbackAttempted = false
     private var preferDesktop = false
     private var findBar: FindInPageBar?
@@ -349,13 +353,8 @@ final class WebViewController: UIViewController {
     }
 
     private func finishWebViewSetup(with config: WKWebViewConfiguration) {
-        config.userContentController.addUserScript(YouTubeDarkMode.userScript)
-        if YouTubeShortsFocus.isEnabled {
-            config.userContentController.addUserScript(YouTubeShortsFocus.userScript)
-        }
-        if YouTubeAdShield.isEffectivelyEnabled {
-            config.userContentController.addUserScript(YouTubeAdShield.userScript)
-        }
+        // YouTube / media document-start scripts are installed on demand in
+        // `ensureOnDemandScripts` so generic pages skip that cost.
         if let geoScript = GeolocationSpoof.userScript(configuration: geoConfiguration) {
             config.userContentController.addUserScript(geoScript)
         }
@@ -363,13 +362,6 @@ final class WebViewController: UIViewController {
         // (UIScrollView.ignoresViewportScaleLimits is unavailable in this SDK).
         // YouTube / Bilibili are excluded inside the script — unlocking breaks sticky players.
         config.userContentController.addUserScript(Self.viewportZoomUnlockScript)
-        config.userContentController.addUserScript(
-            WKUserScript(
-                source: Self.youtubeViewportFixScript,
-                injectionTime: .atDocumentStart,
-                forMainFrameOnly: true
-            )
-        )
         let proxy = WebViewScriptProxy(target: self)
         scriptMessageProxy = proxy
         config.userContentController.add(proxy, name: PageCleanerManager.handlerName)
@@ -671,6 +663,7 @@ final class WebViewController: UIViewController {
 
     private func actuallyLoad(_ url: URL, in webView: WKWebView) {
         lastRequestedURL = url
+        ensureOnDemandScripts(for: url)
         if XSiteProbe.isRelevant(url) || (url.scheme ?? "").lowercased().hasPrefix("x-safari-") {
             XSiteProbe.log("load.start", [
                 "url": url.absoluteString,
@@ -680,16 +673,52 @@ final class WebViewController: UIViewController {
         }
         YouTubeDarkMode.applyAppearance(to: webView, url: url)
         applyDesktopPreference(to: webView)
-        let go = {
-            if YouTubeDarkMode.isYouTube(url) {
-                YouTubeDarkMode.ensureDarkCookie(in: webView.configuration.websiteDataStore) {
-                    webView.load(URLRequest(url: url))
-                }
-            } else {
-                webView.load(URLRequest(url: url))
+        // Fire-and-forget cookie warm-up — do not delay navigation on cookie store I/O.
+        if YouTubeDarkMode.isYouTube(url) {
+            YouTubeDarkMode.ensureDarkCookie(in: webView.configuration.websiteDataStore) {}
+        }
+        webView.load(URLRequest(url: url))
+    }
+
+    /// Install heavy host-specific user scripts before the document loads (document-start).
+    private func ensureOnDemandScripts(for url: URL?) {
+        guard let webView else { return }
+        let ucc = webView.configuration.userContentController
+        let mediaFeaturesOn = AppSettings.pictureInPictureEnabled || AppSettings.backgroundAudioEnabled
+        if mediaFeaturesOn, !didInstallMediaScript {
+            let needMedia = MediaPlaybackSupport.shouldInstallScript(for: url)
+                || prefersPictureInPicture
+                || isPictureInPictureActive
+                || (AppSettings.stickyPictureInPicture && PipSession.isOwner(self))
+            if needMedia {
+                didInstallMediaScript = true
+                ucc.addUserScript(MediaPlaybackSupport.mediaUserScript)
             }
         }
-        go()
+        guard YouTubeDarkMode.isYouTube(url), !didInstallYouTubeScripts else { return }
+        didInstallYouTubeScripts = true
+        ucc.addUserScript(YouTubeDarkMode.userScript)
+        ucc.addUserScript(
+            WKUserScript(
+                source: Self.youtubeViewportFixScript,
+                injectionTime: .atDocumentStart,
+                forMainFrameOnly: true
+            )
+        )
+        if YouTubeShortsFocus.isEnabled {
+            ucc.addUserScript(YouTubeShortsFocus.userScript)
+        }
+        if YouTubeAdShield.isEffectivelyEnabled {
+            ucc.addUserScript(YouTubeAdShield.userScript)
+        }
+    }
+
+    /// Ensures the media bridge exists before PiP enter (may require a reload on cold pages).
+    private func ensureMediaScriptForPictureInPicture() {
+        guard AppSettings.pictureInPictureEnabled || AppSettings.backgroundAudioEnabled else { return }
+        guard !didInstallMediaScript, let webView else { return }
+        didInstallMediaScript = true
+        webView.configuration.userContentController.addUserScript(MediaPlaybackSupport.mediaUserScript)
     }
 
     func goBack() {
@@ -1406,6 +1435,10 @@ final class WebViewController: UIViewController {
         PipProbe.requestTabDump(reason: "sticky.restore")
         MediaPlaybackSupport.probePageState(in: webView, reason: "sticky.restore")
         prefersPictureInPicture = true
+        ensureOnDemandScripts(for: webView?.url)
+        if !didInstallMediaScript {
+            ensureMediaScriptForPictureInPicture()
+        }
         MediaPlaybackSupport.applyStickyPrefer(in: webView, prefer: true)
         guard !stickyPipEnterInFlight else {
             PipProbe.log("sticky.restore.skip", ["why": "inFlight"])
@@ -1619,6 +1652,22 @@ final class WebViewController: UIViewController {
         // Explicit user intent — allow PiP again after a prior yield suppress window.
         suppressPipClaimUntil = nil
         guard !YouTubeDarkMode.isYouTubeMusic(webView?.url) else { return }
+        if !didInstallMediaScript {
+            ensureMediaScriptForPictureInPicture()
+            // Document-start script needs a reload to bind; then enter PiP.
+            webView?.reload()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
+                guard let self else { return }
+                MediaPlaybackSupport.enterPictureInPicture(in: self.webView) { [weak self] ok in
+                    DispatchQueue.main.async {
+                        guard let self, ok else { return }
+                        self.persistPipPrefer(true)
+                        self.setPictureInPictureActive(true)
+                    }
+                }
+            }
+            return
+        }
         // Silent no-op when PiP cannot start (no toast / alert).
         MediaPlaybackSupport.enterPictureInPicture(in: webView) { [weak self] ok in
             DispatchQueue.main.async {
@@ -1984,6 +2033,22 @@ extension WebViewController: WKNavigationDelegate {
                 decisionHandler(.cancel)
                 load(url: redirected)
                 return
+            }
+
+            // Document-start scripts only apply to loads that begin after they are added.
+            // Cancel and re-load once when first hitting YouTube / a media host in this WebView.
+            if isMainFrame, ["http", "https"].contains(scheme) {
+                let mediaFeaturesOn = AppSettings.pictureInPictureEnabled || AppSettings.backgroundAudioEnabled
+                let needsYouTubeScripts = YouTubeDarkMode.isYouTube(url) && !didInstallYouTubeScripts
+                let needsMediaScript = mediaFeaturesOn
+                    && !didInstallMediaScript
+                    && MediaPlaybackSupport.shouldInstallScript(for: url)
+                if needsYouTubeScripts || needsMediaScript {
+                    ensureOnDemandScripts(for: url)
+                    decisionHandler(.cancel)
+                    load(url: url)
+                    return
+                }
             }
 
             if DownloadManager.isLikelyDownloadURL(url),
