@@ -24,6 +24,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private let container = UIView()
     private let reloadButton = UIButton(type: .system)
     private let richMenuButton = UIButton(type: .system)
+    private let clearButton = UIButton(type: .system)
     private let shieldButton = UIButton(type: .custom)
     private let shieldBadge = UILabel()
     private let privateBadge = UILabel()
@@ -46,6 +47,15 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private var tabSwipe: UIPanGestureRecognizer?
     private let swipeClip = UIView()
     private let peekLabel = UILabel()
+    private var shortcutAccessoryView: UIView?
+    private var shortcutButtons: [UIButton] = []
+    /// Skip expanding to the live page URL on the next begin-editing (used after clear).
+    private var suppressNextEditingURLExpand = false
+
+    /// Common URL fragments for the keyboard accessory above the address field.
+    private static let addressShortcuts = [
+        "https://", "www.", ".", "/", ".com", ".net", ".org", ".io", "-"
+    ]
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -61,6 +71,13 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
         richMenuButton.accessibilityLabel = "Page menu"
         richMenuButton.addTarget(self, action: #selector(richMenuTapped), for: .touchUpInside)
+
+        let clearConfig = UIImage.SymbolConfiguration(pointSize: 15, weight: .regular)
+        clearButton.setImage(UIImage(systemName: "xmark.circle.fill", withConfiguration: clearConfig), for: .normal)
+        clearButton.tintColor = BrowserTheme.textSecondary
+        clearButton.accessibilityLabel = "Clear address"
+        clearButton.isHidden = true
+        clearButton.addTarget(self, action: #selector(clearAddressTapped), for: .touchUpInside)
 
         let shieldConfig = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
         shieldButton.setImage(UIImage(systemName: "shield.lefthalf.filled", withConfiguration: shieldConfig), for: .normal)
@@ -98,7 +115,9 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         textField.autocorrectionType = .no
         textField.keyboardType = .webSearch
         textField.delegate = self
+        textField.addTarget(self, action: #selector(textFieldEditingChanged), for: .editingChanged)
         updateSearchPlaceholder()
+        setupKeyboardShortcuts()
 
         progressView.progressTintColor = BrowserTheme.chromeBlue
         progressView.trackTintColor = .clear
@@ -116,6 +135,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         container.addSubview(swipeClip)
         swipeClip.addSubview(textField)
         swipeClip.addSubview(peekLabel)
+        container.addSubview(clearButton)
         container.addSubview(shieldButton)
         container.addSubview(shieldBadge)
         container.addSubview(richMenuButton)
@@ -199,6 +219,12 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             let p = convert(point, to: cleanerMenuContainer)
             if let hit = cleanerMenuContainer.hitTest(p, with: event) {
                 return hit
+            }
+        }
+        if !clearButton.isHidden {
+            let clearPoint = convert(point, to: clearButton)
+            if clearButton.bounds.insetBy(dx: -6, dy: -6).contains(clearPoint) {
+                return clearButton
             }
         }
         if !shieldButton.isHidden {
@@ -301,6 +327,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     /// Updates the field even while editing (e.g. expand to the full URL on focus).
     func setURLTextForcing(_ text: String) {
         textField.text = text
+        updateClearButtonVisibility()
     }
 
     func setPrivateMode(_ isPrivate: Bool) {
@@ -318,6 +345,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         reloadButton.tintColor = BrowserTheme.textSecondary
         richMenuButton.setImage(UIImage(systemName: "ellipsis"), for: .normal)
         richMenuButton.tintColor = BrowserTheme.textSecondary
+        clearButton.tintColor = BrowserTheme.textSecondary
         shieldButton.tintColor = BrowserTheme.textSecondary
         shieldBadge.backgroundColor = accent
         privateBadge.textColor = BrowserTheme.privateAccent
@@ -335,6 +363,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         }
         updateCleanerChipSelection()
         updateShieldAppearance()
+        applyShortcutAccessoryTheme()
     }
 
     @objc private func updateSearchPlaceholder() {
@@ -390,11 +419,14 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         updateShieldAppearance()
     }
 
-    private func rightmostTrailingAnchor() -> ConstraintItem {
-        if !shieldButton.isHidden {
-            return shieldButton.snp.leading
+    private func updateClearButtonVisibility() {
+        let hasText = !(textField.text ?? "").isEmpty
+        let show = textField.isFirstResponder && hasText
+        let wasHidden = clearButton.isHidden
+        clearButton.isHidden = !show
+        if wasHidden != clearButton.isHidden {
+            refreshTextFieldConstraints()
         }
-        return richMenuButton.snp.leading
     }
 
     private func updateShieldAppearance() {
@@ -431,13 +463,30 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     private func refreshTextFieldConstraints() {
+        let trailingTarget: ConstraintItem
+        if !shieldButton.isHidden {
+            trailingTarget = shieldButton.snp.leading
+        } else {
+            trailingTarget = richMenuButton.snp.leading
+        }
+
+        clearButton.snp.remakeConstraints { make in
+            make.trailing.equalTo(trailingTarget).offset(-4)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(22)
+        }
+
         swipeClip.snp.remakeConstraints { make in
             if isPrivateMode {
                 make.leading.equalTo(privateBadge.snp.trailing).offset(6)
             } else {
                 make.leading.equalTo(reloadButton.snp.trailing).offset(8)
             }
-            make.trailing.equalTo(rightmostTrailingAnchor()).offset(-6)
+            if clearButton.isHidden {
+                make.trailing.equalTo(trailingTarget).offset(-6)
+            } else {
+                make.trailing.equalTo(clearButton.snp.leading).offset(-2)
+            }
             make.top.bottom.equalToSuperview()
         }
         textField.snp.remakeConstraints { make in
@@ -452,13 +501,19 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         resetSwipeVisuals(animated: false)
         hideCleanerMenu()
         textField.textAlignment = .left
-        // Let the host expand to the full URL before selecting.
-        delegate?.addressBarDidBeginEditing()
+        let skipExpand = suppressNextEditingURLExpand
+        suppressNextEditingURLExpand = false
+        if !skipExpand {
+            // Let the host expand to the full URL before selecting.
+            delegate?.addressBarDidBeginEditing()
+        }
         textField.selectAll(nil)
+        updateClearButtonVisibility()
     }
 
     func textFieldDidEndEditing(_ textField: UITextField) {
         textField.textAlignment = .center
+        updateClearButtonVisibility()
     }
 
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
@@ -466,6 +521,86 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         delegate?.addressBarDidSubmit(textField.text ?? "")
         textField.resignFirstResponder()
         return true
+    }
+
+    @objc private func textFieldEditingChanged() {
+        updateClearButtonVisibility()
+    }
+
+    @objc private func clearAddressTapped() {
+        // Window-level keyboard dismiss can resign the field before this runs; becoming
+        // first responder again must not re-expand the live page URL into the field.
+        if !textField.isFirstResponder {
+            suppressNextEditingURLExpand = true
+            textField.becomeFirstResponder()
+        }
+        // Clear via the editing API so any selection / marked text is removed reliably.
+        if let range = textField.textRange(from: textField.beginningOfDocument, to: textField.endOfDocument) {
+            textField.replace(range, withText: "")
+        } else {
+            textField.text = ""
+        }
+        updateClearButtonVisibility()
+    }
+
+    private func setupKeyboardShortcuts() {
+        let bar = AddressKeyboardAccessoryView(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 46))
+        bar.autoresizingMask = .flexibleWidth
+
+        let scroll = UIScrollView()
+        scroll.showsHorizontalScrollIndicator = false
+        scroll.alwaysBounceHorizontal = true
+        scroll.contentInset = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 10)
+        bar.addSubview(scroll)
+
+        let stack = UIStackView()
+        stack.axis = .horizontal
+        stack.spacing = 8
+        stack.alignment = .center
+        scroll.addSubview(stack)
+
+        shortcutButtons.removeAll()
+        for token in Self.addressShortcuts {
+            let button = UIButton(type: .system)
+            button.setTitle(token, for: .normal)
+            button.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+            button.contentEdgeInsets = UIEdgeInsets(top: 7, left: 12, bottom: 7, right: 12)
+            button.layer.cornerRadius = 8
+            button.clipsToBounds = true
+            button.accessibilityLabel = "Insert \(token)"
+            button.addTarget(self, action: #selector(shortcutTapped(_:)), for: .touchUpInside)
+            stack.addArrangedSubview(button)
+            shortcutButtons.append(button)
+        }
+
+        scroll.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
+        }
+        stack.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview()
+            make.centerY.equalToSuperview()
+            make.height.equalToSuperview().offset(-10)
+        }
+
+        shortcutAccessoryView = bar
+        textField.inputAccessoryView = bar
+        applyShortcutAccessoryTheme()
+    }
+
+    private func applyShortcutAccessoryTheme() {
+        shortcutAccessoryView?.backgroundColor = BrowserTheme.elevated
+        for button in shortcutButtons {
+            button.setTitleColor(BrowserTheme.textPrimary, for: .normal)
+            button.backgroundColor = BrowserTheme.secondaryCard
+            button.tintColor = BrowserTheme.textPrimary
+        }
+    }
+
+    @objc private func shortcutTapped(_ sender: UIButton) {
+        guard let token = sender.title(for: .normal), !token.isEmpty else { return }
+        // Replaces the current selection (e.g. full URL after focus) or inserts at the caret.
+        textField.insertText(token)
+        updateClearButtonVisibility()
     }
 
     @objc private func reloadTapped() {
@@ -661,6 +796,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         if gestureRecognizer === tabSwipe {
             if view === reloadButton || view.isDescendant(of: reloadButton) { return false }
             if view === richMenuButton || view.isDescendant(of: richMenuButton) { return false }
+            if view === clearButton || view.isDescendant(of: clearButton) { return false }
             if view === shieldButton || view.isDescendant(of: shieldButton) { return false }
             if view === textField || view.isDescendant(of: textField) { return !textField.isFirstResponder }
             return true
@@ -669,7 +805,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             || view.isDescendant(of: cleanerMenuContainer) {
             return false
         }
-        if view === reloadButton || view === richMenuButton || view === shieldButton { return false }
+        if view === reloadButton || view === richMenuButton || view === clearButton || view === shieldButton { return false }
         return true
     }
 
@@ -752,6 +888,13 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         if window == nil {
             removeDismissTap()
         }
+    }
+}
+
+/// Keyboard accessory sized via intrinsic content size so Auto Layout chips lay out correctly.
+private final class AddressKeyboardAccessoryView: UIView {
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: UIView.noIntrinsicMetric, height: 46)
     }
 }
 

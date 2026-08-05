@@ -13,7 +13,7 @@
 		0AEF738692D7472790850ABA /* AccountColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 816144A277FA4A77BF09DA4E /* AccountColor.swift */; };
 		1F1ED11741F74753815644DF /* SearchEngineManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BEFF87E8CE24C4584724613 /* SearchEngineManager.swift */; };
 		225CD882697F4D4E83068A67 /* BrowserTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 094FFB3CDC234AA8BFFC8140 /* BrowserTab.swift */; };
-		TNH000A1B2C3D4E5F6071890 /* TabNavigationHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = TNH000B1B2C3D4E5F6071890 /* TabNavigationHistory.swift */; };
+		AFEE84C5C4BE4F95BAF48813 /* TabNavigationHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC9060F5CC154E999671AEF7 /* TabNavigationHistory.swift */; };
 		2407C85515E24617A4EF10BA /* YouTubeShortsFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B4B9A76DFE4E32A1FD3ADD /* YouTubeShortsFocus.swift */; };
 		3482941CAE41470B96988EF9 /* AccountSwitcherViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 227B279F47CA4EFE986E5EC9 /* AccountSwitcherViewController.swift */; };
 		39B5B31AA5B34064830D0554 /* DownloadsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EF1A8CF7C4FDF9609AC37 /* DownloadsViewController.swift */; };
@@ -166,7 +166,7 @@
 		06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeAdShield.swift; sourceTree = "<group>"; };
 		0783DF19A0FE4061AF8CB2FF /* FilterUpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterUpdateManager.swift; sourceTree = "<group>"; };
 		094FFB3CDC234AA8BFFC8140 /* BrowserTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTab.swift; sourceTree = "<group>"; };
-		TNH000B1B2C3D4E5F6071890 /* TabNavigationHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabNavigationHistory.swift; sourceTree = "<group>"; };
+		CC9060F5CC154E999671AEF7 /* TabNavigationHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabNavigationHistory.swift; sourceTree = "<group>"; };
 		0B7E0BA721F0467CB355866F /* BrowserViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserViewController.swift; sourceTree = "<group>"; };
 		12BD4B168F4A48569EA59EC0 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		148219CAF76C4E93AD37C016 /* DefaultFilterManifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = DefaultFilterManifest.json; sourceTree = "<group>"; };
@@ -468,7 +468,7 @@
 			isa = PBXGroup;
 			children = (
 				094FFB3CDC234AA8BFFC8140 /* BrowserTab.swift */,
-				TNH000B1B2C3D4E5F6071890 /* TabNavigationHistory.swift */,
+				CC9060F5CC154E999671AEF7 /* TabNavigationHistory.swift */,
 				TSS0000202020202020273 /* BrowserContainer.swift */,
 				227B279F47CA4EFE986E5EC9 /* AccountSwitcherViewController.swift */,
 				816144A277FA4A77BF09DA4E /* AccountColor.swift */,
@@ -929,7 +929,7 @@
 				A1B2C3D4E5F6010101010150 /* AutoClearManager.swift in Sources */,
 				A1B2C3D4E5F6010101010151 /* ClearOptionSettingsViewController.swift in Sources */,
 				225CD882697F4D4E83068A67 /* BrowserTab.swift in Sources */,
-				TNH000A1B2C3D4E5F6071890 /* TabNavigationHistory.swift in Sources */,
+				AFEE84C5C4BE4F95BAF48813 /* TabNavigationHistory.swift in Sources */,
 				05EE9C9F5639484BA9BA6FF2 /* TabManager.swift in Sources */,
 				TSS0000101010101010171 /* TabSnapshotStore.swift in Sources */,
 				TSS0000101010101010172 /* TabSessionStore.swift in Sources */,

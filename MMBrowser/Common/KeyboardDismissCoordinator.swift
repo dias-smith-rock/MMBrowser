@@ -43,6 +43,11 @@ final class KeyboardDismissCoordinator: NSObject, UIGestureRecognizerDelegate {
             if current is UITextField || current is UITextView {
                 return false
             }
+            // Address-bar chrome (clear / shield / reload) must not dismiss the keyboard
+            // before the button action runs — otherwise clear → re-focus restores the URL.
+            if current is AddressBarView {
+                return false
+            }
             // Keep taps on the keyboard / input accessory from dismissing first.
             if String(describing: type(of: current)).contains("UIKeyboard") {
                 return false
