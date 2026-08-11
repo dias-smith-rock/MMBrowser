@@ -100,6 +100,12 @@ enum AppSettings {
         set { d.set(newValue, forKey: "onboarding.done") }
     }
 
+    /// One-time coach mark: swipe address bar to switch tabs.
+    static var didShowAddressBarSwipeTip: Bool {
+        get { d.bool(forKey: "tip.addressBarSwipe.done") }
+        set { d.set(newValue, forKey: "tip.addressBarSwipe.done") }
+    }
+
     /// Default Deny — privacy browser does not expose GPS-like location unless user opts in.
     static var locationPrivacyMode: LocationPrivacyMode {
         get {

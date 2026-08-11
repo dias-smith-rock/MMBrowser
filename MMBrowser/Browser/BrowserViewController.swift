@@ -333,7 +333,9 @@ final class BrowserViewController: UIViewController {
         let onboarding = OnboardingViewController()
         onboarding.modalPresentationStyle = .fullScreen
         onboarding.onFinished = { [weak self, weak onboarding] in
-            onboarding?.dismiss(animated: true)
+            onboarding?.dismiss(animated: true) {
+                self?.maybeShowAddressBarSwipeTip()
+            }
             self?.newTabController?.applyHomeSettings()
         }
         present(onboarding, animated: true)
@@ -764,6 +766,43 @@ final class BrowserViewController: UIViewController {
             hidesNavigationButtons: tabManager.selectedTab?.isNewTabPage == true
         )
         addressBar.setPageCleanerActive(tabManager.selectedTab?.webController?.isPageCleanerActive == true)
+        maybeShowAddressBarSwipeTip()
+    }
+
+    private weak var addressBarSwipeTip: AddressBarSwipeTipView?
+
+    private func maybeShowAddressBarSwipeTip() {
+        guard addressBarSwipeTip == nil else { return }
+        guard !AppSettings.didShowAddressBarSwipeTip else { return }
+        guard presentedViewController == nil else { return }
+        guard !addressBar.isHidden, addressBar.window != nil else { return }
+        let isPrivate = tabManager.selectedTab?.isIncognito ?? false
+        guard tabManager.toolbarTabCount(incognito: isPrivate) > 1 else { return }
+
+        // Wait a beat so chrome finishes layout after opening a second tab.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { [weak self] in
+            guard let self else { return }
+            guard self.addressBarSwipeTip == nil else { return }
+            guard !AppSettings.didShowAddressBarSwipeTip else { return }
+            guard self.presentedViewController == nil else { return }
+            guard !self.addressBar.isHidden, self.addressBar.superview != nil else { return }
+            let isPrivate = self.tabManager.selectedTab?.isIncognito ?? false
+            guard self.tabManager.toolbarTabCount(incognito: isPrivate) > 1 else { return }
+
+            self.addressBarSwipeTip = AddressBarSwipeTipView.present(in: self.view, anchoring: self.addressBar) { [weak self] in
+                self?.markAddressBarSwipeTipSeen()
+            }
+            AppAnalytics.logEvent("tip_address_bar_swipe_shown")
+        }
+    }
+
+    private func markAddressBarSwipeTipSeen() {
+        guard !AppSettings.didShowAddressBarSwipeTip || addressBarSwipeTip != nil else { return }
+        AppSettings.didShowAddressBarSwipeTip = true
+        if let tip = addressBarSwipeTip {
+            addressBarSwipeTip = nil
+            tip.removeFromSuperview()
+        }
     }
 
     private func configureWebController(_ web: WebViewController, for tab: BrowserTab? = nil) {
@@ -1061,10 +1100,12 @@ extension BrowserViewController: AddressBarViewDelegate {
     }
 
     func addressBarDidSwipeToPreviousTab() {
+        markAddressBarSwipeTipSeen()
         finishContentSwipe(selectOffset: -1)
     }
 
     func addressBarDidSwipeToNextTab() {
+        markAddressBarSwipeTipSeen()
         finishContentSwipe(selectOffset: 1)
     }
 
