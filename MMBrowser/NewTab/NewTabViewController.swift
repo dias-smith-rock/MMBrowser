@@ -10,7 +10,7 @@ protocol NewTabViewControllerDelegate: AnyObject {
 }
 
 /// NTP: brand header + editable navigation directory. Search uses the bottom address bar.
-final class NewTabViewController: UIViewController {
+final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate {
     weak var delegate: NewTabViewControllerDelegate?
 
     private let scrollView = UIScrollView()
@@ -20,6 +20,19 @@ final class NewTabViewController: UIViewController {
     private let settingsButton = UIButton(type: .system)
     private let directoryStack = UIStackView()
     private var isEditingDirectory = false
+    /// Suppresses rebuild while a site icon is mid-drag.
+    private var isDraggingSite = false
+    private var siteDragSnapshot: UIView?
+    private var siteDragSiteID: UUID?
+    private var siteDragCategoryID: UUID?
+    private var siteDragFingerOffset: CGPoint = .zero
+    private lazy var siteDragGesture: UILongPressGestureRecognizer = {
+        let gesture = UILongPressGestureRecognizer(target: self, action: #selector(handleSiteDrag(_:)))
+        gesture.minimumPressDuration = 0.22
+        gesture.allowableMovement = 28
+        gesture.delegate = self
+        return gesture
+    }()
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -42,6 +55,7 @@ final class NewTabViewController: UIViewController {
     }
 
     @objc private func directoryChanged() {
+        guard !isDraggingSite else { return }
         buildDirectory()
     }
 
@@ -71,6 +85,7 @@ final class NewTabViewController: UIViewController {
             make.edges.equalToSuperview()
             make.width.equalTo(scrollView)
         }
+        scrollView.addGestureRecognizer(siteDragGesture)
 
         configureChip(editButton, title: "Edit")
         editButton.addTarget(self, action: #selector(editTapped), for: .touchUpInside)
@@ -120,9 +135,6 @@ final class NewTabViewController: UIViewController {
         directoryStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         let categories = NavigationStore.shared.categories
         for (index, category) in categories.enumerated() {
-            if !isEditingDirectory, category.isHome, category.sites.isEmpty {
-                continue
-            }
             directoryStack.addArrangedSubview(makeCategorySection(category, categoryIndex: index))
         }
     }
@@ -159,25 +171,6 @@ final class NewTabViewController: UIViewController {
         header.addArrangedSubview(UIView())
 
         if isEditingDirectory {
-            if !category.isHome {
-                let addHome = makeIconButton(systemName: "plus.app", categoryID: category.id, tag: categoryIndex)
-                addHome.accessibilityLabel = "Add Group to Home"
-                addHome.addAction(UIAction { [weak self] _ in
-                    guard let self else { return }
-                    let added = NavigationStore.shared.addGroupToHome(categoryID: category.id)
-                    Toast.show(added > 0 ? "Added to Home" : "Already on Home", from: self)
-                    self.buildDirectory()
-                }, for: .touchUpInside)
-                header.addArrangedSubview(addHome)
-
-                let trash = makeIconButton(systemName: "trash", categoryID: category.id, tag: categoryIndex)
-                trash.tintColor = .systemRed
-                trash.accessibilityLabel = "Delete Group"
-                trash.addAction(UIAction { [weak self] _ in
-                    self?.confirmDeleteCategory(category)
-                }, for: .touchUpInside)
-                header.addArrangedSubview(trash)
-            }
             let restore = makeIconButton(systemName: "arrow.counterclockwise", categoryID: category.id, tag: categoryIndex)
             restore.accessibilityLabel = "Restore Defaults"
             restore.addAction(UIAction { [weak self] _ in
@@ -190,6 +183,13 @@ final class NewTabViewController: UIViewController {
             if category.isHome {
                 header.addArrangedSubview(restore)
             }
+        } else {
+            let add = makeIconButton(systemName: "plus", categoryID: category.id, tag: categoryIndex)
+            add.accessibilityLabel = "Add Site"
+            add.addAction(UIAction { [weak self] _ in
+                self?.presentAddSite(categoryID: category.id)
+            }, for: .touchUpInside)
+            header.addArrangedSubview(add)
         }
 
         section.addArrangedSubview(header)
@@ -198,30 +198,15 @@ final class NewTabViewController: UIViewController {
         grid.axis = .vertical
         grid.spacing = 12
         grid.alignment = .fill
+        grid.accessibilityIdentifier = category.id.uuidString
 
         var tiles: [UIView] = []
         let columns = 5
+        for (siteIndex, site) in category.sites.enumerated() {
+            tiles.append(makeSiteTile(site, category: category, siteIndex: siteIndex))
+        }
         if isEditingDirectory {
-            for (siteIndex, site) in category.sites.enumerated() {
-                tiles.append(makeSiteTile(site, category: category, siteIndex: siteIndex))
-            }
             tiles.append(makeAddSiteTile(categoryID: category.id))
-        } else if category.isHome {
-            // Home: show sites only — no "+" edit entry.
-            for (siteIndex, site) in category.sites.enumerated() {
-                tiles.append(makeSiteTile(site, category: category, siteIndex: siteIndex))
-            }
-        } else {
-            // Show all sites; "+" is always the last tile (wraps to next row when count > 4).
-            for (siteIndex, site) in category.sites.enumerated() {
-                tiles.append(makeSiteTile(site, category: category, siteIndex: siteIndex))
-            }
-            if category.sites.count < columns - 1 {
-                while tiles.count < columns - 1 {
-                    tiles.append(UIView())
-                }
-            }
-            tiles.append(makeEnterEditTile())
         }
 
         var row = UIStackView()
@@ -262,7 +247,10 @@ final class NewTabViewController: UIViewController {
     }
 
     private func makeSiteTile(_ site: NavigationSite, category: NavigationCategory, siteIndex: Int) -> UIView {
-        let container = UIView()
+        let container = SiteTileView()
+        container.categoryID = category.id
+        container.siteID = site.id
+        container.siteIndex = siteIndex
         let iconSize: CGFloat = 48
         let iconPadding: CGFloat = 6
 
@@ -328,84 +316,11 @@ final class NewTabViewController: UIViewController {
                 make.size.equalTo(22)
             }
 
-            if siteIndex > 0 {
-                let left = UIButton(type: .system)
-                left.setImage(UIImage(systemName: "chevron.left.circle.fill"), for: .normal)
-                left.tintColor = BrowserTheme.chromeBlue.withAlphaComponent(0.9)
-                left.addAction(UIAction { [weak self] _ in
-                    NavigationStore.shared.moveSite(categoryID: category.id, from: siteIndex, to: siteIndex - 1)
-                    self?.buildDirectory()
-                }, for: .touchUpInside)
-                container.addSubview(left)
-                left.snp.makeConstraints { make in
-                    make.leading.equalTo(iconWell).offset(-6)
-                    make.bottom.equalTo(iconWell).offset(2)
-                    make.size.equalTo(18)
-                }
-            }
-            if siteIndex < category.sites.count - 1 {
-                let right = UIButton(type: .system)
-                right.setImage(UIImage(systemName: "chevron.right.circle.fill"), for: .normal)
-                right.tintColor = BrowserTheme.chromeBlue.withAlphaComponent(0.9)
-                right.addAction(UIAction { [weak self] _ in
-                    NavigationStore.shared.moveSite(categoryID: category.id, from: siteIndex, to: siteIndex + 1)
-                    self?.buildDirectory()
-                }, for: .touchUpInside)
-                container.addSubview(right)
-                right.snp.makeConstraints { make in
-                    make.trailing.equalTo(iconWell).offset(6)
-                    make.bottom.equalTo(iconWell).offset(2)
-                    make.size.equalTo(18)
-                }
+            if siteDragSiteID == site.id {
+                container.alpha = 0.25
             }
         }
 
-        return container
-    }
-
-    private func makeEnterEditTile() -> UIView {
-        let container = UIView()
-        let iconSize: CGFloat = 48
-
-        let iconWell = UIView()
-        iconWell.backgroundColor = BrowserTheme.elevated
-        iconWell.layer.cornerRadius = iconSize / 2
-        iconWell.layer.borderWidth = 1
-        iconWell.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.35).cgColor
-
-        let plus = UIImageView(image: UIImage(systemName: "plus"))
-        plus.tintColor = BrowserTheme.chromeBlue
-        plus.contentMode = .scaleAspectFit
-
-        let label = UILabel()
-        label.text = "Edit"
-        label.textColor = BrowserTheme.textSecondary
-        label.font = .systemFont(ofSize: 11, weight: .medium)
-        label.textAlignment = .center
-
-        let button = UIButton(type: .system)
-        button.accessibilityLabel = "Edit"
-        button.addTarget(self, action: #selector(enterEditFromPlus), for: .touchUpInside)
-
-        container.addSubview(iconWell)
-        iconWell.addSubview(plus)
-        container.addSubview(label)
-        container.addSubview(button)
-
-        iconWell.snp.makeConstraints { make in
-            make.top.centerX.equalToSuperview()
-            make.size.equalTo(iconSize)
-        }
-        plus.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-            make.size.equalTo(22)
-        }
-        label.snp.makeConstraints { make in
-            make.top.equalTo(iconWell.snp.bottom).offset(8)
-            make.leading.trailing.equalToSuperview().inset(2)
-            make.bottom.equalToSuperview()
-        }
-        button.snp.makeConstraints { $0.edges.equalToSuperview() }
         return container
     }
 
@@ -457,20 +372,6 @@ final class NewTabViewController: UIViewController {
         return container
     }
 
-    private func confirmDeleteCategory(_ category: NavigationCategory) {
-        let alert = UIAlertController(
-            title: "Delete Group?",
-            message: "Remove “\(category.title)” and its sites from Home.",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
-            NavigationStore.shared.deleteCategory(id: category.id)
-            self?.buildDirectory()
-        })
-        present(alert, animated: true)
-    }
-
     private func presentAddSite(categoryID: UUID) {
         let alert = UIAlertController(title: "Add Site", message: nil, preferredStyle: .alert)
         alert.addTextField { field in
@@ -500,16 +401,12 @@ final class NewTabViewController: UIViewController {
         present(alert, animated: true)
     }
 
-    @objc private func enterEditFromPlus() {
-        guard !isEditingDirectory else { return }
-        isEditingDirectory = true
-        editButton.setTitle("Done", for: .normal)
-        buildDirectory()
-    }
-
     @objc private func editTapped() {
         isEditingDirectory.toggle()
         editButton.setTitle(isEditingDirectory ? "Done" : "Edit", for: .normal)
+        if !isEditingDirectory {
+            cancelSiteDrag(animated: false)
+        }
         buildDirectory()
     }
 
@@ -528,27 +425,6 @@ final class NewTabViewController: UIViewController {
 
     private func presentSiteEditMenu(_ sender: NavigationSiteButton) {
         let sheet = UIAlertController(title: sender.site.title, message: nil, preferredStyle: .actionSheet)
-        if sender.siteIndex > 0 {
-            sheet.addAction(UIAlertAction(title: "Move Left", style: .default) { [weak self] _ in
-                NavigationStore.shared.moveSite(
-                    categoryID: sender.categoryID,
-                    from: sender.siteIndex,
-                    to: sender.siteIndex - 1
-                )
-                self?.buildDirectory()
-            })
-        }
-        let count = NavigationStore.shared.categories.first(where: { $0.id == sender.categoryID })?.sites.count ?? 0
-        if sender.siteIndex < count - 1 {
-            sheet.addAction(UIAlertAction(title: "Move Right", style: .default) { [weak self] _ in
-                NavigationStore.shared.moveSite(
-                    categoryID: sender.categoryID,
-                    from: sender.siteIndex,
-                    to: sender.siteIndex + 1
-                )
-                self?.buildDirectory()
-            })
-        }
         sheet.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
             NavigationStore.shared.removeSite(categoryID: sender.categoryID, siteID: sender.site.id)
             self?.buildDirectory()
@@ -559,6 +435,171 @@ final class NewTabViewController: UIViewController {
             pop.sourceRect = sender.bounds
         }
         present(sheet, animated: true)
+    }
+
+    // MARK: - Site drag reorder
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === siteDragGesture else { return true }
+        guard isEditingDirectory, !isDraggingSite else { return false }
+        let location = gestureRecognizer.location(in: contentView)
+        return siteTile(at: location) != nil
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        guard gestureRecognizer === siteDragGesture else { return true }
+        // Let the red minus control handle its own taps.
+        if touch.view is UIButton, !(touch.view is NavigationSiteButton) {
+            return false
+        }
+        return isEditingDirectory
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        false
+    }
+
+    @objc private func handleSiteDrag(_ gesture: UILongPressGestureRecognizer) {
+        let locationInView = gesture.location(in: view)
+        let locationInContent = gesture.location(in: contentView)
+
+        switch gesture.state {
+        case .began:
+            guard let tile = siteTile(at: locationInContent) else { return }
+            beginSiteDrag(tile, fingerInView: locationInView)
+
+        case .changed:
+            guard isDraggingSite, let snapshot = siteDragSnapshot else { return }
+            snapshot.center = CGPoint(
+                x: locationInView.x - siteDragFingerOffset.x,
+                y: locationInView.y - siteDragFingerOffset.y
+            )
+            reorderIfNeeded(fingerInContent: locationInContent)
+
+        case .ended, .cancelled, .failed:
+            endSiteDrag()
+
+        default:
+            break
+        }
+    }
+
+    private func beginSiteDrag(_ tile: SiteTileView, fingerInView: CGPoint) {
+        isDraggingSite = true
+        siteDragCategoryID = tile.categoryID
+        siteDragSiteID = tile.siteID
+        scrollView.isScrollEnabled = false
+
+        let frameInView = tile.convert(tile.bounds, to: view)
+        let snapshot = tile.snapshotView(afterScreenUpdates: true) ?? UIView(frame: frameInView)
+        snapshot.frame = frameInView
+        snapshot.layer.shadowColor = UIColor.black.cgColor
+        snapshot.layer.shadowOpacity = 0.35
+        snapshot.layer.shadowRadius = 10
+        snapshot.layer.shadowOffset = CGSize(width: 0, height: 4)
+        view.addSubview(snapshot)
+        siteDragSnapshot = snapshot
+        siteDragFingerOffset = CGPoint(x: fingerInView.x - snapshot.center.x, y: fingerInView.y - snapshot.center.y)
+
+        tile.alpha = 0.25
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        UIView.animate(withDuration: 0.15) {
+            snapshot.transform = CGAffineTransform(scaleX: 1.08, y: 1.08)
+        }
+    }
+
+    private func reorderIfNeeded(fingerInContent: CGPoint) {
+        guard let categoryID = siteDragCategoryID, let siteID = siteDragSiteID else { return }
+        guard let target = siteTile(at: fingerInContent), target.categoryID == categoryID, target.siteID != siteID else {
+            return
+        }
+        guard let category = NavigationStore.shared.categories.first(where: { $0.id == categoryID }),
+              let from = category.sites.firstIndex(where: { $0.id == siteID }) else { return }
+        let to = target.siteIndex
+        guard from != to else { return }
+
+        NavigationStore.shared.moveSite(categoryID: categoryID, from: from, to: to, notify: false)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        buildDirectory()
+        view.layoutIfNeeded()
+        if let placeholder = siteTile(withSiteID: siteID) {
+            placeholder.alpha = 0.25
+        }
+        if let snapshot = siteDragSnapshot {
+            view.bringSubviewToFront(snapshot)
+        }
+    }
+
+    private func endSiteDrag() {
+        guard isDraggingSite else { return }
+        let siteID = siteDragSiteID
+        let snapshot = siteDragSnapshot
+
+        if let siteID, let placeholder = siteTile(withSiteID: siteID), let snapshot {
+            let targetFrame = placeholder.convert(placeholder.bounds, to: view)
+            UIView.animate(withDuration: 0.2, delay: 0, options: [.curveEaseOut]) {
+                snapshot.transform = .identity
+                snapshot.frame = targetFrame
+            } completion: { _ in
+                snapshot.removeFromSuperview()
+                placeholder.alpha = 1
+                self.finishSiteDragCleanup()
+            }
+        } else {
+            snapshot?.removeFromSuperview()
+            finishSiteDragCleanup()
+        }
+    }
+
+    private func cancelSiteDrag(animated: Bool) {
+        siteDragSnapshot?.removeFromSuperview()
+        finishSiteDragCleanup(rebuild: animated)
+    }
+
+    private func finishSiteDragCleanup(rebuild: Bool = true) {
+        isDraggingSite = false
+        siteDragSnapshot = nil
+        siteDragSiteID = nil
+        siteDragCategoryID = nil
+        siteDragFingerOffset = .zero
+        scrollView.isScrollEnabled = true
+        if rebuild {
+            buildDirectory()
+        }
+    }
+
+    private func siteTile(at pointInContent: CGPoint) -> SiteTileView? {
+        findSiteTile(in: directoryStack, pointInContent: pointInContent)
+    }
+
+    private func findSiteTile(in root: UIView, pointInContent: CGPoint) -> SiteTileView? {
+        for sub in root.subviews {
+            if let tile = sub as? SiteTileView {
+                let frame = tile.convert(tile.bounds, to: contentView)
+                if frame.insetBy(dx: -4, dy: -4).contains(pointInContent) {
+                    return tile
+                }
+            }
+            if let found = findSiteTile(in: sub, pointInContent: pointInContent) {
+                return found
+            }
+        }
+        return nil
+    }
+
+    private func siteTile(withSiteID siteID: UUID) -> SiteTileView? {
+        findSiteTile(in: directoryStack) { $0.siteID == siteID }
+    }
+
+    private func findSiteTile(in root: UIView, where predicate: (SiteTileView) -> Bool) -> SiteTileView? {
+        for sub in root.subviews {
+            if let tile = sub as? SiteTileView, predicate(tile) { return tile }
+            if let found = findSiteTile(in: sub, where: predicate) { return found }
+        }
+        return nil
     }
 
     @objc private func moveCategoryUp(_ sender: CategoryActionButton) {
@@ -572,6 +613,12 @@ final class NewTabViewController: UIViewController {
         NavigationStore.shared.moveCategory(from: from, to: from + 1)
         buildDirectory()
     }
+}
+
+private final class SiteTileView: UIView {
+    var categoryID: UUID = UUID()
+    var siteID: UUID = UUID()
+    var siteIndex: Int = 0
 }
 
 private final class NavigationSiteButton: UIButton {

@@ -197,14 +197,18 @@ final class NavigationStore {
         persistAndNotify()
     }
 
-    func moveSite(categoryID: UUID, from: Int, to: Int) {
+    func moveSite(categoryID: UUID, from: Int, to: Int, notify: Bool = true) {
         guard let idx = categories.firstIndex(where: { $0.id == categoryID }) else { return }
         var sites = categories[idx].sites
         guard from >= 0, from < sites.count, to >= 0, to < sites.count, from != to else { return }
         let item = sites.remove(at: from)
         sites.insert(item, at: to)
         categories[idx].sites = sites
-        persistAndNotify()
+        if notify {
+            persistAndNotify()
+        } else {
+            save()
+        }
     }
 
     func moveCategory(from: Int, to: Int) {
