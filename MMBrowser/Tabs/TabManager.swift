@@ -82,6 +82,19 @@ final class TabManager {
         return sortedContainers.first(where: { $0.id != resolvedLastActiveContainerID })?.id
     }
 
+    func uniqueAccountName(base: String) -> String {
+        let trimmed = base.trimmingCharacters(in: .whitespacesAndNewlines)
+        let root = trimmed.isEmpty ? "Account" : trimmed
+        if !containers.contains(where: { $0.name.caseInsensitiveCompare(root) == .orderedSame }) {
+            return root
+        }
+        var index = 2
+        while containers.contains(where: { $0.name.caseInsensitiveCompare("\(root) \(index)") == .orderedSame }) {
+            index += 1
+        }
+        return "\(root) \(index)"
+    }
+
     func accountColor(for tab: BrowserTab) -> UIColor {
         if let c = container(id: tab.containerID) {
             return AccountColor.color(for: c)

@@ -66,29 +66,52 @@ struct IdentityProfile: Codable, Equatable {
 }
 
 enum ContainerTemplate: String, CaseIterable {
-    case work
     case social
+    case shop
+    case work
     case custom
 
     var displayName: String {
         switch self {
-        case .work: return "Work"
         case .social: return "Social"
+        case .shop: return "Shop"
+        case .work: return "Work"
         case .custom: return "Custom"
         }
     }
 
     var detail: String {
         switch self {
-        case .work: return "Desktop sites, ask for location, persistent session."
-        case .social: return "Mobile sites, optional location spoof, Shorts-friendly."
+        case .social: return "Mobile sites for creators and personal social logins."
+        case .shop: return "Separate storefront or seller logins with their own cookies."
+        case .work: return "Desktop sites for email and docs."
         case .custom: return "Configure everything yourself."
+        }
+    }
+
+    var suggestedName: String { displayName }
+
+    var quickAddTag: Int {
+        switch self {
+        case .social: return 1
+        case .shop: return 2
+        case .work: return 3
+        case .custom: return 0
+        }
+    }
+
+    static func fromQuickAddTag(_ tag: Int) -> ContainerTemplate? {
+        switch tag {
+        case 1: return .social
+        case 2: return .shop
+        case 3: return .work
+        default: return nil
         }
     }
 
     func makeContainer(name: String, sortIndex: Int, colorIndex: Int) -> BrowserContainer {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let displayName = trimmed.isEmpty ? displayName : trimmed
+        let displayName = trimmed.isEmpty ? suggestedName : trimmed
         let preset = SpoofLocationPreset.all[sortIndex % SpoofLocationPreset.all.count]
 
         switch self {
@@ -132,6 +155,28 @@ enum ContainerTemplate: String, CaseIterable {
                 ),
                 templateID: rawValue
             )
+        case .shop:
+            return BrowserContainer(
+                id: UUID(),
+                name: displayName,
+                sessionID: UUID(),
+                sortIndex: sortIndex,
+                colorIndex: colorIndex,
+                locationMode: .ask,
+                latitude: preset.latitude,
+                longitude: preset.longitude,
+                timeZoneIdentifier: preset.timeZoneIdentifier,
+                locationPresetID: preset.id,
+                pinnedSites: Self.shopPinnedSites,
+                persistence: .persistent,
+                identity: IdentityProfile(
+                    localeIdentifier: "en-US",
+                    userAgentMode: .desktop,
+                    customUserAgent: nil,
+                    stripTrackingParams: true
+                ),
+                templateID: rawValue
+            )
         case .custom:
             return BrowserContainer(
                 id: UUID(),
@@ -156,6 +201,7 @@ enum ContainerTemplate: String, CaseIterable {
         let key = name.lowercased()
         if key.contains("work") { return workPinnedSites }
         if key.contains("social") { return socialPinnedSites }
+        if key.contains("shop") || key.contains("store") { return shopPinnedSites }
         return []
     }
 
@@ -169,5 +215,11 @@ enum ContainerTemplate: String, CaseIterable {
         NavigationSite(title: "X", urlString: "https://x.com", logoAssetName: "nav_x"),
         NavigationSite(title: "Instagram", urlString: "https://www.instagram.com", logoAssetName: "nav_instagram"),
         NavigationSite(title: "YouTube", urlString: "https://www.youtube.com", logoAssetName: "nav_youtube")
+    ]
+
+    private static let shopPinnedSites: [NavigationSite] = [
+        NavigationSite(title: "Shopify", urlString: "https://www.shopify.com", logoAssetName: nil),
+        NavigationSite(title: "Etsy", urlString: "https://www.etsy.com", logoAssetName: nil),
+        NavigationSite(title: "Amazon", urlString: "https://sellercentral.amazon.com", logoAssetName: nil)
     ]
 }

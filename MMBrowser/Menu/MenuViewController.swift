@@ -74,8 +74,8 @@ final class MenuViewController: UIViewController {
             ("Incognito tab", "theatermasks", .newIncognitoTab),
             ("Passwords", "key", .passwords),
             ("Downloads (Shared)", "arrow.down.circle", .downloads),
-            ("Bookmarks", "bookmark", .bookmarks),
-            ("History", "clock", .history),
+            ("Bookmarks (Isolated)", "bookmark", .bookmarks),
+            ("History (Isolated)", "clock", .history),
             ("Reading list (Shared)", "text.book.closed", .readingList)
         ]
         if isIncognito {

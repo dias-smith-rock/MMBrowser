@@ -4,7 +4,8 @@ import SnapKit
 protocol AccountSwitcherViewControllerDelegate: AnyObject {
     func accountSwitcher(_ controller: AccountSwitcherViewController, didSelectAccount id: UUID)
     func accountSwitcherDidRequestManage(_ controller: AccountSwitcherViewController)
-    func accountSwitcherDidRequestAdd(_ controller: AccountSwitcherViewController)
+    func accountSwitcherDidRequestAddCustom(_ controller: AccountSwitcherViewController)
+    func accountSwitcher(_ controller: AccountSwitcherViewController, didRequestAddTemplate template: ContainerTemplate)
     func accountSwitcher(_ controller: AccountSwitcherViewController, didRequestCompare leftID: UUID, rightID: UUID)
 }
 
@@ -117,10 +118,36 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
         splitViewButton = compare
         actionBar.addArrangedSubview(compare)
 
+        let quickLabel = UILabel()
+        quickLabel.text = "Quick add"
+        quickLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        quickLabel.textColor = BrowserTheme.textSecondary
+        actionBar.addArrangedSubview(quickLabel)
+
+        let quickRow = UIStackView()
+        quickRow.axis = .horizontal
+        quickRow.spacing = 8
+        quickRow.distribution = .fillEqually
+        for template in [ContainerTemplate.social, .shop, .work] {
+            let button = makeFooterButton(
+                title: "Add \(template.displayName)",
+                action: #selector(quickAddTapped(_:)),
+                emphasized: false
+            )
+            button.tag = template.quickAddTag
+            button.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+            button.titleLabel?.adjustsFontSizeToFitWidth = true
+            button.titleLabel?.minimumScaleFactor = 0.8
+            button.contentEdgeInsets = UIEdgeInsets(top: 10, left: 6, bottom: 10, right: 6)
+            button.snp.remakeConstraints { $0.height.equalTo(44) }
+            quickRow.addArrangedSubview(button)
+        }
+        actionBar.addArrangedSubview(quickRow)
+
         let manage = makeFooterButton(title: "Manage Accounts", action: #selector(manageTapped), emphasized: false)
-        let add = makeFooterButton(title: "Add Account", action: #selector(addTapped), emphasized: false)
+        let addCustom = makeFooterButton(title: "Add Custom…", action: #selector(addCustomTapped), emphasized: false)
         actionBar.addArrangedSubview(manage)
-        actionBar.addArrangedSubview(add)
+        actionBar.addArrangedSubview(addCustom)
     }
 
     private func makeFooterButton(title: String, action: Selector, emphasized: Bool) -> UIButton {
@@ -149,8 +176,13 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
         delegate?.accountSwitcherDidRequestManage(self)
     }
 
-    @objc private func addTapped() {
-        delegate?.accountSwitcherDidRequestAdd(self)
+    @objc private func addCustomTapped() {
+        delegate?.accountSwitcherDidRequestAddCustom(self)
+    }
+
+    @objc private func quickAddTapped(_ sender: UIButton) {
+        guard let template = ContainerTemplate.fromQuickAddTag(sender.tag) else { return }
+        delegate?.accountSwitcher(self, didRequestAddTemplate: template)
     }
 
     @objc private func compareTapped() {

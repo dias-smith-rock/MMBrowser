@@ -670,6 +670,101 @@ final class BrowserViewController: UIViewController {
         )
     }
 
+    /// Switch account and show a strong, hard-to-miss identity change.
+    private func switchToAccountWithFeedback(_ id: UUID, subtitle: String? = nil) {
+        guard let container = tabManager.container(id: id) else { return }
+        _ = tabManager.switchToAccount(id)
+        showSelectedTab()
+        refreshAccountChip()
+        toolbar.pulseAccountChip()
+        AppAnalytics.logAccountSwitch(accountName: container.name)
+        let color = AccountColor.color(for: container)
+        let detail = subtitle
+            ?? "Cookies, history, bookmarks & home stay with this account"
+        presentAccountSwitchBanner(name: container.name, detail: detail, color: color)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        flashChrome(with: color)
+    }
+
+    private func presentAccountSwitchBanner(name: String, detail: String, color: UIColor) {
+        view.subviews.filter { $0.tag == 9_401_122 }.forEach { $0.removeFromSuperview() }
+
+        let banner = UIView()
+        banner.tag = 9_401_122
+        banner.backgroundColor = BrowserTheme.elevated
+        banner.layer.cornerRadius = 14
+        banner.layer.borderWidth = 1.5
+        banner.layer.borderColor = color.cgColor
+        banner.clipsToBounds = true
+        banner.alpha = 0
+        banner.transform = CGAffineTransform(translationX: 0, y: -12)
+
+        let dot = UIView()
+        dot.backgroundColor = color
+        dot.layer.cornerRadius = 5
+
+        let title = UILabel()
+        title.text = "Now browsing as \(name)"
+        title.font = .systemFont(ofSize: 16, weight: .semibold)
+        title.textColor = BrowserTheme.textPrimary
+        title.numberOfLines = 1
+
+        let body = UILabel()
+        body.text = detail
+        body.font = .systemFont(ofSize: 13)
+        body.textColor = BrowserTheme.textSecondary
+        body.numberOfLines = 2
+
+        let textStack = UIStackView(arrangedSubviews: [title, body])
+        textStack.axis = .vertical
+        textStack.spacing = 2
+
+        let row = UIStackView(arrangedSubviews: [dot, textStack])
+        row.axis = .horizontal
+        row.alignment = .center
+        row.spacing = 10
+        banner.addSubview(row)
+        view.addSubview(banner)
+
+        dot.snp.makeConstraints { $0.size.equalTo(10) }
+        row.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(UIEdgeInsets(top: 12, left: 14, bottom: 12, right: 14))
+        }
+        banner.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(10)
+            make.leading.trailing.equalToSuperview().inset(16)
+        }
+
+        UIView.animate(withDuration: 0.28, delay: 0, options: .curveEaseOut) {
+            banner.alpha = 1
+            banner.transform = .identity
+        }
+        UIView.animate(withDuration: 0.35, delay: 2.2, options: .curveEaseIn) {
+            banner.alpha = 0
+            banner.transform = CGAffineTransform(translationX: 0, y: -8)
+        } completion: { _ in
+            banner.removeFromSuperview()
+        }
+    }
+
+    private func flashChrome(with color: UIColor) {
+        let flash = UIView()
+        flash.backgroundColor = color.withAlphaComponent(0.2)
+        flash.isUserInteractionEnabled = false
+        flash.alpha = 0
+        view.addSubview(flash)
+        flash.snp.makeConstraints { $0.edges.equalToSuperview() }
+        UIView.animate(withDuration: 0.15, animations: {
+            flash.alpha = 1
+        }, completion: { _ in
+            UIView.animate(withDuration: 0.45, animations: {
+                flash.alpha = 0
+            }, completion: { _ in
+                flash.removeFromSuperview()
+            })
+        })
+    }
+
     private func presentAccountSwitcher() {
         let switcher = AccountSwitcherViewController(tabManager: tabManager)
         switcher.delegate = self
@@ -1323,18 +1418,11 @@ extension BrowserViewController: BottomToolbarViewDelegate {
 
     func toolbarDidLongPressAccount() {
         AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_account_longpress")
-        guard let targetID = tabManager.quickSwitchTargetAccountID(),
-              let name = tabManager.container(id: targetID)?.name else {
+        guard let targetID = tabManager.quickSwitchTargetAccountID() else {
             presentAccountSwitcher()
             return
         }
-        _ = tabManager.switchToAccount(targetID)
-        showSelectedTab()
-        refreshAccountChip()
-        Toast.show("Switched to \(name)", from: self)
-        AppAnalytics.logAccountSwitch(accountName: name)
-        // Subtle chip pulse
-        toolbar.pulseAccountChip()
+        switchToAccountWithFeedback(targetID)
     }
 
     func toolbarDidTapBack() {
@@ -1944,15 +2032,8 @@ extension BrowserViewController: DualAccountCompareViewControllerDelegate {
 
 extension BrowserViewController: AccountSwitcherViewControllerDelegate {
     func accountSwitcher(_ controller: AccountSwitcherViewController, didSelectAccount id: UUID) {
-        let name = tabManager.container(id: id)?.name ?? "Account"
         controller.dismiss(animated: true) { [weak self] in
-            guard let self else { return }
-            _ = self.tabManager.switchToAccount(id)
-            self.showSelectedTab()
-            self.refreshAccountChip()
-            Toast.show("Switched to \(name)", from: self)
-            self.toolbar.pulseAccountChip()
-            AppAnalytics.logAccountSwitch(accountName: name)
+            self?.switchToAccountWithFeedback(id)
         }
     }
 
@@ -1962,9 +2043,25 @@ extension BrowserViewController: AccountSwitcherViewControllerDelegate {
         }
     }
 
-    func accountSwitcherDidRequestAdd(_ controller: AccountSwitcherViewController) {
+    func accountSwitcherDidRequestAddCustom(_ controller: AccountSwitcherViewController) {
         controller.dismiss(animated: true) { [weak self] in
             self?.presentAddAccount()
+        }
+    }
+
+    func accountSwitcher(_ controller: AccountSwitcherViewController, didRequestAddTemplate template: ContainerTemplate) {
+        let name = tabManager.uniqueAccountName(base: template.suggestedName)
+        let draft = template.makeContainer(
+            name: name,
+            sortIndex: tabManager.containers.count,
+            colorIndex: tabManager.containers.count % AccountColor.palette.count
+        )
+        guard let created = tabManager.addContainer(draft) else {
+            Toast.show("Could not create account", from: controller)
+            return
+        }
+        controller.dismiss(animated: true) { [weak self] in
+            self?.switchToAccountWithFeedback(created.id, subtitle: "\(template.displayName) template ready")
         }
     }
 
@@ -1988,9 +2085,7 @@ extension BrowserViewController: ContainerEditViewControllerDelegate {
                 Toast.show("Could not save. Choose a unique non-empty name.", from: self)
                 return
             }
-            _ = tabManager.switchToAccount(created.id)
-            showSelectedTab()
-            Toast.show("Opened \(created.name)", from: self)
+            switchToAccountWithFeedback(created.id, subtitle: "Account created")
         } else {
             guard tabManager.updateContainer(container) else {
                 Toast.show("Could not save. Choose a unique non-empty name.", from: self)
