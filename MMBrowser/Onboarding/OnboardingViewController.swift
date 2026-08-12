@@ -12,19 +12,19 @@ final class OnboardingViewController: UIViewController {
 
     private let pageCopy: [(title: String, body: String, image: String)] = [
         (
-            "Dual Accounts",
-            "Separate logins, cookies, history, and bookmarks for Personal and Work—so sites only see the identity you choose.",
-            "onboarding_privacy"
+            "Social accounts that don't mix",
+            "Keep Instagram, X, or YouTube logins in separate identities. Switch profiles without logging out—or leaking cookies across accounts.",
+            "onboarding_social"
         ),
         (
-            "Fewer Ads & Shorts",
-            "Block ads and trackers as you browse. Shorts Focus hides YouTube Shorts so you stay on the videos you want.",
-            "onboarding_cleaner"
+            "Run multiple shops, cleanly",
+            "Manage different store or seller accounts in one browser. Each shop keeps its own cookies, history, and bookmarks.",
+            "onboarding_shops"
         ),
         (
-            "Lock & Clear",
-            "Protect MMBrowser with Face ID, PIN, or pattern. Auto-clear browsing data when you leave.",
-            "onboarding_focus"
+            "Work stays at work",
+            "Use a dedicated work identity for email and docs. One tap on the account chip switches you back—history and home stay separate too.",
+            "onboarding_work"
         )
     ]
 
