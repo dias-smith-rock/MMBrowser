@@ -49,7 +49,7 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .status:
-            return "When enabled, MMBrowser locks on launch and after being in the background longer than Lock After."
+            return "When enabled, XBrowser locks on launch and after being in the background longer than Lock After."
         case .methods:
             return "Choose a 4-digit PIN or a pattern. Setting one replaces the other."
         case .biometrics:
@@ -343,7 +343,7 @@ final class AppLockGracePeriodViewController: UIViewController, UITableViewDataS
     }
 
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-        "Require unlock after MMBrowser has been in the background for this long."
+        "Require unlock after XBrowser has been in the background for this long."
     }
 
     func tableView(_ tableView: UITableView, willDisplayFooterView view: UIView, forSection section: Int) {

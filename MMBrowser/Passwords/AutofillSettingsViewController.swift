@@ -67,7 +67,7 @@ final class AutofillSettingsViewController: UIViewController, UITableViewDataSou
         case .protection:
             return "Protect saved passwords and cards with a single master password."
         case .passwords:
-            return "Turn on AutoFill Passwords for MM Browser in iOS Settings to use saved logins in other apps."
+            return "Turn on AutoFill Passwords for XBrowser in iOS Settings to use saved logins in other apps."
         case .cards:
             return "The browser will suggest saved card details in payment forms when enabled."
         default:
@@ -112,7 +112,7 @@ final class AutofillSettingsViewController: UIViewController, UITableViewDataSou
                 cell.accessoryView = makeSwitch(isOn: PasswordSettings.autoSavePasswords, action: #selector(toggleAutoSave(_:)))
             default:
                 cell.textLabel?.textColor = BrowserTheme.chromeBlue
-                cell.textLabel?.text = "AutoFill passwords from MM Browser in other applications"
+                cell.textLabel?.text = "AutoFill passwords from XBrowser in other applications"
             }
         case .cards:
             cell.selectionStyle = .none

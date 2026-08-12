@@ -115,7 +115,7 @@ final class MenuViewController: UIViewController {
         button.addTarget(self, action: #selector(actionTapped(_:)), for: .touchUpInside)
         button.layer.cornerRadius = 14
         button.clipsToBounds = true
-        button.accessibilityLabel = "Make MMBrowser the default browser"
+        button.accessibilityLabel = "Make XBrowser the default browser"
 
         let gradient = CAGradientLayer()
         gradient.colors = [
@@ -135,7 +135,7 @@ final class MenuViewController: UIViewController {
         icon.contentMode = .scaleAspectFit
 
         let label = UILabel()
-        label.text = "Make MMBrowser the default browser"
+        label.text = "Make XBrowser the default browser"
         label.textColor = .white
         label.font = .systemFont(ofSize: 14, weight: .semibold)
         label.numberOfLines = 2

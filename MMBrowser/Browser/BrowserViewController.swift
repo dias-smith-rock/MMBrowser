@@ -1949,7 +1949,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
     private func openAppSettingsForDefaultBrowser() {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)
-        Toast.show("Set MMBrowser as Default Browser App in Settings", from: self)
+        Toast.show("Set XBrowser as Default Browser App in Settings", from: self)
     }
 
     private func openFeedback() {
@@ -1958,7 +1958,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
         components.scheme = "mailto"
         components.path = address
         components.queryItems = [
-            URLQueryItem(name: "subject", value: "MMBrowser Feedback")
+            URLQueryItem(name: "subject", value: "XBrowser Feedback")
         ]
         if let url = components.url, UIApplication.shared.canOpenURL(url) {
             UIApplication.shared.open(url)

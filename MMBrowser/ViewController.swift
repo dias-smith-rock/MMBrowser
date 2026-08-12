@@ -12,7 +12,7 @@ class ViewController: UIViewController {
         view.backgroundColor = .systemBackground
 
         let label = UILabel()
-        label.text = "MMBrowser"
+        label.text = "XBrowser"
         label.font = .systemFont(ofSize: 28, weight: .semibold)
         label.textAlignment = .center
         label.translatesAutoresizingMaskIntoConstraints = false

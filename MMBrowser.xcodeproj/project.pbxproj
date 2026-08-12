@@ -1167,9 +1167,10 @@
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "MMBrowser uses Face ID to unlock the app.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "MMBrowser uses your location only when Location is set to Ask and a website requests it.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "MMBrowser needs access to save screenshots to your photo library.";
+				INFOPLIST_KEY_CFBundleDisplayName = XBrowser;
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "XBrowser uses Face ID to unlock the app.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "XBrowser uses your location only when Location is set to Ask and a website requests it.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XBrowser needs access to save screenshots to your photo library.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -1200,9 +1201,10 @@
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "MMBrowser uses Face ID to unlock the app.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "MMBrowser uses your location only when Location is set to Ask and a website requests it.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "MMBrowser needs access to save screenshots to your photo library.";
+				INFOPLIST_KEY_CFBundleDisplayName = XBrowser;
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "XBrowser uses Face ID to unlock the app.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "XBrowser uses your location only when Location is set to Ask and a website requests it.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XBrowser needs access to save screenshots to your photo library.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";

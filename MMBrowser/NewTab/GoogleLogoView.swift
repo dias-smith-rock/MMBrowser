@@ -21,7 +21,7 @@ final class GoogleLogoView: UIView {
 
         label.textAlignment = .left
         label.font = .systemFont(ofSize: 14, weight: .semibold)
-        label.text = "MMBrowser"
+        label.text = "XBrowser"
 
         stack.axis = .horizontal
         stack.alignment = .center

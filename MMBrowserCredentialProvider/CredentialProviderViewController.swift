@@ -53,7 +53,7 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
 
     private func authenticateThenLoad(preferredHosts: [String]) {
         let context = LAContext()
-        context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Unlock MM Browser Passwords") { [weak self] ok, _ in
+        context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Unlock XBrowser Passwords") { [weak self] ok, _ in
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard ok else {
