@@ -55,7 +55,10 @@ final class MenuViewController: UIViewController {
             make.width.equalTo(scrollView).offset(-32)
         }
 
-        stack.addArrangedSubview(makeDefaultBrowserCard())
+        // Hidden until Apple grants `com.apple.developer.web-browser`.
+        if DefaultBrowserFeature.isEnabled {
+            stack.addArrangedSubview(makeDefaultBrowserCard())
+        }
         stack.addArrangedSubview(makeGridCard(items: libraryItems()))
         stack.addArrangedSubview(makeGridCard(items: extrasItems()))
     }

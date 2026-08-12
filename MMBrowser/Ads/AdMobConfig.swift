@@ -6,12 +6,25 @@ enum AdMobConfig {
     /// Sample AdMob App ID — replace with your real App ID in Info.plist (`GADApplicationIdentifier`).
     static let sampleAppID = "ca-app-pub-3940256099942544~1458002511"
 
+    /// New installs see no ads for this many days from first launch.
+    static let newUserAdFreeDays = 3
+
+    /// `true` while within the new-user ad-free window.
+    static var isInNewUserAdFreePeriod: Bool {
+        let elapsed = Date().timeIntervalSince(AppSettings.firstLaunchDate)
+        return elapsed < TimeInterval(newUserAdFreeDays * 24 * 60 * 60)
+    }
+
     #if DEBUG
-    /// Debug uses Google test units. Set UserDefaults `mmbrowser.debug.forceAds` = false to disable.
+    /// Debug uses Google test units. Set UserDefaults `mmbrowser.debug.forceAds` to override.
+    /// - `true`: force ads even during the new-user window
+    /// - `false`: disable ads
+    /// - unset: normal rules (including 3-day ad-free)
     static var adsEnabled: Bool {
         if UserDefaults.standard.object(forKey: "mmbrowser.debug.forceAds") != nil {
             return UserDefaults.standard.bool(forKey: "mmbrowser.debug.forceAds")
         }
+        if isInNewUserAdFreePeriod { return false }
         return true
     }
 
@@ -24,7 +37,8 @@ enum AdMobConfig {
     }
     #else
     static var adsEnabled: Bool {
-        RemoteConfigManager.shared.isAdsEnabled
+        if isInNewUserAdFreePeriod { return false }
+        return RemoteConfigManager.shared.isAdsEnabled
     }
 
     static var appOpenAdUnitID: String {

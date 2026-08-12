@@ -1,6 +1,12 @@
 import Foundation
 import UIKit
 
+/// Gate for “set as default browser” until Apple grants the managed entitlement.
+enum DefaultBrowserFeature {
+    /// Flip to `true` after `com.apple.developer.web-browser` is approved and re-added to entitlements.
+    static let isEnabled = false
+}
+
 enum AppSettings {
     private static let d = UserDefaults.standard
 
@@ -98,6 +104,34 @@ enum AppSettings {
     static var didShowOnboarding: Bool {
         get { d.bool(forKey: "onboarding.done") }
         set { d.set(newValue, forKey: "onboarding.done") }
+    }
+
+    /// First process launch time (persisted). Used for new-user ad-free window.
+    static var firstLaunchDate: Date {
+        if let stored = d.object(forKey: "app.firstLaunchDate") as? Date {
+            return stored
+        }
+        let now = Date()
+        // Upgrading installs: don't grant a fresh ad-free window.
+        if looksLikeExistingInstall {
+            let past = now.addingTimeInterval(-4 * 24 * 60 * 60)
+            d.set(past, forKey: "app.firstLaunchDate")
+            return past
+        }
+        d.set(now, forKey: "app.firstLaunchDate")
+        return now
+    }
+
+    /// Records install/first-open if missing. Safe to call every launch.
+    static func recordFirstLaunchIfNeeded() {
+        _ = firstLaunchDate
+    }
+
+    private static var looksLikeExistingInstall: Bool {
+        d.object(forKey: "onboarding.done") != nil
+            || d.object(forKey: "tp.enabled") != nil
+            || d.object(forKey: "theme.pack.id") != nil
+            || d.object(forKey: "tip.addressBarSwipe.done") != nil
     }
 
     /// One-time coach mark: swipe address bar to switch tabs.

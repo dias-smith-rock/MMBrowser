@@ -249,6 +249,18 @@ final class BrowserViewController: UIViewController {
         tabManager.persistSessionIfNeeded()
     }
 
+    /// Opens an external `http`/`https` link (default-browser / universal open).
+    func handleIncomingURL(_ url: URL) {
+        let scheme = url.scheme?.lowercased() ?? ""
+        guard scheme == "http" || scheme == "https" else { return }
+        // Dismiss lightweight chrome that would block the new page.
+        if presentedViewController is MenuViewController
+            || presentedViewController is UIAlertController {
+            presentedViewController?.dismiss(animated: false)
+        }
+        openURLInNewTab(url)
+    }
+
     @objc private func handleClearOptionSessionCleanup() {
         guard AppSettings.closeAllTabsOnExit else { return }
         // Never dismiss first-run onboarding / other setup sheets on session cleanup.
@@ -1520,6 +1532,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
         case .accounts:
             presentAccountSwitcher()
         case .setDefaultBrowser:
+            guard DefaultBrowserFeature.isEnabled else { return }
             openDefaultBrowserSettings()
         case .passwords:
             openPasswords()
@@ -1728,11 +1741,29 @@ extension BrowserViewController: MenuViewControllerDelegate {
     }
 
     private func openDefaultBrowserSettings() {
-        // Open the app’s Settings page; user can set Default Browser App there.
-        if let url = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(url)
-            Toast.show("Set MMBrowser as Default Browser App in Settings", from: self)
+        // iOS 18.3+: open the system Default Apps panel (Browser App lives there).
+        // Earlier iOS: Default Browser App is under this app’s Settings page.
+        if #available(iOS 18.3, *) {
+            if let url = URL(string: UIApplication.openDefaultApplicationsSettingsURLString) {
+                UIApplication.shared.open(url, options: [:]) { [weak self] success in
+                    DispatchQueue.main.async {
+                        if success {
+                            Toast.show("Choose Browser App under Default Apps", from: self)
+                        } else {
+                            self?.openAppSettingsForDefaultBrowser()
+                        }
+                    }
+                }
+                return
+            }
         }
+        openAppSettingsForDefaultBrowser()
+    }
+
+    private func openAppSettingsForDefaultBrowser() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+        Toast.show("Set MMBrowser as Default Browser App in Settings", from: self)
     }
 
     private func openFeedback() {
