@@ -1,12 +1,12 @@
 /* Site config — replace before publish */
-window.MMBrowserSite = {
+window.XBrowserSite = {
   appStoreUrl: "#",
   contactEmail: "support@goodcraft.app",
   companyName: "GoodCraft",
 };
 
 (function () {
-  const cfg = window.MMBrowserSite;
+  const cfg = window.XBrowserSite;
 
   document.querySelectorAll("[data-app-store]").forEach((el) => {
     if (cfg.appStoreUrl && cfg.appStoreUrl !== "#") {
