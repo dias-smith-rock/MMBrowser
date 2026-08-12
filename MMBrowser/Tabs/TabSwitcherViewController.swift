@@ -573,8 +573,11 @@ final class TabSwitcherViewController: UIViewController {
             return
         }
 
-        bookmarkItems = Array(BookmarkStore.shared.items.filter { $0.url != nil }.prefix(12))
-        historyItems = Array(HistoryStore.shared.items.filter { $0.url != nil }.prefix(12))
+        let containerID = selectedContainerFilter
+            ?? tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
+            ?? tabManager.resolvedLastActiveContainerID
+        bookmarkItems = Array(BookmarkStore.shared.items(containerID: containerID).filter { $0.url != nil }.prefix(12))
+        historyItems = Array(HistoryStore.shared.items(containerID: containerID).filter { $0.url != nil }.prefix(12))
 
         bookmarksSection.isHidden = bookmarkItems.isEmpty
         historySection.isHidden = historyItems.isEmpty

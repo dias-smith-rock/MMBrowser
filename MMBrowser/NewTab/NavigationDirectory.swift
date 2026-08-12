@@ -115,145 +115,179 @@ enum NavigationDirectory {
     }
 }
 
-/// Persisted editable homepage navigation (categories + sites).
+/// Persisted editable homepage navigation (categories + sites), scoped per account container.
 final class NavigationStore {
     static let shared = NavigationStore()
 
-    private let key = "mmbrowser.navigation.categories.v1"
+    private let key = "mmbrowser.navigation.byContainer.v1"
     private let migratedKey = "mmbrowser.navigation.migratedShortcuts.v1"
     private let retiredFifthKey = "mmbrowser.navigation.retiredFifth.v1"
     private let defaults = UserDefaults.standard
-    private(set) var categories: [NavigationCategory] = []
+    private var byContainer: [UUID: [NavigationCategory]] = [:]
+
+    private struct Payload: Codable {
+        var containers: [Entry]
+    }
+
+    private struct Entry: Codable {
+        var containerID: UUID
+        var categories: [NavigationCategory]
+    }
 
     private init() {
         load()
-        if categories.isEmpty {
-            categories = NavigationDirectory.makeSeedCategories()
-            migrateShortcutsIntoHomeIfNeeded()
-            defaults.set(true, forKey: retiredFifthKey)
-            save()
-        } else {
-            ensureHomeCategory()
-            migrateShortcutsIntoHomeIfNeeded()
-            removeRetiredFifthSitesIfNeeded()
-        }
     }
 
-    var homeCategoryIndex: Int? {
-        categories.firstIndex(where: \.isHome)
+    func categories(for containerID: UUID) -> [NavigationCategory] {
+        let resolved = ContainerScope.resolveContainerID(containerID)
+        ensureLoaded(containerID: resolved)
+        return byContainer[resolved] ?? NavigationDirectory.makeSeedCategories()
     }
 
-    func containsOnHome(url: URL) -> Bool {
-        guard let home = categories.first(where: \.isHome) else { return false }
+    func remove(containerID: UUID) {
+        byContainer.removeValue(forKey: containerID)
+        saveAll()
+    }
+
+    private func ensureLoaded(containerID: UUID) {
+        if byContainer[containerID] != nil { return }
+        var cats = NavigationDirectory.makeSeedCategories()
+        migrateShortcutsIntoHomeIfNeeded(categories: &cats)
+        removeRetiredFifthSitesIfNeeded(categories: &cats)
+        byContainer[containerID] = cats
+        saveAll()
+    }
+
+    private func mutate(containerID: UUID, _ block: (inout [NavigationCategory]) -> Void) {
+        let resolved = ContainerScope.resolveContainerID(containerID)
+        ensureLoaded(containerID: resolved)
+        var cats = byContainer[resolved] ?? NavigationDirectory.makeSeedCategories()
+        block(&cats)
+        byContainer[resolved] = cats
+        persistAndNotify()
+    }
+
+    func homeCategoryIndex(for containerID: UUID) -> Int? {
+        categories(for: containerID).firstIndex(where: \.isHome)
+    }
+
+    func containsOnHome(url: URL, containerID: UUID) -> Bool {
+        guard let home = categories(for: containerID).first(where: \.isHome) else { return false }
         let key = normalizeURLKey(url.absoluteString)
         return home.sites.contains { normalizeURLKey($0.urlString) == key }
     }
 
     @discardableResult
-    func addToHome(title: String, url: URL, logoAssetName: String? = nil) -> Bool {
-        ensureHomeCategory()
-        guard let idx = homeCategoryIndex else { return false }
-        let key = normalizeURLKey(url.absoluteString)
-        if categories[idx].sites.contains(where: { normalizeURLKey($0.urlString) == key }) {
-            return false
-        }
-        categories[idx].sites.append(
-            NavigationSite(title: title, urlString: url.absoluteString, logoAssetName: logoAssetName)
-        )
-        persistAndNotify()
-        return true
-    }
-
-    /// Merge all sites from a category into Home (deduped by URL).
-    @discardableResult
-    func addGroupToHome(categoryID: UUID) -> Int {
-        guard let source = categories.first(where: { $0.id == categoryID }), !source.isHome else { return 0 }
-        ensureHomeCategory()
-        guard let homeIdx = homeCategoryIndex else { return 0 }
-        var added = 0
-        var existing = Set(categories[homeIdx].sites.map { normalizeURLKey($0.urlString) })
-        for site in source.sites {
-            let key = normalizeURLKey(site.urlString)
-            guard !existing.contains(key) else { continue }
-            categories[homeIdx].sites.append(
-                NavigationSite(title: site.title, urlString: site.urlString, logoAssetName: site.logoAssetName)
+    func addToHome(title: String, url: URL, containerID: UUID, logoAssetName: String? = nil) -> Bool {
+        var added = false
+        mutate(containerID: containerID) { categories in
+            ensureHomeCategory(in: &categories)
+            guard let idx = categories.firstIndex(where: \.isHome) else { return }
+            let key = normalizeURLKey(url.absoluteString)
+            if categories[idx].sites.contains(where: { normalizeURLKey($0.urlString) == key }) { return }
+            categories[idx].sites.append(
+                NavigationSite(title: title, urlString: url.absoluteString, logoAssetName: logoAssetName)
             )
-            existing.insert(key)
-            added += 1
+            added = true
         }
-        if added > 0 { persistAndNotify() }
         return added
     }
 
-    func addSite(toCategoryID categoryID: UUID, title: String, urlString: String) {
-        guard let idx = categories.firstIndex(where: { $0.id == categoryID }) else { return }
-        categories[idx].sites.append(NavigationSite(title: title, urlString: urlString))
-        persistAndNotify()
+    @discardableResult
+    func addGroupToHome(categoryID: UUID, containerID: UUID) -> Int {
+        var added = 0
+        mutate(containerID: containerID) { categories in
+            guard let source = categories.first(where: { $0.id == categoryID }), !source.isHome else { return }
+            ensureHomeCategory(in: &categories)
+            guard let homeIdx = categories.firstIndex(where: \.isHome) else { return }
+            var existing = Set(categories[homeIdx].sites.map { normalizeURLKey($0.urlString) })
+            for site in source.sites {
+                let key = normalizeURLKey(site.urlString)
+                guard !existing.contains(key) else { continue }
+                categories[homeIdx].sites.append(
+                    NavigationSite(title: site.title, urlString: site.urlString, logoAssetName: site.logoAssetName)
+                )
+                existing.insert(key)
+                added += 1
+            }
+        }
+        return added
     }
 
-    func removeSite(categoryID: UUID, siteID: UUID) {
-        guard let idx = categories.firstIndex(where: { $0.id == categoryID }) else { return }
-        categories[idx].sites.removeAll { $0.id == siteID }
-        persistAndNotify()
+    func addSite(toCategoryID categoryID: UUID, containerID: UUID, title: String, urlString: String) {
+        mutate(containerID: containerID) { categories in
+            guard let idx = categories.firstIndex(where: { $0.id == categoryID }) else { return }
+            categories[idx].sites.append(NavigationSite(title: title, urlString: urlString))
+        }
     }
 
-    func moveSite(categoryID: UUID, from: Int, to: Int, notify: Bool = true) {
-        guard let idx = categories.firstIndex(where: { $0.id == categoryID }) else { return }
+    func removeSite(categoryID: UUID, siteID: UUID, containerID: UUID) {
+        mutate(containerID: containerID) { categories in
+            guard let idx = categories.firstIndex(where: { $0.id == categoryID }) else { return }
+            categories[idx].sites.removeAll { $0.id == siteID }
+        }
+    }
+
+    func moveSite(categoryID: UUID, containerID: UUID, from: Int, to: Int, notify: Bool = true) {
+        let resolved = ContainerScope.resolveContainerID(containerID)
+        ensureLoaded(containerID: resolved)
+        guard var categories = byContainer[resolved],
+              let idx = categories.firstIndex(where: { $0.id == categoryID }) else { return }
         var sites = categories[idx].sites
         guard from >= 0, from < sites.count, to >= 0, to < sites.count, from != to else { return }
         let item = sites.remove(at: from)
         sites.insert(item, at: to)
         categories[idx].sites = sites
+        byContainer[resolved] = categories
         if notify {
             persistAndNotify()
         } else {
-            save()
+            saveAll()
         }
     }
 
-    func moveCategory(from: Int, to: Int) {
-        guard from >= 0, from < categories.count, to >= 0, to < categories.count, from != to else { return }
-        // Home stays pinned at index 0.
-        guard !categories[from].isHome else { return }
-        var target = to
-        if target < 1 { target = 1 }
-        let item = categories.remove(at: from)
-        if target > categories.count { target = categories.count }
-        categories.insert(item, at: target)
-        ensureHomeCategory()
-        persistAndNotify()
+    func moveCategory(containerID: UUID, from: Int, to: Int) {
+        mutate(containerID: containerID) { categories in
+            guard from >= 0, from < categories.count, to >= 0, to < categories.count, from != to else { return }
+            guard !categories[from].isHome else { return }
+            var target = to
+            if target < 1 { target = 1 }
+            let item = categories.remove(at: from)
+            if target > categories.count { target = categories.count }
+            categories.insert(item, at: target)
+            ensureHomeCategory(in: &categories)
+        }
     }
 
-    func deleteCategory(id: UUID) {
-        guard let cat = categories.first(where: { $0.id == id }), !cat.isHome else { return }
-        categories.removeAll { $0.id == id }
-        persistAndNotify()
+    func deleteCategory(id: UUID, containerID: UUID) {
+        mutate(containerID: containerID) { categories in
+            guard let cat = categories.first(where: { $0.id == id }), !cat.isHome else { return }
+            categories.removeAll { $0.id == id }
+        }
     }
 
-    func restoreDefaults() {
-        let homeSites = categories.first(where: \.isHome)?.sites ?? []
-        categories = NavigationDirectory.makeSeedCategories(includingHome: homeSites)
-        persistAndNotify()
+    func restoreDefaults(containerID: UUID) {
+        mutate(containerID: containerID) { categories in
+            let homeSites = categories.first(where: \.isHome)?.sites ?? []
+            categories = NavigationDirectory.makeSeedCategories(includingHome: homeSites)
+        }
     }
 
-    private func ensureHomeCategory() {
-        if let idx = homeCategoryIndex, idx != 0 {
+    private func ensureHomeCategory(in categories: inout [NavigationCategory]) {
+        if let idx = categories.firstIndex(where: \.isHome), idx != 0 {
             let home = categories.remove(at: idx)
             categories.insert(home, at: 0)
-            save()
-        } else if homeCategoryIndex == nil {
+        } else if !categories.contains(where: \.isHome) {
             categories.insert(NavigationCategory(title: "Home", sites: [], isHome: true), at: 0)
-            save()
         }
     }
 
-    private func migrateShortcutsIntoHomeIfNeeded() {
+    private func migrateShortcutsIntoHomeIfNeeded(categories: inout [NavigationCategory]) {
         guard !defaults.bool(forKey: migratedKey) else { return }
         defaults.set(true, forKey: migratedKey)
-        ensureHomeCategory()
-        guard let homeIdx = homeCategoryIndex else { return }
+        ensureHomeCategory(in: &categories)
+        guard let homeIdx = categories.firstIndex(where: \.isHome) else { return }
         var existing = Set(categories[homeIdx].sites.map { normalizeURLKey($0.urlString) })
-        var changed = false
         for item in ShortcutStore.shared.items {
             let key = normalizeURLKey(item.urlString)
             guard !existing.contains(key) else { continue }
@@ -261,23 +295,16 @@ final class NavigationStore {
                 NavigationSite(title: item.title, urlString: item.urlString)
             )
             existing.insert(key)
-            changed = true
         }
-        if changed { save() }
     }
 
-    /// Drop retired 5th-slot presets so they never reappear in browse or edit.
-    private func removeRetiredFifthSitesIfNeeded() {
+    private func removeRetiredFifthSitesIfNeeded(categories: inout [NavigationCategory]) {
         guard !defaults.bool(forKey: retiredFifthKey) else { return }
         defaults.set(true, forKey: retiredFifthKey)
         let retired = Set(NavigationDirectory.retiredFifthSiteURLKeys.map { normalizeURLKey($0) })
-        var changed = false
         for i in categories.indices {
-            let before = categories[i].sites.count
             categories[i].sites.removeAll { retired.contains(normalizeURLKey($0.urlString)) }
-            if categories[i].sites.count != before { changed = true }
         }
-        if changed { save() }
     }
 
     private func normalizeURLKey(_ raw: String) -> String {
@@ -285,19 +312,22 @@ final class NavigationStore {
     }
 
     private func persistAndNotify() {
-        save()
+        saveAll()
         NotificationCenter.default.post(name: .navigationDirectoryChanged, object: nil)
         NotificationCenter.default.post(name: .homeSettingsChanged, object: nil)
     }
 
     private func load() {
         guard let data = defaults.data(forKey: key),
-              let decoded = try? JSONDecoder().decode([NavigationCategory].self, from: data) else { return }
-        categories = decoded
+              let payload = try? JSONDecoder().decode(Payload.self, from: data) else { return }
+        for entry in payload.containers {
+            byContainer[entry.containerID] = entry.categories
+        }
     }
 
-    private func save() {
-        if let data = try? JSONEncoder().encode(categories) {
+    private func saveAll() {
+        let payload = Payload(containers: byContainer.map { Entry(containerID: $0.key, categories: $0.value) })
+        if let data = try? JSONEncoder().encode(payload) {
             defaults.set(data, forKey: key)
         }
     }

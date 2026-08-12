@@ -1,9 +1,10 @@
 import Foundation
 import UIKit
 
-/// Gate for “set as default browser” until Apple grants the managed entitlement.
+/// Gate for “set as default browser”.
+/// Requires Apple-approved `com.apple.developer.web-browser` in entitlements + provisioning.
+/// Do not set `isEnabled = true` or add the entitlement until “Default Web Browser” is granted for this App ID.
 enum DefaultBrowserFeature {
-    /// Flip to `true` after `com.apple.developer.web-browser` is approved and re-added to entitlements.
     static let isEnabled = false
 }
 

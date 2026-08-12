@@ -69,6 +69,7 @@ final class ContainerManageViewController: UIViewController {
     @objc private func addTapped() {
         let edit = ContainerEditViewController(
             container: nil,
+            tabManager: tabManager,
             suggestedPresetIndex: tabManager.containers.count
         )
         edit.delegate = self
@@ -76,7 +77,7 @@ final class ContainerManageViewController: UIViewController {
     }
 
     private func openEditor(for container: BrowserContainer) {
-        let edit = ContainerEditViewController(container: container)
+        let edit = ContainerEditViewController(container: container, tabManager: tabManager)
         edit.delegate = self
         navigationController?.pushViewController(edit, animated: true)
     }

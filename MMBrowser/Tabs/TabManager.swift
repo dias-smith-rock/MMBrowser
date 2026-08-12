@@ -15,6 +15,8 @@ final class TabManager {
     private(set) var containers: [BrowserContainer] = []
     /// Last focused normal-tab container; restored across launches even when tabs are closed on exit.
     private(set) var lastActiveContainerID: UUID?
+    /// Previous account before the last switch — used for chip long-press quick switch.
+    private(set) var previousContainerID: UUID?
 
     private let sessionKey = "mmbrowser.tabs.session"
     private static let sessionFileName = "mmbrowser.session.json"
@@ -54,6 +56,10 @@ final class TabManager {
     @discardableResult
     func switchToAccount(_ id: UUID) -> BrowserTab? {
         guard container(id: id) != nil else { return nil }
+        if let current = lastActiveContainerID ?? selectedTab.flatMap({ $0.isIncognito ? nil : $0.containerID }),
+           current != id {
+            previousContainerID = current
+        }
         lastActiveContainerID = id
         defaults.set(id.uuidString, forKey: lastContainerKey)
 
@@ -65,6 +71,15 @@ final class TabManager {
             return best
         }
         return addTab(incognito: false, select: true, containerID: id)
+    }
+
+    /// Account to jump to from a chip long-press (previous, else another account).
+    func quickSwitchTargetAccountID() -> UUID? {
+        if let previous = previousContainerID, container(id: previous) != nil,
+           previous != resolvedLastActiveContainerID {
+            return previous
+        }
+        return sortedContainers.first(where: { $0.id != resolvedLastActiveContainerID })?.id
     }
 
     func accountColor(for tab: BrowserTab) -> UIColor {
@@ -83,6 +98,8 @@ final class TabManager {
 
     init() {
         loadPersistedContainers()
+        LibraryMigration.runIfNeeded(containers: &containers)
+        persistContainers()
         let cleanExit = defaults.bool(forKey: cleanExitKey)
         defaults.set(false, forKey: cleanExitKey)
 
@@ -308,9 +325,9 @@ final class TabManager {
         }
         let nextIndex = (containers.map(\.sortIndex).max() ?? -1) + 1
         let container = BrowserContainer(
-            id: UUID(),
+            id: draft.id,
             name: trimmed,
-            sessionID: UUID(),
+            sessionID: draft.sessionID,
             sortIndex: nextIndex,
             colorIndex: draft.colorIndex >= 0 ? draft.colorIndex : nextIndex,
             customColorHex: draft.customColorHex,
@@ -318,7 +335,11 @@ final class TabManager {
             latitude: draft.latitude,
             longitude: draft.longitude,
             timeZoneIdentifier: draft.timeZoneIdentifier,
-            locationPresetID: draft.locationPresetID
+            locationPresetID: draft.locationPresetID,
+            pinnedSites: draft.pinnedSites,
+            persistence: draft.persistence,
+            identity: draft.identity,
+            templateID: draft.templateID
         )
         containers.append(container)
         notifyUpdated()
@@ -373,7 +394,11 @@ final class TabManager {
             latitude: updated.latitude,
             longitude: updated.longitude,
             timeZoneIdentifier: updated.timeZoneIdentifier,
-            locationPresetID: updated.locationPresetID
+            locationPresetID: updated.locationPresetID,
+            pinnedSites: updated.pinnedSites,
+            persistence: updated.persistence,
+            identity: updated.identity,
+            templateID: updated.templateID
         )
         containers[index] = next
         let locationChanged =
@@ -381,8 +406,9 @@ final class TabManager {
             || abs(previous.latitude - next.latitude) > 0.0000001
             || abs(previous.longitude - next.longitude) > 0.0000001
             || previous.timeZoneIdentifier != next.timeZoneIdentifier
+        let identityChanged = previous.identity != next.identity
         notifyUpdated()
-        if locationChanged {
+        if locationChanged || identityChanged {
             invalidateWebViews(inContainer: previous.id)
         }
         return true
@@ -437,8 +463,15 @@ final class TabManager {
             lastActiveContainerID = fallback.id
         }
         TabSessionStore.removeIfOrphaned(sessionID: removed.sessionID, containers: containers)
+        purgeContainerLibraryData(containerID: removed.id)
         notifyUpdated()
         return true
+    }
+
+    private func purgeContainerLibraryData(containerID: UUID) {
+        HistoryStore.shared.clear(containerID: containerID)
+        BookmarkStore.shared.clear(containerID: containerID)
+        NavigationStore.shared.remove(containerID: containerID)
     }
 
     func moveTab(_ id: UUID, toContainer containerID: UUID) {
@@ -891,6 +924,7 @@ final class TabManager {
         migrateLegacyDefaultContainersIfNeeded()
         // Session may still carry pre-v3 names (FB-1); containers disk already migrated.
         migrateAccountNamesV3IfNeeded()
+        LibraryMigration.runIfNeeded(containers: &containers)
         persistContainers()
 
         let fallbackID = resolvedLastActiveContainerID

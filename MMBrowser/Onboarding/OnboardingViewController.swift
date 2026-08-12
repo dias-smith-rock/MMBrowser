@@ -13,7 +13,7 @@ final class OnboardingViewController: UIViewController {
     private let pageCopy: [(title: String, body: String, image: String)] = [
         (
             "Dual Accounts",
-            "Separate logins, cookies, and location for work and personal—so sites only see the identity you choose.",
+            "Separate logins, cookies, history, and bookmarks for Personal and Work—so sites only see the identity you choose.",
             "onboarding_privacy"
         ),
         (

@@ -16,6 +16,14 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
     var longitude: Double
     var timeZoneIdentifier: String
     var locationPresetID: String?
+    /// Quick-launch sites shown on the account home row and account switcher.
+    var pinnedSites: [NavigationSite]
+    /// Persistent vs auto-delete when last tab closes.
+    var persistence: ContainerPersistence
+    /// Locale, user agent, and URL tracking settings for this account.
+    var identity: IdentityProfile
+    /// Template used when creating this account (`work`, `social`, etc.).
+    var templateID: String?
 
     var locationSummary: String {
         switch locationMode {
@@ -36,34 +44,28 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
     }
 
     static func makeDefaults() -> [BrowserContainer] {
-        let presets = SpoofLocationPreset.all
-        let names = ["Personal", "Work", "Social 1", "Social 2"]
-        // Personal → Ask; others Spoof with rotating cities.
-        return names.enumerated().map { offset, name in
-            let preset = presets[offset % presets.count]
-            if offset == 0 {
-                return BrowserContainer(
-                    id: UUID(),
-                    name: name,
-                    sessionID: UUID(),
-                    sortIndex: offset,
-                    colorIndex: offset,
-                    locationMode: .ask,
-                    latitude: preset.latitude,
-                    longitude: preset.longitude,
-                    timeZoneIdentifier: preset.timeZoneIdentifier,
-                    locationPresetID: preset.id
-                )
-            }
-            return BrowserContainer(
-                id: UUID(),
-                name: name,
-                sessionID: UUID(),
-                sortIndex: offset,
-                colorIndex: offset,
-                location: preset
-            )
+        let personal = ContainerTemplate.custom.makeContainer(
+            name: "Personal",
+            sortIndex: 0,
+            colorIndex: 0
+        ).with {
+            $0.locationMode = .ask
+            $0.identity = .default
+            $0.pinnedSites = ContainerTemplate.defaultPinned(forName: "Personal")
         }
+        // Work uses the work template (desktop UA, ask location).
+        let work = ContainerTemplate.work.makeContainer(
+            name: "Work",
+            sortIndex: 1,
+            colorIndex: 1
+        )
+        return [personal, work]
+    }
+
+    private func with(_ mutate: (inout BrowserContainer) -> Void) -> BrowserContainer {
+        var copy = self
+        mutate(&copy)
+        return copy
     }
 
     init(
@@ -77,7 +79,11 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
         latitude: Double,
         longitude: Double,
         timeZoneIdentifier: String,
-        locationPresetID: String? = nil
+        locationPresetID: String? = nil,
+        pinnedSites: [NavigationSite] = [],
+        persistence: ContainerPersistence = .persistent,
+        identity: IdentityProfile = .default,
+        templateID: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -90,9 +96,13 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
         self.longitude = longitude
         self.timeZoneIdentifier = timeZoneIdentifier
         self.locationPresetID = locationPresetID
+        self.pinnedSites = pinnedSites
+        self.persistence = persistence
+        self.identity = identity
+        self.templateID = templateID
     }
 
-    init(id: UUID, name: String, sessionID: UUID, sortIndex: Int, colorIndex: Int? = nil, customColorHex: String? = nil, location preset: SpoofLocationPreset) {
+    init(id: UUID, name: String, sessionID: UUID, sortIndex: Int, colorIndex: Int? = nil, customColorHex: String? = nil, location preset: SpoofLocationPreset, pinnedSites: [NavigationSite] = [], persistence: ContainerPersistence = .persistent, identity: IdentityProfile = .default, templateID: String? = nil) {
         self.init(
             id: id,
             name: name,
@@ -104,13 +114,18 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
             latitude: preset.latitude,
             longitude: preset.longitude,
             timeZoneIdentifier: preset.timeZoneIdentifier,
-            locationPresetID: preset.id
+            locationPresetID: preset.id,
+            pinnedSites: pinnedSites,
+            persistence: persistence,
+            identity: identity,
+            templateID: templateID
         )
     }
 
     enum CodingKeys: String, CodingKey {
         case id, name, sessionID, sortIndex, colorIndex, customColorHex
         case locationMode, latitude, longitude, timeZoneIdentifier, locationPresetID
+        case pinnedSites, persistence, identity, templateID
     }
 
     init(from decoder: Decoder) throws {
@@ -134,6 +149,10 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
         timeZoneIdentifier = try c.decodeIfPresent(String.self, forKey: .timeZoneIdentifier)
             ?? fallback.timeZoneIdentifier
         locationPresetID = try c.decodeIfPresent(String.self, forKey: .locationPresetID)
+        pinnedSites = try c.decodeIfPresent([NavigationSite].self, forKey: .pinnedSites) ?? []
+        persistence = try c.decodeIfPresent(ContainerPersistence.self, forKey: .persistence) ?? .persistent
+        identity = try c.decodeIfPresent(IdentityProfile.self, forKey: .identity) ?? .default
+        templateID = try c.decodeIfPresent(String.self, forKey: .templateID)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -149,5 +168,9 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
         try c.encode(longitude, forKey: .longitude)
         try c.encode(timeZoneIdentifier, forKey: .timeZoneIdentifier)
         try c.encodeIfPresent(locationPresetID, forKey: .locationPresetID)
+        try c.encode(pinnedSites, forKey: .pinnedSites)
+        try c.encode(persistence, forKey: .persistence)
+        try c.encode(identity, forKey: .identity)
+        try c.encodeIfPresent(templateID, forKey: .templateID)
     }
 }

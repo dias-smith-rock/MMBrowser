@@ -2,10 +2,31 @@ import Foundation
 
 struct BookmarkItem: Codable, Equatable {
     let id: UUID
+    var containerID: UUID
     var title: String
     var urlString: String
 
     var url: URL? { URL(string: urlString) }
+
+    enum CodingKeys: String, CodingKey {
+        case id, containerID, title, urlString
+    }
+
+    init(id: UUID = UUID(), containerID: UUID, title: String, urlString: String) {
+        self.id = id
+        self.containerID = containerID
+        self.title = title
+        self.urlString = urlString
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        urlString = try c.decode(String.self, forKey: .urlString)
+        containerID = try c.decodeIfPresent(UUID.self, forKey: .containerID)
+            ?? ContainerScope.resolveContainerID(nil)
+    }
 }
 
 enum BookmarkSort: String, CaseIterable {
@@ -27,7 +48,7 @@ enum BookmarkSort: String, CaseIterable {
 final class BookmarkStore {
     static let shared = BookmarkStore()
 
-    private let key = "mmbrowser.bookmarks.items"
+    private let key = "mmbrowser.bookmarks.items.v2"
     private let sortKey = "mmbrowser.bookmarks.sort"
     private let defaults = UserDefaults.standard
     private(set) var items: [BookmarkItem] = []
@@ -39,27 +60,26 @@ final class BookmarkStore {
             sort = value
         }
         load()
-        if items.isEmpty {
-            items = [
-                BookmarkItem(id: UUID(), title: "Google", urlString: "https://www.google.com"),
-                BookmarkItem(id: UUID(), title: "YouTube", urlString: "https://www.youtube.com")
-            ]
-            save()
-        }
         applySort(persist: false)
     }
 
-    /// Returns `true` when a new bookmark was stored; `false` if this URL was already bookmarked.
+    func items(containerID: UUID) -> [BookmarkItem] {
+        items.filter { $0.containerID == containerID }
+    }
+
     @discardableResult
-    func add(title: String, url: URL) -> Bool {
+    func add(title: String, url: URL, containerID: UUID) -> Bool {
+        let resolved = ContainerScope.resolveContainerID(containerID)
         let key = Self.canonicalKey(for: url)
-        if items.contains(where: { Self.canonicalKey(forURLString: $0.urlString) == key }) {
+        if items.contains(where: {
+            $0.containerID == resolved && Self.canonicalKey(forURLString: $0.urlString) == key
+        }) {
             return false
         }
         let displayTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         items.insert(
             BookmarkItem(
-                id: UUID(),
+                containerID: resolved,
                 title: displayTitle.isEmpty ? (url.host ?? "Bookmark") : displayTitle,
                 urlString: url.absoluteString
             ),
@@ -72,12 +92,14 @@ final class BookmarkStore {
         return true
     }
 
-    func contains(url: URL) -> Bool {
+    func contains(url: URL, containerID: UUID) -> Bool {
+        let resolved = ContainerScope.resolveContainerID(containerID)
         let key = Self.canonicalKey(for: url)
-        return items.contains { Self.canonicalKey(forURLString: $0.urlString) == key }
+        return items.contains {
+            $0.containerID == resolved && Self.canonicalKey(forURLString: $0.urlString) == key
+        }
     }
 
-    /// Updates title/URL. Returns `false` when the new URL clashes with another bookmark.
     @discardableResult
     func update(id: UUID, title: String, urlString: String) -> Bool {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return false }
@@ -86,8 +108,11 @@ final class BookmarkStore {
         guard !trimmedURL.isEmpty, let url = URL(string: trimmedURL), url.scheme != nil else {
             return false
         }
+        let containerID = items[index].containerID
         let key = Self.canonicalKey(for: url)
-        if items.contains(where: { $0.id != id && Self.canonicalKey(forURLString: $0.urlString) == key }) {
+        if items.contains(where: {
+            $0.id != id && $0.containerID == containerID && Self.canonicalKey(forURLString: $0.urlString) == key
+        }) {
             return false
         }
         items[index].title = trimmedTitle.isEmpty ? (url.host ?? "Bookmark") : trimmedTitle
@@ -110,9 +135,12 @@ final class BookmarkStore {
         save()
     }
 
-    func remove(host: String) {
+    func remove(host: String, containerID: UUID? = nil) {
         let key = host.lowercased()
-        items.removeAll { Self.hostKey(forURLString: $0.urlString) == key }
+        items.removeAll { item in
+            if let containerID, item.containerID != containerID { return false }
+            return Self.hostKey(forURLString: item.urlString) == key
+        }
         save()
     }
 
@@ -121,11 +149,16 @@ final class BookmarkStore {
         save()
     }
 
-    /// Groups bookmarks by host. Order follows current sort (first item in each group).
-    func groupsByHost() -> [(host: String, items: [BookmarkItem])] {
+    func clear(containerID: UUID) {
+        items.removeAll { $0.containerID == containerID }
+        save()
+    }
+
+    func groupsByHost(containerID: UUID? = nil) -> [(host: String, items: [BookmarkItem])] {
+        let base = containerID.map { items(containerID: $0) } ?? items
         var order: [String] = []
         var map: [String: [BookmarkItem]] = [:]
-        for item in items {
+        for item in base {
             let host = Self.hostKey(forURLString: item.urlString)
             if map[host] == nil {
                 order.append(host)
@@ -143,14 +176,25 @@ final class BookmarkStore {
         return host.lowercased()
     }
 
-    func moveItem(from source: Int, to destination: Int) {
-        guard items.indices.contains(source) else { return }
-        // Switching to manual order when the user reorders.
+    func moveItem(from source: Int, to destination: Int, containerID: UUID) {
+        let scoped = items(containerID: containerID)
+        guard scoped.indices.contains(source) else { return }
         sort = .manual
         defaults.set(sort.rawValue, forKey: sortKey)
-        let item = items.remove(at: source)
-        let dest = min(max(destination, 0), items.count)
-        items.insert(item, at: dest)
+        guard let globalSource = items.firstIndex(where: { $0.id == scoped[source].id }) else { return }
+        let item = items.remove(at: globalSource)
+        let scopedAfterRemove = items(containerID: containerID)
+        let dest = min(max(destination, 0), scopedAfterRemove.count)
+        if dest >= scopedAfterRemove.count {
+            items.append(item)
+        } else {
+            let anchorID = scopedAfterRemove[dest].id
+            if let globalDest = items.firstIndex(where: { $0.id == anchorID }) {
+                items.insert(item, at: globalDest)
+            } else {
+                items.append(item)
+            }
+        }
         save()
     }
 
@@ -184,7 +228,6 @@ final class BookmarkStore {
         (item.url?.host ?? item.urlString).lowercased()
     }
 
-    /// Normalize for duplicate checks: lowercase scheme/host, drop `www.`, drop fragment, trim trailing `/`.
     private static func canonicalKey(forURLString string: String) -> String {
         guard let url = URL(string: string) else { return string.lowercased() }
         return canonicalKey(for: url)

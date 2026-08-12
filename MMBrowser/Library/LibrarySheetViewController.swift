@@ -14,6 +14,7 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
     var currentPageURL: URL?
 
     private var mode: Mode
+    private let containerID: UUID
     private let tableView = UITableView(frame: .zero, style: .plain)
     private let segment = UISegmentedControl(items: [
         UIImage(systemName: "bookmark") ?? "B",
@@ -42,8 +43,9 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
         return f
     }()
 
-    init(initialMode: Mode = .history) {
+    init(initialMode: Mode = .history, containerID: UUID) {
         self.mode = initialMode
+        self.containerID = ContainerScope.resolveContainerID(containerID)
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -132,7 +134,7 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
     private func reloadData() {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if mode == .bookmarks {
-            let groups = BookmarkStore.shared.groupsByHost()
+            let groups = BookmarkStore.shared.groupsByHost(containerID: containerID)
             if q.isEmpty {
                 bookmarkGroups = groups
             } else {
@@ -147,7 +149,7 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
                 }
             }
         } else {
-            let days = HistoryStore.shared.sectionsByDayThenHost()
+            let days = HistoryStore.shared.sectionsByDayThenHost(containerID: containerID)
             if q.isEmpty {
                 historyDays = days
             } else {
@@ -398,7 +400,7 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
                 preferredStyle: .actionSheet
             )
             alert.addAction(UIAlertAction(title: "Clear All", style: .destructive) { [weak self] _ in
-                BookmarkStore.shared.clear()
+                BookmarkStore.shared.clear(containerID: self?.containerID ?? ContainerScope.resolveContainerID(nil))
                 self?.expanded.removeAll()
                 self?.reloadAfterMutation()
             })
@@ -411,7 +413,7 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
                 preferredStyle: .actionSheet
             )
             alert.addAction(UIAlertAction(title: "Clear All", style: .destructive) { [weak self] _ in
-                HistoryStore.shared.clear()
+                HistoryStore.shared.clear(containerID: self?.containerID ?? ContainerScope.resolveContainerID(nil))
                 self?.expanded.removeAll()
                 self?.reloadAfterMutation()
             })
@@ -437,9 +439,9 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
             guard let self = self else { return }
             if self.mode == .bookmarks {
-                BookmarkStore.shared.remove(host: host)
+                BookmarkStore.shared.remove(host: host, containerID: self.containerID)
             } else {
-                HistoryStore.shared.remove(host: host, onDayOf: day)
+                HistoryStore.shared.remove(host: host, containerID: self.containerID, onDayOf: day)
             }
             self.expanded.remove(self.expandKey(day: day, host: host))
             self.reloadAfterMutation()

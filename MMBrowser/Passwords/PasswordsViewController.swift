@@ -63,7 +63,10 @@ final class PasswordsViewController: UIViewController, UITableViewDataSource, UI
     }
 
     @objc private func addTapped() {
-        let edit = PasswordEditViewController(mode: .create)
+        let edit = PasswordEditViewController(
+            mode: .create,
+            defaultContainerID: ContainerScope.defaultContainerID()
+        )
         edit.onSaved = { [weak self] in self?.reload() }
         let nav = UINavigationController(rootViewController: edit)
         nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle

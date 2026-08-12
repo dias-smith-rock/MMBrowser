@@ -9,18 +9,22 @@ struct PasswordItem: Codable, Equatable {
     var password: String
     var comments: String
     var updatedAt: Date
+    /// When set, this entry is preferred for the matching account only. Nil = all accounts.
+    var containerID: UUID?
 
     var dto: PasswordItemDTO {
         PasswordItemDTO(
             id: id, host: host, url: url, username: username,
-            password: password, comments: comments, updatedAt: updatedAt
+            password: password, comments: comments, updatedAt: updatedAt,
+            containerID: containerID?.uuidString
         )
     }
 
     static func from(_ dto: PasswordItemDTO) -> PasswordItem {
         PasswordItem(
             id: dto.id, host: dto.host, url: dto.url, username: dto.username,
-            password: dto.password, comments: dto.comments, updatedAt: dto.updatedAt
+            password: dto.password, comments: dto.comments, updatedAt: dto.updatedAt,
+            containerID: dto.containerID.flatMap(UUID.init(uuidString:))
         )
     }
 }
@@ -47,7 +51,8 @@ final class PasswordStore {
 
     /// Matches by exact host first, then by registrable domain so a saved
     /// `google.com` entry also covers `accounts.google.com`.
-    func items(forHost host: String) -> [PasswordItem] {
+    /// When `preferredContainerID` is set, scoped entries win over global (nil) entries.
+    func items(forHost host: String, preferredContainerID: UUID? = nil) -> [PasswordItem] {
         let key = Self.normalizeHost(host)
         guard !key.isEmpty else { return [] }
 
@@ -56,18 +61,30 @@ final class PasswordStore {
                 .filter { !$0.isEmpty }
         }
 
-        let exact = all.filter { hosts(of: $0).contains(key) }
+        func scoped(_ list: [PasswordItem]) -> [PasswordItem] {
+            guard let preferredContainerID else { return list }
+            let exactScope = list.filter { $0.containerID == preferredContainerID }
+            let shared = list.filter { $0.containerID == nil }
+            // Prefer this account’s entries, then shared (nil) entries not already covered.
+            var combined = exactScope
+            for item in shared where !combined.contains(where: { $0.username == item.username }) {
+                combined.append(item)
+            }
+            return combined
+        }
+
+        let exact = scoped(all.filter { hosts(of: $0).contains(key) })
         if !exact.isEmpty { return exact }
 
         let domain = Self.registrableDomain(key)
         guard !domain.isEmpty else { return [] }
-        return all.filter { item in
+        return scoped(all.filter { item in
             hosts(of: item).contains { Self.registrableDomain($0) == domain }
-        }
+        })
     }
 
     @discardableResult
-    func add(site: String, username: String, password: String, comments: String = "") -> PasswordItem? {
+    func add(site: String, username: String, password: String, comments: String = "", containerID: UUID? = nil) -> PasswordItem? {
         var items = load()
         let item = PasswordItem(
             id: UUID().uuidString,
@@ -76,7 +93,8 @@ final class PasswordStore {
             username: username,
             password: password,
             comments: comments,
-            updatedAt: Date()
+            updatedAt: Date(),
+            containerID: containerID
         )
         items.append(item)
         guard persist(items) else { return nil }

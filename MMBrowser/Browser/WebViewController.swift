@@ -232,6 +232,10 @@ final class WebViewController: UIViewController {
     private let websiteDataStore: WKWebsiteDataStore
     /// Geolocation deny/spoof for this tab (container-specific for normal tabs).
     private let geoConfiguration: GeolocationSpoof.Configuration
+    /// Locale / UA / tracking settings for this tab's account.
+    private let identityProfile: IdentityProfile
+    /// Account container for history and autofill scoping.
+    private let browsingContainerID: UUID?
     private var progressObservation: NSKeyValueObservation?
     private var loadingObservation: NSKeyValueObservation?
     private var titleObservation: NSKeyValueObservation?
@@ -312,11 +316,15 @@ final class WebViewController: UIViewController {
     init(
         isIncognito: Bool,
         websiteDataStore: WKWebsiteDataStore = .default(),
-        geoConfiguration: GeolocationSpoof.Configuration = .fromAppSettings()
+        geoConfiguration: GeolocationSpoof.Configuration = .fromAppSettings(),
+        identityProfile: IdentityProfile = .default,
+        containerID: UUID? = nil
     ) {
         self.isIncognito = isIncognito
         self.websiteDataStore = websiteDataStore
         self.geoConfiguration = geoConfiguration
+        self.identityProfile = identityProfile
+        self.browsingContainerID = containerID
         // Do not inherit global sticky — only the PiP owner tab may prefer PiP.
         self.prefersPictureInPicture = false
         super.init(nibName: nil, bundle: nil)
@@ -357,6 +365,9 @@ final class WebViewController: UIViewController {
         // `ensureOnDemandScripts` so generic pages skip that cost.
         if let geoScript = GeolocationSpoof.userScript(configuration: geoConfiguration) {
             config.userContentController.addUserScript(geoScript)
+        }
+        if let localeScript = IdentitySpoof.userScript(localeIdentifier: identityProfile.localeIdentifier) {
+            config.userContentController.addUserScript(localeScript)
         }
         // Unlock pinch-zoom on pages that set user-scalable=no / maximum-scale=1
         // (UIScrollView.ignoresViewportScaleLimits is unavailable in this SDK).
@@ -415,7 +426,12 @@ final class WebViewController: UIViewController {
         webView = wv
         if !isIncognito {
             autofillCoordinator.hostViewController = self
-            autofillCoordinator.attach(to: wv, isIncognito: isIncognito, contentController: config.userContentController)
+            autofillCoordinator.attach(
+                to: wv,
+                isIncognito: isIncognito,
+                containerID: browsingContainerID,
+                contentController: config.userContentController
+            )
         }
         if AppSettings.pictureInPictureEnabled || AppSettings.backgroundAudioEnabled {
             pipForegroundObserver = NotificationCenter.default.addObserver(
@@ -830,6 +846,10 @@ final class WebViewController: UIViewController {
     }
 
     private func applyDesktopPreference(to webView: WKWebView) {
+        if let ua = IdentitySpoof.resolvedUserAgent(for: identityProfile, preferDesktop: preferDesktop) {
+            webView.customUserAgent = ua
+            return
+        }
         if preferDesktop {
             webView.customUserAgent = desktopUA
         } else {
@@ -1979,6 +1999,12 @@ extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         YouTubeDarkMode.applyAppearance(to: webView, url: navigationAction.request.url)
         if let url = navigationAction.request.url {
+            let cleaned = URLTrackingCleaner.cleaned(url, enabled: identityProfile.stripTrackingParams)
+            if cleaned != url, navigationAction.targetFrame?.isMainFrame ?? true {
+                decisionHandler(.cancel)
+                webView.load(URLRequest(url: cleaned))
+                return
+            }
             let isMainFrame = navigationAction.targetFrame?.isMainFrame ?? true
             if XSiteProbe.isRelevant(url) || (url.scheme ?? "").lowercased().hasPrefix("x-safari-")
                 || url.absoluteString.lowercased().contains("oauth")
@@ -2151,8 +2177,8 @@ extension WebViewController: WKNavigationDelegate {
         delegate?.webViewController(self, didUpdateProgress: 1, isLoading: false)
         delegate?.webViewController(self, didUpdateTitle: webView.title)
         delegate?.webViewController(self, didUpdateURL: webView.url)
-        if !isIncognito, let url = webView.url {
-            HistoryStore.shared.add(title: webView.title ?? "", url: url)
+        if !isIncognito, let url = webView.url, let containerID = browsingContainerID {
+            HistoryStore.shared.add(title: webView.title ?? "", url: url, containerID: containerID)
         }
         AppLockCoordinator.shared.noteWebpageFinished(url: webView.url)
         if AppSettings.stickyPictureInPicture, PipSession.isOwner(self) {

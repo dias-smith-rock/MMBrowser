@@ -224,6 +224,34 @@ struct PasswordItemDTO: Codable, Equatable {
     var password: String
     var comments: String
     var updatedAt: Date
+    var containerID: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, host, url, username, password, comments, updatedAt, containerID
+    }
+
+    init(id: String, host: String, url: String, username: String, password: String, comments: String, updatedAt: Date, containerID: String? = nil) {
+        self.id = id
+        self.host = host
+        self.url = url
+        self.username = username
+        self.password = password
+        self.comments = comments
+        self.updatedAt = updatedAt
+        self.containerID = containerID
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        host = try c.decode(String.self, forKey: .host)
+        url = try c.decode(String.self, forKey: .url)
+        username = try c.decode(String.self, forKey: .username)
+        password = try c.decode(String.self, forKey: .password)
+        comments = try c.decode(String.self, forKey: .comments)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+        containerID = try c.decodeIfPresent(String.self, forKey: .containerID)
+    }
 }
 
 struct BankCardItemDTO: Codable, Equatable {

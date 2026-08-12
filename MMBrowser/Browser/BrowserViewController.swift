@@ -347,10 +347,75 @@ final class BrowserViewController: UIViewController {
         onboarding.onFinished = { [weak self, weak onboarding] in
             onboarding?.dismiss(animated: true) {
                 self?.maybeShowAddressBarSwipeTip()
+                self?.maybeShowAccountWow()
             }
             self?.newTabController?.applyHomeSettings()
         }
         present(onboarding, animated: true)
+    }
+
+    private func maybeShowAccountWow() {
+        guard !UserDefaults.standard.bool(forKey: ContainerScope.didShowAccountWowKey) else {
+            maybeShowAccountChipTip()
+            return
+        }
+        let wow = AccountOnboardingWowViewController(tabManager: tabManager)
+        wow.onFinished = { [weak self, weak wow] in
+            wow?.dismiss(animated: true) {
+                self?.maybeShowAccountChipTip()
+            }
+        }
+        wow.onStartedSplitDemo = { [weak self] in
+            // Split View dismisses the modal chain; tip not needed after a live demo.
+            UserDefaults.standard.set(false, forKey: ContainerScope.needsAccountChipTipKey)
+            self?.refreshAccountChip()
+        }
+        present(wow, animated: true)
+    }
+
+    private func maybeShowAccountChipTip() {
+        let defaults = UserDefaults.standard
+        guard defaults.bool(forKey: ContainerScope.needsAccountChipTipKey),
+              !defaults.bool(forKey: ContainerScope.didShowAccountChipTipKey) else { return }
+        defaults.set(true, forKey: ContainerScope.didShowAccountChipTipKey)
+        defaults.set(false, forKey: ContainerScope.needsAccountChipTipKey)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+            guard let self else { return }
+            Toast.show("Tap the account chip to switch identities — long-press for the previous account", from: self)
+        }
+    }
+
+    func presentDualAccountCompare(leftID: UUID? = nil, rightID: UUID? = nil) {
+        let containers = tabManager.sortedContainers
+        guard containers.count >= 2 else {
+            Toast.show("Add another account first", from: self)
+            return
+        }
+
+        let currentID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
+            ?? tabManager.resolvedLastActiveContainerID
+        let left = containers.first(where: { $0.id == leftID })
+            ?? containers.first(where: { $0.id == currentID })
+            ?? containers[0]
+        let right = containers.first(where: { $0.id == rightID && $0.id != left.id })
+            ?? containers.first(where: { $0.id != left.id })
+            ?? containers[1]
+
+        let url: URL = {
+            if let selected = tabManager.selectedTab, !selected.isIncognito, let page = selected.url {
+                return page
+            }
+            return URL(string: "https://www.google.com")!
+        }()
+        let compare = DualAccountCompareViewController(
+            tabManager: tabManager,
+            leftContainer: left,
+            rightContainer: right,
+            url: url
+        )
+        compare.delegate = self
+        compare.modalPresentationStyle = .fullScreen
+        present(compare, animated: true)
     }
 
     private func setupChrome() {
@@ -612,6 +677,12 @@ final class BrowserViewController: UIViewController {
         nav.modalPresentationStyle = .pageSheet
         nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        if let sheet = nav.sheetPresentationController {
+            sheet.detents = [.large()]
+            sheet.selectedDetentIdentifier = .large
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 16
+        }
         present(nav, animated: true)
     }
 
@@ -627,6 +698,7 @@ final class BrowserViewController: UIViewController {
     private func presentAddAccount() {
         let edit = ContainerEditViewController(
             container: nil,
+            tabManager: tabManager,
             suggestedPresetIndex: tabManager.containers.count
         )
         edit.delegate = self
@@ -656,6 +728,12 @@ final class BrowserViewController: UIViewController {
             ntp.delegate = self
             newTabController = ntp
         }
+        let container = tabManager.container(id: tab.containerID) ?? tabManager.defaultContainer
+        ntp.configure(
+            containerID: container.id,
+            accountName: container.name,
+            pinnedSites: container.pinnedSites
+        )
         ntp.reloadContinue(from: tabManager.recentBrowsedTabs(limit: 1))
         ntp.reloadShortcuts()
         embed(ntp)
@@ -681,16 +759,13 @@ final class BrowserViewController: UIViewController {
         if tab.isIncognito {
             return WebViewController(isIncognito: true, geoConfiguration: .fromAppSettings())
         }
-        let geo: GeolocationSpoof.Configuration = {
-            if let container = tabManager.container(id: tab.containerID) {
-                return .from(container: container)
-            }
-            return .fromAppSettings()
-        }()
+        let container = tabManager.container(id: tab.containerID) ?? tabManager.defaultContainer
         return WebViewController(
             isIncognito: false,
             websiteDataStore: TabSessionStore.dataStore(for: tabManager.sessionID(for: tab)),
-            geoConfiguration: geo
+            geoConfiguration: .from(container: container),
+            identityProfile: container.identity,
+            containerID: container.id
         )
     }
 
@@ -1028,7 +1103,9 @@ final class BrowserViewController: UIViewController {
     }
 
     private func openLibraryList(isBookmarks: Bool) {
-        let sheet = LibrarySheetViewController(initialMode: isBookmarks ? .bookmarks : .history)
+        let containerID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
+            ?? tabManager.resolvedLastActiveContainerID
+        let sheet = LibrarySheetViewController(initialMode: isBookmarks ? .bookmarks : .history, containerID: containerID)
         if let tab = tabManager.selectedTab,
            !tab.isIncognito,
            !tab.isNewTabPage,
@@ -1243,6 +1320,23 @@ extension BrowserViewController: BottomToolbarViewDelegate {
         AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_account")
         presentAccountSwitcher()
     }
+
+    func toolbarDidLongPressAccount() {
+        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_account_longpress")
+        guard let targetID = tabManager.quickSwitchTargetAccountID(),
+              let name = tabManager.container(id: targetID)?.name else {
+            presentAccountSwitcher()
+            return
+        }
+        _ = tabManager.switchToAccount(targetID)
+        showSelectedTab()
+        refreshAccountChip()
+        Toast.show("Switched to \(name)", from: self)
+        AppAnalytics.logAccountSwitch(accountName: name)
+        // Subtle chip pulse
+        toolbar.pulseAccountChip()
+    }
+
     func toolbarDidTapBack() {
         AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_back")
         tabManager.selectedTab?.webController?.goBack()
@@ -1359,7 +1453,7 @@ extension BrowserViewController: WebViewControllerDelegate {
             refreshToolbar()
         }
         if !tab.isIncognito, !url.absoluteString.hasPrefix("about:") {
-            HistoryStore.shared.add(title: tab.title, url: url)
+            HistoryStore.shared.add(title: tab.title, url: url, containerID: tab.containerID)
         }
         tabManager.persistSessionIfNeeded()
     }
@@ -1531,6 +1625,8 @@ extension BrowserViewController: MenuViewControllerDelegate {
             openSettings()
         case .accounts:
             presentAccountSwitcher()
+        case .compareAccounts:
+            presentDualAccountCompare()
         case .setDefaultBrowser:
             guard DefaultBrowserFeature.isEnabled else { return }
             openDefaultBrowserSettings()
@@ -1562,7 +1658,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 Toast.show("No page to bookmark", from: self)
                 return
             }
-            if BookmarkStore.shared.add(title: tab.title, url: url) {
+            if BookmarkStore.shared.add(title: tab.title, url: url, containerID: tab.containerID) {
                 Toast.show("Bookmark added", from: self)
             } else {
                 Toast.show("Already bookmarked", from: self)
@@ -1631,13 +1727,14 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 Toast.show("No page to add", from: self)
                 return
             }
-            if NavigationStore.shared.containsOnHome(url: url) {
+            if NavigationStore.shared.containsOnHome(url: url, containerID: tab.containerID) {
                 Toast.show("Already on Home", from: self)
             } else {
                 let title = tab.title.trimmingCharacters(in: .whitespacesAndNewlines)
                 let ok = NavigationStore.shared.addToHome(
                     title: title.isEmpty ? (url.host ?? "Site") : title,
-                    url: url
+                    url: url,
+                    containerID: tab.containerID
                 )
                 Toast.show(ok ? "Added to Home" : "Already on Home", from: self)
             }
@@ -1747,10 +1844,11 @@ extension BrowserViewController: MenuViewControllerDelegate {
             if let url = URL(string: UIApplication.openDefaultApplicationsSettingsURLString) {
                 UIApplication.shared.open(url, options: [:]) { [weak self] success in
                     DispatchQueue.main.async {
+                        guard let self else { return }
                         if success {
                             Toast.show("Choose Browser App under Default Apps", from: self)
                         } else {
-                            self?.openAppSettingsForDefaultBrowser()
+                            self.openAppSettingsForDefaultBrowser()
                         }
                     }
                 }
@@ -1819,6 +1917,31 @@ extension BrowserViewController: PageRichMenuViewControllerDelegate {
     }
 }
 
+extension BrowserViewController: DualAccountCompareViewControllerDelegate {
+    func dualAccountCompareDidClose(_ controller: DualAccountCompareViewController) {
+        // No-op — browser state unchanged when fully closing Split View.
+    }
+
+    func dualAccountCompare(
+        _ controller: DualAccountCompareViewController,
+        didKeepAccount id: UUID,
+        url: URL?
+    ) {
+        applySplitViewKeep(accountID: id, url: url)
+    }
+
+    func applySplitViewKeep(accountID: UUID, url: URL?) {
+        _ = tabManager.switchToAccount(accountID)
+        showSelectedTab()
+        if let url {
+            navigate(to: url)
+        }
+        let name = tabManager.container(id: accountID)?.name ?? "Account"
+        Toast.show("Continued in \(name)", from: self)
+        refreshAccountChip()
+    }
+}
+
 extension BrowserViewController: AccountSwitcherViewControllerDelegate {
     func accountSwitcher(_ controller: AccountSwitcherViewController, didSelectAccount id: UUID) {
         let name = tabManager.container(id: id)?.name ?? "Account"
@@ -1826,7 +1949,9 @@ extension BrowserViewController: AccountSwitcherViewControllerDelegate {
             guard let self else { return }
             _ = self.tabManager.switchToAccount(id)
             self.showSelectedTab()
+            self.refreshAccountChip()
             Toast.show("Switched to \(name)", from: self)
+            self.toolbar.pulseAccountChip()
             AppAnalytics.logAccountSwitch(accountName: name)
         }
     }
@@ -1840,6 +1965,12 @@ extension BrowserViewController: AccountSwitcherViewControllerDelegate {
     func accountSwitcherDidRequestAdd(_ controller: AccountSwitcherViewController) {
         controller.dismiss(animated: true) { [weak self] in
             self?.presentAddAccount()
+        }
+    }
+
+    func accountSwitcher(_ controller: AccountSwitcherViewController, didRequestCompare leftID: UUID, rightID: UUID) {
+        controller.dismiss(animated: true) { [weak self] in
+            self?.presentDualAccountCompare(leftID: leftID, rightID: rightID)
         }
     }
 }

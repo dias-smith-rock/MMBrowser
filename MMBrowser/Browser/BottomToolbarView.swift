@@ -8,6 +8,7 @@ protocol BottomToolbarViewDelegate: AnyObject {
     func toolbarDidTapTabs()
     func toolbarDidTapMenu()
     func toolbarDidTapAccount()
+    func toolbarDidLongPressAccount()
 }
 
 final class BottomToolbarView: UIView {
@@ -66,8 +67,10 @@ final class BottomToolbarView: UIView {
         accountChip.clipsToBounds = true
         accountChip.isHidden = true
         accountChip.accessibilityLabel = "Account"
-        accountChip.accessibilityHint = "Double tap to switch accounts"
+        accountChip.accessibilityHint = "Double tap to switch accounts. Long press to jump to the previous account."
         accountChip.addTarget(self, action: #selector(accountTapped), for: .touchUpInside)
+        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(accountLongPressed(_:)))
+        accountChip.addGestureRecognizer(longPress)
         accountDot.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(10)
             make.centerY.equalToSuperview()
@@ -287,7 +290,22 @@ final class BottomToolbarView: UIView {
         button.addTarget(self, action: action, for: .touchUpInside)
     }
 
+    func pulseAccountChip() {
+        guard !accountChip.isHidden else { return }
+        UIView.animate(withDuration: 0.12, animations: {
+            self.accountChip.transform = CGAffineTransform(scaleX: 1.06, y: 1.06)
+        }, completion: { _ in
+            UIView.animate(withDuration: 0.18) {
+                self.accountChip.transform = .identity
+            }
+        })
+    }
+
     @objc private func accountTapped() { delegate?.toolbarDidTapAccount() }
+    @objc private func accountLongPressed(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
+        delegate?.toolbarDidLongPressAccount()
+    }
     @objc private func backTapped() { delegate?.toolbarDidTapBack() }
     @objc private func forwardTapped() { delegate?.toolbarDidTapForward() }
     @objc private func plusTapped() { delegate?.toolbarDidTapNewTab() }

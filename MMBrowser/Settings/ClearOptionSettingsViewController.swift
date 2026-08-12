@@ -115,7 +115,7 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .autoClear:
-            return "When enabled, selected data is removed when you leave the app, and again on next launch (covers crash or force quit). History is recorded during the session and cleared on exit when History auto-clear is on."
+            return "When enabled, selected data is removed for every account’s website data stores when you leave the app (and again on next launch after a crash). To wipe one identity only, delete that account under Manage Accounts. History is recorded during the session and cleared on exit when History auto-clear is on."
         case .session:
             return "Close All Tabs on Exit resets to a single New Tab when you background the app. Turn off preview images to hide webpage thumbnails in the tab switcher."
         }

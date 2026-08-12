@@ -8,6 +8,7 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
     weak var hostViewController: UIViewController?
     private weak var webView: WKWebView?
     private var isIncognito = false
+    private var containerID: UUID?
     private var lastSavePromptKey: String?
     /// Suppresses repeat suggestions while the user stays on the same page.
     private var promptedKeys: Set<String> = []
@@ -18,9 +19,10 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
         WKUserScript(source: Self.scriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
     }
 
-    func attach(to webView: WKWebView, isIncognito: Bool, contentController: WKUserContentController) {
+    func attach(to webView: WKWebView, isIncognito: Bool, containerID: UUID? = nil, contentController: WKUserContentController) {
         self.webView = webView
         self.isIncognito = isIncognito
+        self.containerID = containerID
         contentController.removeScriptMessageHandler(forName: Self.messageName)
         contentController.add(self, name: Self.messageName)
     }
@@ -77,7 +79,7 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
               let host = webView?.url?.host
         else { return }
 
-        let matches = PasswordStore.shared.items(forHost: host)
+        let matches = PasswordStore.shared.items(forHost: host, preferredContainerID: containerID)
         guard !matches.isEmpty else { return }
 
         let key = "\(host)|\(kind)"
@@ -174,22 +176,26 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
         if lastSavePromptKey == key { return }
         lastSavePromptKey = key
 
-        if let existing = PasswordStore.shared.items(forHost: host).first(where: { $0.username == username && $0.password == password }) {
-            _ = existing
+        let scoped = PasswordStore.shared.items(forHost: host, preferredContainerID: containerID)
+        if scoped.contains(where: { $0.username == username && $0.password == password }) {
             return
         }
 
-        let title: String
-        let message: String
-        if let existing = PasswordStore.shared.items(forHost: host).first(where: { $0.username == username }) {
-            title = "Update Password?"
-            message = "Update saved password for \(existing.host)?"
-            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        if let existing = scoped.first(where: { $0.username == username && $0.containerID == containerID })
+            ?? scoped.first(where: { $0.username == username && $0.containerID == nil }) {
+            let alert = UIAlertController(
+                title: "Update Password?",
+                message: "Update saved password for \(existing.host)?",
+                preferredStyle: .alert
+            )
             alert.addAction(UIAlertAction(title: "Not Now", style: .cancel))
-            alert.addAction(UIAlertAction(title: "Update", style: .default) { _ in
+            alert.addAction(UIAlertAction(title: "Update", style: .default) { [weak self] _ in
                 var item = existing
                 item.password = password
                 item.url = url
+                if item.containerID == nil {
+                    item.containerID = self?.containerID
+                }
                 _ = PasswordStore.shared.update(item)
                 Toast.show("Password updated", from: hostVC)
             })
@@ -197,10 +203,25 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
             return
         }
 
-        let alert = UIAlertController(title: "Save Password?", message: host.isEmpty ? url : host, preferredStyle: .alert)
+        let accountNote: String = {
+            guard let id = containerID,
+                  let name = ContainerScope.loadContainers().first(where: { $0.id == id })?.name
+            else { return "" }
+            return "\nSaved for account “\(name)”."
+        }()
+        let alert = UIAlertController(
+            title: "Save Password?",
+            message: (host.isEmpty ? url : host) + accountNote,
+            preferredStyle: .alert
+        )
         alert.addAction(UIAlertAction(title: "Not Now", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Save", style: .default) { _ in
-            _ = PasswordStore.shared.add(site: url, username: username, password: password)
+        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self] _ in
+            _ = PasswordStore.shared.add(
+                site: url,
+                username: username,
+                password: password,
+                containerID: self?.containerID
+            )
             Toast.show("Password saved", from: hostVC)
         })
         hostVC.present(alert, animated: true)

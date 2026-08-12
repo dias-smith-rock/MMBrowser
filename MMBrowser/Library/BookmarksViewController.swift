@@ -5,6 +5,7 @@ final class BookmarksViewController: UIViewController, UITableViewDataSource, UI
     /// When set, shows an “Add Current Page” entry at the top of the list.
     var currentPageTitle: String?
     var currentPageURL: URL?
+    var containerID: UUID = ContainerScope.resolveContainerID(nil)
 
     private let tableView = UITableView(frame: .zero, style: .plain)
     private var items: [BookmarkItem] = []
@@ -126,7 +127,7 @@ final class BookmarksViewController: UIViewController, UITableViewDataSource, UI
     }
 
     private func refreshAddCurrentHeader() {
-        guard !isSelecting, let url = currentPageURL, !BookmarkStore.shared.contains(url: url) else {
+        guard !isSelecting, let url = currentPageURL, !BookmarkStore.shared.contains(url: url, containerID: containerID) else {
             tableView.tableHeaderView = nil
             return
         }
@@ -163,7 +164,7 @@ final class BookmarksViewController: UIViewController, UITableViewDataSource, UI
     @objc private func addCurrentPageTapped() {
         guard let url = currentPageURL else { return }
         let title = currentPageTitle ?? ""
-        if BookmarkStore.shared.add(title: title, url: url) {
+        if BookmarkStore.shared.add(title: title, url: url, containerID: containerID) {
             reloadItems()
             tableView.reloadData()
             updateToolbarButtons()
@@ -176,7 +177,7 @@ final class BookmarksViewController: UIViewController, UITableViewDataSource, UI
     }
 
     private func reloadItems() {
-        items = BookmarkStore.shared.items
+        items = BookmarkStore.shared.items(containerID: containerID)
     }
 
     private func updateToolbarButtons() {
@@ -284,7 +285,7 @@ final class BookmarksViewController: UIViewController, UITableViewDataSource, UI
     }
 
     func tableView(_ tableView: UITableView, moveRowAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
-        BookmarkStore.shared.moveItem(from: sourceIndexPath.row, to: destinationIndexPath.row)
+        BookmarkStore.shared.moveItem(from: sourceIndexPath.row, to: destinationIndexPath.row, containerID: containerID)
         reloadItems()
     }
 
@@ -402,7 +403,7 @@ extension BookmarksViewController: UITableViewDragDelegate, UITableViewDropDeleg
               let item = coordinator.items.first,
               let source = item.sourceIndexPath else { return }
         tableView.performBatchUpdates {
-            BookmarkStore.shared.moveItem(from: source.row, to: destination.row)
+            BookmarkStore.shared.moveItem(from: source.row, to: destination.row, containerID: containerID)
             reloadItems()
             tableView.moveRow(at: source, to: destination)
         }

@@ -55,7 +55,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
         case .privacy: return 8
-        case .accounts: return 1
+        case .accounts: return 2
         case .clearOption: return 1
         case .tools: return 1
         case .youtube: return 2
@@ -89,9 +89,9 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .privacy:
             return "Location Deny/Spoof only affects GPS-like browser APIs—not your network IP."
         case .accounts:
-            return "Accounts keep separate cookies and logins. Optional virtual location per account does not change your IP."
+            return "Accounts keep separate cookies, history, bookmarks, home shortcuts, and passwords. Downloads and Reading List are Shared."
         case .clearOption:
-            return "Choose what is removed automatically when you leave the app. History is still recorded during the session; turn History auto-clear off to keep it across launches."
+            return "Auto-clear when you leave can wipe site data for every account. To remove one identity only, delete that account under Manage Accounts. History listed here is still recorded during the session unless History auto-clear is on."
         case .tools:
             return "Hide page elements and save rules for sites you visit often."
         case .youtube:
@@ -183,9 +183,15 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 cell.accessoryType = .disclosureIndicator
             }
         case .accounts:
-            cell.textLabel?.text = "Accounts"
-            cell.detailTextLabel?.text = "Separate logins and cookies"
-            cell.accessoryType = .disclosureIndicator
+            if indexPath.row == 0 {
+                cell.textLabel?.text = "Accounts"
+                cell.detailTextLabel?.text = "Separate logins and cookies"
+                cell.accessoryType = .disclosureIndicator
+            } else {
+                cell.textLabel?.text = "Isolated vs Shared"
+                cell.detailTextLabel?.text = "What stays per account"
+                cell.accessoryType = .disclosureIndicator
+            }
         case .clearOption:
             cell.textLabel?.text = "Clear Option"
             cell.detailTextLabel?.text = AppSettings.clearOptionSummary
@@ -283,6 +289,10 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
             }
         case .accounts:
+            if indexPath.row == 1 {
+                navigationController?.pushViewController(IsolatedVsSharedViewController(), animated: true)
+                return
+            }
             guard let tabManager else { return }
             let manage = ContainerManageViewController(tabManager: tabManager)
             manage.showsDoneButton = false

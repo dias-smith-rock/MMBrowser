@@ -10,14 +10,17 @@ final class PasswordEditViewController: UIViewController, UITextFieldDelegate, U
     var onSaved: (() -> Void)?
 
     private let mode: Mode
+    /// When creating, bind the entry to this browsing account.
+    private let defaultContainerID: UUID?
     private let siteField = UITextField()
     private let usernameField = UITextField()
     private let passwordField = UITextField()
     private let commentsView = UITextView()
     private var saveItem: UIBarButtonItem!
 
-    init(mode: Mode) {
+    init(mode: Mode, defaultContainerID: UUID? = nil) {
         self.mode = mode
+        self.defaultContainerID = defaultContainerID
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -123,7 +126,13 @@ final class PasswordEditViewController: UIViewController, UITextFieldDelegate, U
         }
         switch mode {
         case .create:
-            guard PasswordStore.shared.add(site: site, username: user, password: pass, comments: comments) != nil else {
+            guard PasswordStore.shared.add(
+                site: site,
+                username: user,
+                password: pass,
+                comments: comments,
+                containerID: defaultContainerID
+            ) != nil else {
                 Toast.show("Could not save password", from: self)
                 return
             }
@@ -133,6 +142,9 @@ final class PasswordEditViewController: UIViewController, UITextFieldDelegate, U
             item.username = user
             item.password = pass
             item.comments = comments
+            if item.containerID == nil, let defaultContainerID {
+                item.containerID = defaultContainerID
+            }
             guard PasswordStore.shared.update(item) else {
                 Toast.show("Could not update password", from: self)
                 return

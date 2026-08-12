@@ -11,28 +11,26 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
 
     private let isNew: Bool
     private var draft: BrowserContainer
+    private weak var tabManager: TabManager?
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private let nameField = UITextField()
     private let colorSwatches = AccountColorSwatchView()
 
     private enum Section: Int, CaseIterable {
-        case name, color, mode, spoofPreset, spoofCustom
+        case template, name, color, identity, mode, spoofPreset, spoofCustom, management
     }
 
-    init(container: BrowserContainer?, suggestedPresetIndex: Int = 0) {
+    init(container: BrowserContainer?, tabManager: TabManager? = nil, suggestedPresetIndex: Int = 0, template: ContainerTemplate = .custom) {
+        self.tabManager = tabManager
         if let container {
             self.isNew = false
             self.draft = container
         } else {
             self.isNew = true
-            let preset = SpoofLocationPreset.all[suggestedPresetIndex % SpoofLocationPreset.all.count]
-            self.draft = BrowserContainer(
-                id: UUID(),
+            self.draft = template.makeContainer(
                 name: "",
-                sessionID: UUID(),
                 sortIndex: 0,
-                colorIndex: suggestedPresetIndex % AccountColor.palette.count,
-                location: preset
+                colorIndex: suggestedPresetIndex % AccountColor.palette.count
             )
         }
         super.init(nibName: nil, bundle: nil)
@@ -189,30 +187,45 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
 
     func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
 
+    private func sectionKind(_ section: Int) -> Section? {
+        Section(rawValue: section)
+    }
+
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        switch Section(rawValue: section)! {
+        guard let kind = sectionKind(section) else { return 0 }
+        switch kind {
+        case .template: return isNew ? ContainerTemplate.allCases.count : 0
         case .name: return 1
         case .color: return 1
+        case .identity: return UserAgentMode.allCases.count + 1
         case .mode: return LocationPrivacyMode.allCases.count
         case .spoofPreset: return draft.locationMode == .spoof ? SpoofLocationPreset.all.count : 0
         case .spoofCustom: return draft.locationMode == .spoof ? 1 : 0
+        case .management: return (!isNew && tabManager != nil) ? 3 : 0
         }
     }
 
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        switch Section(rawValue: section)! {
+        guard let kind = sectionKind(section) else { return nil }
+        switch kind {
+        case .template: return isNew ? "Template" : nil
         case .name: return "Name"
         case .color: return "Color"
+        case .identity: return "Identity Profile"
         case .mode: return "Location for Sites in This Account"
         case .spoofPreset: return draft.locationMode == .spoof ? "Virtual City" : nil
         case .spoofCustom: return draft.locationMode == .spoof ? "Custom" : nil
+        case .management: return "Management"
         }
     }
 
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-        switch Section(rawValue: section)! {
+        guard let kind = sectionKind(section) else { return nil }
+        switch kind {
         case .color:
             return "Tap a swatch, or + to pick a custom color."
+        case .identity:
+            return "Locale and user agent help sites see a consistent identity. Network IP is unchanged."
         case .mode:
             return "Deny and Spoof only affect the browser Geolocation API. Network IP is unchanged."
         case .spoofPreset:
@@ -225,7 +238,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
     }
 
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        Section(rawValue: indexPath.section) == .color ? 98 : UITableView.automaticDimension
+        sectionKind(indexPath.section) == .color ? 98 : UITableView.automaticDimension
     }
 
     func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
@@ -246,7 +259,13 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
         cell.textLabel?.text = nil
         cell.detailTextLabel?.text = nil
 
-        switch Section(rawValue: indexPath.section)! {
+        switch sectionKind(indexPath.section)! {
+        case .template:
+            let template = ContainerTemplate.allCases[indexPath.row]
+            cell.textLabel?.text = template.displayName
+            cell.detailTextLabel?.text = template.detail
+            cell.accessoryType = draft.templateID == template.rawValue ? .checkmark : .none
+            cell.tintColor = BrowserTheme.chromeBlue
         case .name:
             cell.selectionStyle = .none
             if nameField.superview != cell.contentView {
@@ -274,6 +293,18 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
                 ])
             }
             refreshColorSwatches()
+        case .identity:
+            if indexPath.row < UserAgentMode.allCases.count {
+                let mode = UserAgentMode.allCases[indexPath.row]
+                cell.textLabel?.text = "User Agent: \(mode.displayName)"
+                cell.detailTextLabel?.text = nil
+                cell.accessoryType = draft.identity.userAgentMode == mode ? .checkmark : .none
+            } else {
+                cell.textLabel?.text = "Strip tracking URL parameters"
+                cell.detailTextLabel?.text = draft.identity.stripTrackingParams ? "On" : "Off"
+                cell.accessoryType = draft.identity.stripTrackingParams ? .checkmark : .none
+            }
+            cell.tintColor = BrowserTheme.chromeBlue
         case .mode:
             let mode = LocationPrivacyMode.allCases[indexPath.row]
             cell.textLabel?.text = mode.displayName
@@ -299,17 +330,60 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
             cell.detailTextLabel?.text = String(format: "%.5f, %.5f", draft.latitude, draft.longitude)
             cell.accessoryType = isCustomSpoofSelected ? .checkmark : .disclosureIndicator
             cell.tintColor = BrowserTheme.chromeBlue
+        case .management:
+            switch indexPath.row {
+            case 0:
+                cell.textLabel?.text = "Site Data"
+                cell.accessoryType = .disclosureIndicator
+            case 1:
+                cell.textLabel?.text = "Account Health"
+                cell.accessoryType = .disclosureIndicator
+            default:
+                cell.textLabel?.text = "Split View"
+                cell.accessoryType = .disclosureIndicator
+            }
         }
         return cell
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        switch Section(rawValue: indexPath.section)! {
+        switch sectionKind(indexPath.section)! {
+        case .template:
+            let template = ContainerTemplate.allCases[indexPath.row]
+            let preservedID = draft.id
+            let preservedSession = draft.sessionID
+            let built = template.makeContainer(name: draft.name, sortIndex: draft.sortIndex, colorIndex: draft.colorIndex)
+            draft = BrowserContainer(
+                id: preservedID,
+                name: built.name,
+                sessionID: preservedSession,
+                sortIndex: built.sortIndex,
+                colorIndex: built.colorIndex,
+                customColorHex: built.customColorHex,
+                locationMode: built.locationMode,
+                latitude: built.latitude,
+                longitude: built.longitude,
+                timeZoneIdentifier: built.timeZoneIdentifier,
+                locationPresetID: built.locationPresetID,
+                pinnedSites: built.pinnedSites,
+                persistence: .persistent,
+                identity: built.identity,
+                templateID: template.rawValue
+            )
+            nameField.text = draft.name
+            tableView.reloadData()
         case .name:
             nameField.becomeFirstResponder()
         case .color:
             break
+        case .identity:
+            if indexPath.row < UserAgentMode.allCases.count {
+                draft.identity.userAgentMode = UserAgentMode.allCases[indexPath.row]
+            } else {
+                draft.identity.stripTrackingParams.toggle()
+            }
+            tableView.reloadSections(IndexSet(integer: indexPath.section), with: .none)
         case .mode:
             draft.locationMode = LocationPrivacyMode.allCases[indexPath.row]
             tableView.reloadData()
@@ -330,6 +404,26 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
                 self.tableView.reloadData()
             }
             navigationController?.pushViewController(picker, animated: true)
+        case .management:
+            guard let tabManager else { return }
+            switch indexPath.row {
+            case 0:
+                navigationController?.pushViewController(ContainerSiteDataViewController(container: draft), animated: true)
+            case 1:
+                navigationController?.pushViewController(AccountHealthViewController(tabManager: tabManager, container: draft), animated: true)
+            default:
+                let containers = tabManager.sortedContainers.filter { $0.id != draft.id }
+                guard let other = containers.first,
+                      let url = URL(string: "https://www.google.com") else { return }
+                let compare = DualAccountCompareViewController(
+                    tabManager: tabManager,
+                    leftContainer: draft,
+                    rightContainer: other,
+                    url: url
+                )
+                compare.modalPresentationStyle = .fullScreen
+                present(compare, animated: true)
+            }
         }
     }
 }

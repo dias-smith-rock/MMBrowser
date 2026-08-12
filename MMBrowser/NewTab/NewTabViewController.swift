@@ -13,6 +13,11 @@ protocol NewTabViewControllerDelegate: AnyObject {
 final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate {
     weak var delegate: NewTabViewControllerDelegate?
 
+    private(set) var containerID: UUID?
+    private var accountName = ""
+    private var pinnedSites: [NavigationSite] = []
+    private let pinnedStack = UIStackView()
+    private let accountLabel = UILabel()
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let logoView = GoogleLogoView()
@@ -64,6 +69,20 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         _ = tabs
     }
 
+    func configure(containerID: UUID, accountName: String, pinnedSites: [NavigationSite]) {
+        self.containerID = containerID
+        self.accountName = accountName
+        self.pinnedSites = pinnedSites
+        buildDirectory()
+    }
+
+    private var resolvedContainerID: UUID {
+        ContainerScope.resolveContainerID(containerID)
+    }
+
+    private var navCategories: [NavigationCategory] {
+        NavigationStore.shared.categories(for: resolvedContainerID)
+    }
     func reloadShortcuts() {
         buildDirectory()
     }
@@ -133,7 +152,36 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
 
     private func buildDirectory() {
         directoryStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        let categories = NavigationStore.shared.categories
+
+        if !accountName.isEmpty {
+            accountLabel.text = accountName
+            accountLabel.font = .systemFont(ofSize: 14, weight: .semibold)
+            accountLabel.textColor = BrowserTheme.textSecondary
+            directoryStack.addArrangedSubview(accountLabel)
+        }
+
+        if !pinnedSites.isEmpty {
+            pinnedStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+            pinnedStack.axis = .horizontal
+            pinnedStack.spacing = 8
+            pinnedStack.distribution = .fillEqually
+            for site in pinnedSites.prefix(4) {
+                let button = UIButton(type: .system)
+                button.setTitle(site.title, for: .normal)
+                button.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+                button.layer.cornerRadius = 10
+                button.layer.borderWidth = 1
+                button.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.35).cgColor
+                button.addAction(UIAction { [weak self] _ in
+                    guard let url = site.url else { return }
+                    self?.delegate?.newTabDidOpenURL(url)
+                }, for: .touchUpInside)
+                pinnedStack.addArrangedSubview(button)
+            }
+            directoryStack.addArrangedSubview(pinnedStack)
+        }
+
+        let categories = navCategories
         for (index, category) in categories.enumerated() {
             directoryStack.addArrangedSubview(makeCategorySection(category, categoryIndex: index))
         }
@@ -156,7 +204,7 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
             up.isEnabled = categoryIndex > 1
             let down = makeIconButton(systemName: "chevron.down", categoryID: category.id, tag: categoryIndex)
             down.addTarget(self, action: #selector(moveCategoryDown(_:)), for: .touchUpInside)
-            down.isEnabled = categoryIndex < NavigationStore.shared.categories.count - 1
+            down.isEnabled = categoryIndex < navCategories.count - 1
             header.addArrangedSubview(up)
             header.addArrangedSubview(down)
         }
@@ -175,7 +223,7 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
             restore.accessibilityLabel = "Restore Defaults"
             restore.addAction(UIAction { [weak self] _ in
                 guard let self else { return }
-                NavigationStore.shared.restoreDefaults()
+                NavigationStore.shared.restoreDefaults(containerID: resolvedContainerID)
                 self.buildDirectory()
                 Toast.show("Defaults restored", from: self)
             }, for: .touchUpInside)
@@ -306,7 +354,7 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
             let siteID = site.id
             let categoryID = category.id
             delete.addAction(UIAction { [weak self] _ in
-                NavigationStore.shared.removeSite(categoryID: categoryID, siteID: siteID)
+                NavigationStore.shared.removeSite(categoryID: categoryID, siteID: siteID, containerID: self?.resolvedContainerID ?? ContainerScope.resolveContainerID(nil))
                 self?.buildDirectory()
             }, for: .touchUpInside)
             container.addSubview(delete)
@@ -393,6 +441,7 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
             let displayTitle = title.isEmpty ? (url.host ?? "Site") : title
             NavigationStore.shared.addSite(
                 toCategoryID: categoryID,
+                containerID: self?.resolvedContainerID ?? ContainerScope.resolveContainerID(nil),
                 title: displayTitle,
                 urlString: url.absoluteString
             )
@@ -426,7 +475,7 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
     private func presentSiteEditMenu(_ sender: NavigationSiteButton) {
         let sheet = UIAlertController(title: sender.site.title, message: nil, preferredStyle: .actionSheet)
         sheet.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
-            NavigationStore.shared.removeSite(categoryID: sender.categoryID, siteID: sender.site.id)
+            NavigationStore.shared.removeSite(categoryID: sender.categoryID, siteID: sender.site.id, containerID: self?.resolvedContainerID ?? ContainerScope.resolveContainerID(nil))
             self?.buildDirectory()
         })
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -516,12 +565,12 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         guard let target = siteTile(at: fingerInContent), target.categoryID == categoryID, target.siteID != siteID else {
             return
         }
-        guard let category = NavigationStore.shared.categories.first(where: { $0.id == categoryID }),
+        guard let category = navCategories.first(where: { $0.id == categoryID }),
               let from = category.sites.firstIndex(where: { $0.id == siteID }) else { return }
         let to = target.siteIndex
         guard from != to else { return }
 
-        NavigationStore.shared.moveSite(categoryID: categoryID, from: from, to: to, notify: false)
+        NavigationStore.shared.moveSite(categoryID: categoryID, containerID: resolvedContainerID, from: from, to: to, notify: false)
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         buildDirectory()
         view.layoutIfNeeded()
@@ -604,13 +653,13 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
 
     @objc private func moveCategoryUp(_ sender: CategoryActionButton) {
         let from = sender.tag
-        NavigationStore.shared.moveCategory(from: from, to: from - 1)
+        NavigationStore.shared.moveCategory(containerID: resolvedContainerID, from: from, to: from - 1)
         buildDirectory()
     }
 
     @objc private func moveCategoryDown(_ sender: CategoryActionButton) {
         let from = sender.tag
-        NavigationStore.shared.moveCategory(from: from, to: from + 1)
+        NavigationStore.shared.moveCategory(containerID: resolvedContainerID, from: from, to: from + 1)
         buildDirectory()
     }
 }

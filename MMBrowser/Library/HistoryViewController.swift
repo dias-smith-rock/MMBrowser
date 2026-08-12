@@ -2,6 +2,7 @@ import UIKit
 
 final class HistoryViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     var onSelectURL: ((URL) -> Void)?
+    var containerID: UUID = ContainerScope.resolveContainerID(nil)
 
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private var sections: [(day: Date, items: [HistoryItem])] = []
@@ -45,7 +46,7 @@ final class HistoryViewController: UIViewController, UITableViewDataSource, UITa
     }
 
     private func reloadSections() {
-        sections = HistoryStore.shared.sectionsByDay()
+        sections = HistoryStore.shared.sectionsByDay(containerID: containerID)
     }
 
     private func updateClearButton() {
@@ -154,8 +155,9 @@ final class HistoryViewController: UIViewController, UITableViewDataSource, UITa
             preferredStyle: .actionSheet
         )
         alert.addAction(UIAlertAction(title: "Clear All", style: .destructive) { [weak self] _ in
-            HistoryStore.shared.clear()
-            self?.reloadAfterMutation()
+            guard let self else { return }
+            HistoryStore.shared.clear(containerID: self.containerID)
+            self.reloadAfterMutation()
         })
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         if let pop = alert.popoverPresentationController {
@@ -176,7 +178,7 @@ final class HistoryViewController: UIViewController, UITableViewDataSource, UITa
         )
         alert.addAction(UIAlertAction(title: "Clear Day", style: .destructive) { [weak self] _ in
             guard let self = self else { return }
-            HistoryStore.shared.remove(onDayOf: day)
+            HistoryStore.shared.remove(onDayOf: day, containerID: self.containerID)
             self.reloadAfterMutation()
             Toast.show("Cleared \(label)", from: self)
         })
