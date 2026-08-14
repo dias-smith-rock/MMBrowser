@@ -4,6 +4,7 @@ import Foundation
 enum ContainerScope {
     static let libraryMigratedV4Key = "mmbrowser.library.migrated.v4"
     static let containersMigratedV5Key = "mmbrowser.containers.migrated.v5"
+    static let containersMigratedV6Key = "mmbrowser.containers.migrated.v6"
     static let didShowAccountWowKey = "mmbrowser.onboarding.accountWow.v1"
     /// After skipping the Split View demo, nudge once via the account chip.
     static let needsAccountChipTipKey = "mmbrowser.onboarding.accountChipTip.v1"

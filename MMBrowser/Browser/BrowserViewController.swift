@@ -2060,8 +2060,20 @@ extension BrowserViewController: AccountSwitcherViewControllerDelegate {
             Toast.show("Could not create account", from: controller)
             return
         }
+        let homeURL = template.homeURL
         controller.dismiss(animated: true) { [weak self] in
-            self?.switchToAccountWithFeedback(created.id, subtitle: "\(template.displayName) template ready")
+            guard let self else { return }
+            self.switchToAccountWithFeedback(
+                created.id,
+                subtitle: homeURL == nil
+                    ? "\(template.displayName) account ready"
+                    : "Opening \(template.displayName) Web…"
+            )
+            if let homeURL {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    self.navigate(to: homeURL)
+                }
+            }
         }
     }
 

@@ -41,7 +41,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidEnterBackground(_ application: UIApplication) {
-        AutoClearManager.performScheduledClear()
+        // SceneDelegate.sceneDidEnterBackground already runs Clear Option — avoid double-clear.
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

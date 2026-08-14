@@ -22,14 +22,14 @@ final class AccountOnboardingWowViewController: UIViewController {
         modalPresentationStyle = .formSheet
 
         let titleLabel = UILabel()
-        titleLabel.text = "See accounts stay separate"
+        titleLabel.text = "Two WhatsApp sessions, zero mixing"
         titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
         titleLabel.textColor = BrowserTheme.textPrimary
         titleLabel.numberOfLines = 0
         titleLabel.textAlignment = .center
 
         let bodyLabel = UILabel()
-        bodyLabel.text = "Open the same site in Personal and Work, one above the other. Sign in on one side only — cookies and logins stay isolated."
+        bodyLabel.text = "We’ll open WhatsApp Web in two accounts, one above the other. Scan or sign in on one side only — the other stays separate."
         bodyLabel.font = .systemFont(ofSize: 16)
         bodyLabel.textColor = BrowserTheme.textSecondary
         bodyLabel.numberOfLines = 0
@@ -43,14 +43,14 @@ final class AccountOnboardingWowViewController: UIViewController {
         let imageView = UIImageView(image: UIImage(named: "onboarding_split"))
         imageView.contentMode = .scaleAspectFit
         imageView.clipsToBounds = true
-        imageView.accessibilityLabel = "Split View with Personal and Work accounts"
+        imageView.accessibilityLabel = "Split View with two WhatsApp Web sessions"
         imageCard.addSubview(imageView)
         imageView.snp.makeConstraints { make in
             make.edges.equalToSuperview().inset(8)
         }
 
         let tryButton = UIButton(type: .system)
-        tryButton.setTitle("Try Split View", for: .normal)
+        tryButton.setTitle("Try WhatsApp Split View", for: .normal)
         tryButton.backgroundColor = BrowserTheme.chromeBlue
         tryButton.setTitleColor(.white, for: .normal)
         tryButton.layer.cornerRadius = 12
@@ -99,7 +99,7 @@ final class AccountOnboardingWowViewController: UIViewController {
         UserDefaults.standard.set(false, forKey: ContainerScope.needsAccountChipTipKey)
         let containers = tabManager.sortedContainers
         guard containers.count >= 2,
-              let url = URL(string: "https://www.google.com") else {
+              let url = URL(string: "https://web.whatsapp.com") else {
             dismiss(animated: true) { self.onFinished?() }
             return
         }

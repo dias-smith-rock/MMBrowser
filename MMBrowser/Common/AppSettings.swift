@@ -209,7 +209,8 @@ enum AppSettings {
         }
     }
 
-    // MARK: - Clear Option (auto-clear on exit). Defaults on for privacy.
+    // MARK: - Clear Option (auto-clear on exit).
+    // All categories default off so logins and site data persist; users opt in for privacy clears.
 
     private static func setClearOption(_ value: Bool, forKey key: String) {
         d.set(value, forKey: key)
@@ -218,13 +219,15 @@ enum AppSettings {
         NotificationCenter.default.post(name: .clearOptionSettingsChanged, object: nil)
     }
 
+    /// Default off — opt in under Clear Option if you want caches wiped on exit.
     static var autoClearCache: Bool {
-        get { d.object(forKey: "clear.auto.cache") == nil ? true : d.bool(forKey: "clear.auto.cache") }
+        get { d.object(forKey: "clear.auto.cache") == nil ? false : d.bool(forKey: "clear.auto.cache") }
         set { setClearOption(newValue, forKey: "clear.auto.cache") }
     }
 
+    /// Default off — clearing cookies on every background forced re-login.
     static var autoClearCookies: Bool {
-        get { d.object(forKey: "clear.auto.cookies") == nil ? true : d.bool(forKey: "clear.auto.cookies") }
+        get { d.object(forKey: "clear.auto.cookies") == nil ? false : d.bool(forKey: "clear.auto.cookies") }
         set { setClearOption(newValue, forKey: "clear.auto.cookies") }
     }
 
@@ -235,8 +238,9 @@ enum AppSettings {
         set { setClearOption(newValue, forKey: "clear.auto.history") }
     }
 
+    /// Default off — WhatsApp Web and many sites keep sessions in IndexedDB / localStorage.
     static var autoClearLocalStorage: Bool {
-        get { d.object(forKey: "clear.auto.localStorage") == nil ? true : d.bool(forKey: "clear.auto.localStorage") }
+        get { d.object(forKey: "clear.auto.localStorage") == nil ? false : d.bool(forKey: "clear.auto.localStorage") }
         set { setClearOption(newValue, forKey: "clear.auto.localStorage") }
     }
 

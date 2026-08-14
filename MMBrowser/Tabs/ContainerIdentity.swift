@@ -46,7 +46,7 @@ struct IdentityProfile: Codable, Equatable {
 
     static let `default` = IdentityProfile(
         localeIdentifier: nil,
-        userAgentMode: .automatic,
+        userAgentMode: .mobile,
         customUserAgent: nil,
         stripTrackingParams: true
     )
@@ -66,14 +66,25 @@ struct IdentityProfile: Codable, Equatable {
 }
 
 enum ContainerTemplate: String, CaseIterable {
-    case social
+    case whatsapp
+    case instagram
+    case telegram
+    case facebook
     case shop
     case work
     case custom
 
+    /// One-tap presets on the Accounts sheet.
+    static let quickAddTemplates: [ContainerTemplate] = [
+        .whatsapp, .instagram, .telegram, .facebook
+    ]
+
     var displayName: String {
         switch self {
-        case .social: return "Social"
+        case .whatsapp: return "WhatsApp"
+        case .instagram: return "Instagram"
+        case .telegram: return "Telegram"
+        case .facebook: return "Facebook"
         case .shop: return "Shop"
         case .work: return "Work"
         case .custom: return "Custom"
@@ -82,8 +93,11 @@ enum ContainerTemplate: String, CaseIterable {
 
     var detail: String {
         switch self {
-        case .social: return "Mobile sites for creators and personal social logins."
-        case .shop: return "Separate storefront or seller logins with their own cookies."
+        case .whatsapp: return "WhatsApp Web session with its own cookies."
+        case .instagram: return "Instagram web login isolated from other accounts."
+        case .telegram: return "Telegram Web session that won’t mix with others."
+        case .facebook: return "Facebook web login in a dedicated identity."
+        case .shop: return "Separate storefront or seller logins."
         case .work: return "Desktop sites for email and docs."
         case .custom: return "Configure everything yourself."
         }
@@ -91,22 +105,31 @@ enum ContainerTemplate: String, CaseIterable {
 
     var suggestedName: String { displayName }
 
+    /// Site to open after a one-tap create (web version).
+    var homeURL: URL? {
+        switch self {
+        case .whatsapp: return URL(string: "https://web.whatsapp.com")
+        case .instagram: return URL(string: "https://www.instagram.com")
+        case .telegram: return URL(string: "https://web.telegram.org")
+        case .facebook: return URL(string: "https://www.facebook.com")
+        case .shop, .work, .custom: return nil
+        }
+    }
+
     var quickAddTag: Int {
         switch self {
-        case .social: return 1
-        case .shop: return 2
-        case .work: return 3
+        case .whatsapp: return 1
+        case .instagram: return 2
+        case .telegram: return 3
+        case .facebook: return 4
+        case .shop: return 5
+        case .work: return 6
         case .custom: return 0
         }
     }
 
     static func fromQuickAddTag(_ tag: Int) -> ContainerTemplate? {
-        switch tag {
-        case 1: return .social
-        case 2: return .shop
-        case 3: return .work
-        default: return nil
-        }
+        quickAddTemplates.first { $0.quickAddTag == tag }
     }
 
     func makeContainer(name: String, sortIndex: Int, colorIndex: Int) -> BrowserContainer {
@@ -115,6 +138,28 @@ enum ContainerTemplate: String, CaseIterable {
         let preset = SpoofLocationPreset.all[sortIndex % SpoofLocationPreset.all.count]
 
         switch self {
+        case .whatsapp, .instagram, .telegram, .facebook:
+            return BrowserContainer(
+                id: UUID(),
+                name: displayName,
+                sessionID: UUID(),
+                sortIndex: sortIndex,
+                colorIndex: colorIndex,
+                locationMode: .ask,
+                latitude: preset.latitude,
+                longitude: preset.longitude,
+                timeZoneIdentifier: preset.timeZoneIdentifier,
+                locationPresetID: preset.id,
+                pinnedSites: messagingPinnedSites,
+                persistence: .persistent,
+                identity: IdentityProfile(
+                    localeIdentifier: "en-US",
+                    userAgentMode: .mobile,
+                    customUserAgent: nil,
+                    stripTrackingParams: true
+                ),
+                templateID: rawValue
+            )
         case .work:
             return BrowserContainer(
                 id: UUID(),
@@ -131,24 +176,6 @@ enum ContainerTemplate: String, CaseIterable {
                 persistence: .persistent,
                 identity: IdentityProfile(
                     localeIdentifier: "en-US",
-                    userAgentMode: .desktop,
-                    customUserAgent: nil,
-                    stripTrackingParams: true
-                ),
-                templateID: rawValue
-            )
-        case .social:
-            return BrowserContainer(
-                id: UUID(),
-                name: displayName,
-                sessionID: UUID(),
-                sortIndex: sortIndex,
-                colorIndex: colorIndex,
-                location: preset,
-                pinnedSites: Self.socialPinnedSites,
-                persistence: .persistent,
-                identity: IdentityProfile(
-                    localeIdentifier: IdentityProfile.suggestedLocale(for: preset),
                     userAgentMode: .mobile,
                     customUserAgent: nil,
                     stripTrackingParams: true
@@ -171,7 +198,7 @@ enum ContainerTemplate: String, CaseIterable {
                 persistence: .persistent,
                 identity: IdentityProfile(
                     localeIdentifier: "en-US",
-                    userAgentMode: .desktop,
+                    userAgentMode: .mobile,
                     customUserAgent: nil,
                     stripTrackingParams: true
                 ),
@@ -197,29 +224,102 @@ enum ContainerTemplate: String, CaseIterable {
         }
     }
 
+    private var messagingPinnedSites: [NavigationSite] {
+        switch self {
+        case .whatsapp:
+            return Self.messagingSuitePinnedSites(primaryTitle: "WhatsApp", primaryURL: "https://web.whatsapp.com")
+        case .instagram:
+            return Self.messagingSuitePinnedSites(primaryTitle: "Instagram", primaryURL: "https://www.instagram.com", primaryLogo: "nav_instagram")
+        case .telegram:
+            return Self.messagingSuitePinnedSites(primaryTitle: "Telegram", primaryURL: "https://web.telegram.org")
+        case .facebook:
+            return Self.messagingSuitePinnedSites(primaryTitle: "Facebook", primaryURL: "https://www.facebook.com", primaryLogo: "nav_facebook")
+        default:
+            return []
+        }
+    }
+
+    /// Related messaging / social destinations (≥6), with the template’s primary site first.
+    private static func messagingSuitePinnedSites(
+        primaryTitle: String,
+        primaryURL: String,
+        primaryLogo: String? = nil
+    ) -> [NavigationSite] {
+        var sites = [
+            NavigationSite(title: primaryTitle, urlString: primaryURL, logoAssetName: primaryLogo)
+        ]
+        let extras: [NavigationSite] = [
+            NavigationSite(title: "WhatsApp", urlString: "https://web.whatsapp.com"),
+            NavigationSite(title: "Instagram", urlString: "https://www.instagram.com", logoAssetName: "nav_instagram"),
+            NavigationSite(title: "Facebook", urlString: "https://www.facebook.com", logoAssetName: "nav_facebook"),
+            NavigationSite(title: "Messenger", urlString: "https://www.messenger.com"),
+            NavigationSite(title: "Telegram", urlString: "https://web.telegram.org"),
+            NavigationSite(title: "X", urlString: "https://x.com", logoAssetName: "nav_x"),
+            NavigationSite(title: "LinkedIn", urlString: "https://www.linkedin.com", logoAssetName: "nav_linkedin")
+        ]
+        for site in extras where site.urlString != primaryURL {
+            sites.append(site)
+            if sites.count >= 6 { break }
+        }
+        return sites
+    }
+
     static func defaultPinned(forName name: String) -> [NavigationSite] {
         let key = name.lowercased()
         if key.contains("work") { return workPinnedSites }
-        if key.contains("social") { return socialPinnedSites }
         if key.contains("shop") || key.contains("store") { return shopPinnedSites }
+        if key.contains("whatsapp") {
+            return messagingSuitePinnedSites(primaryTitle: "WhatsApp", primaryURL: "https://web.whatsapp.com")
+        }
+        if key.contains("instagram") {
+            return messagingSuitePinnedSites(
+                primaryTitle: "Instagram",
+                primaryURL: "https://www.instagram.com",
+                primaryLogo: "nav_instagram"
+            )
+        }
+        if key.contains("telegram") {
+            return messagingSuitePinnedSites(primaryTitle: "Telegram", primaryURL: "https://web.telegram.org")
+        }
+        if key.contains("facebook") {
+            return messagingSuitePinnedSites(
+                primaryTitle: "Facebook",
+                primaryURL: "https://www.facebook.com",
+                primaryLogo: "nav_facebook"
+            )
+        }
         return []
     }
 
-    private static let workPinnedSites: [NavigationSite] = [
-        NavigationSite(title: "Gmail", urlString: "https://mail.google.com", logoAssetName: nil),
-        NavigationSite(title: "Google", urlString: "https://www.google.com", logoAssetName: "nav_google"),
-        NavigationSite(title: "LinkedIn", urlString: "https://www.linkedin.com", logoAssetName: "nav_linkedin")
-    ]
+    static func defaultPinned(forTemplateID templateID: String?) -> [NavigationSite] {
+        guard let templateID, let template = ContainerTemplate(rawValue: templateID) else { return [] }
+        switch template {
+        case .work: return workPinnedSites
+        case .shop: return shopPinnedSites
+        case .whatsapp, .instagram, .telegram, .facebook:
+            return template.messagingPinnedSites
+        case .custom:
+            return []
+        }
+    }
 
-    private static let socialPinnedSites: [NavigationSite] = [
-        NavigationSite(title: "X", urlString: "https://x.com", logoAssetName: "nav_x"),
-        NavigationSite(title: "Instagram", urlString: "https://www.instagram.com", logoAssetName: "nav_instagram"),
-        NavigationSite(title: "YouTube", urlString: "https://www.youtube.com", logoAssetName: "nav_youtube")
+    private static let workPinnedSites: [NavigationSite] = [
+        NavigationSite(title: "Gmail", urlString: "https://mail.google.com"),
+        NavigationSite(title: "Drive", urlString: "https://drive.google.com"),
+        NavigationSite(title: "Docs", urlString: "https://docs.google.com"),
+        NavigationSite(title: "Calendar", urlString: "https://calendar.google.com"),
+        NavigationSite(title: "LinkedIn", urlString: "https://www.linkedin.com", logoAssetName: "nav_linkedin"),
+        NavigationSite(title: "Outlook", urlString: "https://outlook.office.com"),
+        NavigationSite(title: "Slack", urlString: "https://app.slack.com"),
+        NavigationSite(title: "Notion", urlString: "https://www.notion.so")
     ]
 
     private static let shopPinnedSites: [NavigationSite] = [
-        NavigationSite(title: "Shopify", urlString: "https://www.shopify.com", logoAssetName: nil),
-        NavigationSite(title: "Etsy", urlString: "https://www.etsy.com", logoAssetName: nil),
-        NavigationSite(title: "Amazon", urlString: "https://sellercentral.amazon.com", logoAssetName: nil)
+        NavigationSite(title: "Shopify", urlString: "https://www.shopify.com"),
+        NavigationSite(title: "Etsy", urlString: "https://www.etsy.com"),
+        NavigationSite(title: "Amazon", urlString: "https://sellercentral.amazon.com"),
+        NavigationSite(title: "eBay", urlString: "https://www.ebay.com/sh/landing"),
+        NavigationSite(title: "PayPal", urlString: "https://www.paypal.com"),
+        NavigationSite(title: "Woo", urlString: "https://woocommerce.com")
     ]
 }

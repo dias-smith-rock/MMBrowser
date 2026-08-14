@@ -119,30 +119,42 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
         actionBar.addArrangedSubview(compare)
 
         let quickLabel = UILabel()
-        quickLabel.text = "Quick add"
+        quickLabel.text = "Quick add messaging"
         quickLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         quickLabel.textColor = BrowserTheme.textSecondary
         actionBar.addArrangedSubview(quickLabel)
 
-        let quickRow = UIStackView()
-        quickRow.axis = .horizontal
-        quickRow.spacing = 8
-        quickRow.distribution = .fillEqually
-        for template in [ContainerTemplate.social, .shop, .work] {
+        let templates = ContainerTemplate.quickAddTemplates
+        let topRow = UIStackView()
+        topRow.axis = .horizontal
+        topRow.spacing = 8
+        topRow.distribution = .fillEqually
+        let bottomRow = UIStackView()
+        bottomRow.axis = .horizontal
+        bottomRow.spacing = 8
+        bottomRow.distribution = .fillEqually
+
+        for (index, template) in templates.enumerated() {
             let button = makeFooterButton(
-                title: "Add \(template.displayName)",
+                title: template.displayName,
                 action: #selector(quickAddTapped(_:)),
                 emphasized: false
             )
             button.tag = template.quickAddTag
+            button.accessibilityLabel = "Add \(template.displayName)"
             button.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
             button.titleLabel?.adjustsFontSizeToFitWidth = true
-            button.titleLabel?.minimumScaleFactor = 0.8
+            button.titleLabel?.minimumScaleFactor = 0.75
             button.contentEdgeInsets = UIEdgeInsets(top: 10, left: 6, bottom: 10, right: 6)
             button.snp.remakeConstraints { $0.height.equalTo(44) }
-            quickRow.addArrangedSubview(button)
+            if index < 2 {
+                topRow.addArrangedSubview(button)
+            } else {
+                bottomRow.addArrangedSubview(button)
+            }
         }
-        actionBar.addArrangedSubview(quickRow)
+        actionBar.addArrangedSubview(topRow)
+        actionBar.addArrangedSubview(bottomRow)
 
         let manage = makeFooterButton(title: "Manage Accounts", action: #selector(manageTapped), emphasized: false)
         let addCustom = makeFooterButton(title: "Add Custom…", action: #selector(addCustomTapped), emphasized: false)

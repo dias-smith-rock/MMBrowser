@@ -12,9 +12,9 @@ final class OnboardingViewController: UIViewController {
 
     private let pageCopy: [(title: String, body: String, image: String)] = [
         (
-            "Social accounts that don't mix",
-            "Keep Instagram, X, or YouTube logins in separate identities. Switch profiles without logging out—or leaking cookies across accounts.",
-            "onboarding_social"
+            "Multiple WhatsApp & IG logins",
+            "Run multiple WhatsApp Web, Instagram, Telegram, and Facebook sessions in one browser—each with its own cookies so logins don't mix.",
+            "onboarding_messaging"
         ),
         (
             "Run multiple shops, cleanly",

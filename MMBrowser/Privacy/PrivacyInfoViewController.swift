@@ -27,7 +27,7 @@ final class PrivacyInfoViewController: UIViewController {
         Removes history and/or website cookies, storage, and caches from this device.
 
         Clear Option
-        Auto-clears cache, cookies, history, and/or local storage when you leave the app. History is still recorded during the session; turn History auto-clear off to keep it across launches.
+        Optionally auto-clears cache, cookies, history, and/or local storage when you leave the app. All of these default off so logins stay signed in; turn items on only if you want them wiped on exit.
 
         HTTPS First
         Prefers secure connections when you type a domain without a scheme.

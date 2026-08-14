@@ -12,6 +12,7 @@ enum LibraryMigration {
         removeLegacyImportedContainer(in: &containers)
         migrateLibraryV4(defaultContainerID: containers.first?.id)
         migrateContainersV5(containers: &containers)
+        migrateContainersV6PinnedSites(containers: &containers)
     }
 
     private static func removeLegacyImportedContainer(in containers: inout [BrowserContainer]) {
@@ -169,6 +170,27 @@ enum LibraryMigration {
             }
         }
         defaults.set(true, forKey: ContainerScope.containersMigratedV5Key)
+        if changed, let data = try? JSONEncoder().encode(containers.sorted { $0.sortIndex < $1.sortIndex }) {
+            defaults.set(data, forKey: "mmbrowser.containers")
+        }
+    }
+
+    /// Expand short account pin lists (Work / Shop / messaging) to the richer default sets.
+    private static func migrateContainersV6PinnedSites(containers: inout [BrowserContainer]) {
+        guard !defaults.bool(forKey: ContainerScope.containersMigratedV6Key) else { return }
+        var changed = false
+        for i in containers.indices {
+            let fromTemplate = ContainerTemplate.defaultPinned(forTemplateID: containers[i].templateID)
+            let fromName = ContainerTemplate.defaultPinned(forName: containers[i].name)
+            let defaultsList = fromTemplate.isEmpty ? fromName : fromTemplate
+            guard defaultsList.count >= 6 else { continue }
+            // Replace only the old short seed lists (≤3), not user-curated longer sets.
+            if containers[i].pinnedSites.count <= 3 {
+                containers[i].pinnedSites = defaultsList
+                changed = true
+            }
+        }
+        defaults.set(true, forKey: ContainerScope.containersMigratedV6Key)
         if changed, let data = try? JSONEncoder().encode(containers.sorted { $0.sortIndex < $1.sortIndex }) {
             defaults.set(data, forKey: "mmbrowser.containers")
         }

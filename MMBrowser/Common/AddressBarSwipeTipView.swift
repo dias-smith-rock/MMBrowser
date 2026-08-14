@@ -47,6 +47,8 @@ final class AddressBarSwipeTipView: UIView {
         bodyLabel.font = .systemFont(ofSize: 15)
         bodyLabel.textColor = BrowserTheme.textSecondary
         bodyLabel.numberOfLines = 0
+        bodyLabel.lineBreakMode = .byWordWrapping
+        bodyLabel.setContentCompressionResistancePriority(.required, for: .vertical)
 
         gotItButton.setTitle("Got it", for: .normal)
         gotItButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
@@ -95,8 +97,16 @@ final class AddressBarSwipeTipView: UIView {
         let rect = anchor.convert(anchor.bounds, to: host).insetBy(dx: -4, dy: -4)
         highlight.frame = rect
 
-        let cardWidth = min(host.bounds.width - 32, 320)
-        let cardHeight: CGFloat = 148
+        let cardWidth = min(host.bounds.width - 32, 340)
+        // Size height from content so the body copy is never clipped.
+        bodyLabel.preferredMaxLayoutWidth = cardWidth - 32
+        let fitting = card.systemLayoutSizeFitting(
+            CGSize(width: cardWidth, height: UIView.layoutFittingCompressedSize.height),
+            withHorizontalFittingPriority: .required,
+            verticalFittingPriority: .fittingSizeLevel
+        )
+        let cardHeight = ceil(fitting.height)
+
         let arrowSize: CGFloat = 14
         var cardY = rect.minY - 12 - cardHeight - arrowSize / 2
         if cardY < host.safeAreaInsets.top + 12 {

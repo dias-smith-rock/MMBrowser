@@ -22,9 +22,9 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
         var detail: String {
             switch self {
             case .cache: return "Disk and memory caches"
-            case .cookies: return "Website cookies"
+            case .cookies: return "Website cookies (turning on signs you out)"
             case .history: return "Cleared when you leave the app"
-            case .localStorage: return "Local / session / IndexedDB storage"
+            case .localStorage: return "Site storage / IndexedDB (needed for many logins)"
             }
         }
 
@@ -115,7 +115,7 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .autoClear:
-            return "When enabled, selected data is removed for every account’s website data stores when you leave the app (and again on next launch after a crash). To wipe one identity only, delete that account under Manage Accounts. History is recorded during the session and cleared on exit when History auto-clear is on."
+            return "Only selected items are removed when you leave the app. Cache, Cookies, History, and Local Storage all default off so browsing sessions stay intact. Enabling Cookies or Local Storage will clear them for every account immediately."
         case .session:
             return "Close All Tabs on Exit resets to a single New Tab when you background the app. Turn off preview images to hide webpage thumbnails in the tab switcher."
         }
@@ -157,6 +157,10 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
 
     @objc private func autoClearChanged(_ sw: UISwitch) {
         guard let row = AutoClearRow(rawValue: sw.tag - 100) else { return }
+        if sw.isOn, row == .cookies || row == .localStorage {
+            confirmEnableLoginWipingClear(row: row, switch: sw)
+            return
+        }
         row.setOn(sw.isOn)
         guard sw.isOn else { return }
         switch row {
@@ -170,6 +174,28 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
         case .localStorage:
             AutoClearManager.clearNow(localStorage: true)
         }
+    }
+
+    private func confirmEnableLoginWipingClear(row: AutoClearRow, switch sw: UISwitch) {
+        let title = row == .cookies ? "Clear Cookies on Exit?" : "Clear Site Storage on Exit?"
+        let message = row == .cookies
+            ? "This signs you out of websites in every account now, and again each time you leave the app."
+            : "This removes local site data (including many login sessions) for every account now, and again each time you leave the app."
+        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
+            sw.setOn(false, animated: true)
+        })
+        alert.addAction(UIAlertAction(title: "Enable & Clear", style: .destructive) { [weak self] _ in
+            guard let self else { return }
+            row.setOn(true)
+            if row == .cookies {
+                AutoClearManager.clearNow(cookies: true)
+            } else {
+                AutoClearManager.clearNow(localStorage: true)
+            }
+            Toast.show(row == .cookies ? "Cookies cleared" : "Site storage cleared", from: self)
+        })
+        present(alert, animated: true)
     }
 
     @objc private func sessionChanged(_ sw: UISwitch) {

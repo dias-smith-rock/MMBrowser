@@ -16,8 +16,6 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
     private(set) var containerID: UUID?
     private var accountName = ""
     private var pinnedSites: [NavigationSite] = []
-    private let pinnedStack = UIStackView()
-    private let accountLabel = UILabel()
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let logoView = GoogleLogoView()
@@ -152,38 +150,32 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
 
     private func buildDirectory() {
         directoryStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        directoryStack.spacing = isEditingDirectory ? 24 : 16
 
-        if !accountName.isEmpty {
-            accountLabel.text = accountName
-            accountLabel.font = .systemFont(ofSize: 14, weight: .semibold)
-            accountLabel.textColor = BrowserTheme.textSecondary
-            directoryStack.addArrangedSubview(accountLabel)
-        }
-
+        // Account-related shortcuts as icon tiles (no section title).
         if !pinnedSites.isEmpty {
-            pinnedStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-            pinnedStack.axis = .horizontal
-            pinnedStack.spacing = 8
-            pinnedStack.distribution = .fillEqually
-            for site in pinnedSites.prefix(4) {
-                let button = UIButton(type: .system)
-                button.setTitle(site.title, for: .normal)
-                button.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
-                button.layer.cornerRadius = 10
-                button.layer.borderWidth = 1
-                button.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.35).cgColor
-                button.addAction(UIAction { [weak self] _ in
-                    guard let url = site.url else { return }
-                    self?.delegate?.newTabDidOpenURL(url)
-                }, for: .touchUpInside)
-                pinnedStack.addArrangedSubview(button)
-            }
-            directoryStack.addArrangedSubview(pinnedStack)
+            directoryStack.addArrangedSubview(makeSitesGrid(
+                sites: pinnedSites,
+                categoryID: nil,
+                appendAddTile: false
+            ))
         }
 
-        let categories = navCategories
-        for (index, category) in categories.enumerated() {
-            directoryStack.addArrangedSubview(makeCategorySection(category, categoryIndex: index))
+        if isEditingDirectory {
+            for (index, category) in navCategories.enumerated() {
+                directoryStack.addArrangedSubview(makeCategorySection(category, categoryIndex: index))
+            }
+        } else {
+            // Flat icon grid — no category titles.
+            var entries: [(site: NavigationSite, category: NavigationCategory, index: Int)] = []
+            for category in navCategories {
+                for (siteIndex, site) in category.sites.enumerated() {
+                    entries.append((site, category, siteIndex))
+                }
+            }
+            if !entries.isEmpty {
+                directoryStack.addArrangedSubview(makeFlatEntriesGrid(entries))
+            }
         }
     }
 
@@ -193,12 +185,13 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         section.spacing = 14
         section.alignment = .fill
 
+        // Edit mode keeps a compact header for reorder / restore only.
         let header = UIStackView()
         header.axis = .horizontal
         header.alignment = .center
         header.spacing = 8
 
-        if isEditingDirectory, !category.isHome {
+        if !category.isHome {
             let up = makeIconButton(systemName: "chevron.up", categoryID: category.id, tag: categoryIndex)
             up.addTarget(self, action: #selector(moveCategoryUp(_:)), for: .touchUpInside)
             up.isEnabled = categoryIndex > 1
@@ -212,13 +205,12 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         let title = UILabel()
         title.text = category.title
         title.textColor = BrowserTheme.textPrimary
-        title.font = .systemFont(ofSize: 16, weight: .semibold)
+        title.font = .systemFont(ofSize: 15, weight: .semibold)
         title.setContentHuggingPriority(.defaultLow, for: .horizontal)
-
         header.addArrangedSubview(title)
         header.addArrangedSubview(UIView())
 
-        if isEditingDirectory {
+        if category.isHome {
             let restore = makeIconButton(systemName: "arrow.counterclockwise", categoryID: category.id, tag: categoryIndex)
             restore.accessibilityLabel = "Restore Defaults"
             restore.addAction(UIAction { [weak self] _ in
@@ -227,34 +219,80 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
                 self.buildDirectory()
                 Toast.show("Defaults restored", from: self)
             }, for: .touchUpInside)
-            // Only show Restore once on the Home row to avoid repeating on every group.
-            if category.isHome {
-                header.addArrangedSubview(restore)
-            }
-        } else {
-            let add = makeIconButton(systemName: "plus", categoryID: category.id, tag: categoryIndex)
-            add.accessibilityLabel = "Add Site"
-            add.addAction(UIAction { [weak self] _ in
-                self?.presentAddSite(categoryID: category.id)
-            }, for: .touchUpInside)
-            header.addArrangedSubview(add)
+            header.addArrangedSubview(restore)
         }
 
         section.addArrangedSubview(header)
+        section.addArrangedSubview(makeSitesGrid(
+            sites: category.sites,
+            categoryID: category.id,
+            appendAddTile: true
+        ))
+        return section
+    }
 
+    private func makeFlatEntriesGrid(
+        _ entries: [(site: NavigationSite, category: NavigationCategory, index: Int)]
+    ) -> UIView {
+        let columns = 5
         let grid = UIStackView()
         grid.axis = .vertical
         grid.spacing = 12
         grid.alignment = .fill
-        grid.accessibilityIdentifier = category.id.uuidString
+
+        var row = UIStackView()
+        row.axis = .horizontal
+        row.alignment = .top
+        row.distribution = .fillEqually
+        row.spacing = 4
+
+        for (i, entry) in entries.enumerated() {
+            if i > 0, i % columns == 0 {
+                while row.arrangedSubviews.count < columns {
+                    row.addArrangedSubview(UIView())
+                }
+                grid.addArrangedSubview(row)
+                row = UIStackView()
+                row.axis = .horizontal
+                row.alignment = .top
+                row.distribution = .fillEqually
+                row.spacing = 4
+            }
+            row.addArrangedSubview(makeSiteTile(entry.site, category: entry.category, siteIndex: entry.index))
+        }
+        while row.arrangedSubviews.count < columns {
+            row.addArrangedSubview(UIView())
+        }
+        grid.addArrangedSubview(row)
+        return grid
+    }
+
+    private func makeSitesGrid(
+        sites: [NavigationSite],
+        categoryID: UUID?,
+        appendAddTile: Bool
+    ) -> UIView {
+        let columns = 5
+        let grid = UIStackView()
+        grid.axis = .vertical
+        grid.spacing = 12
+        grid.alignment = .fill
+        if let categoryID {
+            grid.accessibilityIdentifier = categoryID.uuidString
+        }
 
         var tiles: [UIView] = []
-        let columns = 5
-        for (siteIndex, site) in category.sites.enumerated() {
-            tiles.append(makeSiteTile(site, category: category, siteIndex: siteIndex))
-        }
-        if isEditingDirectory {
-            tiles.append(makeAddSiteTile(categoryID: category.id))
+        if let categoryID, let category = navCategories.first(where: { $0.id == categoryID }) {
+            for (siteIndex, site) in sites.enumerated() {
+                tiles.append(makeSiteTile(site, category: category, siteIndex: siteIndex))
+            }
+            if appendAddTile, isEditingDirectory {
+                tiles.append(makeAddSiteTile(categoryID: categoryID))
+            }
+        } else {
+            for site in sites {
+                tiles.append(makePinnedSiteTile(site))
+            }
         }
 
         var row = UIStackView()
@@ -281,8 +319,60 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
             row.addArrangedSubview(UIView())
         }
         grid.addArrangedSubview(row)
-        section.addArrangedSubview(grid)
-        return section
+        return grid
+    }
+
+    private func makePinnedSiteTile(_ site: NavigationSite) -> UIView {
+        let container = UIView()
+        let iconSize: CGFloat = 48
+        let iconPadding: CGFloat = 6
+
+        let iconWell = UIView()
+        iconWell.backgroundColor = BrowserTheme.elevated
+        iconWell.layer.cornerRadius = iconSize / 2
+        iconWell.clipsToBounds = true
+
+        let icon = FaviconImageView()
+        icon.contentMode = .scaleAspectFit
+        icon.clipsToBounds = true
+        icon.setLogo(assetName: site.logoAssetName, urlString: site.urlString, fallbackTitle: site.title)
+
+        let label = UILabel()
+        label.text = site.title
+        label.textColor = BrowserTheme.textSecondary
+        label.font = .systemFont(ofSize: 11, weight: .medium)
+        label.textAlignment = .center
+        label.numberOfLines = 2
+        label.lineBreakMode = .byTruncatingTail
+
+        let button = UIButton(type: .system)
+        button.accessibilityLabel = site.title
+        button.addAction(UIAction { [weak self] _ in
+            guard let url = site.url else { return }
+            self?.delegate?.newTabDidOpenURL(url)
+        }, for: .touchUpInside)
+
+        container.addSubview(iconWell)
+        iconWell.addSubview(icon)
+        container.addSubview(label)
+        container.addSubview(button)
+
+        iconWell.snp.makeConstraints { make in
+            make.top.centerX.equalToSuperview()
+            make.size.equalTo(iconSize)
+        }
+        icon.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(iconPadding)
+        }
+        icon.layoutIfNeeded()
+        icon.layer.cornerRadius = (iconSize - iconPadding * 2) / 2
+        label.snp.makeConstraints { make in
+            make.top.equalTo(iconWell.snp.bottom).offset(8)
+            make.leading.trailing.equalToSuperview().inset(2)
+            make.bottom.equalToSuperview()
+        }
+        button.snp.makeConstraints { $0.edges.equalToSuperview() }
+        return container
     }
 
     private func makeIconButton(systemName: String, categoryID: UUID, tag: Int) -> CategoryActionButton {
@@ -308,9 +398,9 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         iconWell.clipsToBounds = true
 
         let icon = FaviconImageView()
-        icon.contentMode = .scaleAspectFill
+        icon.contentMode = .scaleAspectFit
         icon.clipsToBounds = true
-        icon.setLogo(assetName: site.logoAssetName, fallbackTitle: site.title)
+        icon.setLogo(assetName: site.logoAssetName, urlString: site.urlString, fallbackTitle: site.title)
 
         let label = UILabel()
         label.text = site.title
