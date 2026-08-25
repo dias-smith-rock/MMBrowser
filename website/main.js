@@ -1,7 +1,7 @@
-/* Site config — replace before publish */
+/* Site config — set appStoreUrl before publish */
 window.XBrowserSite = {
-  appStoreUrl: "#",
-  contactEmail: "support@goodcraft.app",
+  appStoreUrl: "https://apps.apple.com/us/app/id6804914972?l=en-us",
+  contactEmail: "gaowei85714@gmail.com",
   companyName: "GoodCraft",
 };
 
@@ -18,6 +18,8 @@ window.XBrowserSite = {
       el.setAttribute("href", "#download");
       el.addEventListener("click", (e) => {
         e.preventDefault();
+        const target = document.getElementById("download");
+        if (target) target.scrollIntoView({ behavior: "smooth" });
       });
     }
   });
@@ -38,8 +40,12 @@ window.XBrowserSite = {
     requestAnimationFrame(() => hero.classList.add("is-ready"));
   }
 
-  const features = document.querySelectorAll(".feature");
-  if (features.length && "IntersectionObserver" in window) {
+  const observeReveal = (nodes) => {
+    if (!nodes.length) return;
+    if (!("IntersectionObserver" in window)) {
+      nodes.forEach((n) => n.classList.add("is-visible"));
+      return;
+    }
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -51,8 +57,9 @@ window.XBrowserSite = {
       },
       { threshold: 0.22 }
     );
-    features.forEach((f) => io.observe(f));
-  } else {
-    features.forEach((f) => f.classList.add("is-visible"));
-  }
+    nodes.forEach((n) => io.observe(n));
+  };
+
+  observeReveal(document.querySelectorAll(".feature"));
+  observeReveal(document.querySelectorAll(".step, .honest-note, .download .reveal-on-scroll"));
 })();

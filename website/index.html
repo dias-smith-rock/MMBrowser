@@ -3,8 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MMBrowser — Separate logins. One browser.</title>
-  <meta name="description" content="MMBrowser isolates cookies, history, and bookmarks per account—great for multiple WhatsApp Web, Instagram, Telegram, and Facebook sessions, plus shops and work." />
+  <title>XBrowser — Separate logins. One browser.</title>
+  <meta name="description" content="XBrowser isolates cookies, history, and bookmarks per account—great for multiple WhatsApp Web, Instagram, Telegram, and Facebook sessions, plus shops and work." />
+  <meta property="og:title" content="XBrowser — Separate logins. One browser." />
+  <meta property="og:description" content="Keep messaging, shop, and work identities isolated. Switch in one tap." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="assets/logo.png" />
+  <meta name="theme-color" content="#0a0e14" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
@@ -17,11 +22,12 @@
       <div class="site-header__inner">
         <a class="brand" href="index.html">
           <img class="brand__mark" src="assets/logo.png" alt="" width="36" height="36" />
-          <span class="brand__name">MMBrowser</span>
+          <span class="brand__name">XBrowser</span>
         </a>
         <nav aria-label="Primary">
           <ul class="nav-links">
             <li class="nav-hide-sm"><a href="#features">Features</a></li>
+            <li class="nav-hide-sm"><a href="#how">How it works</a></li>
             <li><a href="privacy.html">Privacy</a></li>
             <li><a href="terms.html">Terms</a></li>
           </ul>
@@ -35,24 +41,23 @@
           <img src="assets/onboarding_messaging.png" alt="" />
         </div>
         <div class="hero__content">
-          <h1 class="hero__brand reveal reveal-delay-1">MMBrowser</h1>
+          <h1 class="hero__brand reveal reveal-delay-1">XBrowser</h1>
           <p class="hero__headline reveal reveal-delay-2">Separate logins. One browser.</p>
           <p class="hero__support reveal reveal-delay-3">
             Keep messaging, shop, and work identities isolated—cookies, history, bookmarks, and home included. Switch in one tap.
           </p>
           <div class="btn-row reveal reveal-delay-4">
-            <a class="btn btn--primary" data-app-store href="#download">
-              Available on the App Store
-              <span data-coming-soon style="font-weight:500;opacity:0.75"> · Coming soon</span>
+            <a class="btn btn--primary" data-app-store href="https://apps.apple.com/us/app/id6804914972?l=en-us">
+              Download from App Store
             </a>
-            <a class="btn btn--ghost" href="privacy.html">Privacy Policy</a>
+            <a class="btn btn--ghost" href="#features">See how</a>
           </div>
         </div>
       </section>
 
       <section class="section" id="features">
         <div class="container">
-          <p class="section__label">Why MMBrowser</p>
+          <p class="section__label">Why XBrowser</p>
           <h2 class="section__title">Built for how you actually juggle accounts</h2>
           <p class="section__lead">
             One browser, multiple identities. Each account keeps its own session space—without pretending to hide your IP.
@@ -62,11 +67,11 @@
             <div class="feature__copy">
               <h3>Multiple WhatsApp &amp; IG logins</h3>
               <p>
-                A standout use case: run multiple web sessions for WhatsApp Web, Instagram, Telegram, and Facebook—each in its own account so cookies and logins don’t mix. Uses each site’s web version inside the browser; features may differ from the official apps.
+                Run multiple web sessions for WhatsApp Web, Instagram, Telegram, and Facebook—each in its own account so cookies and logins don’t mix. Uses each site’s web version inside the browser; features may differ from the official apps.
               </p>
             </div>
             <div class="feature__media">
-              <img src="assets/onboarding_messaging.png" alt="Illustration of separate messaging web sessions" width="1024" height="1365" loading="lazy" />
+              <img src="assets/onboarding_messaging.png" alt="Illustration of separate messaging web sessions" width="600" height="900" loading="lazy" />
             </div>
           </article>
 
@@ -78,7 +83,7 @@
               </p>
             </div>
             <div class="feature__media">
-              <img src="assets/onboarding_shops.png" alt="Illustration of separate shop accounts" width="1024" height="1365" loading="lazy" />
+              <img src="assets/onboarding_shops.png" alt="Illustration of separate shop accounts" width="600" height="900" loading="lazy" />
             </div>
           </article>
 
@@ -86,13 +91,58 @@
             <div class="feature__copy">
               <h3>Work stays at work</h3>
               <p>
-                Use a dedicated work identity for email and docs. One tap on the account chip switches you back—history and home stay separate too. Optional Split View can open WhatsApp Web in two accounts so you can see isolation for yourself.
+                Use a dedicated work identity for email and docs. One tap on the account chip switches you back—history and home stay separate too.
               </p>
             </div>
             <div class="feature__media">
-              <img src="assets/onboarding_work.png" alt="Illustration of work account switching" width="1024" height="1365" loading="lazy" />
+              <img src="assets/onboarding_work.png" alt="Illustration of work account switching" width="600" height="900" loading="lazy" />
             </div>
           </article>
+        </div>
+      </section>
+
+      <section class="section section--how" id="how">
+        <div class="container">
+          <p class="section__label">How it works</p>
+          <h2 class="section__title">Isolation you can feel in one tap</h2>
+          <p class="section__lead">
+            Each account is a separate browsing space on your device. You stay signed in where you need to—without mixing sessions.
+          </p>
+          <ol class="steps">
+            <li class="step reveal-on-scroll">
+              <span class="step__num" aria-hidden="true">01</span>
+              <h3>Create an account</h3>
+              <p>Add Messaging, Shop, Work, or a custom identity. Each gets its own cookies and site data.</p>
+            </li>
+            <li class="step reveal-on-scroll">
+              <span class="step__num" aria-hidden="true">02</span>
+              <h3>Browse in that space</h3>
+              <p>History, bookmarks, and home stay with the account you’re in—so work doesn’t bleed into personal.</p>
+            </li>
+            <li class="step reveal-on-scroll">
+              <span class="step__num" aria-hidden="true">03</span>
+              <h3>Switch with the chip</h3>
+              <p>Tap the account chip to jump identities. Sessions stay put until you delete the account.</p>
+            </li>
+          </ol>
+          <p class="honest-note reveal-on-scroll">
+            Account separation does not change your network IP or make you anonymous online. XBrowser focuses on practical session isolation and local data control.
+          </p>
+        </div>
+      </section>
+
+      <section class="section section--download" id="download">
+        <div class="container download">
+          <h2 class="download__title reveal-on-scroll">Ready when you are</h2>
+          <p class="download__lead reveal-on-scroll">
+            XBrowser for iPhone—separate logins without juggling apps or profiles.
+          </p>
+          <div class="btn-row reveal-on-scroll">
+            <a class="btn btn--primary" data-app-store href="https://apps.apple.com/us/app/id6804914972?l=en-us">
+              Download from App Store
+            </a>
+            <a class="btn btn--ghost" href="privacy.html">Privacy Policy</a>
+          </div>
         </div>
       </section>
     </main>
@@ -100,16 +150,16 @@
     <footer class="site-footer">
       <div class="site-footer__inner">
         <div>
-          <p class="site-footer__brand">MMBrowser</p>
+          <p class="site-footer__brand">XBrowser</p>
           <p class="site-footer__note">
             A product by <span data-company>GoodCraft</span>.
-            Questions: <a data-contact-email href="mailto:support@goodcraft.app">support@goodcraft.app</a>
+            Questions: <a data-contact-email href="mailto:gaowei85714@gmail.com">gaowei85714@gmail.com</a>
           </p>
         </div>
         <ul class="site-footer__links">
           <li><a href="privacy.html">Privacy Policy</a></li>
           <li><a href="terms.html">Terms of Use</a></li>
-          <li><a data-app-store href="#download">App Store</a></li>
+          <li><a data-app-store href="https://apps.apple.com/us/app/id6804914972?l=en-us">App Store</a></li>
         </ul>
       </div>
     </footer>
