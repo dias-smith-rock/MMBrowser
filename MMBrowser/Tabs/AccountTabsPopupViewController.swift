@@ -317,8 +317,7 @@ extension AccountTabsPopupViewController: UICollectionViewDataSource, UICollecti
         layout collectionViewLayout: UICollectionViewLayout,
         sizeForItemAt indexPath: IndexPath
     ) -> CGSize {
-        let width = (collectionView.bounds.width - 36) / 2
-        return CGSize(width: width, height: width * 1.25)
+        TabGridMetrics.layout(forContainerWidth: collectionView.bounds.width).itemSize
     }
 
     func collectionView(

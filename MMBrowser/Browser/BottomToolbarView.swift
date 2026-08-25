@@ -15,7 +15,6 @@ final class BottomToolbarView: UIView {
     weak var delegate: BottomToolbarViewDelegate?
 
     private let accountChip = UIButton(type: .custom)
-    private let accountDot = UIView()
     private let accountTitle = UILabel()
     private let accountChevron = UIImageView()
     private let backButton = UIButton(type: .system)
@@ -32,6 +31,7 @@ final class BottomToolbarView: UIView {
     private var accountChipVisible = false
     private var hidesNavigationButtons = false
     private var accountName = ""
+    private var accountColor: UIColor = BrowserTheme.chromeBlue
     private var iconStackWidthConstraint: Constraint?
     private var accountChipWidthConstraint: Constraint?
 
@@ -40,27 +40,25 @@ final class BottomToolbarView: UIView {
     private static let leadingInset: CGFloat = 8
     private static let trailingInset: CGFloat = 4
     private static let chipIconSpacing: CGFloat = 4
-    private static let chipMaxWidthCompact: CGFloat = 120
-    private static let chipMinWidth: CGFloat = 72
+    private static let chipMaxWidthCompact: CGFloat = 200
+    private static let chipMinWidth: CGFloat = 56
     private static let chipHeight: CGFloat = 36
     private static let iconSlotCount = 5
 
     override init(frame: CGRect) {
         super.init(frame: frame)
 
-        accountDot.layer.cornerRadius = 4
-        accountDot.clipsToBounds = true
         accountTitle.font = .systemFont(ofSize: 14, weight: .semibold)
-        accountTitle.textColor = BrowserTheme.textPrimary
+        accountTitle.textColor = accountColor
         accountTitle.textAlignment = .center
         accountTitle.lineBreakMode = .byTruncatingTail
+        accountTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         accountChevron.contentMode = .scaleAspectFit
         accountChevron.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
         accountChevron.image = UIImage(systemName: "chevron.up")
-        accountChevron.tintColor = BrowserTheme.textPrimary
+        accountChevron.tintColor = accountColor
         accountChevron.setContentHuggingPriority(.required, for: .horizontal)
         accountChevron.setContentCompressionResistancePriority(.required, for: .horizontal)
-        accountChip.addSubview(accountDot)
         accountChip.addSubview(accountTitle)
         accountChip.addSubview(accountChevron)
         accountChip.layer.cornerRadius = Self.chipHeight / 2
@@ -71,18 +69,13 @@ final class BottomToolbarView: UIView {
         accountChip.addTarget(self, action: #selector(accountTapped), for: .touchUpInside)
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(accountLongPressed(_:)))
         accountChip.addGestureRecognizer(longPress)
-        accountDot.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(10)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(8)
-        }
         accountChevron.snp.makeConstraints { make in
             make.trailing.equalToSuperview().offset(-10)
             make.centerY.equalToSuperview()
             make.size.equalTo(CGSize(width: 10, height: 10))
         }
         accountTitle.snp.makeConstraints { make in
-            make.leading.equalTo(accountDot.snp.trailing).offset(5)
+            make.leading.equalToSuperview().offset(12)
             make.trailing.equalTo(accountChevron.snp.leading).offset(-4)
             make.centerY.equalToSuperview()
         }
@@ -161,7 +154,6 @@ final class BottomToolbarView: UIView {
             make.width.greaterThanOrEqualTo(self.tabCount >= 10 ? 20 : 14)
         }
         rebuildIconStack()
-        refreshAccountTitle()
         setPrivateMode(isPrivate)
         setNeedsLayout()
     }
@@ -176,21 +168,15 @@ final class BottomToolbarView: UIView {
     func setAccount(name: String, color: UIColor, visible: Bool) {
         accountChipVisible = visible
         accountName = name
+        accountColor = color
         let show = visible && !isPrivateMode
         accountChip.isHidden = !show
-        refreshAccountTitle()
-        accountDot.backgroundColor = color
+        accountTitle.text = accountName
+        accountTitle.textColor = color
+        accountChevron.tintColor = color
         accountChip.backgroundColor = color.withAlphaComponent(0.18)
         accountChip.accessibilityValue = name
         setNeedsLayout()
-    }
-
-    private func refreshAccountTitle() {
-        if hidesNavigationButtons {
-            accountTitle.text = accountName
-        } else {
-            accountTitle.text = AccountColor.truncatedName(accountName, maxChars: 10)
-        }
     }
 
     /// Keep + / tabs / menu in the same trailing slots as the 5-icon layout;
@@ -202,10 +188,11 @@ final class BottomToolbarView: UIView {
         let chipShowing = accountChipVisible && !isPrivateMode && !accountChip.isHidden
         let compactChipWidth: CGFloat = {
             guard chipShowing else { return 0 }
-            let fitting = accountChip.systemLayoutSizeFitting(
-                CGSize(width: UIView.layoutFittingCompressedSize.width, height: Self.chipHeight)
-            ).width
-            return min(Self.chipMaxWidthCompact, max(Self.chipMinWidth, fitting))
+            // Prefer fitting the full name; only truncate when width is truly tight.
+            let adaptiveMax = min(Self.chipMaxWidthCompact, max(Self.chipMinWidth, contentWidth * 0.42))
+            let titleWidth = ceil(accountTitle.intrinsicContentSize.width)
+            let fitting = 12 + titleWidth + 4 + 10 + 10 // padding + title + gap + chevron + trailing
+            return min(adaptiveMax, max(Self.chipMinWidth, fitting))
         }()
 
         let iconArea: CGFloat = {
@@ -259,8 +246,8 @@ final class BottomToolbarView: UIView {
             button.setPreferredSymbolConfiguration(config, forImageIn: .normal)
         }
 
-        accountTitle.textColor = BrowserTheme.textPrimary
-        accountChevron.tintColor = BrowserTheme.textSecondary
+        accountTitle.textColor = accountColor
+        accountChevron.tintColor = accountColor
         tabsBadgeLabel.backgroundColor = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
         tabsBadgeLabel.textColor = isPrivateMode ? BrowserTheme.privateBackground : .black
         tabsBadgeLabel.isHidden = false

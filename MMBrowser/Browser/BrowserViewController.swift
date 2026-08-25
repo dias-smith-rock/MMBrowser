@@ -1095,15 +1095,29 @@ final class BrowserViewController: UIViewController {
         )
         let menu = PageRichMenuViewController(context: context)
         menu.delegate = self
+        configurePageRichMenuPresentation(menu)
+        present(menu, animated: true) { [weak self] in
+            guard self?.tabManager.selectedTab?.webController?.isPictureInPictureActive != true else { return }
+            MediaPlaybackSupport.resumeMediaIfNeeded(in: self?.tabManager.selectedTab?.webController?.webView)
+        }
+    }
+
+    private func configurePageRichMenuPresentation(_ menu: UIViewController) {
+        let isPad = traitCollection.userInterfaceIdiom == .pad
+        if isPad {
+            // Wider / taller card than the default iPad page-sheet footprint.
+            menu.modalPresentationStyle = .formSheet
+            let width = min(max(view.bounds.width * 0.72, 560), 720)
+            let height = min(max(view.bounds.height * 0.86, 640), 920)
+            menu.preferredContentSize = CGSize(width: width, height: height)
+            return
+        }
+        menu.modalPresentationStyle = .pageSheet
         if #available(iOS 15.0, *) {
             if let sheet = menu.sheetPresentationController {
                 sheet.detents = [.medium(), .large()]
                 sheet.prefersGrabberVisible = true
             }
-        }
-        present(menu, animated: true) { [weak self] in
-            guard self?.tabManager.selectedTab?.webController?.isPictureInPictureActive != true else { return }
-            MediaPlaybackSupport.resumeMediaIfNeeded(in: self?.tabManager.selectedTab?.webController?.webView)
         }
     }
 

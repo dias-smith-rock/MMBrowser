@@ -42,7 +42,6 @@ final class PageRichMenuViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = context.isIncognito ? BrowserTheme.privateBackground : BrowserTheme.background
-        modalPresentationStyle = .pageSheet
         overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
 
         scrollView.alwaysBounceVertical = true

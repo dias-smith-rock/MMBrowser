@@ -423,17 +423,27 @@ final class TabSwitcherViewController: UIViewController {
         }
         let width = collectionView.bounds.width > 0 ? collectionView.bounds.width : view.bounds.width
         guard width > 0 else { return }
-        let itemWidth = (width - 36) / 2
-        let itemHeight = itemWidth * 1.25
-        let count = max(displayedTabs.count, displayedTabs.isEmpty ? 0 : 1)
-        let rows = max(displayedTabs.isEmpty ? 0 : 1, Int(ceil(Double(max(count, 1)) / 2.0)))
+        let metrics = TabGridMetrics.layout(forContainerWidth: width)
+        let count = displayedTabs.count
         let height: CGFloat
-        if displayedTabs.isEmpty {
+        if count == 0 {
             height = 24
         } else {
-            height = CGFloat(rows) * itemHeight + CGFloat(max(0, rows - 1)) * 12 + 16
+            let rows = Int(ceil(Double(count) / Double(metrics.columns)))
+            height = CGFloat(rows) * metrics.itemSize.height
+                + CGFloat(max(0, rows - 1)) * TabGridMetrics.spacing
+                + TabGridMetrics.sectionInset.top + TabGridMetrics.sectionInset.bottom
         }
         collectionHeightConstraint?.update(offset: height)
+        if let flow = collectionView.collectionViewLayout as? UICollectionViewFlowLayout {
+            let inset = TabGridMetrics.sectionInset
+            if flow.sectionInset != inset {
+                flow.sectionInset = inset
+                flow.minimumInteritemSpacing = TabGridMetrics.spacing
+                flow.minimumLineSpacing = TabGridMetrics.spacing
+            }
+        }
+        collectionView.collectionViewLayout.invalidateLayout()
     }
 
     private func rebuildAccountCards() {
@@ -769,8 +779,7 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
     }
 
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
-        let width = (collectionView.bounds.width - 36) / 2
-        return CGSize(width: width, height: width * 1.25)
+        TabGridMetrics.layout(forContainerWidth: collectionView.bounds.width).itemSize
     }
 
     func collectionView(
@@ -1083,6 +1092,32 @@ private final class AccountGroupCardView: UIControl {
 
     override var isHighlighted: Bool {
         didSet { alpha = isHighlighted ? 0.85 : 1 }
+    }
+}
+
+// MARK: - Tab grid metrics
+
+enum TabGridMetrics {
+    static let spacing: CGFloat = 12
+    static let sectionInset = UIEdgeInsets(top: 12, left: 12, bottom: 4, right: 12)
+    /// Keep cards phone-sized even on wide iPad landscape.
+    private static let idealMaxItemWidth: CGFloat = 220
+
+    struct Layout {
+        let columns: Int
+        let itemSize: CGSize
+    }
+
+    static func layout(forContainerWidth width: CGFloat) -> Layout {
+        let usable = max(width, 1)
+        let horizontalInsets = sectionInset.left + sectionInset.right
+        let available = max(usable - horizontalInsets, 1)
+        let columns = max(
+            2,
+            min(6, Int(floor((available + spacing) / (idealMaxItemWidth + spacing))))
+        )
+        let itemWidth = floor((available - spacing * CGFloat(columns - 1)) / CGFloat(columns))
+        return Layout(columns: columns, itemSize: CGSize(width: itemWidth, height: itemWidth * 1.25))
     }
 }
 
