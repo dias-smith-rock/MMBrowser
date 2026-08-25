@@ -874,7 +874,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "PLIST=\"${PROJECT_DIR}/MMBrowser/GoogleService-Info.plist\"\nif [ ! -f \"$PLIST\" ]; then\n  echo \"warning: GoogleService-Info.plist missing — skip Crashlytics upload. Copy from Firebase Console (see GoogleService-Info.plist.example).\"\n  exit 0\nfi\n\"${PODS_ROOT}/FirebaseCrashlytics/run\"\n";
+			shellScript = "PLIST=\"${PROJECT_DIR}/MMBrowser/GoogleService-Info.plist\"\nif [ ! -f \"$PLIST\" ]; then\n  echo \"error: GoogleService-Info.plist missing — Crashlytics dSYM upload skipped.\"\n  exit 0\nfi\n\"${PODS_ROOT}/FirebaseCrashlytics/run\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1078,7 +1078,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
