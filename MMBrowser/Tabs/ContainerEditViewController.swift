@@ -94,8 +94,9 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
     }
 
     @objc private func cancelTapped() {
-        navigationController?.popViewController(animated: true)
-        if isNew, navigationController == nil {
+        if let nav = navigationController, nav.viewControllers.count > 1 {
+            nav.popViewController(animated: true)
+        } else {
             dismiss(animated: true)
         }
     }

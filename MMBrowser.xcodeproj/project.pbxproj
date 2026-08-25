@@ -104,6 +104,7 @@
 		DLN000A1B2C3D4E5F6071829 /* DownloadLocalNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = DLN000B1B2C3D4E5F6071829 /* DownloadLocalNotifications.swift */; };
 		E1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift */; };
 		E275E26CE7D145A49D4259E8 /* TabSwitcherViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B67A0C2C8812465E960FEC7A /* TabSwitcherViewController.swift */; };
+		A7C1E2D3B4A5466788990012 /* AccountTabsPopupViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1E2D3B4A5466788990011 /* AccountTabsPopupViewController.swift */; };
 		E465FC0279854A2096A2DF80 /* AdBlockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD4B7DF4CC5F48C390C9325C /* AdBlockManager.swift */; };
 		E926465A783245B4904A71AD /* YouTubeDarkMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1EE201BBF964C068F934786 /* YouTubeDarkMode.swift */; };
 		ECAB86D81CA54BE5A278C28B /* URLTrackingCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3FDC13DE80C4373B1FAB0A5 /* URLTrackingCleaner.swift */; };
@@ -262,6 +263,7 @@
 		B1C2D3E4F5A64789B0C1D2E9 /* PageCleanerRulesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageCleanerRulesViewController.swift; sourceTree = "<group>"; };
 		B4BFF2E376570F7159D72FDE /* Pods_MMBrowser.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_MMBrowser.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		B67A0C2C8812465E960FEC7A /* TabSwitcherViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabSwitcherViewController.swift; sourceTree = "<group>"; };
+		A7C1E2D3B4A5466788990011 /* AccountTabsPopupViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountTabsPopupViewController.swift; sourceTree = "<group>"; };
 		B7D30F1A6E5C492D8A2B4C61 /* ScreenshotEditorViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotEditorViewController.swift; sourceTree = "<group>"; };
 		BFE04E67D090450B987F05FB /* TabManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabManager.swift; sourceTree = "<group>"; };
 		C675306059D24454A0DD680F /* ContainerScope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerScope.swift; sourceTree = "<group>"; };
@@ -507,6 +509,7 @@
 				TSS0000202020202020274 /* ContainerManageViewController.swift */,
 				TSS0000202020202020275 /* ContainerEditViewController.swift */,
 				B67A0C2C8812465E960FEC7A /* TabSwitcherViewController.swift */,
+				A7C1E2D3B4A5466788990011 /* AccountTabsPopupViewController.swift */,
 			);
 			path = Tabs;
 			sourceTree = "<group>";
@@ -995,6 +998,7 @@
 				TSS0000101010101010174 /* ContainerManageViewController.swift in Sources */,
 				TSS0000101010101010175 /* ContainerEditViewController.swift in Sources */,
 				E275E26CE7D145A49D4259E8 /* TabSwitcherViewController.swift in Sources */,
+				A7C1E2D3B4A5466788990012 /* AccountTabsPopupViewController.swift in Sources */,
 				3E002237DEF54CE88D630EE4 /* ViewController.swift in Sources */,
 				A1B2C3D4E5F6010101010101 /* AppLockSettings.swift in Sources */,
 				A1B2C3D4E5F6010101010102 /* AppLockSecretStore.swift in Sources */,
