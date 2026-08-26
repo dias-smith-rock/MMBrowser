@@ -212,7 +212,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
         case .template: return isNew ? "Template" : nil
         case .name: return "Name"
         case .color: return "Color"
-        case .identity: return "Identity Profile"
+        case .identity: return "How new tabs look"
         case .mode: return "Location for Sites in This Account"
         case .spoofPreset: return draft.locationMode == .spoof ? "Virtual City" : nil
         case .spoofCustom: return draft.locationMode == .spoof ? "Custom" : nil
@@ -226,7 +226,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
         case .color:
             return "Tap a swatch, or + to pick a custom color."
         case .identity:
-            return "Locale and user agent help sites see a consistent identity. Network IP is unchanged."
+            return "New tabs in this account start with this look. Existing tabs keep their own setting."
         case .mode:
             return "Deny and Spoof only affect the browser Geolocation API. Network IP is unchanged."
         case .spoofPreset:
@@ -297,7 +297,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
         case .identity:
             if indexPath.row < UserAgentMode.allCases.count {
                 let mode = UserAgentMode.allCases[indexPath.row]
-                cell.textLabel?.text = "User Agent: \(mode.displayName)"
+                cell.textLabel?.text = "Default for new tabs: \(mode.displayName)"
                 cell.detailTextLabel?.text = nil
                 cell.accessoryType = draft.identity.userAgentMode == mode ? .checkmark : .none
             } else {

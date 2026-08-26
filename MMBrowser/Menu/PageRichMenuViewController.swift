@@ -5,7 +5,7 @@ struct PageRichMenuContext {
     let url: URL?
     let title: String
     let isIncognito: Bool
-    let preferDesktop: Bool
+    let userAgentMode: UserAgentMode
     let adBlockerEnabled: Bool
     let hasLoadablePage: Bool
 
@@ -85,9 +85,9 @@ final class PageRichMenuViewController: UIViewController {
         stack.addArrangedSubview(makeRowsCard([
             row("Translate page", symbol: "character.bubble", action: .translate, enabled: context.hasLoadablePage, accent: true),
             row(
-                context.preferDesktop ? "Request Mobile Site" : "Go to the desktop version",
+                "User Agent: \(context.userAgentMode.displayName)",
                 symbol: "desktopcomputer",
-                action: .desktopSite,
+                action: .userAgent,
                 enabled: context.hasLoadablePage
             ),
             row("Find on page", symbol: "magnifyingglass", action: .findInPage, enabled: context.hasLoadablePage),

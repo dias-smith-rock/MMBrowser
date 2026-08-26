@@ -142,9 +142,11 @@ final class BrowserViewController: UIViewController {
             return
         }
 
-        MediaPlaybackSupport.configureAudioSessionIfNeeded()
-        for tab in tabManager.tabs where tab.webController?.needsBackgroundMediaKeepAlive == true {
-            MediaPlaybackSupport.keepBackgroundMediaAlive(in: tab.webController?.webView)
+        let tabsNeedingKeepAlive = tabManager.tabs.filter { $0.webController?.needsBackgroundMediaKeepAlive == true }
+        if !tabsNeedingKeepAlive.isEmpty {
+            for tab in tabsNeedingKeepAlive {
+                MediaPlaybackSupport.keepBackgroundMediaAlive(in: tab.webController?.webView)
+            }
         }
 
         // Refresh previews for live tabs so thumbnails survive relaunch.
@@ -852,7 +854,11 @@ final class BrowserViewController: UIViewController {
 
     private func makeWebController(for tab: BrowserTab) -> WebViewController {
         if tab.isIncognito {
-            return WebViewController(isIncognito: true, geoConfiguration: .fromAppSettings())
+            return WebViewController(
+                isIncognito: true,
+                geoConfiguration: .fromAppSettings(),
+                tabUserAgentSettings: tab.userAgentSettings
+            )
         }
         let container = tabManager.container(id: tab.containerID) ?? tabManager.defaultContainer
         return WebViewController(
@@ -860,12 +866,18 @@ final class BrowserViewController: UIViewController {
             websiteDataStore: TabSessionStore.dataStore(for: tabManager.sessionID(for: tab)),
             geoConfiguration: .from(container: container),
             identityProfile: container.identity,
+            tabUserAgentSettings: tab.userAgentSettings,
             containerID: container.id
         )
     }
 
     private func embed(_ child: UIViewController) {
-        if currentContent === child { return }
+        if currentContent === child, child.view.superview === contentContainer { return }
+        if currentContent === child {
+            contentContainer.addSubview(child.view)
+            child.view.snp.remakeConstraints { make in make.edges.equalToSuperview() }
+            return
+        }
         if let current = currentContent {
             current.willMove(toParent: nil)
             current.view.removeFromSuperview()
@@ -876,6 +888,17 @@ final class BrowserViewController: UIViewController {
         child.view.snp.makeConstraints { make in make.edges.equalToSuperview() }
         child.didMove(toParent: self)
         currentContent = child
+    }
+
+    /// Lets Split View take ownership of a tab's live WebView without destroying its session.
+    func detachEmbeddedIfNeeded(_ child: UIViewController) {
+        if currentContent === child {
+            currentContent = nil
+        }
+        guard child.parent === self else { return }
+        child.willMove(toParent: nil)
+        child.view.removeFromSuperview()
+        child.removeFromParent()
     }
 
     private func navigate(to url: URL, in tab: BrowserTab? = nil) {
@@ -928,7 +951,14 @@ final class BrowserViewController: UIViewController {
             }
             return nil
         }()
-        let tab = tabManager.addTab(incognito: incognito, select: true, containerID: resolvedContainerID)
+        let parentForUA = parent
+            ?? (incognito ? tabManager.selectedTab.flatMap { $0.isIncognito ? $0 : nil } : nil)
+        let tab = tabManager.addTab(
+            incognito: incognito,
+            select: true,
+            containerID: resolvedContainerID,
+            inheritUserAgentFrom: parentForUA
+        )
         XSiteProbe.log("browser.openURLInNewTab", [
             "url": url.absoluteString,
             "incognito": incognito,
@@ -1089,7 +1119,7 @@ final class BrowserViewController: UIViewController {
             url: tab?.url,
             title: tab?.title ?? "",
             isIncognito: tab?.isIncognito ?? false,
-            preferDesktop: tab?.preferDesktop ?? false,
+            userAgentMode: tab?.userAgentMode ?? .automatic,
             adBlockerEnabled: AppSettings.trackerProtectionEnabled,
             hasLoadablePage: tab?.isNewTabPage != true && tab?.url != nil
         )
@@ -1629,6 +1659,43 @@ extension BrowserViewController: WebViewControllerDelegate {
         }
     }
 
+    func webViewController(_ controller: WebViewController, suggestComputerUserAgentFor siteName: String) {
+        guard tabManager.selectedTab?.webController === controller else { return }
+        guard let tab = tabManager.selectedTab else { return }
+        guard presentedViewController == nil else { return }
+        let host = (tab.url?.host ?? siteName).lowercased()
+        guard !tab.dismissedDesktopUAHintHosts.contains(host) else { return }
+        guard !DesktopUAHint.looksLikeComputer(tab.userAgentSettings) else { return }
+
+        let alert = UIAlertController(
+            title: "Use Computer for \(siteName)?",
+            message: "This site is easier to sign in with a Computer user agent. This only changes this tab.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Use Computer", style: .default) { [weak self] _ in
+            self?.applyComputerUserAgent(to: tab)
+        })
+        alert.addAction(UIAlertAction(title: "Choose User Agent", style: .default) { [weak self] _ in
+            tab.dismissedDesktopUAHintHosts.insert(host)
+            self?.presentTabUserAgentPicker()
+        })
+        alert.addAction(UIAlertAction(title: "Not Now", style: .cancel) { _ in
+            tab.dismissedDesktopUAHintHosts.insert(host)
+        })
+        present(alert, animated: true)
+    }
+
+    private func applyComputerUserAgent(to tab: BrowserTab) {
+        let settings = TabUserAgentSettings(userAgentMode: .desktop, customUserAgent: nil, customProfile: nil)
+        tab.applyUserAgentSettings(settings)
+        if let host = tab.url?.host?.lowercased() {
+            tab.dismissedDesktopUAHintHosts.insert(host)
+        }
+        tab.webController?.applyTabUserAgentSettings(settings)
+        tabManager.persistSessionIfNeeded()
+        Toast.show("This tab looks like: Computer", from: self)
+    }
+
     private func reloadPresentedTabSwitcherPreviews() {
         var explorer: UIViewController? = presentedViewController
         while let current = explorer {
@@ -1795,11 +1862,8 @@ extension BrowserViewController: MenuViewControllerDelegate {
             }
             let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
             present(activity, animated: true)
-        case .desktopSite:
-            guard let tab = tabManager.selectedTab else { return }
-            tab.preferDesktop.toggle()
-            tab.webController?.setPreferDesktop(tab.preferDesktop)
-            Toast.show(tab.preferDesktop ? "Desktop site" : "Mobile site", from: self)
+        case .userAgent:
+            presentTabUserAgentPicker()
         case .sharePDF:
             tabManager.selectedTab?.webController?.sharePDF()
         case .downloadFile:
@@ -2009,6 +2073,37 @@ extension BrowserViewController: MenuViewControllerDelegate {
             self.present(nav, animated: true)
         }
     }
+
+    private func presentTabUserAgentPicker() {
+        guard let tab = tabManager.selectedTab else { return }
+        let picker = TabUserAgentPickerViewController(
+            settings: tab.userAgentSettings,
+            isIncognito: tab.isIncognito
+        )
+        picker.delegate = self
+        let nav = UINavigationController(rootViewController: picker)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        if #available(iOS 15.0, *) {
+            if let sheet = nav.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.prefersGrabberVisible = true
+            }
+        }
+        present(nav, animated: true)
+    }
+}
+
+extension BrowserViewController: TabUserAgentPickerDelegate {
+    func tabUserAgentPicker(_ picker: TabUserAgentPickerViewController, didSelect settings: TabUserAgentSettings) {
+        guard let tab = tabManager.selectedTab else { return }
+        tab.applyUserAgentSettings(settings)
+        tab.webController?.applyTabUserAgentSettings(settings)
+        tabManager.persistSessionIfNeeded()
+        picker.dismiss(animated: true) {
+            Toast.show("This tab looks like: \(settings.userAgentMode.displayName)", from: self)
+        }
+    }
 }
 
 extension BrowserViewController: PageRichMenuViewControllerDelegate {
@@ -2036,7 +2131,11 @@ extension BrowserViewController: DualAccountCompareViewControllerDelegate {
         _ = tabManager.switchToAccount(accountID)
         showSelectedTab()
         if let url {
-            navigate(to: url)
+            let current = tabManager.selectedTab?.url
+            let alreadyShowing = current?.host == url.host && current?.path == url.path
+            if !alreadyShowing {
+                navigate(to: url)
+            }
         }
         let name = tabManager.container(id: accountID)?.name ?? "Account"
         Toast.show("Continued in \(name)", from: self)

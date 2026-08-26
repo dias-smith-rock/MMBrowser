@@ -5,16 +5,19 @@ enum IdentitySpoof {
     static let mobileUA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
     static let desktopUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
-    static func resolvedUserAgent(for profile: IdentityProfile, preferDesktop: Bool) -> String? {
-        switch profile.userAgentMode {
+    static func resolvedUserAgent(for settings: TabUserAgentSettings) -> String? {
+        switch settings.userAgentMode {
         case .automatic:
-            return preferDesktop ? desktopUA : nil
+            return nil
         case .mobile:
             return mobileUA
         case .desktop:
             return desktopUA
         case .custom:
-            let trimmed = profile.customUserAgent?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if let profile = settings.customProfile {
+                return profile.userAgentString
+            }
+            let trimmed = settings.customUserAgent?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             return trimmed.isEmpty ? nil : trimmed
         }
     }

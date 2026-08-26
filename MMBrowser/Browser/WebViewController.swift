@@ -16,6 +16,7 @@ protocol WebViewControllerDelegate: AnyObject {
     func webViewControllerDidReportYouTubeDegraded(_ controller: WebViewController)
     func webViewController(_ controller: WebViewController, didTriggerGestureAction action: GestureBrowserAction)
     func webViewController(_ controller: WebViewController, didDetectSessionAvatar url: URL?)
+    func webViewController(_ controller: WebViewController, suggestComputerUserAgentFor siteName: String)
 }
 
 final class WebViewController: UIViewController {
@@ -258,7 +259,8 @@ final class WebViewController: UIViewController {
     /// Large media/PiP bridge — installed before first likely-media document load (or PiP intent).
     private var didInstallMediaScript = false
     private var httpsFallbackAttempted = false
-    private var preferDesktop = false
+    private var tabUserAgentSettings = TabUserAgentSettings(userAgentMode: .automatic, customUserAgent: nil)
+    private var desktopUAHintGeneration = 0
     private var findBar: FindInPageBar?
     private var lastFindQuery: String?
     private(set) var isPageCleanerActive = false
@@ -318,12 +320,14 @@ final class WebViewController: UIViewController {
         websiteDataStore: WKWebsiteDataStore = .default(),
         geoConfiguration: GeolocationSpoof.Configuration = .fromAppSettings(),
         identityProfile: IdentityProfile = .default,
+        tabUserAgentSettings: TabUserAgentSettings = TabUserAgentSettings(userAgentMode: .automatic, customUserAgent: nil),
         containerID: UUID? = nil
     ) {
         self.isIncognito = isIncognito
         self.websiteDataStore = websiteDataStore
         self.geoConfiguration = geoConfiguration
         self.identityProfile = identityProfile
+        self.tabUserAgentSettings = tabUserAgentSettings
         self.browsingContainerID = containerID
         // Do not inherit global sticky — only the PiP owner tab may prefer PiP.
         self.prefersPictureInPicture = false
@@ -350,7 +354,6 @@ final class WebViewController: UIViewController {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = isIncognito ? .nonPersistent() : websiteDataStore
         config.preferences.javaScriptCanOpenWindowsAutomatically = true
-        MediaPlaybackSupport.configureAudioSessionIfNeeded()
         MediaPlaybackSupport.apply(to: config)
         AdBlockManager.shared.apply(to: config) { [weak self] in
             guard let self = self else { return }
@@ -368,6 +371,10 @@ final class WebViewController: UIViewController {
         }
         if let localeScript = IdentitySpoof.userScript(localeIdentifier: identityProfile.localeIdentifier) {
             config.userContentController.addUserScript(localeScript)
+        }
+        if tabUserAgentSettings.userAgentMode == .custom,
+           let profile = tabUserAgentSettings.customProfile {
+            config.userContentController.addUserScript(IdentitySpoof.clientHintsUserScript(for: profile))
         }
         // Unlock pinch-zoom on pages that set user-scalable=no / maximum-scale=1
         // (UIScrollView.ignoresViewportScaleLimits is unavailable in this SDK).
@@ -424,6 +431,7 @@ final class WebViewController: UIViewController {
             make.edges.equalToSuperview()
         }
         webView = wv
+        applyUserAgent(to: wv)
         if !isIncognito {
             autofillCoordinator.hostViewController = self
             autofillCoordinator.attach(
@@ -688,7 +696,7 @@ final class WebViewController: UIViewController {
             ])
         }
         YouTubeDarkMode.applyAppearance(to: webView, url: url)
-        applyDesktopPreference(to: webView)
+        applyUserAgent(to: webView)
         // Fire-and-forget cookie warm-up — do not delay navigation on cookie store I/O.
         if YouTubeDarkMode.isYouTube(url) {
             YouTubeDarkMode.ensureDarkCookie(in: webView.configuration.websiteDataStore) {}
@@ -838,23 +846,22 @@ final class WebViewController: UIViewController {
         drawingGestures.refreshEnabled()
     }
 
-    func setPreferDesktop(_ enabled: Bool) {
-        preferDesktop = enabled
+    func applyTabUserAgentSettings(_ settings: TabUserAgentSettings, reload: Bool = true) {
+        tabUserAgentSettings = settings
         guard let webView = webView else { return }
-        applyDesktopPreference(to: webView)
-        webView.reload()
+        applyUserAgent(to: webView)
+        if settings.userAgentMode == .custom, let profile = settings.customProfile {
+            webView.configuration.userContentController.addUserScript(
+                IdentitySpoof.clientHintsUserScript(for: profile)
+            )
+        }
+        if reload {
+            webView.reload()
+        }
     }
 
-    private func applyDesktopPreference(to webView: WKWebView) {
-        if let ua = IdentitySpoof.resolvedUserAgent(for: identityProfile, preferDesktop: preferDesktop) {
-            webView.customUserAgent = ua
-            return
-        }
-        if preferDesktop {
-            webView.customUserAgent = desktopUA
-        } else {
-            webView.customUserAgent = nil
-        }
+    private func applyUserAgent(to webView: WKWebView) {
+        webView.customUserAgent = IdentitySpoof.resolvedUserAgent(for: tabUserAgentSettings)
     }
 
     func captureSnapshot(completion: @escaping (UIImage?) -> Void) {
@@ -1745,6 +1752,7 @@ final class WebViewController: UIViewController {
             if body["userPlay"] as? Bool == true {
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
+                    MediaPlaybackSupport.configureAudioSessionIfNeeded()
                     PipSession.handleTrustedUserPlay(from: self)
                 }
             }
@@ -1753,7 +1761,12 @@ final class WebViewController: UIViewController {
                     guard let self else { return }
                     let prev = self.pageHasPlayingVideo
                     self.pageHasPlayingVideo = playing
-                if playing { self.lastMediaPlayingAt = Date() }
+                if playing {
+                    self.lastMediaPlayingAt = Date()
+                    if !prev {
+                        MediaPlaybackSupport.configureAudioSessionIfNeeded()
+                    }
+                }
                     if prev != playing {
                         PipProbe.log("chip.js.videoPlaying", [
                             "playing": playing,
@@ -1856,6 +1869,9 @@ final class WebViewController: UIViewController {
         // PiP survival on foreground relies on MediaPlaybackSupport (presentation-mode / visibility guards).
         webView?.isHidden = false
         if changed {
+            if active {
+                MediaPlaybackSupport.configureAudioSessionIfNeeded()
+            }
             PipProbe.log("chip.nativeActive", [
                 "active": active,
                 "reason": reason,
@@ -2126,6 +2142,7 @@ extension WebViewController: WKNavigationDelegate {
         if PageCleanerManager.shouldApplyEarly(on: webView.url) {
             PageCleanerManager.apply(to: webView, url: webView.url)
         }
+        desktopUAHintGeneration += 1
         recordNavigationHistory(from: webView.url)
         notifyDelegateOnMain {
             $0.delegate?.webViewController($0, didUpdateURL: webView.url)
@@ -2227,6 +2244,7 @@ extension WebViewController: WKNavigationDelegate {
             PageCleanerManager.setPickMode(enabled: true, on: webView)
         }
         probeSessionAvatar(in: webView)
+        considerDesktopUAHint(for: webView.url)
     }
 
     /// Public entry used after keyboard hide / manual refresh.
@@ -2307,6 +2325,41 @@ extension WebViewController: WKNavigationDelegate {
       return null;
     })();
     """
+
+    private func considerDesktopUAHint(for url: URL?) {
+        desktopUAHintGeneration += 1
+        let generation = desktopUAHintGeneration
+        guard let url, let site = DesktopUAHint.site(matching: url) else { return }
+        guard !DesktopUAHint.looksLikeComputer(tabUserAgentSettings) else { return }
+
+        let path = url.path.lowercased()
+        if site.loginPathTokens.contains(where: { path.contains($0) }) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                guard let self, generation == self.desktopUAHintGeneration else { return }
+                self.delegate?.webViewController(self, suggestComputerUserAgentFor: site.displayName)
+            }
+            return
+        }
+        scheduleDesktopUAHint(generation: generation, delay: 1.1, site: site, lastChance: false)
+    }
+
+    private func scheduleDesktopUAHint(generation: Int, delay: TimeInterval, site: DesktopUAHint.Site, lastChance: Bool) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, generation == self.desktopUAHintGeneration else { return }
+            self.webView?.evaluateJavaScript(site.probeJavaScript) { [weak self] result, _ in
+                guard let self, generation == self.desktopUAHintGeneration else { return }
+                let state = (result as? String) ?? "unknown"
+                if state == "logged-in" { return }
+                if state == "login" {
+                    self.delegate?.webViewController(self, suggestComputerUserAgentFor: site.displayName)
+                    return
+                }
+                if !lastChance {
+                    self.scheduleDesktopUAHint(generation: generation, delay: 1.8, site: site, lastChance: true)
+                }
+            }
+        }
+    }
 
     private func probeSessionAvatar(in webView: WKWebView) {
         guard !isIncognito else {

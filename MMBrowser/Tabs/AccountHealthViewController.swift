@@ -38,7 +38,7 @@ final class AccountHealthViewController: UIViewController, UITableViewDataSource
             ("Bookmarks", "\(bookmarkCount)"),
             ("Location", container.locationSummary),
             ("Locale", container.identity.localeIdentifier ?? "Device default"),
-            ("User agent", container.identity.userAgentMode.displayName),
+            ("New tabs look like", container.identity.userAgentMode.displayName),
             ("Strip tracking URLs", container.identity.stripTrackingParams ? "On" : "Off"),
             ("Network IP", "Not changed — geolocation only affects browser APIs")
         ]

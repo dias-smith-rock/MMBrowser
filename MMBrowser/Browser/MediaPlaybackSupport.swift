@@ -6,6 +6,8 @@ import WebKit
 enum MediaPlaybackSupport {
     static let pipHandlerName = "mmMediaPip"
 
+    /// Activates `.playback` only when the browser is about to play or keep media alive.
+    /// Do not call on app launch or WebView creation — that interrupts other apps' audio.
     static func configureAudioSessionIfNeeded(forceReactivate: Bool = false) {
         guard AppSettings.backgroundAudioEnabled || AppSettings.pictureInPictureEnabled else { return }
         let session = AVAudioSession.sharedInstance()
@@ -117,6 +119,7 @@ enum MediaPlaybackSupport {
     static func keepBackgroundMediaAlive(in webView: WKWebView?) {
         guard let webView else { return }
         guard AppSettings.backgroundAudioEnabled || AppSettings.stickyPictureInPicture else { return }
+        configureAudioSessionIfNeeded()
         webView.evaluateJavaScript(keepBackgroundAliveJS) { result, _ in
             let status = (result as? String) ?? ""
             if status == "healthy" { return }
@@ -159,6 +162,7 @@ enum MediaPlaybackSupport {
             "sticky": AppSettings.stickyPictureInPicture,
             "isMusic": YouTubeDarkMode.isYouTubeMusic(webView.url)
         ])
+        configureAudioSessionIfNeeded()
         PipProbe.requestTabDump(reason: "enter.native.begin")
         webView.evaluateJavaScript(enterPipJS) { result, error in
             let ok = (result as? Bool) ?? false

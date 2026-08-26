@@ -44,6 +44,8 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         var accountButton: UIButton?
         var addressField: UITextField?
         var closePaneButton: UIButton?
+        /// When set, `web` belongs to this tab and must not be destroyed on close.
+        var borrowedTabID: UUID?
 
         init(container: BrowserContainer) {
             self.container = container
@@ -275,30 +277,93 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
     }
 
     private func installWeb(in pane: PaneState, url: URL) {
-        pane.web?.cleanup()
+        restoreBorrowedWeb(from: pane)
+        if pane.borrowedTabID == nil {
+            pane.web?.cleanup()
+        }
         pane.web?.willMove(toParent: nil)
         pane.web?.view.removeFromSuperview()
         pane.web?.removeFromParent()
+        pane.web = nil
 
         guard let wrap = pane.wrap, let chrome = pane.chrome else { return }
         let container = pane.container
-        let web = WebViewController(
-            isIncognito: false,
-            websiteDataStore: TabSessionStore.dataStore(for: container.sessionID),
-            geoConfiguration: .from(container: container),
-            identityProfile: container.identity,
-            containerID: container.id
-        )
+        let liveTab = tabToBorrow(for: container)
+        evictOtherWebViews(in: container.id, keeping: liveTab?.id)
+
+        let web: WebViewController
+        if let liveTab, let borrowed = borrowLiveWeb(from: liveTab) {
+            web = borrowed
+            pane.borrowedTabID = liveTab.id
+        } else {
+            pane.borrowedTabID = nil
+            web = WebViewController(
+                isIncognito: false,
+                websiteDataStore: TabSessionStore.dataStore(for: container.sessionID),
+                geoConfiguration: .from(container: container),
+                identityProfile: container.identity,
+                tabUserAgentSettings: tabManager.userAgentSettings(forContainer: container.id),
+                containerID: container.id
+            )
+        }
+
         addChild(web)
         wrap.addSubview(web.view)
-        web.view.snp.makeConstraints { make in
+        web.view.snp.remakeConstraints { make in
             make.top.equalTo(chrome.snp.bottom).offset(2)
             make.leading.trailing.bottom.equalToSuperview()
         }
         web.didMove(toParent: self)
-        web.load(url: url)
         pane.web = web
-        pane.addressField?.text = url.absoluteString
+
+        let currentHost = web.webView?.url?.host
+        let targetHost = url.host
+        if pane.borrowedTabID != nil, currentHost != nil, currentHost == targetHost {
+            pane.addressField?.text = web.webView?.url?.absoluteString ?? url.absoluteString
+        } else {
+            web.load(url: url)
+            pane.addressField?.text = url.absoluteString
+        }
+    }
+
+    private func tabToBorrow(for container: BrowserContainer) -> BrowserTab? {
+        let candidates = tabManager.tabs.filter {
+            !$0.isIncognito && $0.containerID == container.id && $0.webController != nil
+        }
+        return candidates.first(where: { $0.id == tabManager.selectedTab?.id })
+            ?? candidates.max(by: { $0.lastAccessed < $1.lastAccessed })
+    }
+
+    private func borrowLiveWeb(from tab: BrowserTab) -> WebViewController? {
+        guard let web = tab.webController else { return nil }
+        findBrowserViewController()?.detachEmbeddedIfNeeded(web)
+        web.willMove(toParent: nil)
+        web.view.removeFromSuperview()
+        web.removeFromParent()
+        tab.webController = web
+        return web
+    }
+
+    private func restoreBorrowedWeb(from pane: PaneState) {
+        guard let tabID = pane.borrowedTabID, let web = pane.web else { return }
+        pane.borrowedTabID = nil
+        pane.web = nil
+        web.willMove(toParent: nil)
+        web.view.removeFromSuperview()
+        web.removeFromParent()
+        if let tab = tabManager.tabs.first(where: { $0.id == tabID }) {
+            tab.webController = web
+        }
+    }
+
+    /// WhatsApp Web (and similar) keep one IndexedDB session per store — a second WKWebView logs everyone out.
+    private func evictOtherWebViews(in containerID: UUID, keeping keepID: UUID?) {
+        for tab in tabManager.tabs where tab.containerID == containerID && tab.id != keepID {
+            guard tab.webController != nil else { continue }
+            findBrowserViewController()?.detachEmbeddedIfNeeded(tab.webController!)
+            tab.webController?.cleanup()
+            tab.webController = nil
+        }
     }
 
     private func availableAccounts(excluding otherID: UUID?) -> [BrowserContainer] {
@@ -393,6 +458,8 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         guard !didClose else { return }
         didClose = true
         view.endEditing(true)
+        restoreBorrowedWeb(from: topState)
+        restoreBorrowedWeb(from: bottomState)
         topState.web?.cleanup()
         bottomState.web?.cleanup()
         topState.web = nil

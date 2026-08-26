@@ -4,7 +4,7 @@ import SnapKit
 enum MenuAction: Equatable {
     case bookmarks, history, readingList, downloads, settings, accounts, compareAccounts
     case reload, newTab, newIncognitoTab, addBookmark, addReadingList
-    case readerMode, findInPage, share, desktopSite, sharePDF, screenshot, longScreenshot
+    case readerMode, findInPage, share, userAgent, sharePDF, screenshot, longScreenshot
     case pageCleaner
     case downloadFile
     case copyURL, aboutSite, addToHomepage, printPage, translate, changeTextSize, adBlocker

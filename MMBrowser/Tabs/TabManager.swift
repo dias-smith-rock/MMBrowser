@@ -148,9 +148,29 @@ final class TabManager {
         container(id: tab.containerID)?.sessionID ?? defaultContainer.sessionID
     }
 
+    func mostRecentTab(inContainer id: UUID) -> BrowserTab? {
+        tabs
+            .filter { !$0.isIncognito && $0.containerID == id }
+            .max(by: { $0.lastAccessed < $1.lastAccessed })
+    }
+
+    func userAgentSettings(forContainer id: UUID) -> TabUserAgentSettings {
+        if let tab = mostRecentTab(inContainer: id) {
+            return tab.userAgentSettings
+        }
+        let container = container(id: id) ?? defaultContainer
+        return .defaultForNewTab(in: container)
+    }
+
     /// - Parameter containerID: Container for a normal tab. Defaults to the selected tab's container, or Default.
+    /// - Parameter inheritUserAgentFrom: Copy UA from this tab (e.g. link-open). Omit for toolbar + defaults.
     @discardableResult
-    func addTab(incognito: Bool = false, select: Bool = true, containerID: UUID? = nil) -> BrowserTab {
+    func addTab(
+        incognito: Bool = false,
+        select: Bool = true,
+        containerID: UUID? = nil,
+        inheritUserAgentFrom sourceTab: BrowserTab? = nil
+    ) -> BrowserTab {
         let resolvedContainerID: UUID = {
             if let containerID, container(id: containerID) != nil { return containerID }
             if let selected = selectedTab, !selected.isIncognito {
@@ -159,6 +179,14 @@ final class TabManager {
             return defaultContainer.id
         }()
         let tab = BrowserTab(isIncognito: incognito, containerID: resolvedContainerID)
+        if let sourceTab {
+            tab.applyUserAgentSettings(sourceTab.userAgentSettings)
+        } else if incognito {
+            tab.applyUserAgentSettings(.incognitoToolbarDefault)
+        } else {
+            let container = container(id: resolvedContainerID) ?? defaultContainer
+            tab.applyUserAgentSettings(.defaultForNewTab(in: container))
+        }
         tabs.append(tab)
         if select {
             selectedIndex = tabs.count - 1
@@ -873,7 +901,7 @@ final class TabManager {
                     urlString: $0.url?.absoluteString,
                     isNewTabPage: $0.isNewTabPage,
                     lastAccessed: $0.lastAccessed,
-                    preferDesktop: $0.preferDesktop,
+                    userAgentSettings: $0.userAgentSettings,
                     historyURLs: $0.navigationHistory.urls,
                     historyIndex: $0.navigationHistory.index,
                     groupName: containerName(for: $0)
@@ -955,7 +983,7 @@ final class TabManager {
                 url: url,
                 isNewTabPage: url == nil,
                 lastAccessed: $0.lastAccessed,
-                preferDesktop: $0.preferDesktop,
+                userAgentSettings: $0.resolvedUserAgentSettings(),
                 historyURLs: $0.historyURLs,
                 historyIndex: $0.historyIndex
             )
@@ -1082,15 +1110,19 @@ private struct PersistedTab: Codable {
     var urlString: String?
     var isNewTabPage: Bool
     var lastAccessed: Date
-    var preferDesktop: Bool
+    var userAgentMode: UserAgentMode
+    var customUserAgent: String?
+    var customProfile: CustomUserAgentProfile?
     var historyURLs: [String]
     var historyIndex: Int
     /// Legacy fields.
+    var preferDesktop: Bool?
     var sessionID: UUID?
     var groupName: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, containerID, title, urlString, isNewTabPage, lastAccessed, preferDesktop
+        case id, containerID, title, urlString, isNewTabPage, lastAccessed
+        case userAgentMode, customUserAgent, customProfile, preferDesktop
         case historyURLs, historyIndex, sessionID, groupName
     }
 
@@ -1101,7 +1133,7 @@ private struct PersistedTab: Codable {
         urlString: String?,
         isNewTabPage: Bool,
         lastAccessed: Date,
-        preferDesktop: Bool,
+        userAgentSettings: TabUserAgentSettings,
         historyURLs: [String] = [],
         historyIndex: Int = -1,
         groupName: String? = nil
@@ -1112,9 +1144,12 @@ private struct PersistedTab: Codable {
         self.urlString = urlString
         self.isNewTabPage = isNewTabPage
         self.lastAccessed = lastAccessed
-        self.preferDesktop = preferDesktop
+        self.userAgentMode = userAgentSettings.userAgentMode
+        self.customUserAgent = userAgentSettings.customUserAgent
+        self.customProfile = userAgentSettings.customProfile
         self.historyURLs = historyURLs
         self.historyIndex = historyIndex
+        self.preferDesktop = nil
         self.sessionID = nil
         self.groupName = groupName
     }
@@ -1127,11 +1162,46 @@ private struct PersistedTab: Codable {
         urlString = try c.decodeIfPresent(String.self, forKey: .urlString)
         isNewTabPage = try c.decode(Bool.self, forKey: .isNewTabPage)
         lastAccessed = try c.decode(Date.self, forKey: .lastAccessed)
-        preferDesktop = try c.decodeIfPresent(Bool.self, forKey: .preferDesktop) ?? false
+        if let mode = try c.decodeIfPresent(UserAgentMode.self, forKey: .userAgentMode) {
+            userAgentMode = mode
+            customUserAgent = try c.decodeIfPresent(String.self, forKey: .customUserAgent)
+            customProfile = try c.decodeIfPresent(CustomUserAgentProfile.self, forKey: .customProfile)
+        } else {
+            let legacyDesktop = try c.decodeIfPresent(Bool.self, forKey: .preferDesktop) ?? false
+            let migrated = TabUserAgentSettings.migrated(preferDesktop: legacyDesktop)
+            userAgentMode = migrated.userAgentMode
+            customUserAgent = migrated.customUserAgent
+            customProfile = migrated.customProfile
+        }
         historyURLs = try c.decodeIfPresent([String].self, forKey: .historyURLs) ?? []
         historyIndex = try c.decodeIfPresent(Int.self, forKey: .historyIndex) ?? -1
+        preferDesktop = try c.decodeIfPresent(Bool.self, forKey: .preferDesktop)
         sessionID = try c.decodeIfPresent(UUID.self, forKey: .sessionID)
         groupName = try c.decodeIfPresent(String.self, forKey: .groupName)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encodeIfPresent(containerID, forKey: .containerID)
+        try c.encode(title, forKey: .title)
+        try c.encodeIfPresent(urlString, forKey: .urlString)
+        try c.encode(isNewTabPage, forKey: .isNewTabPage)
+        try c.encode(lastAccessed, forKey: .lastAccessed)
+        try c.encode(userAgentMode, forKey: .userAgentMode)
+        try c.encodeIfPresent(customUserAgent, forKey: .customUserAgent)
+        try c.encodeIfPresent(customProfile, forKey: .customProfile)
+        try c.encode(historyURLs, forKey: .historyURLs)
+        try c.encode(historyIndex, forKey: .historyIndex)
+        if let groupName { try c.encode(groupName, forKey: .groupName) }
+    }
+
+    func resolvedUserAgentSettings() -> TabUserAgentSettings {
+        TabUserAgentSettings(
+            userAgentMode: userAgentMode,
+            customUserAgent: customUserAgent,
+            customProfile: customProfile
+        )
     }
 
     func resolvedContainerID(

@@ -66,7 +66,7 @@ enum GestureBrowserAction: String, CaseIterable {
         case .share: return "Share"
         case .findInPage: return "Find in Page"
         case .readerMode: return "Reader"
-        case .desktopSite: return "Request Desktop Site"
+        case .desktopSite: return "How this tab looks"
         case .newIncognitoTab: return "New Incognito Tab"
         case .screenshot: return "Screenshot"
         case .goBack: return "Back"
@@ -85,7 +85,7 @@ enum GestureBrowserAction: String, CaseIterable {
         case .share: return .share
         case .findInPage: return .findInPage
         case .readerMode: return .readerMode
-        case .desktopSite: return .desktopSite
+        case .desktopSite: return .userAgent
         case .newIncognitoTab: return .newIncognitoTab
         case .screenshot: return .screenshot
         }

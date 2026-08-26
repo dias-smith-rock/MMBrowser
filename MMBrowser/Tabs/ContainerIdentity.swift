@@ -30,11 +30,64 @@ enum UserAgentMode: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .automatic: return "Automatic"
-        case .mobile: return "Mobile"
-        case .desktop: return "Desktop"
-        case .custom: return "Custom"
+            case .automatic: return "Default"
+            case .mobile: return "Phone"
+            case .desktop: return "Computer"
+            case .custom: return "Custom"
         }
+    }
+}
+
+/// Per-tab user agent; account identity only seeds defaults for newly created tabs.
+struct TabUserAgentSettings: Equatable, Codable {
+    var userAgentMode: UserAgentMode
+    var customUserAgent: String?
+    var customProfile: CustomUserAgentProfile?
+
+    static let incognitoToolbarDefault = TabUserAgentSettings(userAgentMode: .mobile, customUserAgent: nil)
+
+    static func defaultForNewTab(in container: BrowserContainer) -> TabUserAgentSettings {
+        var profile = container.identity.customProfile
+        var customUA = container.identity.customUserAgent
+        if container.identity.userAgentMode == .custom, profile == nil {
+            profile = .default
+            customUA = CustomUserAgentProfile.default.userAgentString
+        }
+        return TabUserAgentSettings(
+            userAgentMode: container.identity.userAgentMode,
+            customUserAgent: customUA,
+            customProfile: profile
+        )
+    }
+
+    init(userAgentMode: UserAgentMode, customUserAgent: String?, customProfile: CustomUserAgentProfile? = nil) {
+        self.userAgentMode = userAgentMode
+        self.customUserAgent = customUserAgent
+        self.customProfile = customProfile
+    }
+
+    init(from identity: IdentityProfile) {
+        self.init(
+            userAgentMode: identity.userAgentMode,
+            customUserAgent: identity.customUserAgent,
+            customProfile: identity.customProfile
+        )
+    }
+
+    func copying(from source: TabUserAgentSettings) -> TabUserAgentSettings {
+        TabUserAgentSettings(
+            userAgentMode: source.userAgentMode,
+            customUserAgent: source.customUserAgent,
+            customProfile: source.customProfile
+        )
+    }
+
+    /// Migrates legacy `preferDesktop` toggles from persisted sessions.
+    static func migrated(preferDesktop: Bool) -> TabUserAgentSettings {
+        TabUserAgentSettings(
+            userAgentMode: preferDesktop ? .desktop : .automatic,
+            customUserAgent: nil
+        )
     }
 }
 
@@ -42,12 +95,14 @@ struct IdentityProfile: Codable, Equatable {
     var localeIdentifier: String?
     var userAgentMode: UserAgentMode
     var customUserAgent: String?
+    var customProfile: CustomUserAgentProfile?
     var stripTrackingParams: Bool
 
     static let `default` = IdentityProfile(
         localeIdentifier: nil,
         userAgentMode: .mobile,
         customUserAgent: nil,
+        customProfile: nil,
         stripTrackingParams: true
     )
 
@@ -156,6 +211,7 @@ enum ContainerTemplate: String, CaseIterable {
                     localeIdentifier: "en-US",
                     userAgentMode: .mobile,
                     customUserAgent: nil,
+                    customProfile: nil,
                     stripTrackingParams: true
                 ),
                 templateID: rawValue
@@ -178,6 +234,7 @@ enum ContainerTemplate: String, CaseIterable {
                     localeIdentifier: "en-US",
                     userAgentMode: .mobile,
                     customUserAgent: nil,
+                    customProfile: nil,
                     stripTrackingParams: true
                 ),
                 templateID: rawValue
@@ -200,6 +257,7 @@ enum ContainerTemplate: String, CaseIterable {
                     localeIdentifier: "en-US",
                     userAgentMode: .mobile,
                     customUserAgent: nil,
+                    customProfile: nil,
                     stripTrackingParams: true
                 ),
                 templateID: rawValue

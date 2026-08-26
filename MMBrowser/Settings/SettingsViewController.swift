@@ -365,7 +365,6 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     }
     @objc private func bgAudioChanged(_ sw: UISwitch) {
         AppSettings.backgroundAudioEnabled = sw.isOn
-        MediaPlaybackSupport.configureAudioSessionIfNeeded()
         Toast.show(sw.isOn ? "Background audio on" : "Background audio off", from: self)
     }
     @objc private func pipChanged(_ sw: UISwitch) {
