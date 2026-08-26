@@ -2,7 +2,6 @@
 window.XBrowserSite = {
   appStoreUrl: "https://apps.apple.com/us/app/id6804914972?l=en-us",
   contactEmail: "gaowei85714@gmail.com",
-  companyName: "XBrowser",
 };
 
 (function () {
@@ -29,10 +28,6 @@ window.XBrowserSite = {
     if (el.tagName === "A") {
       el.setAttribute("href", "mailto:" + cfg.contactEmail);
     }
-  });
-
-  document.querySelectorAll("[data-company]").forEach((el) => {
-    el.textContent = cfg.companyName;
   });
 
   const hero = document.querySelector(".hero__content");
