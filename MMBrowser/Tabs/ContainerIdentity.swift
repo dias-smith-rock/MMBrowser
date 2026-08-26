@@ -66,6 +66,17 @@ struct TabUserAgentSettings: Equatable, Codable {
         self.customProfile = customProfile
     }
 
+    var looksLikeComputer: Bool {
+        switch userAgentMode {
+        case .desktop:
+            return true
+        case .custom:
+            return customProfile?.isMobile == false
+        case .automatic, .mobile:
+            return false
+        }
+    }
+
     init(from identity: IdentityProfile) {
         self.init(
             userAgentMode: identity.userAgentMode,

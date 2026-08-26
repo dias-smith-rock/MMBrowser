@@ -2330,7 +2330,7 @@ extension WebViewController: WKNavigationDelegate {
         desktopUAHintGeneration += 1
         let generation = desktopUAHintGeneration
         guard let url, let site = DesktopUAHint.site(matching: url) else { return }
-        guard !DesktopUAHint.looksLikeComputer(tabUserAgentSettings) else { return }
+        guard !tabUserAgentSettings.looksLikeComputer else { return }
 
         let path = url.path.lowercased()
         if site.loginPathTokens.contains(where: { path.contains($0) }) {

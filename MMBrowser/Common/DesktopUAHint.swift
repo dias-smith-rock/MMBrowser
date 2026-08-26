@@ -84,14 +84,4 @@ enum DesktopUAHint {
         }
     }
 
-    static func looksLikeComputer(_ settings: TabUserAgentSettings) -> Bool {
-        switch settings.userAgentMode {
-        case .desktop:
-            return true
-        case .custom:
-            return settings.customProfile?.isMobile == false
-        case .automatic, .mobile:
-            return false
-        }
-    }
 }

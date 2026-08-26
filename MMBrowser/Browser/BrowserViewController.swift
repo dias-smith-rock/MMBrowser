@@ -1665,7 +1665,7 @@ extension BrowserViewController: WebViewControllerDelegate {
         guard presentedViewController == nil else { return }
         let host = (tab.url?.host ?? siteName).lowercased()
         guard !tab.dismissedDesktopUAHintHosts.contains(host) else { return }
-        guard !DesktopUAHint.looksLikeComputer(tab.userAgentSettings) else { return }
+        guard !tab.userAgentSettings.looksLikeComputer else { return }
 
         let alert = UIAlertController(
             title: "Use Computer for \(siteName)?",
@@ -1686,7 +1686,7 @@ extension BrowserViewController: WebViewControllerDelegate {
     }
 
     private func applyComputerUserAgent(to tab: BrowserTab) {
-        let settings = TabUserAgentSettings(userAgentMode: .desktop, customUserAgent: nil, customProfile: nil)
+        let settings = TabUserAgentSettings(userAgentMode: .desktop, customUserAgent: nil)
         tab.applyUserAgentSettings(settings)
         if let host = tab.url?.host?.lowercased() {
             tab.dismissedDesktopUAHintHosts.insert(host)
