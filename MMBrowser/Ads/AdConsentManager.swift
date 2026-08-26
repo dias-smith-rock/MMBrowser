@@ -1,3 +1,4 @@
+import AppTrackingTransparency
 import UIKit
 import UserMessagingPlatform
 
@@ -44,7 +45,51 @@ enum AdConsentManager {
             }
         }
 
+        await requestTrackingAuthorizationIfNeeded(from: viewController)
         return canRequestAds
+    }
+
+    /// Apple ATT: required before using the advertising identifier for ads.
+    /// Skips if UMP already presented ATT (status is no longer `.notDetermined`).
+    static func requestTrackingAuthorizationIfNeeded(from viewController: UIViewController?) async {
+        guard ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
+        if let viewController {
+            await presentTrackingExplainer(from: viewController)
+        }
+        guard ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            ATTrackingManager.requestTrackingAuthorization { _ in
+                DispatchQueue.main.async { cont.resume() }
+            }
+        }
+    }
+
+    static var trackingAuthorizationSummary: String {
+        switch ATTrackingManager.trackingAuthorizationStatus {
+        case .notDetermined: return "Not asked yet"
+        case .restricted: return "Restricted"
+        case .denied: return "Not allowed"
+        case .authorized: return "Allowed"
+        @unknown default: return "Unknown"
+        }
+    }
+
+    private static func presentTrackingExplainer(from viewController: UIViewController) async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            let alert = UIAlertController(
+                title: "This app uses tracking",
+                message: "XBrowser shows ads. To measure those ads and show more relevant ones, the app may track your activity across other companies’ apps and websites using an advertising identifier.\n\nYou can Allow or Ask App Not to Track on the next screen.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "Continue", style: .default) { _ in
+                cont.resume()
+            })
+            if viewController.presentedViewController == nil {
+                viewController.present(alert, animated: true)
+            } else {
+                cont.resume()
+            }
+        }
     }
 
     static func presentPrivacyOptions(from viewController: UIViewController?) async throws {

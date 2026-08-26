@@ -14,21 +14,27 @@ final class AdLifecycleCoordinator {
     private var hasPresentedSinceForeground = false
     private var didBootstrapAds = false
     private var isBootstrapping = false
+    private var didFinishLaunchConsent = false
 
     private init() {}
 
     /// Call once the first window is interactive (SceneDelegate after makeKeyAndVisible).
     func startBootstrapIfNeeded(from root: UIViewController?) {
-        guard !didBootstrapAds, !isBootstrapping else { return }
-        guard AdMobConfig.adsEnabled else { return }
+        guard !didFinishLaunchConsent, !isBootstrapping else { return }
         isBootstrapping = true
 
         Task { @MainActor in
-            // Let first frame render before consent UI.
+            // Let first frame render before consent / ATT UI.
             try? await Task.sleep(nanoseconds: 400_000_000)
-            let allowed = await AdConsentManager.gatherConsentIfNeeded(from: root)
+            if AdMobConfig.adsEnabled {
+                _ = await AdConsentManager.gatherConsentIfNeeded(from: root)
+            } else {
+                // Still disclose tracking (Analytics / later ads) via Apple's ATT prompt.
+                await AdConsentManager.requestTrackingAuthorizationIfNeeded(from: root)
+            }
             isBootstrapping = false
-            guard allowed else { return }
+            didFinishLaunchConsent = true
+            guard AdMobConfig.adsEnabled, AdConsentManager.canRequestAds else { return }
             startMobileAdsSDK()
         }
     }

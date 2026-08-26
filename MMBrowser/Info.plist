@@ -19,7 +19,7 @@
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-2283581832994740~3980963796</string>
 	<key>NSUserTrackingUsageDescription</key>
-	<string>This identifier is used to deliver personalized ads and measure ad performance.</string>
+	<string>XBrowser uses this identifier to track your activity across other companies’ apps and websites to deliver personalized ads and measure ad performance.</string>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict>

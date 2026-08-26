@@ -17,6 +17,9 @@ final class PrivacyInfoViewController: UIViewController {
         Accounts
         Each account keeps its own cookies and site data, so you can stay signed in to different logins side by side. You can also set location to Deny, Ask, or a virtual city per account.
 
+        Ads and App Tracking
+        XBrowser shows ads. To measure those ads and show more relevant ones, the app may use Apple’s advertising identifier to track your activity across other companies’ apps and websites. iOS will ask you to Allow or Ask App Not to Track. You can change this later in iOS Settings → Privacy & Security → Tracking, and in Settings → Ad Tracking.
+
         Block Ads & Trackers
         Blocks known ad and tracker network requests and hides common page banners using WebKit content rules. You can turn this off anytime in Settings.
 

@@ -54,7 +54,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
-        case .privacy: return 8
+        case .privacy: return 9
         case .accounts: return 2
         case .clearOption: return 1
         case .tools: return 1
@@ -178,6 +178,10 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 cell.textLabel?.text = "App Lock"
                 cell.detailTextLabel?.text = AppLockSettings.isEnabled ? "On" : "Off"
                 cell.accessoryType = .disclosureIndicator
+            case 7:
+                cell.textLabel?.text = "Ad Tracking"
+                cell.detailTextLabel?.text = AdConsentManager.trackingAuthorizationSummary
+                cell.accessoryType = .disclosureIndicator
             default:
                 cell.textLabel?.text = "Privacy Explained"
                 cell.accessoryType = .disclosureIndicator
@@ -286,6 +290,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             } else if indexPath.row == 6 {
                 navigationController?.pushViewController(AppLockSettingsViewController(), animated: true)
             } else if indexPath.row == 7 {
+                presentAdTrackingOptions()
+            } else if indexPath.row == 8 {
                 navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
             }
         case .accounts:
@@ -396,5 +402,32 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         Toast.show(sw.isOn ? "Aggressive image block on" : "Aggressive image block off", from: self)
     }
     @objc private func httpsChanged(_ sw: UISwitch) { AppSettings.httpsOnly = sw.isOn }
+
+    private func presentAdTrackingOptions() {
+        if AdConsentManager.isPrivacyOptionsRequired {
+            Task { @MainActor in
+                do {
+                    try await AdConsentManager.presentPrivacyOptions(from: self)
+                    tableView.reloadData()
+                } catch {
+                    Toast.show("Couldn’t open ad privacy options", from: self)
+                }
+            }
+            return
+        }
+
+        let alert = UIAlertController(
+            title: "Ad Tracking",
+            message: "XBrowser shows ads and may track your activity across other companies’ apps and websites to personalize and measure ads.\n\nCurrent status: \(AdConsentManager.trackingAuthorizationSummary).\n\nYou can change this in iOS Settings → Privacy & Security → Tracking.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Open iOS Settings", style: .default) { _ in
+            guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+            UIApplication.shared.open(url)
+        })
+        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+        present(alert, animated: true)
+    }
+
     @objc private func close() { dismiss(animated: true) }
 }
