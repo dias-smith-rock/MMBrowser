@@ -2,7 +2,7 @@
 window.XBrowserSite = {
   appStoreUrl: "https://apps.apple.com/us/app/id6804914972?l=en-us",
   contactEmail: "gaowei85714@gmail.com",
-  companyName: "GoodCraft",
+  companyName: "XBrowser",
 };
 
 (function () {
