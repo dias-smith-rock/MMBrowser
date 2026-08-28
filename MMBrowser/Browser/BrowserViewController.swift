@@ -1605,25 +1605,6 @@ extension BrowserViewController: WebViewControllerDelegate {
         Toast.show("YouTube filter degraded — try updating filters in Settings", from: self)
     }
 
-    func webViewController(_ controller: WebViewController, didTriggerGestureAction action: GestureBrowserAction) {
-        guard tabManager.selectedTab?.webController === controller else { return }
-        switch action {
-        case .goBack:
-            controller.goBack()
-        case .goForward:
-            controller.goForward()
-        case .pageUp:
-            controller.pageUp()
-        case .pageDown:
-            controller.pageDown()
-        case .none:
-            break
-        default:
-            guard let menuAction = action.menuAction else { return }
-            performMenuAction(menuAction)
-        }
-    }
-
     func webViewController(_ controller: WebViewController, didUpdateNavigationState canGoBack: Bool, canGoForward: Bool) {
         guard tabManager.selectedTab?.webController === controller else { return }
         refreshToolbar()

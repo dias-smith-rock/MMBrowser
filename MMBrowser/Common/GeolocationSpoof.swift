@@ -10,7 +10,7 @@ enum LocationPrivacyMode: String, CaseIterable {
         switch self {
         case .deny: return "Deny"
         case .spoof: return "Spoof"
-        case .ask: return "Ask"
+        case .ask: return "Current Location"
         }
     }
 
@@ -18,7 +18,7 @@ enum LocationPrivacyMode: String, CaseIterable {
         switch self {
         case .deny: return "Sites cannot read GPS-like location"
         case .spoof: return "Sites get a virtual location you choose"
-        case .ask: return "Ask each time (system location)"
+        case .ask: return "Sites can use your device GPS (requires permission)"
         }
     }
 }

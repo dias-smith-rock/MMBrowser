@@ -14,7 +14,6 @@ protocol WebViewControllerDelegate: AnyObject {
     func webViewController(_ controller: WebViewController, didScroll deltaY: CGFloat, offsetY: CGFloat)
     func webViewController(_ controller: WebViewController, didUpdateBlockCount count: Int)
     func webViewControllerDidReportYouTubeDegraded(_ controller: WebViewController)
-    func webViewController(_ controller: WebViewController, didTriggerGestureAction action: GestureBrowserAction)
     func webViewController(_ controller: WebViewController, didDetectSessionAvatar url: URL?)
     func webViewController(_ controller: WebViewController, suggestComputerUserAgentFor siteName: String)
 }
@@ -275,8 +274,6 @@ final class WebViewController: UIViewController {
     private var stickyPlayerRepairWorkItem: DispatchWorkItem?
     /// Last video URL we finished sticky-player padding for — avoids re-running on infinite scroll.
     private var stickyPlayerRepairedURL: String?
-    private let drawingGestures = DrawingGestureController()
-    private var gestureSettingsObserver: NSObjectProtocol?
     private let autofillCoordinator = BrowserAutofillCoordinator()
     /// When true, the page video is in system Picture in Picture.
     private(set) var isPictureInPictureActive = false
@@ -453,7 +450,6 @@ final class WebViewController: UIViewController {
         if AppSettings.pictureInPictureEnabled {
             setupPipEntryButton()
         }
-        setupDrawingGestures()
 
         progressObservation = wv.observe(\.estimatedProgress, options: [.new]) { [weak self] webView, _ in
             let progress = webView.estimatedProgress
@@ -813,39 +809,6 @@ final class WebViewController: UIViewController {
         webView?.reload()
     }
 
-    func pageUp() {
-        webView?.evaluateJavaScript(
-            "window.scrollBy({top: -Math.max(120, window.innerHeight * 0.85), left: 0, behavior: 'smooth'});",
-            completionHandler: nil
-        )
-    }
-
-    func pageDown() {
-        webView?.evaluateJavaScript(
-            "window.scrollBy({top: Math.max(120, window.innerHeight * 0.85), left: 0, behavior: 'smooth'});",
-            completionHandler: nil
-        )
-    }
-
-    private func setupDrawingGestures() {
-        drawingGestures.delegate = self
-        drawingGestures.attach(to: view, lockScrollView: webView?.scrollView)
-        if gestureSettingsObserver == nil {
-            gestureSettingsObserver = NotificationCenter.default.addObserver(
-                forName: .gestureSettingsChanged,
-                object: nil,
-                queue: .main
-            ) { [weak self] _ in
-                self?.refreshGestureSettings()
-            }
-        }
-        refreshGestureSettings()
-    }
-
-    private func refreshGestureSettings() {
-        drawingGestures.refreshEnabled()
-    }
-
     func applyTabUserAgentSettings(_ settings: TabUserAgentSettings, reload: Bool = true) {
         tabUserAgentSettings = settings
         guard let webView = webView else { return }
@@ -1091,11 +1054,6 @@ final class WebViewController: UIViewController {
         contentSizeObservation = nil
         stickyPlayerRepairWorkItem?.cancel()
         stickyPlayerRepairWorkItem = nil
-        if let gestureSettingsObserver = gestureSettingsObserver {
-            NotificationCenter.default.removeObserver(gestureSettingsObserver)
-            self.gestureSettingsObserver = nil
-        }
-        drawingGestures.detach()
         if let pageCleanerObserver = pageCleanerObserver {
             NotificationCenter.default.removeObserver(pageCleanerObserver)
             self.pageCleanerObserver = nil
@@ -1926,12 +1884,6 @@ private final class WebViewScriptProxy: NSObject, WKScriptMessageHandler {
         default:
             break
         }
-    }
-}
-
-extension WebViewController: DrawingGestureControllerDelegate {
-    func drawingGestureController(_ controller: DrawingGestureController, didRecognize shape: GestureShape, action: GestureBrowserAction) {
-        delegate?.webViewController(self, didTriggerGestureAction: action)
     }
 }
 

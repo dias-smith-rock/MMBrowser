@@ -62,12 +62,9 @@
 		A1B2C3D4E5F6010101010120 /* NavigationDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020220 /* NavigationDirectory.swift */; };
 		A1B2C3D4E5F6010101010121 /* FaviconImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020221 /* FaviconImageView.swift */; };
 		A1B2C3D4E5F6010101010130 /* GeolocationSpoof.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020230 /* GeolocationSpoof.swift */; };
+		A1B2C3D4E5F6010101010133 /* LocationPermissionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020233 /* LocationPermissionHelper.swift */; };
 		A1B2C3D4E5F6010101010131 /* LocationSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */; };
 		A1B2C3D4E5F6010101010132 /* LocationMapPickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020232 /* LocationMapPickerViewController.swift */; };
-		A1B2C3D4E5F6010101010140 /* GestureActionMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020240 /* GestureActionMap.swift */; };
-		A1B2C3D4E5F6010101010141 /* ShapeRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020241 /* ShapeRecognizer.swift */; };
-		A1B2C3D4E5F6010101010142 /* DrawingGestureController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020242 /* DrawingGestureController.swift */; };
-		A1B2C3D4E5F6010101010143 /* GestureSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020243 /* GestureSettingsViewController.swift */; };
 		A1B2C3D4E5F6010101010150 /* AutoClearManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020250 /* AutoClearManager.swift */; };
 		A1B2C3D4E5F6010101010151 /* ClearOptionSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020251 /* ClearOptionSettingsViewController.swift */; };
 		A1B2C3D4E5F6010101010160 /* ThemePack.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020260 /* ThemePack.swift */; };
@@ -238,12 +235,9 @@
 		A1B2C3D4E5F6020202020220 /* NavigationDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationDirectory.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020221 /* FaviconImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaviconImageView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020230 /* GeolocationSpoof.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeolocationSpoof.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020233 /* LocationPermissionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationPermissionHelper.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSettingsViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020232 /* LocationMapPickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationMapPickerViewController.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F6020202020240 /* GestureActionMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GestureActionMap.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F6020202020241 /* ShapeRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShapeRecognizer.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F6020202020242 /* DrawingGestureController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingGestureController.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F6020202020243 /* GestureSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GestureSettingsViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020250 /* AutoClearManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoClearManager.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020251 /* ClearOptionSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClearOptionSettingsViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020260 /* ThemePack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePack.swift; sourceTree = "<group>"; };
@@ -403,7 +397,6 @@
 				A1B2C3D4E5F6020202020263 /* AppearanceSettingsViewController.swift */,
 				A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */,
 				A1B2C3D4E5F6020202020232 /* LocationMapPickerViewController.swift */,
-				A1B2C3D4E5F6020202020243 /* GestureSettingsViewController.swift */,
 				A1B2C3D4E5F6020202020251 /* ClearOptionSettingsViewController.swift */,
 				B1C2D3E4F5A64789B0C1D2E9 /* PageCleanerRulesViewController.swift */,
 			);
@@ -475,7 +468,6 @@
 				A1B2C3D4E5F6030303030301 /* AppLock */,
 				PWD000076ED096ADCEB32 /* Passwords */,
 				PWD000494098C24F4B935 /* MMBrowser.entitlements */,
-				A1B2C3D4E5F6030303030302 /* Gestures */,
 				D1A5510B1493499DB371F870 /* Common */,
 				FBASEGRP01010101010101 /* Firebase */,
 				ADS00GRP01010101010101 /* Ads */,
@@ -537,16 +529,6 @@
 				A1B2C3D4E5F6020202020210 /* PasscodeKeypadView.swift */,
 			);
 			path = AppLock;
-			sourceTree = "<group>";
-		};
-		A1B2C3D4E5F6030303030302 /* Gestures */ = {
-			isa = PBXGroup;
-			children = (
-				A1B2C3D4E5F6020202020240 /* GestureActionMap.swift */,
-				A1B2C3D4E5F6020202020241 /* ShapeRecognizer.swift */,
-				A1B2C3D4E5F6020202020242 /* DrawingGestureController.swift */,
-			);
-			path = Gestures;
 			sourceTree = "<group>";
 		};
 		A1B2C3D4E5F6030303030310 /* Theme */ = {
@@ -637,6 +619,7 @@
 				B1C2D3E4F5A64789B0C1D2E3 /* PageCleanerStore.swift */,
 				D3B6BD940BB54D82A4066522 /* AppSettings.swift */,
 				A1B2C3D4E5F6020202020230 /* GeolocationSpoof.swift */,
+				A1B2C3D4E5F6020202020233 /* LocationPermissionHelper.swift */,
 				3979F26B75FD439E9108F7A7 /* LetterAvatarView.swift */,
 				1779FCB4C5AF48C29F8F9FFA /* Theme.swift */,
 				37FC46822386450BA067F7F5 /* Toast.swift */,
@@ -935,6 +918,7 @@
 				B1C2D3E4F5A64789B0C1D2EA /* PageCleanerRulesViewController.swift in Sources */,
 				7F319ABC1AF74FABA37DAF1D /* AppSettings.swift in Sources */,
 				A1B2C3D4E5F6010101010130 /* GeolocationSpoof.swift in Sources */,
+				A1B2C3D4E5F6010101010133 /* LocationPermissionHelper.swift in Sources */,
 				5F551AC16CAD4143A1593E53 /* LetterAvatarView.swift in Sources */,
 				47C017E84DF14D329312A9B6 /* Theme.swift in Sources */,
 				A1B2C3D4E5F6010101010160 /* ThemePack.swift in Sources */,
@@ -997,10 +981,6 @@
 				DDC66117ECB14AA7AB16EF37 /* SettingsViewController.swift in Sources */,
 				A1B2C3D4E5F6010101010131 /* LocationSettingsViewController.swift in Sources */,
 				A1B2C3D4E5F6010101010132 /* LocationMapPickerViewController.swift in Sources */,
-				A1B2C3D4E5F6010101010140 /* GestureActionMap.swift in Sources */,
-				A1B2C3D4E5F6010101010141 /* ShapeRecognizer.swift in Sources */,
-				A1B2C3D4E5F6010101010142 /* DrawingGestureController.swift in Sources */,
-				A1B2C3D4E5F6010101010143 /* GestureSettingsViewController.swift in Sources */,
 				A1B2C3D4E5F6010101010150 /* AutoClearManager.swift in Sources */,
 				A1B2C3D4E5F6010101010151 /* ClearOptionSettingsViewController.swift in Sources */,
 				225CD882697F4D4E83068A67 /* BrowserTab.swift in Sources */,
@@ -1189,7 +1169,7 @@
 				INFOPLIST_FILE = MMBrowser/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = XBrowser;
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "XBrowser uses Face ID to unlock the app.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "XBrowser uses your location only when Location is set to Ask and a website requests it.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "XBrowser uses your location only when Location is set to Current Location and a website requests GPS-like coordinates.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XBrowser needs access to save screenshots to your photo library.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -1225,7 +1205,7 @@
 				INFOPLIST_FILE = MMBrowser/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = XBrowser;
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "XBrowser uses Face ID to unlock the app.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "XBrowser uses your location only when Location is set to Ask and a website requests it.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "XBrowser uses your location only when Location is set to Current Location and a website requests GPS-like coordinates.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XBrowser needs access to save screenshots to your photo library.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;

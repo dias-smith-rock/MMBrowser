@@ -386,8 +386,17 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
             }
             tableView.reloadSections(IndexSet(integer: indexPath.section), with: .none)
         case .mode:
-            draft.locationMode = LocationPrivacyMode.allCases[indexPath.row]
-            tableView.reloadData()
+            let mode = LocationPrivacyMode.allCases[indexPath.row]
+            if mode == .ask {
+                LocationPermissionHelper.shared.handleCurrentLocationSelection(from: self) { [weak self] _ in
+                    guard let self else { return }
+                    self.draft.locationMode = .ask
+                    self.tableView.reloadData()
+                }
+            } else {
+                draft.locationMode = mode
+                tableView.reloadData()
+            }
         case .spoofPreset:
             apply(preset: SpoofLocationPreset.all[indexPath.row])
         case .spoofCustom:

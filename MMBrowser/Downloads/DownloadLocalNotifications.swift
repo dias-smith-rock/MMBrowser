@@ -32,12 +32,8 @@ final class DownloadLocalNotifications: NSObject, UNUserNotificationCenterDelega
         center.setNotificationCategories([category])
     }
 
-    /// Prompt only when the user turns the setting on or starts a download.
+    /// Prompt when a download starts so completion alerts can appear in the background.
     func requestAuthorizationIfNeeded(completion: ((Bool) -> Void)? = nil) {
-        guard AppSettings.downloadCompletionNotificationsEnabled else {
-            completion?(false)
-            return
-        }
         let center = UNUserNotificationCenter.current()
         center.getNotificationSettings { settings in
             switch settings.authorizationStatus {
@@ -56,7 +52,6 @@ final class DownloadLocalNotifications: NSObject, UNUserNotificationCenterDelega
     }
 
     func postFinished(_ item: DownloadItem) {
-        guard AppSettings.downloadCompletionNotificationsEnabled else { return }
         guard item.status == .completed || item.status == .failed else { return }
 
         let content = UNMutableNotificationContent()

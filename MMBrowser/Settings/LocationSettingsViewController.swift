@@ -1,7 +1,7 @@
 import MapKit
 import UIKit
 
-/// Location privacy: Deny / Spoof / Ask. Spoof does not change network IP.
+/// Location privacy: Deny / Spoof / Current Location. Spoof does not change network IP.
 final class LocationSettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private enum Section: Int, CaseIterable { case mode, spoofPreset, spoofCustom, note }
@@ -117,12 +117,16 @@ final class LocationSettingsViewController: UIViewController, UITableViewDataSou
         switch Section(rawValue: indexPath.section)! {
         case .mode:
             let mode = LocationPrivacyMode.allCases[indexPath.row]
-            AppSettings.locationPrivacyMode = mode
-            if mode == .spoof, AppSettings.spoofPresetID.isEmpty {
-                applyPreset(SpoofLocationPreset.all[0])
+            if mode == .ask {
+                selectCurrentLocation()
+            } else {
+                AppSettings.locationPrivacyMode = mode
+                if mode == .spoof, AppSettings.spoofPresetID.isEmpty {
+                    applyPreset(SpoofLocationPreset.all[0])
+                }
+                notify()
+                tableView.reloadData()
             }
-            notify()
-            tableView.reloadData()
         case .spoofPreset:
             applyPreset(SpoofLocationPreset.all[indexPath.row])
             notify()
@@ -139,6 +143,15 @@ final class LocationSettingsViewController: UIViewController, UITableViewDataSou
         return !SpoofLocationPreset.all.contains {
             abs(AppSettings.spoofLatitude - $0.latitude) < 0.0001
                 && abs(AppSettings.spoofLongitude - $0.longitude) < 0.0001
+        }
+    }
+
+    private func selectCurrentLocation() {
+        LocationPermissionHelper.shared.handleCurrentLocationSelection(from: self) { [weak self] _ in
+            guard let self else { return }
+            AppSettings.locationPrivacyMode = .ask
+            self.notify()
+            self.tableView.reloadData()
         }
     }
 

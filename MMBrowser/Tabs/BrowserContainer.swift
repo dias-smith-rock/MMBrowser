@@ -28,7 +28,7 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
     var locationSummary: String {
         switch locationMode {
         case .deny: return "Deny"
-        case .ask: return "Ask"
+        case .ask: return "Current Location"
         case .spoof:
             if let presetID = locationPresetID,
                let preset = SpoofLocationPreset.all.first(where: { $0.id == presetID }) {

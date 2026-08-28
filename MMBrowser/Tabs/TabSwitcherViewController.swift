@@ -43,6 +43,9 @@ final class TabSwitcherViewController: UIViewController {
     private weak var historyHeaderButton: UIButton?
     private var searchQuery = ""
     private var surface: Surface
+    /// Account IDs whose tab grids are expanded on the Accounts overview.
+    private var expandedAccountIDs: Set<UUID> = []
+    private var didSeedAccountExpansion = false
 
     init(tabManager: TabManager) {
         self.tabManager = tabManager
@@ -52,6 +55,11 @@ final class TabSwitcherViewController: UIViewController {
             self.surface = .accounts
         }
         super.init(nibName: nil, bundle: nil)
+    }
+
+    private var currentAccountID: UUID {
+        tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
+            ?? tabManager.resolvedLastActiveContainerID
     }
 
     required init?(coder: NSCoder) { fatalError() }
@@ -453,20 +461,62 @@ final class TabSwitcherViewController: UIViewController {
         }
         guard showsAccountOverview else { return }
 
+        let currentID = currentAccountID
+        if !didSeedAccountExpansion {
+            expandedAccountIDs = [currentID]
+            didSeedAccountExpansion = true
+        }
+
+        let contentWidth = max(view.bounds.width - 32, UIScreen.main.bounds.width - 32)
         for container in tabManager.sortedContainers {
             let tabs = tabManager.normalTabs.filter { $0.containerID == container.id }
-            let card = AccountGroupCardView()
-            card.configure(
+            let expanded = expandedAccountIDs.contains(container.id)
+            let section = AccountSectionView()
+            section.configure(
+                containerID: container.id,
                 name: container.name,
                 color: tabManager.accountColor(forContainer: container.id),
-                tabCount: tabs.count,
-                previews: tabs.prefix(2).compactMap { AppSettings.showTabsPreviewImages ? $0.snapshot : nil }
+                tabs: tabs,
+                selectedTabID: tabManager.selectedTab?.id,
+                isCurrentAccount: container.id == currentID,
+                isExpanded: expanded,
+                contentWidth: contentWidth,
+                containerNameProvider: { [weak self] tab in
+                    self?.tabManager.containerName(for: tab) ?? ""
+                },
+                accountColorProvider: { [weak self] tab in
+                    self?.tabManager.accountColor(for: tab) ?? BrowserTheme.chromeBlue
+                }
             )
-            card.addAction(UIAction { [weak self] _ in
-                self?.presentAccountPopup(containerID: container.id)
-            }, for: .touchUpInside)
-            accountsStack.addArrangedSubview(card)
-            card.snp.makeConstraints { $0.height.equalTo(88) }
+            section.onToggleExpanded = { [weak self] id in
+                guard let self else { return }
+                if self.expandedAccountIDs.contains(id) {
+                    self.expandedAccountIDs.remove(id)
+                } else {
+                    self.expandedAccountIDs.insert(id)
+                }
+                self.rebuildAccountCards()
+            }
+            section.onSelectTab = { [weak self] tabID in
+                guard let self else { return }
+                self.tabManager.selectTab(id: tabID)
+                self.delegate?.tabSwitcherDidClose()
+            }
+            section.onCloseTab = { [weak self] tabID in
+                guard let self else { return }
+                self.tabManager.closeTab(id: tabID)
+                self.reload()
+                if self.tabManager.tabs.isEmpty {
+                    self.delegate?.tabSwitcherDidClose()
+                }
+            }
+            section.onMoveGroup = { [weak self] tab in
+                self?.promptMoveGroup(for: tab)
+            }
+            section.onOpenAccountSheet = { [weak self] id in
+                self?.presentAccountPopup(containerID: id)
+            }
+            accountsStack.addArrangedSubview(section)
         }
     }
 
@@ -624,6 +674,10 @@ final class TabSwitcherViewController: UIViewController {
             }
         } else if let tab = tabManager.normalTabs.sorted(by: { $0.lastAccessed > $1.lastAccessed }).first {
             tabManager.selectTab(id: tab.id)
+        }
+        if surface == .accounts {
+            expandedAccountIDs = [currentAccountID]
+            didSeedAccountExpansion = true
         }
         reload()
     }
@@ -984,9 +1038,17 @@ extension TabSwitcherViewController: AccountTabsPopupDelegate {
     }
 }
 
-// MARK: - Account card
+// MARK: - Account section (expandable)
 
-private final class AccountGroupCardView: UIControl {
+private final class AccountSectionView: UIView, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
+    var onToggleExpanded: ((UUID) -> Void)?
+    var onSelectTab: ((UUID) -> Void)?
+    var onCloseTab: ((UUID) -> Void)?
+    var onMoveGroup: ((BrowserTab) -> Void)?
+    var onOpenAccountSheet: ((UUID) -> Void)?
+
+    private let card = UIView()
+    private let headerButton = UIButton(type: .custom)
     private let previewWell = UIView()
     private let previewA = UIImageView()
     private let previewB = UIImageView()
@@ -994,12 +1056,31 @@ private final class AccountGroupCardView: UIControl {
     private let dot = UIView()
     private let titleLabel = UILabel()
     private let subtitleLabel = UILabel()
+    private let chevron = UIImageView()
+    private var collectionView: UICollectionView!
+    private var collectionHeightConstraint: Constraint?
+
+    private var containerID: UUID = UUID()
+    private var tabs: [BrowserTab] = []
+    private var selectedTabID: UUID?
+    private var containerNameProvider: ((BrowserTab) -> String)?
+    private var accountColorProvider: ((BrowserTab) -> UIColor)?
+    private var accountColor: UIColor = BrowserTheme.chromeBlue
+    private var isExpanded = false
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        backgroundColor = BrowserTheme.card
-        layer.cornerRadius = 18
-        clipsToBounds = true
+
+        card.backgroundColor = BrowserTheme.card
+        card.layer.cornerRadius = 18
+        card.clipsToBounds = true
+        addSubview(card)
+        card.snp.makeConstraints { $0.edges.equalToSuperview() }
+
+        headerButton.accessibilityLabel = "Account"
+        headerButton.addTarget(self, action: #selector(headerTapped), for: .touchUpInside)
+        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(headerLongPressed(_:)))
+        headerButton.addGestureRecognizer(longPress)
 
         previewWell.backgroundColor = BrowserTheme.secondaryCard
         previewWell.layer.cornerRadius = 12
@@ -1021,17 +1102,43 @@ private final class AccountGroupCardView: UIControl {
 
         titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
         titleLabel.textColor = BrowserTheme.textPrimary
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
         subtitleLabel.font = .systemFont(ofSize: 13, weight: .medium)
         subtitleLabel.textColor = BrowserTheme.textSecondary
 
-        addSubview(previewWell)
+        chevron.contentMode = .scaleAspectFit
+        chevron.tintColor = BrowserTheme.textSecondary
+        chevron.setContentHuggingPriority(.required, for: .horizontal)
+        chevron.setContentCompressionResistancePriority(.required, for: .horizontal)
+        chevron.isUserInteractionEnabled = false
+
+        let layout = UICollectionViewFlowLayout()
+        layout.minimumLineSpacing = TabGridMetrics.spacing
+        layout.minimumInteritemSpacing = TabGridMetrics.spacing
+        layout.sectionInset = UIEdgeInsets(top: 0, left: 12, bottom: 12, right: 12)
+        collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView.backgroundColor = .clear
+        collectionView.isScrollEnabled = false
+        collectionView.dataSource = self
+        collectionView.delegate = self
+        collectionView.register(TabGridCell.self, forCellWithReuseIdentifier: TabGridCell.reuseID)
+
+        card.addSubview(headerButton)
+        headerButton.addSubview(previewWell)
         previewWell.addSubview(previewA)
         previewWell.addSubview(previewB)
         previewWell.addSubview(placeholderIcon)
-        addSubview(dot)
-        addSubview(titleLabel)
-        addSubview(subtitleLabel)
+        headerButton.addSubview(dot)
+        headerButton.addSubview(titleLabel)
+        headerButton.addSubview(subtitleLabel)
+        headerButton.addSubview(chevron)
+        card.addSubview(collectionView)
 
+        headerButton.snp.makeConstraints { make in
+            make.top.leading.trailing.equalToSuperview()
+            make.height.equalTo(88)
+        }
         previewWell.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(12)
             make.centerY.equalToSuperview()
@@ -1046,6 +1153,11 @@ private final class AccountGroupCardView: UIControl {
             make.center.equalToSuperview()
             make.size.equalTo(28)
         }
+        chevron.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().offset(-16)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(CGSize(width: 14, height: 20))
+        }
         dot.snp.makeConstraints { make in
             make.leading.equalTo(previewWell.snp.trailing).offset(14)
             make.top.equalToSuperview().offset(28)
@@ -1054,23 +1166,88 @@ private final class AccountGroupCardView: UIControl {
         titleLabel.snp.makeConstraints { make in
             make.leading.equalTo(dot.snp.trailing).offset(8)
             make.centerY.equalTo(dot)
-            make.trailing.equalToSuperview().offset(-16)
+            make.trailing.lessThanOrEqualTo(chevron.snp.leading).offset(-10)
         }
         subtitleLabel.snp.makeConstraints { make in
             make.leading.equalTo(dot)
             make.top.equalTo(titleLabel.snp.bottom).offset(4)
-            make.trailing.equalToSuperview().offset(-16)
+            make.trailing.lessThanOrEqualTo(chevron.snp.leading).offset(-10)
+        }
+        collectionView.snp.makeConstraints { make in
+            make.top.equalTo(headerButton.snp.bottom)
+            make.leading.trailing.bottom.equalToSuperview()
+            collectionHeightConstraint = make.height.equalTo(0).constraint
         }
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(name: String, color: UIColor, tabCount: Int, previews: [UIImage]) {
-        titleLabel.text = name
-        subtitleLabel.text = tabCount == 1 ? "1 tab" : "\(tabCount) tabs"
-        dot.backgroundColor = color
+    func configure(
+        containerID: UUID,
+        name: String,
+        color: UIColor,
+        tabs: [BrowserTab],
+        selectedTabID: UUID?,
+        isCurrentAccount: Bool,
+        isExpanded: Bool,
+        contentWidth: CGFloat,
+        containerNameProvider: @escaping (BrowserTab) -> String,
+        accountColorProvider: @escaping (BrowserTab) -> UIColor
+    ) {
+        self.containerID = containerID
+        self.tabs = tabs
+        self.selectedTabID = selectedTabID
+        self.accountColor = color
+        self.isExpanded = isExpanded
+        self.containerNameProvider = containerNameProvider
+        self.accountColorProvider = accountColorProvider
 
-        let images = Array(previews.prefix(2))
+        titleLabel.text = name
+        subtitleLabel.text = tabs.count == 1 ? "1 tab" : "\(tabs.count) tabs"
+        dot.backgroundColor = color
+        headerButton.accessibilityLabel = name
+        headerButton.accessibilityHint = isExpanded ? "Collapse tabs" : "Expand tabs"
+
+        chevron.image = UIImage(
+            systemName: isExpanded ? "chevron.down" : "chevron.right",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+        )
+
+        card.layer.borderWidth = isCurrentAccount ? 2 : 0
+        card.layer.borderColor = color.cgColor
+        if isCurrentAccount {
+            card.backgroundColor = color.withAlphaComponent(0.12)
+        } else {
+            card.backgroundColor = BrowserTheme.card
+        }
+
+        let previews = tabs.prefix(2).compactMap { AppSettings.showTabsPreviewImages ? $0.snapshot : nil }
+        applyHeaderPreviews(Array(previews))
+
+        let gridHeight: CGFloat
+        if isExpanded, !tabs.isEmpty {
+            let metrics = TabGridMetrics.layout(forContainerWidth: contentWidth)
+            let rows = Int(ceil(Double(tabs.count) / Double(metrics.columns)))
+            let inset = UIEdgeInsets(top: 0, left: 12, bottom: 12, right: 12)
+            gridHeight = CGFloat(rows) * metrics.itemSize.height
+                + CGFloat(max(0, rows - 1)) * TabGridMetrics.spacing
+                + inset.top + inset.bottom
+            collectionView.isHidden = false
+            collectionView.alpha = 1
+        } else if isExpanded {
+            gridHeight = 8
+            collectionView.isHidden = true
+            collectionView.alpha = 0
+        } else {
+            gridHeight = 0
+            collectionView.isHidden = true
+            collectionView.alpha = 0
+        }
+        collectionHeightConstraint?.update(offset: gridHeight)
+        collectionView.reloadData()
+    }
+
+    private func applyHeaderPreviews(_ images: [UIImage]) {
         if images.isEmpty {
             previewA.image = nil
             previewB.isHidden = true
@@ -1090,8 +1267,67 @@ private final class AccountGroupCardView: UIControl {
         }
     }
 
-    override var isHighlighted: Bool {
-        didSet { alpha = isHighlighted ? 0.85 : 1 }
+    @objc private func headerTapped() {
+        onToggleExpanded?(containerID)
+    }
+
+    @objc private func headerLongPressed(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began else { return }
+        onOpenAccountSheet?(containerID)
+    }
+
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
+        isExpanded ? tabs.count : 0
+    }
+
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: TabGridCell.reuseID, for: indexPath) as! TabGridCell
+        let tab = tabs[indexPath.item]
+        cell.configure(
+            tab: tab,
+            containerName: containerNameProvider?(tab) ?? "",
+            accountColor: accountColorProvider?(tab) ?? accountColor,
+            selected: tab.id == selectedTabID
+        )
+        cell.onClose = { [weak self] in
+            self?.onCloseTab?(tab.id)
+        }
+        cell.onMoveGroup = { [weak self] in
+            self?.onMoveGroup?(tab)
+        }
+        return cell
+    }
+
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        onSelectTab?(tabs[indexPath.item].id)
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        layout collectionViewLayout: UICollectionViewLayout,
+        sizeForItemAt indexPath: IndexPath
+    ) -> CGSize {
+        TabGridMetrics.layout(forContainerWidth: collectionView.bounds.width > 0
+            ? collectionView.bounds.width
+            : bounds.width).itemSize
+    }
+
+    func collectionView(
+        _ collectionView: UICollectionView,
+        contextMenuConfigurationForItemAt indexPath: IndexPath,
+        point: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        let tab = tabs[indexPath.item]
+        return UIContextMenuConfiguration(identifier: tab.id.uuidString as NSString, previewProvider: nil) { [weak self] _ in
+            UIMenu(title: "", children: [
+                UIAction(title: "Move to Account", image: UIImage(systemName: "folder")) { [weak self] _ in
+                    self?.onMoveGroup?(tab)
+                },
+                UIAction(title: "Close Tab", image: UIImage(systemName: "xmark"), attributes: .destructive) { [weak self] _ in
+                    self?.onCloseTab?(tab.id)
+                }
+            ])
+        }
     }
 }
 
@@ -1264,8 +1500,9 @@ final class TabGridCell: UICollectionViewCell {
             preview.image = nil
             placeholder.isHidden = false
         }
-        card.layer.borderWidth = selected ? 2 : 0
-        card.layer.borderColor = accountColor.cgColor
+        // Always outline cards; selected uses a stronger stroke.
+        card.layer.borderWidth = selected ? 2.5 : 1.5
+        card.layer.borderColor = (selected ? accountColor : accountColor.withAlphaComponent(0.55)).cgColor
     }
 
     private func upgradePreviewToStandard(for tabID: UUID) {

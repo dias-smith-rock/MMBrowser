@@ -26,7 +26,7 @@ final class IsolatedVsSharedViewController: UIViewController {
         ))
         stack.addArrangedSubview(makeBlock(
             title: "Location spoof",
-            body: "Per-account location Deny / Ask / Spoof only affects browser geolocation APIs. It does not change your network IP address."
+            body: "Per-account location Deny / Current Location / Spoof only affects browser geolocation APIs. It does not change your network IP address."
         ))
         stack.addArrangedSubview(makeBlock(
             title: "Clear Option",

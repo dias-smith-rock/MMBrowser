@@ -88,7 +88,7 @@ enum AppSettings {
     }
 
     static var searchEngineID: String {
-        get { d.string(forKey: "search.engine") ?? SearchEngine.duckDuckGo.id }
+        get { d.string(forKey: "search.engine") ?? SearchEngine.google.id }
         set { d.set(newValue, forKey: "search.engine") }
     }
 
@@ -182,30 +182,12 @@ enum AppSettings {
     static var locationSummary: String {
         switch locationPrivacyMode {
         case .deny: return "Deny"
-        case .ask: return "Ask"
+        case .ask: return "Current Location"
         case .spoof:
             if let preset = SpoofLocationPreset.all.first(where: { $0.id == spoofPresetID }) {
                 return "Spoof · \(preset.name)"
             }
             return String(format: "Spoof · %.2f, %.2f", spoofLatitude, spoofLongitude)
-        }
-    }
-
-    /// One-finger Hook → / ← navigation. Default on.
-    static var navigationSwipeEnabled: Bool {
-        get { d.object(forKey: "gesture.navSwipe.enabled") == nil ? true : d.bool(forKey: "gesture.navSwipe.enabled") }
-        set {
-            d.set(newValue, forKey: "gesture.navSwipe.enabled")
-            NotificationCenter.default.post(name: .gestureSettingsChanged, object: nil)
-        }
-    }
-
-    /// One-finger Hook ○ (circle) gesture. Default on.
-    static var drawingGesturesEnabled: Bool {
-        get { d.object(forKey: "gesture.drawing.enabled") == nil ? true : d.bool(forKey: "gesture.drawing.enabled") }
-        set {
-            d.set(newValue, forKey: "gesture.drawing.enabled")
-            NotificationCenter.default.post(name: .gestureSettingsChanged, object: nil)
         }
     }
 
@@ -266,12 +248,6 @@ enum AppSettings {
         get { d.object(forKey: "clear.showTabPreviews") == nil ? true : d.bool(forKey: "clear.showTabPreviews") }
         set { setClearOption(newValue, forKey: "clear.showTabPreviews") }
     }
-
-    /// Local notification when a download finishes (or fails) in the background. Default on.
-    static var downloadCompletionNotificationsEnabled: Bool {
-        get { d.object(forKey: "downloads.notify") == nil ? true : d.bool(forKey: "downloads.notify") }
-        set { d.set(newValue, forKey: "downloads.notify") }
-    }
 }
 
 extension Notification.Name {
@@ -285,7 +261,6 @@ extension Notification.Name {
     static let youtubeAdShieldChanged = Notification.Name("mmbrowser.yt.adshield.changed")
     static let mediaPlaybackSettingsChanged = Notification.Name("mmbrowser.media.changed")
     static let locationPrivacyChanged = Notification.Name("mmbrowser.location.changed")
-    static let gestureSettingsChanged = Notification.Name("mmbrowser.gesture.changed")
     static let clearOptionSettingsChanged = Notification.Name("mmbrowser.clearOption.changed")
     /// Posted after scheduled clear so the browser can close tabs if configured.
     static let clearOptionSessionCleanup = Notification.Name("mmbrowser.clearOption.sessionCleanup")

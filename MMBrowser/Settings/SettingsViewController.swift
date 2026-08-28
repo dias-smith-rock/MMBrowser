@@ -1,9 +1,18 @@
 import UIKit
 import SnapKit
+import SafariServices
 
 final class SettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
-    private enum Section: Int, CaseIterable { case privacy, accounts, clearOption, tools, youtube, media, downloads, gestures, search, home, about }
+    private enum Section: Int, CaseIterable { case privacy, accounts, clearOption, tools, youtube, media, search, home, about }
+
+    private enum AboutLinks {
+        static let privacy = URL(string: "https://xxxxxbrowser.cc/privacy.html")!
+        static let terms = URL(string: "https://xxxxxbrowser.cc/terms.html")!
+        static let rateUs = URL(string: "https://apps.apple.com/app/id6804914972?action=write-review")!
+        static let contactUs = URL(string: "mailto:gaowei85714@gmail.com")!
+    }
+
     var onRequestRebuildWebViews: (() -> Void)?
     var onAccountsChanged: (() -> Void)?
     weak var tabManager: TabManager?
@@ -60,11 +69,9 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .tools: return 1
         case .youtube: return 2
         case .media: return 2
-        case .downloads: return 1
-        case .gestures: return 1
         case .search: return SearchEngine.all.count
         case .home: return 1
-        case .about: return 3
+        case .about: return 7
         }
     }
 
@@ -76,8 +83,6 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .tools: return "Tools"
         case .youtube: return "Focus & Video"
         case .media: return "Media"
-        case .downloads: return "Downloads"
-        case .gestures: return "Gestures"
         case .search: return "Search Engine"
         case .home: return "Appearance"
         case .about: return "About"
@@ -98,10 +103,6 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             return "Fewer YouTube interruptions is best-effort and may stop working when the site changes. Shorts Focus hides Shorts shelves and redirects Shorts links."
         case .media:
             return "Background audio keeps supported video sites playing when you leave the app. Picture in Picture requires system support."
-        case .downloads:
-            return "Get a notification when a download finishes or fails while the app is in the background."
-        case .gestures:
-            return "One-finger Hook → back, Hook ← forward, Hook ○ bookmark."
         default:
             return nil
         }
@@ -238,18 +239,6 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.addTarget(self, action: #selector(pipChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
             }
-        case .downloads:
-            cell.textLabel?.text = "Completion Alerts"
-            cell.detailTextLabel?.text = "Notify when downloads finish"
-            cell.selectionStyle = .none
-            let sw = UISwitch()
-            sw.isOn = AppSettings.downloadCompletionNotificationsEnabled
-            sw.addTarget(self, action: #selector(downloadNotifyChanged(_:)), for: .valueChanged)
-            cell.accessoryView = sw
-        case .gestures:
-            cell.textLabel?.text = "Gestures"
-            cell.detailTextLabel?.text = GestureActionMap.summary
-            cell.accessoryType = .disclosureIndicator
         case .search:
             let engine = SearchEngine.all[indexPath.row]
             cell.textLabel?.text = engine.name
@@ -268,8 +257,20 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 cell.textLabel?.text = "Filters"
                 cell.detailTextLabel?.text = FilterUpdateManager.shared.statusSummary
                 cell.accessoryType = .disclosureIndicator
-            default:
+            case 2:
                 cell.textLabel?.text = "What's New"
+                cell.accessoryType = .disclosureIndicator
+            case 3:
+                cell.textLabel?.text = "Privacy Policy"
+                cell.accessoryType = .disclosureIndicator
+            case 4:
+                cell.textLabel?.text = "Terms of Use"
+                cell.accessoryType = .disclosureIndicator
+            case 5:
+                cell.textLabel?.text = "Rate Us"
+                cell.accessoryType = .disclosureIndicator
+            default:
+                cell.textLabel?.text = "Contact Us"
                 cell.accessoryType = .disclosureIndicator
             }
         }
@@ -310,15 +311,14 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             navigationController?.pushViewController(ClearOptionSettingsViewController(), animated: true)
         case .tools:
             navigationController?.pushViewController(PageCleanerRulesViewController(), animated: true)
-        case .gestures:
-            navigationController?.pushViewController(GestureSettingsViewController(), animated: true)
         case .search:
             SearchEngineManager.setCurrent(SearchEngine.all[indexPath.row])
             tableView.reloadSections(IndexSet(integer: indexPath.section), with: .none)
         case .home:
             navigationController?.pushViewController(AppearanceSettingsViewController(), animated: true)
         case .about:
-            if indexPath.row == 1 {
+            switch indexPath.row {
+            case 1:
                 let alert = UIAlertController(
                     title: "Filters",
                     message: "Status: \(FilterUpdateManager.shared.statusSummary)\n\nFilters block page ads and trackers. YouTube video filters are updated when available so the app can recover after site changes.",
@@ -335,7 +335,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 })
                 alert.addAction(UIAlertAction(title: "OK", style: .cancel))
                 present(alert, animated: true)
-            } else if indexPath.row == 2 {
+            case 2:
                 let alert = UIAlertController(
                     title: "What's New",
                     message: "Accounts: separate logins with a switcher in the address bar, plus lock, clear, and tracker blocking. Webpage Cleaner, Reader Mode, Reading List, Downloads, and a home page you control.",
@@ -343,10 +343,26 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 )
                 alert.addAction(UIAlertAction(title: "OK", style: .default))
                 present(alert, animated: true)
+            case 3:
+                openLegalURL(AboutLinks.privacy)
+            case 4:
+                openLegalURL(AboutLinks.terms)
+            case 5:
+                UIApplication.shared.open(AboutLinks.rateUs)
+            case 6:
+                UIApplication.shared.open(AboutLinks.contactUs)
+            default:
+                break
             }
         default:
             break
         }
+    }
+
+    private func openLegalURL(_ url: URL) {
+        let safari = SFSafariViewController(url: url)
+        safari.preferredControlTintColor = BrowserTheme.chromeBlue
+        present(safari, animated: true)
     }
 
     @objc private func tpChanged(_ sw: UISwitch) {
@@ -376,21 +392,6 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     @objc private func pipChanged(_ sw: UISwitch) {
         AppSettings.pictureInPictureEnabled = sw.isOn
         Toast.show(sw.isOn ? "Picture in Picture on" : "Picture in Picture off", from: self)
-    }
-    @objc private func downloadNotifyChanged(_ sw: UISwitch) {
-        AppSettings.downloadCompletionNotificationsEnabled = sw.isOn
-        if sw.isOn {
-            DownloadLocalNotifications.shared.requestAuthorizationIfNeeded { [weak self] granted in
-                guard let self else { return }
-                if granted {
-                    Toast.show("Download alerts on", from: self)
-                } else {
-                    Toast.show("Allow notifications in Settings to get alerts", from: self)
-                }
-            }
-        } else {
-            Toast.show("Download alerts off", from: self)
-        }
     }
     @objc private func noImagesChanged(_ sw: UISwitch) {
         AppSettings.noImagesEnabled = sw.isOn
