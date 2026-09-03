@@ -1666,11 +1666,28 @@ extension BrowserViewController: WebViewControllerDelegate {
         present(alert, animated: true)
     }
 
+    func webViewController(_ controller: WebViewController, autoApplyComputerUserAgentFor siteName: String) {
+        guard tabManager.selectedTab?.webController === controller else { return }
+        guard let tab = tabManager.selectedTab else { return }
+        let host = (tab.url?.host ?? "").lowercased()
+        guard !host.isEmpty else { return }
+        // Remember the apex too so www / web dismissals stay in sync.
+        let apex = host.split(separator: ".").suffix(2).joined(separator: ".")
+        guard !tab.dismissedDesktopUAHintHosts.contains(host),
+              !tab.dismissedDesktopUAHintHosts.contains(apex) else { return }
+        guard !tab.userAgentSettings.looksLikeComputer else { return }
+        applyComputerUserAgent(to: tab)
+    }
+
     private func applyComputerUserAgent(to tab: BrowserTab) {
         let settings = TabUserAgentSettings(userAgentMode: .desktop, customUserAgent: nil)
         tab.applyUserAgentSettings(settings)
         if let host = tab.url?.host?.lowercased() {
             tab.dismissedDesktopUAHintHosts.insert(host)
+            let apex = host.split(separator: ".").suffix(2).joined(separator: ".")
+            if !apex.isEmpty {
+                tab.dismissedDesktopUAHintHosts.insert(apex)
+            }
         }
         tab.webController?.applyTabUserAgentSettings(settings)
         tabManager.persistSessionIfNeeded()

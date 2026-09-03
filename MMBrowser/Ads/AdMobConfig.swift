@@ -16,16 +16,10 @@ enum AdMobConfig {
     }
 
     #if DEBUG
-    /// Debug uses Google test units. Set UserDefaults `mmbrowser.debug.forceAds` to override.
-    /// - `true`: force ads even during the new-user window
-    /// - `false`: disable ads
-    /// - unset: normal rules (including 3-day ad-free)
+    /// Debug builds never load ads unless you explicitly opt in.
+    /// Set UserDefaults `mmbrowser.debug.forceAds` = `true` to test with Google sample units.
     static var adsEnabled: Bool {
-        if UserDefaults.standard.object(forKey: "mmbrowser.debug.forceAds") != nil {
-            return UserDefaults.standard.bool(forKey: "mmbrowser.debug.forceAds")
-        }
-        if isInNewUserAdFreePeriod { return false }
-        return true
+        UserDefaults.standard.bool(forKey: "mmbrowser.debug.forceAds")
     }
 
     static var appOpenAdUnitID: String {
@@ -54,7 +48,7 @@ enum AdMobConfig {
 
     static var coldStartEnabled: Bool {
         #if DEBUG
-        true
+        adsEnabled
         #else
         RemoteConfigManager.shared.isColdStartAdsEnabled
         #endif
@@ -62,7 +56,7 @@ enum AdMobConfig {
 
     static var hotStartEnabled: Bool {
         #if DEBUG
-        true
+        adsEnabled
         #else
         RemoteConfigManager.shared.isHotStartAdsEnabled
         #endif

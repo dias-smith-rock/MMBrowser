@@ -33,6 +33,8 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
     private var topState: PaneState
     private var bottomState: PaneState
     private var didClose = false
+    /// Pane that is currently editing User Agent via the picker sheet.
+    private var userAgentEditSide: Side?
 
     private enum Side { case top, bottom }
 
@@ -43,6 +45,11 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         var chrome: UIView?
         var accountButton: UIButton?
         var addressField: UITextField?
+        var progressView: UIProgressView?
+        var backButton: UIButton?
+        var forwardButton: UIButton?
+        var reloadButton: UIButton?
+        var pageSettingsButton: UIButton?
         var closePaneButton: UIButton?
         /// When set, `web` belongs to this tab and must not be destroyed on close.
         var borrowedTabID: UUID?
@@ -232,9 +239,53 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         closePaneButton.contentEdgeInsets = UIEdgeInsets(top: 6, left: 8, bottom: 6, right: 4)
         pane.closePaneButton = closePaneButton
 
+        let navConfig = UIImage.SymbolConfiguration(pointSize: 15, weight: .medium)
+        let backButton = makePaneChromeButton(
+            systemName: "chevron.backward",
+            config: navConfig,
+            side: side,
+            action: #selector(backTapped(_:)),
+            accessibilityLabel: "Back"
+        )
+        let forwardButton = makePaneChromeButton(
+            systemName: "chevron.forward",
+            config: navConfig,
+            side: side,
+            action: #selector(forwardTapped(_:)),
+            accessibilityLabel: "Forward"
+        )
+        let reloadButton = makePaneChromeButton(
+            systemName: "arrow.clockwise",
+            config: navConfig,
+            side: side,
+            action: #selector(reloadTapped(_:)),
+            accessibilityLabel: "Reload"
+        )
+        pane.backButton = backButton
+        pane.forwardButton = forwardButton
+        pane.reloadButton = reloadButton
+
+        let pageSettingsButton = UIButton(type: .system)
+        let ellipsisConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)
+        pageSettingsButton.setImage(UIImage(systemName: "ellipsis.circle", withConfiguration: ellipsisConfig), for: .normal)
+        pageSettingsButton.tintColor = BrowserTheme.textPrimary
+        pageSettingsButton.tag = side == .top ? 0 : 1
+        pageSettingsButton.accessibilityLabel = "Page settings"
+        pageSettingsButton.setContentHuggingPriority(.required, for: .horizontal)
+        pageSettingsButton.contentEdgeInsets = UIEdgeInsets(top: 6, left: 6, bottom: 6, right: 6)
+        pageSettingsButton.showsMenuAsPrimaryAction = true
+        pageSettingsButton.menu = makePageSettingsMenu(for: side)
+        pane.pageSettingsButton = pageSettingsButton
+
         row.addArrangedSubview(accountButton)
         row.addArrangedSubview(UIView())
+        row.addArrangedSubview(backButton)
+        row.addArrangedSubview(forwardButton)
+        row.addArrangedSubview(reloadButton)
+        row.addArrangedSubview(pageSettingsButton)
         row.addArrangedSubview(closePaneButton)
+
+        refreshNavButtons(side: side)
 
         let address = UITextField()
         address.placeholder = "Search or enter address"
@@ -257,8 +308,28 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         address.snp.makeConstraints { $0.height.equalTo(34) }
         pane.addressField = address
 
+        let addressBlock = UIView()
+        addressBlock.addSubview(address)
+        address.snp.makeConstraints { make in
+            make.top.leading.trailing.equalToSuperview()
+            make.height.equalTo(34)
+        }
+
+        let progressView = UIProgressView(progressViewStyle: .bar)
+        progressView.progressTintColor = BrowserTheme.chromeBlue
+        progressView.trackTintColor = .clear
+        progressView.isHidden = true
+        progressView.progress = 0
+        addressBlock.addSubview(progressView)
+        progressView.snp.makeConstraints { make in
+            make.top.equalTo(address.snp.bottom)
+            make.leading.trailing.bottom.equalToSuperview()
+            make.height.equalTo(2)
+        }
+        pane.progressView = progressView
+
         chrome.addArrangedSubview(row)
-        chrome.addArrangedSubview(address)
+        chrome.addArrangedSubview(addressBlock)
         chrome.snp.makeConstraints { make in
             make.top.leading.trailing.equalToSuperview()
         }
@@ -266,6 +337,24 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
 
         installWeb(in: pane, url: startURL)
         return wrap
+    }
+
+    private func makePaneChromeButton(
+        systemName: String,
+        config: UIImage.SymbolConfiguration,
+        side: Side,
+        action: Selector,
+        accessibilityLabel: String
+    ) -> UIButton {
+        let button = UIButton(type: .system)
+        button.setImage(UIImage(systemName: systemName, withConfiguration: config), for: .normal)
+        button.tintColor = BrowserTheme.textPrimary
+        button.tag = side == .top ? 0 : 1
+        button.addTarget(self, action: action, for: .touchUpInside)
+        button.accessibilityLabel = accessibilityLabel
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        button.contentEdgeInsets = UIEdgeInsets(top: 6, left: 4, bottom: 6, right: 4)
+        return button
     }
 
     private func refreshAccountButton(side: Side) {
@@ -279,6 +368,9 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
     private func installWeb(in pane: PaneState, url: URL) {
         restoreBorrowedWeb(from: pane)
         if pane.borrowedTabID == nil {
+            pane.web?.onNavigationStateChanged = nil
+            pane.web?.onURLChanged = nil
+            pane.web?.onProgressChanged = nil
             pane.web?.cleanup()
         }
         pane.web?.willMove(toParent: nil)
@@ -315,6 +407,7 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         }
         web.didMove(toParent: self)
         pane.web = web
+        wirePaneWebCallbacks(side: side(for: pane), pane: pane)
 
         let currentHost = web.webView?.url?.host
         let targetHost = url.host
@@ -324,6 +417,125 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
             web.load(url: url)
             pane.addressField?.text = url.absoluteString
         }
+        refreshNavButtons(for: pane)
+    }
+
+    private func side(for pane: PaneState) -> Side {
+        pane === topState ? .top : .bottom
+    }
+
+    private func wirePaneWebCallbacks(side: Side, pane: PaneState) {
+        guard let web = pane.web else { return }
+        web.onNavigationStateChanged = { [weak self] canGoBack, canGoForward in
+            guard let self else { return }
+            let current = self.state(for: side)
+            guard current.web === web else { return }
+            self.applyNavButtonState(to: current, canGoBack: canGoBack, canGoForward: canGoForward)
+        }
+        web.onURLChanged = { [weak self] url in
+            guard let self else { return }
+            let current = self.state(for: side)
+            guard current.web === web else { return }
+            if let url {
+                current.addressField?.text = url.absoluteString
+            }
+        }
+        web.onProgressChanged = { [weak self] progress, isLoading in
+            guard let self else { return }
+            let current = self.state(for: side)
+            guard current.web === web else { return }
+            self.applyProgress(to: current, progress: progress, isLoading: isLoading)
+        }
+        refreshNavButtons(for: pane)
+    }
+
+    private func applyProgress(to pane: PaneState, progress: Double, isLoading: Bool) {
+        let activelyLoading = isLoading && progress < 1
+        guard let progressView = pane.progressView else { return }
+        if !activelyLoading {
+            progressView.isHidden = true
+            progressView.setProgress(0, animated: false)
+            return
+        }
+        // Avoid animating every WKWebView progress tick — it stalls chrome taps while loading.
+        let next = Float(max(progress, 0.02))
+        if progressView.isHidden {
+            progressView.isHidden = false
+            progressView.setProgress(next, animated: false)
+            return
+        }
+        if abs(progressView.progress - next) >= 0.04 || next >= 0.99 {
+            progressView.setProgress(next, animated: false)
+        }
+    }
+
+    private func makePageSettingsMenu(for side: Side) -> UIMenu {
+        // Build actions when opened so titles stay fresh without presenting a modal sheet
+        // (UIAlertController + WKWebView loading both fight the main thread).
+        UIMenu(title: "Page Settings", children: [
+            UIDeferredMenuElement.uncached { [weak self] completion in
+                guard let self else {
+                    completion([])
+                    return
+                }
+                let pane = self.state(for: side)
+                let modeName = self.currentUserAgentSettings(for: pane).userAgentMode.displayName
+                completion([
+                    UIAction(
+                        title: "User Agent: \(modeName)",
+                        image: UIImage(systemName: "desktopcomputer")
+                    ) { [weak self] _ in
+                        self?.presentUserAgentPicker(for: side)
+                    },
+                    UIAction(
+                        title: "Find on Page",
+                        image: UIImage(systemName: "magnifyingglass")
+                    ) { [weak self] _ in
+                        self?.state(for: side).web?.showFindInPage()
+                    },
+                    UIAction(
+                        title: "Reload",
+                        image: UIImage(systemName: "arrow.clockwise")
+                    ) { [weak self] _ in
+                        self?.state(for: side).web?.reload()
+                    }
+                ])
+            }
+        ])
+    }
+
+    private func refreshNavButtons(side: Side) {
+        refreshNavButtons(for: state(for: side))
+    }
+
+    private func refreshNavButtons(for pane: PaneState) {
+        applyNavButtonState(
+            to: pane,
+            canGoBack: pane.web?.canGoBack ?? false,
+            canGoForward: pane.web?.canGoForward ?? false
+        )
+    }
+
+    private func applyNavButtonState(to pane: PaneState, canGoBack: Bool, canGoForward: Bool) {
+        pane.backButton?.isEnabled = canGoBack
+        pane.backButton?.alpha = canGoBack ? 1 : 0.35
+        pane.forwardButton?.isEnabled = canGoForward
+        pane.forwardButton?.alpha = canGoForward ? 1 : 0.35
+    }
+
+    @objc private func backTapped(_ sender: UIButton) {
+        let side: Side = sender.tag == 0 ? .top : .bottom
+        state(for: side).web?.goBack()
+    }
+
+    @objc private func forwardTapped(_ sender: UIButton) {
+        let side: Side = sender.tag == 0 ? .top : .bottom
+        state(for: side).web?.goForward()
+    }
+
+    @objc private func reloadTapped(_ sender: UIButton) {
+        let side: Side = sender.tag == 0 ? .top : .bottom
+        state(for: side).web?.reload()
     }
 
     private func tabToBorrow(for container: BrowserContainer) -> BrowserTab? {
@@ -346,6 +558,9 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
 
     private func restoreBorrowedWeb(from pane: PaneState) {
         guard let tabID = pane.borrowedTabID, let web = pane.web else { return }
+        web.onNavigationStateChanged = nil
+        web.onURLChanged = nil
+        web.onProgressChanged = nil
         pane.borrowedTabID = nil
         pane.web = nil
         web.willMove(toParent: nil)
@@ -370,6 +585,47 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         tabManager.sortedContainers.filter {
             $0.id != otherID
         }
+    }
+
+    private func currentUserAgentSettings(for pane: PaneState) -> TabUserAgentSettings {
+        if let tabID = pane.borrowedTabID,
+           let tab = tabManager.tabs.first(where: { $0.id == tabID }) {
+            return tab.userAgentSettings
+        }
+        if let web = pane.web {
+            return web.currentUserAgentSettings
+        }
+        return tabManager.userAgentSettings(forContainer: pane.container.id)
+    }
+
+    private func presentUserAgentPicker(for side: Side) {
+        let pane = state(for: side)
+        userAgentEditSide = side
+        let picker = TabUserAgentPickerViewController(
+            settings: currentUserAgentSettings(for: pane),
+            isIncognito: false
+        )
+        picker.delegate = self
+        let nav = UINavigationController(rootViewController: picker)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        nav.modalPresentationStyle = .pageSheet
+        if let sheet = nav.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+        }
+        present(nav, animated: true)
+    }
+
+    private func applyUserAgentSettings(_ settings: TabUserAgentSettings, to side: Side) {
+        let pane = state(for: side)
+        if let tabID = pane.borrowedTabID,
+           let tab = tabManager.tabs.first(where: { $0.id == tabID }) {
+            tab.applyUserAgentSettings(settings)
+            tabManager.persistSessionIfNeeded()
+        }
+        pane.web?.applyTabUserAgentSettings(settings)
+        Toast.show("This pane looks like: \(settings.userAgentMode.displayName)", from: self)
     }
 
     @objc private func accountTapped(_ sender: UIButton) {
@@ -504,6 +760,19 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
                 return nav.viewControllers.compactMap({ $0 as? BrowserViewController }).first
             }
             return root.children.compactMap({ $0 as? BrowserViewController }).first
+        }
+    }
+}
+
+extension DualAccountCompareViewController: TabUserAgentPickerDelegate {
+    func tabUserAgentPicker(_ picker: TabUserAgentPickerViewController, didSelect settings: TabUserAgentSettings) {
+        guard let side = userAgentEditSide else {
+            picker.dismiss(animated: true)
+            return
+        }
+        userAgentEditSide = nil
+        picker.dismiss(animated: true) { [weak self] in
+            self?.applyUserAgentSettings(settings, to: side)
         }
     }
 }

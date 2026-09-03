@@ -6,14 +6,18 @@ enum DesktopUAHint {
         let displayName: String
         let hostSuffixes: [String]
         let loginPathTokens: [String]
+        /// When true, apply Computer UA immediately (no login-page probe / alert).
+        let autoApplyComputerUserAgent: Bool
         let probeJavaScript: String
     }
 
     static let sites: [Site] = [
         Site(
             displayName: "WhatsApp Web",
-            hostSuffixes: ["web.whatsapp.com"],
+            // Matches whatsapp.com, www.whatsapp.com, web.whatsapp.com, …
+            hostSuffixes: ["whatsapp.com"],
             loginPathTokens: ["/mobile", "/lite"],
+            autoApplyComputerUserAgent: true,
             probeJavaScript: """
             (function() {
               try {
@@ -37,6 +41,7 @@ enum DesktopUAHint {
             displayName: "Telegram Web",
             hostSuffixes: ["web.telegram.org", "webk.telegram.org", "webz.telegram.org"],
             loginPathTokens: [],
+            autoApplyComputerUserAgent: false,
             probeJavaScript: """
             (function() {
               try {
@@ -57,6 +62,7 @@ enum DesktopUAHint {
             displayName: "Discord",
             hostSuffixes: ["discord.com", "discordapp.com"],
             loginPathTokens: ["/login"],
+            autoApplyComputerUserAgent: false,
             probeJavaScript: """
             (function() {
               try {
@@ -84,4 +90,17 @@ enum DesktopUAHint {
         }
     }
 
+    /// Marketing / mobile portals that should open the real web app instead.
+    static func canonicalWebAppURL(for url: URL) -> URL? {
+        let host = (url.host ?? "").lowercased()
+        guard host == "whatsapp.com" || host == "www.whatsapp.com" else { return nil }
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.scheme = "https"
+        components?.host = "web.whatsapp.com"
+        // Drop marketing paths; WhatsApp Web only serves the app shell.
+        components?.path = "/"
+        components?.query = nil
+        components?.fragment = nil
+        return components?.url
+    }
 }

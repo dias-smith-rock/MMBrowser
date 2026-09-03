@@ -16,10 +16,15 @@ protocol WebViewControllerDelegate: AnyObject {
     func webViewControllerDidReportYouTubeDegraded(_ controller: WebViewController)
     func webViewController(_ controller: WebViewController, didDetectSessionAvatar url: URL?)
     func webViewController(_ controller: WebViewController, suggestComputerUserAgentFor siteName: String)
+    func webViewController(_ controller: WebViewController, autoApplyComputerUserAgentFor siteName: String)
 }
 
 final class WebViewController: UIViewController {
     weak var delegate: WebViewControllerDelegate?
+    /// Optional Split View / embed hooks (do not replace `delegate`).
+    var onNavigationStateChanged: ((Bool, Bool) -> Void)?
+    var onURLChanged: ((URL?) -> Void)?
+    var onProgressChanged: ((Double, Bool) -> Void)?
 
     /// Rewrites viewport meta so pinch-zoom works like Safari on restrictive pages.
     /// Skipped on YouTube / Bilibili: unlocking scale breaks sticky players and list layout.
@@ -259,6 +264,10 @@ final class WebViewController: UIViewController {
     private var didInstallMediaScript = false
     private var httpsFallbackAttempted = false
     private var tabUserAgentSettings = TabUserAgentSettings(userAgentMode: .automatic, customUserAgent: nil)
+
+    /// Current per-tab look settings (Automatic / Mobile / Computer / Custom).
+    var currentUserAgentSettings: TabUserAgentSettings { tabUserAgentSettings }
+
     private var desktopUAHintGeneration = 0
     private var findBar: FindInPageBar?
     private var lastFindQuery: String?
@@ -456,6 +465,7 @@ final class WebViewController: UIViewController {
             let loading = webView.isLoading && webView.estimatedProgress < 1
             self?.notifyDelegateOnMain {
                 $0.delegate?.webViewController($0, didUpdateProgress: progress, isLoading: loading)
+                $0.onProgressChanged?(progress, loading)
             }
         }
         loadingObservation = wv.observe(\.isLoading, options: [.new]) { [weak self] webView, _ in
@@ -463,6 +473,7 @@ final class WebViewController: UIViewController {
             let loading = webView.isLoading && webView.estimatedProgress < 1
             self?.notifyDelegateOnMain {
                 $0.delegate?.webViewController($0, didUpdateProgress: progress, isLoading: loading)
+                $0.onProgressChanged?(progress, loading)
             }
         }
         titleObservation = wv.observe(\.title, options: [.new]) { [weak self] webView, _ in
@@ -481,6 +492,7 @@ final class WebViewController: UIViewController {
                 }
                 YouTubeDarkMode.applyAppearance(to: webView, url: url)
                 $0.delegate?.webViewController($0, didUpdateURL: url)
+                $0.onURLChanged?(url)
                 $0.recordNavigationHistory(from: url)
                 $0.refreshPipEntryPolling()
                 // Bilibili SPA (search → video) often skips didFinish.
@@ -784,11 +796,14 @@ final class WebViewController: UIViewController {
     }
 
     private func publishNavigationState() {
+        let back = canGoBack
+        let forward = canGoForward
         delegate?.webViewController(
             self,
-            didUpdateNavigationState: canGoBack,
-            canGoForward: canGoForward
+            didUpdateNavigationState: back,
+            canGoForward: forward
         )
+        onNavigationStateChanged?(back, forward)
     }
 
     private func recordNavigationHistory(from url: URL?) {
@@ -2028,6 +2043,14 @@ extension WebViewController: WKNavigationDelegate {
                 return
             }
 
+            if isMainFrame,
+               let whatsappWeb = DesktopUAHint.canonicalWebAppURL(for: url),
+               whatsappWeb.absoluteString != url.absoluteString {
+                decisionHandler(.cancel)
+                load(url: whatsappWeb)
+                return
+            }
+
             // Document-start scripts only apply to loads that begin after they are added.
             // First hit on YouTube / a media host: install then cancel+reload so scripts run.
             if isMainFrame, ["http", "https"].contains(scheme) {
@@ -2283,6 +2306,14 @@ extension WebViewController: WKNavigationDelegate {
         let generation = desktopUAHintGeneration
         guard let url, let site = DesktopUAHint.site(matching: url) else { return }
         guard !tabUserAgentSettings.looksLikeComputer else { return }
+
+        if site.autoApplyComputerUserAgent {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                guard let self, generation == self.desktopUAHintGeneration else { return }
+                self.delegate?.webViewController(self, autoApplyComputerUserAgentFor: site.displayName)
+            }
+            return
+        }
 
         let path = url.path.lowercased()
         if site.loginPathTokens.contains(where: { path.contains($0) }) {
