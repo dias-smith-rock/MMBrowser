@@ -62,9 +62,9 @@
 		A1B2C3D4E5F6010101010120 /* NavigationDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020220 /* NavigationDirectory.swift */; };
 		A1B2C3D4E5F6010101010121 /* FaviconImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020221 /* FaviconImageView.swift */; };
 		A1B2C3D4E5F6010101010130 /* GeolocationSpoof.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020230 /* GeolocationSpoof.swift */; };
-		A1B2C3D4E5F6010101010133 /* LocationPermissionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020233 /* LocationPermissionHelper.swift */; };
 		A1B2C3D4E5F6010101010131 /* LocationSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */; };
 		A1B2C3D4E5F6010101010132 /* LocationMapPickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020232 /* LocationMapPickerViewController.swift */; };
+		A1B2C3D4E5F6010101010133 /* LocationPermissionHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020233 /* LocationPermissionHelper.swift */; };
 		A1B2C3D4E5F6010101010150 /* AutoClearManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020250 /* AutoClearManager.swift */; };
 		A1B2C3D4E5F6010101010151 /* ClearOptionSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020251 /* ClearOptionSettingsViewController.swift */; };
 		A1B2C3D4E5F6010101010160 /* ThemePack.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020260 /* ThemePack.swift */; };
@@ -235,9 +235,9 @@
 		A1B2C3D4E5F6020202020220 /* NavigationDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationDirectory.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020221 /* FaviconImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaviconImageView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020230 /* GeolocationSpoof.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeolocationSpoof.swift; sourceTree = "<group>"; };
-		A1B2C3D4E5F6020202020233 /* LocationPermissionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationPermissionHelper.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationSettingsViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020232 /* LocationMapPickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationMapPickerViewController.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6020202020233 /* LocationPermissionHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationPermissionHelper.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020250 /* AutoClearManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoClearManager.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020251 /* ClearOptionSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClearOptionSettingsViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020260 /* ThemePack.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemePack.swift; sourceTree = "<group>"; };
@@ -1163,7 +1163,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
@@ -1199,7 +1199,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;

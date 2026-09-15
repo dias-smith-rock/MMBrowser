@@ -25,6 +25,8 @@ final class BrowserViewController: UIViewController {
     private var isChromeCollapsed = false
     private var scrollAccumulator: CGFloat = 0
     private let chromeScrollThreshold: CGFloat = 10
+    /// Blocks scroll→chrome feedback while we resize chrome or nudge `contentOffset`.
+    private var isAdjustingChromeLayout = false
     private var isPageLoading = false
     private var pageLoadProgress: Double = 0
     /// Keyboard overlap with this view (from bottom), in view coordinates.
@@ -463,6 +465,7 @@ final class BrowserViewController: UIViewController {
         }
         chromeHost.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview()
+            make.height.equalTo(BrowserTheme.addressBarHeight + BrowserTheme.toolbarHeight)
             chromeBottomConstraint = make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).constraint
         }
         chromeStack.snp.makeConstraints { make in
@@ -497,27 +500,67 @@ final class BrowserViewController: UIViewController {
             guard keyboardOverlap < 1 else { return }
         }
         guard collapsed != isChromeCollapsed else { return }
-        isChromeCollapsed = collapsed
 
+        let heightBefore = tabManager.selectedTab?.webController?.webView?.bounds.height ?? 0
+
+        isChromeCollapsed = collapsed
+        isAdjustingChromeLayout = true
         updateChromeBottomOffset(animated: false)
 
         let animations = {
             self.view.layoutIfNeeded()
+            self.compensateWebScrollForChromeHeightChange(heightBefore: heightBefore)
+        }
+        let finish = {
+            // Defer clearing so any same-turn scroll KVO still sees the suppress flag.
+            DispatchQueue.main.async {
+                self.isAdjustingChromeLayout = false
+                self.scrollAccumulator = 0
+            }
         }
         if animated {
             UIView.animate(
                 withDuration: 0.28,
                 delay: 0,
                 options: [.curveEaseInOut, .beginFromCurrentState, .allowUserInteraction],
-                animations: animations
+                animations: animations,
+                completion: { _ in finish() }
             )
         } else {
             animations()
+            finish()
         }
         // Keep only one progress UI: address bar when expanded, bottom bar when collapsed.
         addressBar.setProgress(pageLoadProgress, isLoading: isPageLoading && !collapsed)
         updateCollapsedProgressVisibility()
         setNeedsStatusBarAppearanceUpdate()
+    }
+
+    /// When bottom chrome shows, the web view shrinks from the bottom. Without adjusting
+    /// `contentOffset`, the last screenful of the page stays behind the address bar.
+    private func compensateWebScrollForChromeHeightChange(heightBefore: CGFloat) {
+        guard let webView = tabManager.selectedTab?.webController?.webView,
+              heightBefore > 1 else { return }
+        let heightAfter = webView.bounds.height
+        let delta = heightBefore - heightAfter
+        // Only when chrome expands (webview shrinks). Collapsing during a scroll gesture
+        // already reveals more content; adjusting there fights the user's finger.
+        guard delta > 0.5 else { return }
+
+        let scrollView = webView.scrollView
+        let inset = scrollView.adjustedContentInset
+        let minY = -inset.top
+        let maxY = max(
+            minY,
+            scrollView.contentSize.height - scrollView.bounds.height + inset.bottom
+        )
+        var offset = scrollView.contentOffset
+        let nextY = min(max(offset.y + delta, minY), maxY)
+        guard abs(nextY - offset.y) > 0.5 else { return }
+        offset.y = nextY
+        // Setting contentOffset while the user is still dragging re-enters didScroll and
+        // would flip chrome hide↔show forever — keep isAdjustingChromeLayout set by caller.
+        scrollView.contentOffset = offset
     }
 
     /// Places chrome above the home indicator, or above the keyboard when it overlaps.
@@ -584,10 +627,18 @@ final class BrowserViewController: UIViewController {
         let curveRaw = (notification.userInfo?[UIResponder.keyboardAnimationCurveUserInfoKey] as? NSNumber)?.uintValue
             ?? UIView.AnimationOptions.curveEaseInOut.rawValue
         let options = UIView.AnimationOptions(rawValue: curveRaw << 16).union(.beginFromCurrentState)
+        let heightBefore = tabManager.selectedTab?.webController?.webView?.bounds.height ?? 0
+        isAdjustingChromeLayout = true
         updateChromeBottomOffset(animated: false)
-        UIView.animate(withDuration: duration, delay: 0, options: options) {
+        UIView.animate(withDuration: duration, delay: 0, options: options, animations: {
             self.view.layoutIfNeeded()
-        }
+            self.compensateWebScrollForChromeHeightChange(heightBefore: heightBefore)
+        }, completion: { _ in
+            DispatchQueue.main.async {
+                self.isAdjustingChromeLayout = false
+                self.scrollAccumulator = 0
+            }
+        })
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
@@ -1527,6 +1578,8 @@ extension BrowserViewController: WebViewControllerDelegate {
     func webViewController(_ controller: WebViewController, didScroll deltaY: CGFloat, offsetY: CGFloat) {
         guard tabManager.selectedTab?.webController === controller else { return }
         guard tabManager.selectedTab?.isNewTabPage != true, !addressBar.isHidden else { return }
+        // Ignore programmatic offset / layout changes from chrome show/hide.
+        guard !isAdjustingChromeLayout else { return }
 
         // Sticky players reflow when WKWebView height oscillates (Bilibili / YouTube on device).
         if WebViewController.isViewportFragileHost(controller.webView?.url) {
