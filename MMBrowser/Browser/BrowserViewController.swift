@@ -880,6 +880,8 @@ final class BrowserViewController: UIViewController {
         ntp.configure(
             containerID: container.id,
             accountName: container.name,
+            accountColor: AccountColor.color(for: container),
+            accountCount: tabManager.containers.count,
             pinnedSites: container.pinnedSites
         )
         ntp.reloadContinue(from: tabManager.recentBrowsedTabs(limit: 1))
@@ -1564,6 +1566,16 @@ extension BrowserViewController: NewTabViewControllerDelegate {
 
     func newTabDidRequestSettings() {
         openSettings()
+    }
+
+    func newTabDidRequestAccountSwitch() {
+        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "ntp_account_switch")
+        presentAccountSwitcher()
+    }
+
+    func newTabDidRequestAddAccount() {
+        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "ntp_account_add")
+        presentAddAccount()
     }
 }
 
@@ -2251,6 +2263,9 @@ extension BrowserViewController: AccountSwitcherViewControllerDelegate {
 extension BrowserViewController: ContainerManageViewControllerDelegate {
     func containerManageDidChange() {
         refreshAccountChip()
+        if let tab = tabManager.selectedTab, tab.isNewTabPage, !tab.isIncognito {
+            showNewTab(for: tab)
+        }
     }
 }
 

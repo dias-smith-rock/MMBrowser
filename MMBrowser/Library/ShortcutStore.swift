@@ -18,12 +18,7 @@ final class ShortcutStore {
     private init() {
         load()
         if items.isEmpty {
-            items = [
-                ShortcutItem(id: UUID(), title: "Google", urlString: "https://www.google.com"),
-                ShortcutItem(id: UUID(), title: "YouTube", urlString: "https://www.youtube.com"),
-                ShortcutItem(id: UUID(), title: "Wikipedia", urlString: "https://www.wikipedia.org"),
-                ShortcutItem(id: UUID(), title: "Sogou Search", urlString: "https://www.sogou.com")
-            ]
+            items = []
             save()
         }
     }

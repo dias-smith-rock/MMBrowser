@@ -51,7 +51,7 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
         ).with {
             $0.locationMode = .ask
             $0.identity = .default
-            $0.pinnedSites = ContainerTemplate.defaultPinned(forName: "Personal")
+            $0.pinnedSites = []
         }
         // Work uses the work template (desktop UA, ask location).
         let work = ContainerTemplate.work.makeContainer(

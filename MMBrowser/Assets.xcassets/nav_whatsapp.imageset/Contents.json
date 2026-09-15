@@ -1,0 +1,8 @@
+{
+  "images" : [
+    { "filename" : "nav_whatsapp.png", "idiom" : "universal", "scale" : "1x" },
+    { "filename" : "nav_whatsapp@2x.png", "idiom" : "universal", "scale" : "2x" },
+    { "filename" : "nav_whatsapp@3x.png", "idiom" : "universal", "scale" : "3x" }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}

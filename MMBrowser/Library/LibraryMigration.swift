@@ -13,6 +13,7 @@ enum LibraryMigration {
         migrateLibraryV4(defaultContainerID: containers.first?.id)
         migrateContainersV5(containers: &containers)
         migrateContainersV6PinnedSites(containers: &containers)
+        migrateContainersV7ClearPinnedSites(containers: &containers)
     }
 
     private static func removeLegacyImportedContainer(in containers: inout [BrowserContainer]) {
@@ -191,6 +192,20 @@ enum LibraryMigration {
             }
         }
         defaults.set(true, forKey: ContainerScope.containersMigratedV6Key)
+        if changed, let data = try? JSONEncoder().encode(containers.sorted { $0.sortIndex < $1.sortIndex }) {
+            defaults.set(data, forKey: "mmbrowser.containers")
+        }
+    }
+
+    /// Homepage cards moved fully into NavigationDirectory — clear account pin rows to avoid duplicates.
+    private static func migrateContainersV7ClearPinnedSites(containers: inout [BrowserContainer]) {
+        guard !defaults.bool(forKey: ContainerScope.containersMigratedV7Key) else { return }
+        var changed = false
+        for i in containers.indices where !containers[i].pinnedSites.isEmpty {
+            containers[i].pinnedSites = []
+            changed = true
+        }
+        defaults.set(true, forKey: ContainerScope.containersMigratedV7Key)
         if changed, let data = try? JSONEncoder().encode(containers.sorted { $0.sortIndex < $1.sortIndex }) {
             defaults.set(data, forKey: "mmbrowser.containers")
         }

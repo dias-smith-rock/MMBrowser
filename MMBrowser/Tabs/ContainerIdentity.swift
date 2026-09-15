@@ -216,7 +216,7 @@ enum ContainerTemplate: String, CaseIterable {
                 longitude: preset.longitude,
                 timeZoneIdentifier: preset.timeZoneIdentifier,
                 locationPresetID: preset.id,
-                pinnedSites: messagingPinnedSites,
+                pinnedSites: [],
                 persistence: .persistent,
                 identity: IdentityProfile(
                     localeIdentifier: "en-US",
@@ -239,7 +239,7 @@ enum ContainerTemplate: String, CaseIterable {
                 longitude: preset.longitude,
                 timeZoneIdentifier: preset.timeZoneIdentifier,
                 locationPresetID: preset.id,
-                pinnedSites: Self.workPinnedSites,
+                pinnedSites: [],
                 persistence: .persistent,
                 identity: IdentityProfile(
                     localeIdentifier: "en-US",
@@ -262,7 +262,7 @@ enum ContainerTemplate: String, CaseIterable {
                 longitude: preset.longitude,
                 timeZoneIdentifier: preset.timeZoneIdentifier,
                 locationPresetID: preset.id,
-                pinnedSites: Self.shopPinnedSites,
+                pinnedSites: [],
                 persistence: .persistent,
                 identity: IdentityProfile(
                     localeIdentifier: "en-US",
@@ -293,102 +293,14 @@ enum ContainerTemplate: String, CaseIterable {
         }
     }
 
-    private var messagingPinnedSites: [NavigationSite] {
-        switch self {
-        case .whatsapp:
-            return Self.messagingSuitePinnedSites(primaryTitle: "WhatsApp", primaryURL: "https://web.whatsapp.com")
-        case .instagram:
-            return Self.messagingSuitePinnedSites(primaryTitle: "Instagram", primaryURL: "https://www.instagram.com", primaryLogo: "nav_instagram")
-        case .telegram:
-            return Self.messagingSuitePinnedSites(primaryTitle: "Telegram", primaryURL: "https://web.telegram.org")
-        case .facebook:
-            return Self.messagingSuitePinnedSites(primaryTitle: "Facebook", primaryURL: "https://www.facebook.com", primaryLogo: "nav_facebook")
-        default:
-            return []
-        }
-    }
-
-    /// Related messaging / social destinations (≥6), with the template’s primary site first.
-    private static func messagingSuitePinnedSites(
-        primaryTitle: String,
-        primaryURL: String,
-        primaryLogo: String? = nil
-    ) -> [NavigationSite] {
-        var sites = [
-            NavigationSite(title: primaryTitle, urlString: primaryURL, logoAssetName: primaryLogo)
-        ]
-        let extras: [NavigationSite] = [
-            NavigationSite(title: "WhatsApp", urlString: "https://web.whatsapp.com"),
-            NavigationSite(title: "Instagram", urlString: "https://www.instagram.com", logoAssetName: "nav_instagram"),
-            NavigationSite(title: "Facebook", urlString: "https://www.facebook.com", logoAssetName: "nav_facebook"),
-            NavigationSite(title: "Messenger", urlString: "https://www.messenger.com"),
-            NavigationSite(title: "Telegram", urlString: "https://web.telegram.org"),
-            NavigationSite(title: "X", urlString: "https://x.com", logoAssetName: "nav_x"),
-            NavigationSite(title: "LinkedIn", urlString: "https://www.linkedin.com", logoAssetName: "nav_linkedin")
-        ]
-        for site in extras where site.urlString != primaryURL {
-            sites.append(site)
-            if sites.count >= 6 { break }
-        }
-        return sites
-    }
-
+    /// Homepage cards live in `NavigationDirectory` so every account shares one grid (no pinned row).
     static func defaultPinned(forName name: String) -> [NavigationSite] {
-        let key = name.lowercased()
-        if key.contains("work") { return workPinnedSites }
-        if key.contains("shop") || key.contains("store") { return shopPinnedSites }
-        if key.contains("whatsapp") {
-            return messagingSuitePinnedSites(primaryTitle: "WhatsApp", primaryURL: "https://web.whatsapp.com")
-        }
-        if key.contains("instagram") {
-            return messagingSuitePinnedSites(
-                primaryTitle: "Instagram",
-                primaryURL: "https://www.instagram.com",
-                primaryLogo: "nav_instagram"
-            )
-        }
-        if key.contains("telegram") {
-            return messagingSuitePinnedSites(primaryTitle: "Telegram", primaryURL: "https://web.telegram.org")
-        }
-        if key.contains("facebook") {
-            return messagingSuitePinnedSites(
-                primaryTitle: "Facebook",
-                primaryURL: "https://www.facebook.com",
-                primaryLogo: "nav_facebook"
-            )
-        }
+        _ = name
         return []
     }
 
     static func defaultPinned(forTemplateID templateID: String?) -> [NavigationSite] {
-        guard let templateID, let template = ContainerTemplate(rawValue: templateID) else { return [] }
-        switch template {
-        case .work: return workPinnedSites
-        case .shop: return shopPinnedSites
-        case .whatsapp, .instagram, .telegram, .facebook:
-            return template.messagingPinnedSites
-        case .custom:
-            return []
-        }
+        _ = templateID
+        return []
     }
-
-    private static let workPinnedSites: [NavigationSite] = [
-        NavigationSite(title: "Gmail", urlString: "https://mail.google.com"),
-        NavigationSite(title: "Drive", urlString: "https://drive.google.com"),
-        NavigationSite(title: "Docs", urlString: "https://docs.google.com"),
-        NavigationSite(title: "Calendar", urlString: "https://calendar.google.com"),
-        NavigationSite(title: "LinkedIn", urlString: "https://www.linkedin.com", logoAssetName: "nav_linkedin"),
-        NavigationSite(title: "Outlook", urlString: "https://outlook.office.com"),
-        NavigationSite(title: "Slack", urlString: "https://app.slack.com"),
-        NavigationSite(title: "Notion", urlString: "https://www.notion.so")
-    ]
-
-    private static let shopPinnedSites: [NavigationSite] = [
-        NavigationSite(title: "Shopify", urlString: "https://www.shopify.com"),
-        NavigationSite(title: "Etsy", urlString: "https://www.etsy.com"),
-        NavigationSite(title: "Amazon", urlString: "https://sellercentral.amazon.com"),
-        NavigationSite(title: "eBay", urlString: "https://www.ebay.com/sh/landing"),
-        NavigationSite(title: "PayPal", urlString: "https://www.paypal.com"),
-        NavigationSite(title: "Woo", urlString: "https://woocommerce.com")
-    ]
 }

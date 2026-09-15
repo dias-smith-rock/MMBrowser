@@ -7,6 +7,8 @@ protocol NewTabViewControllerDelegate: AnyObject {
     func newTabDidTapSeeMoreContinue()
     func newTabDidRequestEditShortcuts()
     func newTabDidRequestSettings()
+    func newTabDidRequestAccountSwitch()
+    func newTabDidRequestAddAccount()
 }
 
 /// NTP: brand header + editable navigation directory. Search uses the bottom address bar.
@@ -15,12 +17,21 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
 
     private(set) var containerID: UUID?
     private var accountName = ""
+    private var accountColor: UIColor = BrowserTheme.chromeBlue
+    private var accountCount = 1
     private var pinnedSites: [NavigationSite] = []
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let logoView = GoogleLogoView()
     private let editButton = UIButton(type: .system)
     private let settingsButton = UIButton(type: .system)
+    private let accountHero = UIView()
+    private let accountHeroAccent = UIView()
+    private let accountHeroDot = UIView()
+    private let accountHeroTitle = UILabel()
+    private let accountHeroSubtitle = UILabel()
+    private let accountHeroButton = UIButton(type: .system)
+    private let accountHeroTextStack = UIStackView()
     private let directoryStack = UIStackView()
     private var isEditingDirectory = false
     /// Suppresses rebuild while a site icon is mid-drag.
@@ -54,6 +65,7 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         styleHeaderChip(editButton)
         styleHeaderChip(settingsButton)
         logoView.applyTheme()
+        refreshAccountHeroAppearance()
         buildDirectory()
     }
 
@@ -67,10 +79,19 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         _ = tabs
     }
 
-    func configure(containerID: UUID, accountName: String, pinnedSites: [NavigationSite]) {
+    func configure(
+        containerID: UUID,
+        accountName: String,
+        accountColor: UIColor,
+        accountCount: Int,
+        pinnedSites: [NavigationSite]
+    ) {
         self.containerID = containerID
         self.accountName = accountName
+        self.accountColor = accountColor
+        self.accountCount = max(1, accountCount)
         self.pinnedSites = pinnedSites
+        refreshAccountHeroAppearance()
         buildDirectory()
     }
 
@@ -110,11 +131,13 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         configureChip(settingsButton, title: "Settings")
         settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
 
+        setupAccountHero()
+
         directoryStack.axis = .vertical
         directoryStack.spacing = 28
         directoryStack.alignment = .fill
 
-        [logoView, editButton, settingsButton, directoryStack].forEach {
+        [logoView, editButton, settingsButton, accountHero, directoryStack].forEach {
             contentView.addSubview($0)
         }
 
@@ -131,11 +154,112 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
             make.trailing.equalTo(settingsButton.snp.leading).offset(-8)
             make.leading.greaterThanOrEqualTo(logoView.snp.trailing).offset(8)
         }
+        accountHero.snp.makeConstraints { make in
+            make.top.equalTo(logoView.snp.bottom).offset(18)
+            make.leading.equalToSuperview().offset(16)
+            make.trailing.equalToSuperview().offset(-16)
+        }
         directoryStack.snp.makeConstraints { make in
-            make.top.equalTo(logoView.snp.bottom).offset(28)
+            make.top.equalTo(accountHero.snp.bottom).offset(22)
             make.leading.equalToSuperview().offset(16)
             make.trailing.equalToSuperview().offset(-16)
             make.bottom.equalToSuperview().offset(-32)
+        }
+    }
+
+    private func setupAccountHero() {
+        accountHero.layer.cornerRadius = 14
+        accountHero.clipsToBounds = true
+        accountHero.isUserInteractionEnabled = true
+        let tap = UITapGestureRecognizer(target: self, action: #selector(accountHeroTapped))
+        tap.cancelsTouchesInView = false
+        tap.delegate = self
+        accountHero.addGestureRecognizer(tap)
+
+        accountHeroAccent.layer.cornerRadius = 2
+        accountHeroDot.layer.cornerRadius = 6
+        accountHeroDot.clipsToBounds = true
+
+        accountHeroTitle.font = .systemFont(ofSize: 16, weight: .semibold)
+        accountHeroTitle.textColor = BrowserTheme.textPrimary
+        accountHeroTitle.numberOfLines = 1
+
+        accountHeroSubtitle.font = .systemFont(ofSize: 13, weight: .regular)
+        accountHeroSubtitle.textColor = BrowserTheme.textSecondary
+        accountHeroSubtitle.numberOfLines = 2
+        accountHeroSubtitle.text = "Separate cookies & logins per account"
+
+        accountHeroTextStack.axis = .vertical
+        accountHeroTextStack.alignment = .leading
+        accountHeroTextStack.spacing = 2
+        accountHeroTextStack.addArrangedSubview(accountHeroTitle)
+        accountHeroTextStack.addArrangedSubview(accountHeroSubtitle)
+
+        accountHeroButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+        accountHeroButton.contentEdgeInsets = UIEdgeInsets(top: 8, left: 14, bottom: 8, right: 14)
+        accountHeroButton.layer.cornerRadius = 16
+        accountHeroButton.layer.borderWidth = 1
+        accountHeroButton.addTarget(self, action: #selector(accountHeroTapped), for: .touchUpInside)
+        accountHeroButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        [accountHeroAccent, accountHeroDot, accountHeroTextStack, accountHeroButton].forEach {
+            accountHero.addSubview($0)
+        }
+
+        accountHeroAccent.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(10)
+            make.centerY.equalToSuperview()
+            make.width.equalTo(4)
+            make.height.equalTo(28)
+        }
+        accountHeroDot.snp.makeConstraints { make in
+            make.leading.equalTo(accountHeroAccent.snp.trailing).offset(10)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(12)
+        }
+        accountHeroButton.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().offset(-12)
+            make.centerY.equalToSuperview()
+        }
+        accountHeroTextStack.snp.makeConstraints { make in
+            make.leading.equalTo(accountHeroDot.snp.trailing).offset(10)
+            make.trailing.lessThanOrEqualTo(accountHeroButton.snp.leading).offset(-10)
+            make.top.equalToSuperview().offset(12)
+            make.bottom.equalToSuperview().offset(-12)
+        }
+
+        refreshAccountHeroAppearance()
+    }
+
+    private func refreshAccountHeroAppearance() {
+        let color = accountColor
+        accountHero.backgroundColor = BrowserTheme.elevated.withAlphaComponent(0.92)
+        accountHero.layer.borderWidth = 1
+        accountHero.layer.borderColor = color.withAlphaComponent(0.35).cgColor
+        accountHeroAccent.backgroundColor = color
+        accountHeroDot.backgroundColor = color
+        accountHeroTitle.text = "Browsing as \(accountName.isEmpty ? "Personal" : accountName)"
+        accountHeroTitle.textColor = BrowserTheme.textPrimary
+        accountHeroSubtitle.textColor = BrowserTheme.textSecondary
+        accountHeroSubtitle.isHidden = !AppSettings.showsNewTabAccountHeroSubtitle
+
+        let canSwitch = accountCount > 1
+        accountHeroButton.setTitle(canSwitch ? "Switch" : "Add Account", for: .normal)
+        accountHeroButton.setTitleColor(color, for: .normal)
+        accountHeroButton.backgroundColor = color.withAlphaComponent(0.14)
+        accountHeroButton.layer.borderColor = color.withAlphaComponent(0.45).cgColor
+        accountHeroButton.accessibilityLabel = canSwitch ? "Switch account" : "Add account"
+        accountHero.accessibilityLabel = accountHeroTitle.text
+        accountHero.accessibilityHint = canSwitch
+            ? "Opens account switcher"
+            : "Create another account to keep logins separate"
+    }
+
+    @objc private func accountHeroTapped() {
+        if accountCount > 1 {
+            delegate?.newTabDidRequestAccountSwitch()
+        } else {
+            delegate?.newTabDidRequestAddAccount()
         }
     }
 
@@ -152,31 +276,50 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         directoryStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         directoryStack.spacing = isEditingDirectory ? 24 : 16
 
-        // Account-related shortcuts as icon tiles (no section title).
-        if !pinnedSites.isEmpty {
-            directoryStack.addArrangedSubview(makeSitesGrid(
-                sites: pinnedSites,
-                categoryID: nil,
-                appendAddTile: false
-            ))
-        }
-
         if isEditingDirectory {
             for (index, category) in navCategories.enumerated() {
                 directoryStack.addArrangedSubview(makeCategorySection(category, categoryIndex: index))
             }
-        } else {
-            // Flat icon grid — no category titles.
-            var entries: [(site: NavigationSite, category: NavigationCategory, index: Int)] = []
-            for category in navCategories {
-                for (siteIndex, site) in category.sites.enumerated() {
-                    entries.append((site, category, siteIndex))
-                }
-            }
-            if !entries.isEmpty {
-                directoryStack.addArrangedSubview(makeFlatEntriesGrid(entries))
+            return
+        }
+
+        // One deduped card grid — never stack account pins + nav catalog.
+        var seen = Set<String>()
+        var tiles: [UIView] = []
+
+        func take(_ urlString: String) -> Bool {
+            let key = Self.normalizeShortcutKey(urlString)
+            guard !key.isEmpty else { return false }
+            return seen.insert(key).inserted
+        }
+
+        for site in pinnedSites where take(site.urlString) {
+            tiles.append(makePinnedSiteTile(site))
+        }
+        for category in navCategories {
+            for (siteIndex, site) in category.sites.enumerated() where take(site.urlString) {
+                tiles.append(makeSiteTile(site, category: category, siteIndex: siteIndex))
             }
         }
+        if !tiles.isEmpty {
+            directoryStack.addArrangedSubview(makeCardGrid(tiles: tiles))
+        }
+    }
+
+    private static func normalizeShortcutKey(_ urlString: String) -> String {
+        guard var components = URLComponents(string: urlString) else {
+            return urlString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        }
+        components.scheme = components.scheme?.lowercased()
+        components.host = components.host?.lowercased()
+        if components.host?.hasPrefix("www.") == true {
+            components.host = String(components.host!.dropFirst(4))
+        }
+        components.fragment = nil
+        if components.path.count > 1, components.path.hasSuffix("/") {
+            components.path = String(components.path.dropLast())
+        }
+        return (components.string ?? urlString).lowercased()
     }
 
     private func makeCategorySection(_ category: NavigationCategory, categoryIndex: Int) -> UIView {
@@ -231,56 +374,11 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         return section
     }
 
-    private func makeFlatEntriesGrid(
-        _ entries: [(site: NavigationSite, category: NavigationCategory, index: Int)]
-    ) -> UIView {
-        let columns = 5
-        let grid = UIStackView()
-        grid.axis = .vertical
-        grid.spacing = 12
-        grid.alignment = .fill
-
-        var row = UIStackView()
-        row.axis = .horizontal
-        row.alignment = .top
-        row.distribution = .fillEqually
-        row.spacing = 4
-
-        for (i, entry) in entries.enumerated() {
-            if i > 0, i % columns == 0 {
-                while row.arrangedSubviews.count < columns {
-                    row.addArrangedSubview(UIView())
-                }
-                grid.addArrangedSubview(row)
-                row = UIStackView()
-                row.axis = .horizontal
-                row.alignment = .top
-                row.distribution = .fillEqually
-                row.spacing = 4
-            }
-            row.addArrangedSubview(makeSiteTile(entry.site, category: entry.category, siteIndex: entry.index))
-        }
-        while row.arrangedSubviews.count < columns {
-            row.addArrangedSubview(UIView())
-        }
-        grid.addArrangedSubview(row)
-        return grid
-    }
-
     private func makeSitesGrid(
         sites: [NavigationSite],
         categoryID: UUID?,
         appendAddTile: Bool
     ) -> UIView {
-        let columns = 5
-        let grid = UIStackView()
-        grid.axis = .vertical
-        grid.spacing = 12
-        grid.alignment = .fill
-        if let categoryID {
-            grid.accessibilityIdentifier = categoryID.uuidString
-        }
-
         var tiles: [UIView] = []
         if let categoryID, let category = navCategories.first(where: { $0.id == categoryID }) {
             for (siteIndex, site) in sites.enumerated() {
@@ -294,12 +392,25 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
                 tiles.append(makePinnedSiteTile(site))
             }
         }
+        let grid = makeCardGrid(tiles: tiles)
+        if let categoryID {
+            grid.accessibilityIdentifier = categoryID.uuidString
+        }
+        return grid
+    }
+
+    private func makeCardGrid(tiles: [UIView]) -> UIStackView {
+        let columns = 3
+        let grid = UIStackView()
+        grid.axis = .vertical
+        grid.spacing = 12
+        grid.alignment = .fill
 
         var row = UIStackView()
         row.axis = .horizontal
-        row.alignment = .top
+        row.alignment = .fill
         row.distribution = .fillEqually
-        row.spacing = 4
+        row.spacing = 10
 
         for (i, tile) in tiles.enumerated() {
             if i > 0, i % columns == 0 {
@@ -309,27 +420,36 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
                 grid.addArrangedSubview(row)
                 row = UIStackView()
                 row.axis = .horizontal
-                row.alignment = .top
+                row.alignment = .fill
                 row.distribution = .fillEqually
-                row.spacing = 4
+                row.spacing = 10
             }
             row.addArrangedSubview(tile)
         }
         while row.arrangedSubviews.count < columns {
             row.addArrangedSubview(UIView())
         }
-        grid.addArrangedSubview(row)
+        if !row.arrangedSubviews.isEmpty {
+            grid.addArrangedSubview(row)
+        }
         return grid
     }
 
+    private func styleShortcutCard(_ card: UIView) {
+        card.backgroundColor = BrowserTheme.elevated
+        card.layer.cornerRadius = 16
+        card.layer.borderWidth = 1
+        card.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.18).cgColor
+        card.clipsToBounds = true
+    }
+
     private func makePinnedSiteTile(_ site: NavigationSite) -> UIView {
-        let container = UIView()
-        let iconSize: CGFloat = 48
-        let iconPadding: CGFloat = 6
+        let card = UIView()
+        styleShortcutCard(card)
 
         let iconWell = UIView()
-        iconWell.backgroundColor = BrowserTheme.elevated
-        iconWell.layer.cornerRadius = iconSize / 2
+        iconWell.backgroundColor = UIColor.white.withAlphaComponent(0.92)
+        iconWell.layer.cornerRadius = 14
         iconWell.clipsToBounds = true
 
         let icon = FaviconImageView()
@@ -339,10 +459,10 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
 
         let label = UILabel()
         label.text = site.title
-        label.textColor = BrowserTheme.textSecondary
-        label.font = .systemFont(ofSize: 11, weight: .medium)
+        label.textColor = BrowserTheme.textPrimary
+        label.font = .systemFont(ofSize: 13, weight: .semibold)
         label.textAlignment = .center
-        label.numberOfLines = 2
+        label.numberOfLines = 1
         label.lineBreakMode = .byTruncatingTail
 
         let button = UIButton(type: .system)
@@ -352,27 +472,26 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
             self?.delegate?.newTabDidOpenURL(url)
         }, for: .touchUpInside)
 
-        container.addSubview(iconWell)
+        card.addSubview(iconWell)
         iconWell.addSubview(icon)
-        container.addSubview(label)
-        container.addSubview(button)
+        card.addSubview(label)
+        card.addSubview(button)
 
         iconWell.snp.makeConstraints { make in
-            make.top.centerX.equalToSuperview()
-            make.size.equalTo(iconSize)
+            make.top.equalToSuperview().offset(14)
+            make.centerX.equalToSuperview()
+            make.size.equalTo(44)
         }
         icon.snp.makeConstraints { make in
-            make.edges.equalToSuperview().inset(iconPadding)
+            make.edges.equalToSuperview().inset(6)
         }
-        icon.layoutIfNeeded()
-        icon.layer.cornerRadius = (iconSize - iconPadding * 2) / 2
         label.snp.makeConstraints { make in
-            make.top.equalTo(iconWell.snp.bottom).offset(8)
-            make.leading.trailing.equalToSuperview().inset(2)
-            make.bottom.equalToSuperview()
+            make.top.equalTo(iconWell.snp.bottom).offset(10)
+            make.leading.trailing.equalToSuperview().inset(8)
+            make.bottom.equalToSuperview().offset(-14)
         }
         button.snp.makeConstraints { $0.edges.equalToSuperview() }
-        return container
+        return card
     }
 
     private func makeIconButton(systemName: String, categoryID: UUID, tag: Int) -> CategoryActionButton {
@@ -385,16 +504,15 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
     }
 
     private func makeSiteTile(_ site: NavigationSite, category: NavigationCategory, siteIndex: Int) -> UIView {
-        let container = SiteTileView()
-        container.categoryID = category.id
-        container.siteID = site.id
-        container.siteIndex = siteIndex
-        let iconSize: CGFloat = 48
-        let iconPadding: CGFloat = 6
+        let card = SiteTileView()
+        card.categoryID = category.id
+        card.siteID = site.id
+        card.siteIndex = siteIndex
+        styleShortcutCard(card)
 
         let iconWell = UIView()
-        iconWell.backgroundColor = BrowserTheme.elevated
-        iconWell.layer.cornerRadius = iconSize / 2
+        iconWell.backgroundColor = UIColor.white.withAlphaComponent(0.92)
+        iconWell.layer.cornerRadius = 14
         iconWell.clipsToBounds = true
 
         let icon = FaviconImageView()
@@ -404,35 +522,33 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
 
         let label = UILabel()
         label.text = site.title
-        label.textColor = BrowserTheme.textSecondary
-        label.font = .systemFont(ofSize: 11, weight: .medium)
+        label.textColor = BrowserTheme.textPrimary
+        label.font = .systemFont(ofSize: 13, weight: .semibold)
         label.textAlignment = .center
-        label.numberOfLines = 2
+        label.numberOfLines = 1
         label.lineBreakMode = .byTruncatingTail
 
         let button = NavigationSiteButton(site: site, categoryID: category.id, siteIndex: siteIndex)
         button.addTarget(self, action: #selector(siteTapped(_:)), for: .touchUpInside)
         button.accessibilityLabel = site.title
 
-        container.addSubview(iconWell)
+        card.addSubview(iconWell)
         iconWell.addSubview(icon)
-        container.addSubview(label)
-        container.addSubview(button)
+        card.addSubview(label)
+        card.addSubview(button)
 
         iconWell.snp.makeConstraints { make in
-            make.top.centerX.equalToSuperview()
-            make.size.equalTo(iconSize)
+            make.top.equalToSuperview().offset(14)
+            make.centerX.equalToSuperview()
+            make.size.equalTo(44)
         }
         icon.snp.makeConstraints { make in
-            make.edges.equalToSuperview().inset(iconPadding)
+            make.edges.equalToSuperview().inset(6)
         }
-        icon.layoutIfNeeded()
-        let innerSide = iconSize - iconPadding * 2
-        icon.layer.cornerRadius = innerSide / 2
         label.snp.makeConstraints { make in
-            make.top.equalTo(iconWell.snp.bottom).offset(8)
-            make.leading.trailing.equalToSuperview().inset(2)
-            make.bottom.equalToSuperview()
+            make.top.equalTo(iconWell.snp.bottom).offset(10)
+            make.leading.trailing.equalToSuperview().inset(8)
+            make.bottom.equalToSuperview().offset(-14)
         }
         button.snp.makeConstraints { $0.edges.equalToSuperview() }
 
@@ -447,30 +563,31 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
                 NavigationStore.shared.removeSite(categoryID: categoryID, siteID: siteID, containerID: self?.resolvedContainerID ?? ContainerScope.resolveContainerID(nil))
                 self?.buildDirectory()
             }, for: .touchUpInside)
-            container.addSubview(delete)
+            card.addSubview(delete)
             delete.snp.makeConstraints { make in
-                make.top.equalTo(iconWell).offset(-4)
-                make.trailing.equalTo(iconWell).offset(4)
+                make.top.equalToSuperview().offset(6)
+                make.trailing.equalToSuperview().offset(-6)
                 make.size.equalTo(22)
             }
 
             if siteDragSiteID == site.id {
-                container.alpha = 0.25
+                card.alpha = 0.25
             }
         }
 
-        return container
+        return card
     }
 
     private func makeAddSiteTile(categoryID: UUID) -> UIView {
-        let container = UIView()
-        let iconSize: CGFloat = 48
+        let card = UIView()
+        styleShortcutCard(card)
+        card.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.28).cgColor
 
         let iconWell = UIView()
-        iconWell.backgroundColor = BrowserTheme.elevated
-        iconWell.layer.cornerRadius = iconSize / 2
+        iconWell.backgroundColor = BrowserTheme.card
+        iconWell.layer.cornerRadius = 14
         iconWell.layer.borderWidth = 1
-        iconWell.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.35).cgColor
+        iconWell.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.28).cgColor
 
         let plus = UIImageView(image: UIImage(systemName: "plus"))
         plus.tintColor = BrowserTheme.chromeBlue
@@ -478,8 +595,8 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
 
         let label = UILabel()
         label.text = "Add"
-        label.textColor = BrowserTheme.textSecondary
-        label.font = .systemFont(ofSize: 11, weight: .medium)
+        label.textColor = BrowserTheme.textPrimary
+        label.font = .systemFont(ofSize: 13, weight: .semibold)
         label.textAlignment = .center
 
         let button = UIButton(type: .system)
@@ -488,26 +605,27 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
             self?.presentAddSite(categoryID: categoryID)
         }, for: .touchUpInside)
 
-        container.addSubview(iconWell)
+        card.addSubview(iconWell)
         iconWell.addSubview(plus)
-        container.addSubview(label)
-        container.addSubview(button)
+        card.addSubview(label)
+        card.addSubview(button)
 
         iconWell.snp.makeConstraints { make in
-            make.top.centerX.equalToSuperview()
-            make.size.equalTo(iconSize)
+            make.top.equalToSuperview().offset(14)
+            make.centerX.equalToSuperview()
+            make.size.equalTo(44)
         }
         plus.snp.makeConstraints { make in
             make.center.equalToSuperview()
-            make.size.equalTo(22)
+            make.size.equalTo(20)
         }
         label.snp.makeConstraints { make in
-            make.top.equalTo(iconWell.snp.bottom).offset(8)
-            make.leading.trailing.equalToSuperview().inset(2)
-            make.bottom.equalToSuperview()
+            make.top.equalTo(iconWell.snp.bottom).offset(10)
+            make.leading.trailing.equalToSuperview().inset(8)
+            make.bottom.equalToSuperview().offset(-14)
         }
         button.snp.makeConstraints { $0.edges.equalToSuperview() }
-        return container
+        return card
     }
 
     private func presentAddSite(categoryID: UUID) {
@@ -586,7 +704,14 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
     }
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        guard gestureRecognizer === siteDragGesture else { return true }
+        if gestureRecognizer !== siteDragGesture {
+            // Account hero strip tap — let the Switch / Add Account button handle itself.
+            if let touched = touch.view,
+               touched === accountHeroButton || touched.isDescendant(of: accountHeroButton) {
+                return false
+            }
+            return true
+        }
         // Let the red minus control handle its own taps.
         if touch.view is UIButton, !(touch.view is NavigationSiteButton) {
             return false

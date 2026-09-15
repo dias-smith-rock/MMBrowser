@@ -33,52 +33,34 @@ struct NavigationCategory: Codable, Equatable, Identifiable {
 
 /// Built-in seed catalog (also used by “Restore Defaults”).
 enum NavigationDirectory {
+    /// Default homepage shortcut cards for every account (3×2).
+    static let defaultHomeSites: [NavigationSite] = [
+        NavigationSite(title: "WhatsApp", urlString: "https://web.whatsapp.com", logoAssetName: "nav_whatsapp"),
+        NavigationSite(title: "Instagram", urlString: "https://www.instagram.com", logoAssetName: "nav_instagram"),
+        NavigationSite(title: "Facebook", urlString: "https://www.facebook.com", logoAssetName: "nav_facebook"),
+        NavigationSite(title: "Telegram", urlString: "https://web.telegram.org"),
+        NavigationSite(title: "YouTube", urlString: "https://www.youtube.com", logoAssetName: "nav_youtube"),
+        NavigationSite(title: "X", urlString: "https://x.com", logoAssetName: "nav_x")
+    ]
+
     static let defaultCategories: [NavigationCategory] = [
-        NavigationCategory(
-            title: "AI & Tech",
-            sites: [
-                NavigationSite(title: "ChatGPT", urlString: "https://chatgpt.com", logoAssetName: "nav_chatgpt"),
-                NavigationSite(title: "Claude", urlString: "https://claude.ai", logoAssetName: "nav_claude"),
-                NavigationSite(title: "Gemini", urlString: "https://gemini.google.com", logoAssetName: "nav_gemini"),
-                NavigationSite(title: "GitHub", urlString: "https://github.com", logoAssetName: "nav_github")
-            ]
-        ),
-        NavigationCategory(
-            title: "Social Media",
-            sites: [
-                NavigationSite(title: "Facebook", urlString: "https://www.facebook.com", logoAssetName: "nav_facebook"),
-                NavigationSite(title: "Instagram", urlString: "https://www.instagram.com", logoAssetName: "nav_instagram"),
-                NavigationSite(title: "X", urlString: "https://x.com", logoAssetName: "nav_x"),
-                NavigationSite(title: "LinkedIn", urlString: "https://www.linkedin.com", logoAssetName: "nav_linkedin")
-            ]
-        ),
-        NavigationCategory(
-            title: "News",
-            sites: [
-                NavigationSite(title: "BBC", urlString: "https://www.bbc.com", logoAssetName: "nav_bbc"),
-                NavigationSite(title: "CNN", urlString: "https://www.cnn.com", logoAssetName: "nav_cnn"),
-                NavigationSite(title: "Reuters", urlString: "https://www.reuters.com", logoAssetName: "nav_reuters"),
-                NavigationSite(title: "The Guardian", urlString: "https://www.theguardian.com", logoAssetName: "nav_guardian")
-            ]
-        ),
-        NavigationCategory(
-            title: "Music",
-            sites: [
-                NavigationSite(title: "Spotify", urlString: "https://open.spotify.com", logoAssetName: "nav_spotify"),
-                NavigationSite(title: "YouTube Music", urlString: "https://music.youtube.com", logoAssetName: "nav_youtubemusic"),
-                NavigationSite(title: "YouTube", urlString: "https://www.youtube.com", logoAssetName: "nav_youtube"),
-                NavigationSite(title: "SoundCloud", urlString: "https://soundcloud.com", logoAssetName: "nav_soundcloud")
-            ]
-        ),
-        NavigationCategory(
-            title: "Gossip",
-            sites: [
-                NavigationSite(title: "TMZ", urlString: "https://www.tmz.com", logoAssetName: "nav_tmz"),
-                NavigationSite(title: "People", urlString: "https://people.com", logoAssetName: "nav_people"),
-                NavigationSite(title: "BuzzFeed", urlString: "https://www.buzzfeed.com", logoAssetName: "nav_buzzfeed"),
-                NavigationSite(title: "Daily Mail", urlString: "https://www.dailymail.co.uk", logoAssetName: "nav_dailymail")
-            ]
-        )
+        NavigationCategory(title: "Social", sites: defaultHomeSites)
+    ]
+
+    /// Former default Home shortcuts (from ShortcutStore) — strip these so every account
+    /// shows only the shared social card grid.
+    static let legacyHomeShortcutURLKeys: Set<String> = [
+        "https://www.google.com",
+        "https://google.com",
+        "https://www.youtube.com",
+        "https://youtube.com",
+        "https://m.youtube.com",
+        "https://www.wikipedia.org",
+        "https://wikipedia.org",
+        "https://en.wikipedia.org",
+        "https://www.sogou.com",
+        "https://sogou.com",
+        "https://www.sogou.com/"
     ]
 
     /// Former 5th-slot presets removed in favor of a permanent "+" edit entry.
@@ -122,6 +104,7 @@ final class NavigationStore {
     private let key = "mmbrowser.navigation.byContainer.v1"
     private let migratedKey = "mmbrowser.navigation.migratedShortcuts.v1"
     private let retiredFifthKey = "mmbrowser.navigation.retiredFifth.v1"
+    private let socialShortcutsKey = "mmbrowser.navigation.socialShortcuts.v2"
     private let defaults = UserDefaults.standard
     private var byContainer: [UUID: [NavigationCategory]] = [:]
 
@@ -150,12 +133,30 @@ final class NavigationStore {
     }
 
     private func ensureLoaded(containerID: UUID) {
+        migrateAllToSocialShortcutsIfNeeded()
         if byContainer[containerID] != nil { return }
+        // Fresh accounts: Social cards only — do not import legacy ShortcutStore into Home.
         var cats = NavigationDirectory.makeSeedCategories()
-        migrateShortcutsIntoHomeIfNeeded(categories: &cats)
         removeRetiredFifthSitesIfNeeded(categories: &cats)
         byContainer[containerID] = cats
         saveAll()
+    }
+
+    /// One-shot: shared Social card grid for every account; drop legacy Home shortcuts
+    /// (Google / Wikipedia / Sogou / etc.) that used to stack above it.
+    private func migrateAllToSocialShortcutsIfNeeded() {
+        guard !defaults.bool(forKey: socialShortcutsKey) else { return }
+        defaults.set(true, forKey: socialShortcutsKey)
+        guard !byContainer.isEmpty else { return }
+        let legacy = Set(NavigationDirectory.legacyHomeShortcutURLKeys.map { normalizeURLKey($0) })
+        for (id, cats) in byContainer {
+            let homeSites = (cats.first(where: \.isHome)?.sites ?? []).filter {
+                !legacy.contains(normalizeURLKey($0.urlString))
+            }
+            byContainer[id] = NavigationDirectory.makeSeedCategories(includingHome: homeSites)
+        }
+        saveAll()
+        NotificationCenter.default.post(name: .navigationDirectoryChanged, object: nil)
     }
 
     private func mutate(containerID: UUID, _ block: (inout [NavigationCategory]) -> Void) {
@@ -323,6 +324,7 @@ final class NavigationStore {
         for entry in payload.containers {
             byContainer[entry.containerID] = entry.categories
         }
+        migrateAllToSocialShortcutsIfNeeded()
     }
 
     private func saveAll() {

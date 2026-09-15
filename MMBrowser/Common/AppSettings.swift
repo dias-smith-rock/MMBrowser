@@ -128,6 +128,11 @@ enum AppSettings {
         _ = firstLaunchDate
     }
 
+    /// NTP account hero subtitle — shown for the first 7 days after install.
+    static var showsNewTabAccountHeroSubtitle: Bool {
+        Date().timeIntervalSince(firstLaunchDate) < 7 * 24 * 60 * 60
+    }
+
     private static var looksLikeExistingInstall: Bool {
         d.object(forKey: "onboarding.done") != nil
             || d.object(forKey: "tp.enabled") != nil

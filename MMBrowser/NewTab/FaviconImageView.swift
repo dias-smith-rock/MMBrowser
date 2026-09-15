@@ -87,6 +87,7 @@ final class FaviconImageView: UIImageView {
 
         if h == "music.youtube.com" { return "nav_youtubemusic" }
         if h == "youtube.com" || h.hasSuffix(".youtube.com") { return "nav_youtube" }
+        if h == "whatsapp.com" || h.hasSuffix(".whatsapp.com") { return "nav_whatsapp" }
         if h == "linkedin.com" || h.hasSuffix(".linkedin.com") { return "nav_linkedin" }
         if h == "facebook.com" || h.hasSuffix(".facebook.com") { return "nav_facebook" }
         if h == "instagram.com" || h.hasSuffix(".instagram.com") { return "nav_instagram" }
