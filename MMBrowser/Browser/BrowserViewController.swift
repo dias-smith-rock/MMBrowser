@@ -16,7 +16,7 @@ final class BrowserViewController: UIViewController {
     /// Shown only while loading AND bottom chrome is collapsed.
     private let collapsedProgressView = UIProgressView(progressViewStyle: .bar)
 
-    private var newTabController: NewTabViewController?
+    private var accountHubController: AccountHubViewController?
     private var privateNewTabController: PrivateNewTabViewController?
     private var currentContent: UIViewController?
 
@@ -27,6 +27,8 @@ final class BrowserViewController: UIViewController {
     private let chromeScrollThreshold: CGFloat = 10
     /// Blocks scroll→chrome feedback while we resize chrome or nudge `contentOffset`.
     private var isAdjustingChromeLayout = false
+    /// Account Hub NTP hides the bottom address bar + toolbar entirely.
+    private var isBrowserChromeHiddenForHub = false
     private var isPageLoading = false
     private var pageLoadProgress: Double = 0
     /// Keyboard overlap with this view (from bottom), in view coordinates.
@@ -225,7 +227,7 @@ final class BrowserViewController: UIViewController {
         overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         let isPrivate = tabManager.selectedTab?.isIncognito == true
         applyPrivateChrome(isPrivate)
-        newTabController?.applyHomeSettings()
+        accountHubController?.reloadFromExternalChange()
         privateNewTabController?.applyTheme()
     }
 
@@ -353,7 +355,7 @@ final class BrowserViewController: UIViewController {
                 self?.maybeShowAddressBarSwipeTip()
                 self?.maybeShowAccountWow()
             }
-            self?.newTabController?.applyHomeSettings()
+            self?.accountHubController?.reloadFromExternalChange()
         }
         present(onboarding, animated: true)
     }
@@ -495,10 +497,12 @@ final class BrowserViewController: UIViewController {
     private func setChromeCollapsed(_ collapsed: Bool, animated: Bool) {
         if collapsed {
             guard tabManager.selectedTab?.isNewTabPage != true else { return }
+            guard !isBrowserChromeHiddenForHub else { return }
             guard !addressBar.isHidden else { return }
             // Don't hide chrome while the keyboard is up — address field would stay covered.
             guard keyboardOverlap < 1 else { return }
         }
+        guard !isBrowserChromeHiddenForHub else { return }
         guard collapsed != isChromeCollapsed else { return }
 
         let heightBefore = tabManager.selectedTab?.webController?.webView?.bounds.height ?? 0
@@ -565,6 +569,7 @@ final class BrowserViewController: UIViewController {
 
     /// Places chrome above the home indicator, or above the keyboard when it overlaps.
     private func updateChromeBottomOffset(animated: Bool) {
+        guard !isBrowserChromeHiddenForHub else { return }
         let safeBottom = view.safeAreaInsets.bottom
         let liftAboveSafeArea = max(0, keyboardOverlap - safeBottom)
         let offset: CGFloat
@@ -678,6 +683,30 @@ final class BrowserViewController: UIViewController {
         applyLoadingProgress(0, isLoading: false)
     }
 
+    /// Hides address bar + toolbar for Account Hub; restores them for web / private NTP.
+    private func setBrowserChromeHiddenForHub(_ hidden: Bool) {
+        guard hidden != isBrowserChromeHiddenForHub else { return }
+        isBrowserChromeHiddenForHub = hidden
+        chromeHost.isHidden = hidden
+        chromeHost.isUserInteractionEnabled = !hidden
+        addressBar.isHidden = hidden
+        if !hidden {
+            isChromeCollapsed = false
+            updateChromeBottomOffset(animated: false)
+        }
+        contentClipView.snp.remakeConstraints { make in
+            contentTopConstraint = make.top.equalTo(view.safeAreaLayoutGuide.snp.top).constraint
+            make.leading.trailing.equalToSuperview()
+            if hidden {
+                make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+            } else {
+                make.bottom.equalTo(chromeHost.snp.top)
+            }
+        }
+        view.layoutIfNeeded()
+        setNeedsStatusBarAppearanceUpdate()
+    }
+
     private func showSelectedTab() {
         guard let tab = tabManager.selectedTab else { return }
         // Keep a preview of the tab we're leaving so the switcher isn't blank.
@@ -690,7 +719,6 @@ final class BrowserViewController: UIViewController {
         }
         applyPrivateChrome(tab.isIncognito)
         resetChromeForCurrentTab()
-        addressBar.isHidden = false
         refreshAccountChip()
         if tab.isNewTabPage {
             if tab.isIncognito {
@@ -818,29 +846,44 @@ final class BrowserViewController: UIViewController {
         })
     }
 
-    private func presentAccountSwitcher() {
-        let switcher = AccountSwitcherViewController(tabManager: tabManager)
-        switcher.delegate = self
-        let nav = UINavigationController(rootViewController: switcher)
-        nav.modalPresentationStyle = .pageSheet
-        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
-        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
-        if let sheet = nav.sheetPresentationController {
-            sheet.detents = [.large()]
-            sheet.selectedDetentIdentifier = .large
-            sheet.prefersGrabberVisible = true
-            sheet.preferredCornerRadius = 16
+    private func presentAccountHub() {
+        setChromeCollapsed(false, animated: false)
+        view.layoutIfNeeded()
+
+        let previewID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
+            ?? tabManager.defaultContainer.id
+        let hub = AccountHubViewController(
+            tabManager: tabManager,
+            previewAccountID: previewID,
+            isOverlay: true
+        )
+        hub.delegate = self
+        hub.modalPresentationStyle = .overFullScreen
+        hub.modalTransitionStyle = .coverVertical
+        present(hub, animated: true) { [weak self] in
+            guard let self else { return }
+            if self.tabManager.selectedTab?.webController?.isPictureInPictureActive != true {
+                MediaPlaybackSupport.resumeMediaIfNeeded(in: self.tabManager.selectedTab?.webController?.webView)
+            }
         }
-        present(nav, animated: true)
     }
 
-    private func presentAccountManager() {
+    private func presentAccountSwitcher() {
+        presentAccountHub()
+    }
+
+    private func presentAccountManager(from presenter: UIViewController? = nil) {
         let vc = ContainerManageViewController(tabManager: tabManager)
         vc.delegate = self
         let nav = UINavigationController(rootViewController: vc)
         nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         BrowserTheme.applyNavigationBar(to: nav.navigationBar)
-        present(nav, animated: true)
+        // Prefer the requester (e.g. overlay Account Hub) so we don't fail when BVC
+        // is already presenting another modal.
+        let host = presenter
+            ?? presentedViewController
+            ?? self
+        host.present(nav, animated: true)
     }
 
     private func presentAddAccount() {
@@ -868,30 +911,27 @@ final class BrowserViewController: UIViewController {
     }
 
     private func showNewTab(for tab: BrowserTab) {
-        let ntp: NewTabViewController
-        if let existing = newTabController {
-            ntp = existing
+        setBrowserChromeHiddenForHub(true)
+        let hub: AccountHubViewController
+        if let existing = accountHubController {
+            hub = existing
+            hub.updatePreviewAccount(tab.containerID)
         } else {
-            ntp = NewTabViewController()
-            ntp.delegate = self
-            newTabController = ntp
+            hub = AccountHubViewController(
+                tabManager: tabManager,
+                previewAccountID: tab.containerID,
+                isOverlay: false
+            )
+            hub.delegate = self
+            accountHubController = hub
         }
-        let container = tabManager.container(id: tab.containerID) ?? tabManager.defaultContainer
-        ntp.configure(
-            containerID: container.id,
-            accountName: container.name,
-            accountColor: AccountColor.color(for: container),
-            accountCount: tabManager.containers.count,
-            pinnedSites: container.pinnedSites
-        )
-        ntp.reloadContinue(from: tabManager.recentBrowsedTabs(limit: 1))
-        ntp.reloadShortcuts()
-        embed(ntp)
+        embed(hub)
         addressBar.setURLText("")
         addressBar.setProgress(0, isLoading: false)
     }
 
     private func showPrivateNewTab() {
+        setBrowserChromeHiddenForHub(false)
         let ntp: PrivateNewTabViewController
         if let existing = privateNewTabController {
             ntp = existing
@@ -960,7 +1000,7 @@ final class BrowserViewController: UIViewController {
         tab.url = url
         tab.title = url.host ?? "Untitled"
         tab.lastAccessed = Date()
-        addressBar.isHidden = false
+        setBrowserChromeHiddenForHub(false)
         addressBar.setURLText(Self.addressBarDisplayText(for: url))
 
         let web: WebViewController
@@ -976,7 +1016,7 @@ final class BrowserViewController: UIViewController {
         web.load(url: url)
         tabManager.evictExcessWebViews(protecting: tab)
         refreshToolbar()
-        newTabController?.reloadContinue(from: tabManager.recentBrowsedTabs(limit: 1))
+        accountHubController?.reloadFromExternalChange()
         tabManager.persistSessionIfNeeded()
     }
 
@@ -1083,6 +1123,7 @@ final class BrowserViewController: UIViewController {
     }
 
     private func showWeb(for tab: BrowserTab) {
+        setBrowserChromeHiddenForHub(false)
         let web: WebViewController
         if let existing = tab.webController {
             web = existing
@@ -1548,6 +1589,102 @@ extension BrowserViewController: BottomToolbarViewDelegate {
     }
 }
 
+extension BrowserViewController: AccountHubViewControllerDelegate {
+    func accountHubDidRequestClose(_ hub: AccountHubViewController) {
+        leaveAccountHubIfNeeded(hub) { [weak self] in
+            guard let self else { return }
+
+            // Already on a real page (typical after dismissing overlay) — just stay there.
+            if let selected = self.tabManager.selectedTab,
+               !selected.isIncognito,
+               !selected.isNewTabPage {
+                self.showSelectedTab()
+                return
+            }
+
+            let accountID = hub.previewAccountID
+                ?? self.tabManager.selectedTab?.containerID
+                ?? self.tabManager.defaultContainer.id
+            let sameAccount = self.tabManager.tabs
+                .filter {
+                    !$0.isIncognito && !$0.isNewTabPage && $0.containerID == accountID
+                }
+                .sorted { $0.lastAccessed > $1.lastAccessed }
+            let anyReal = self.tabManager.tabs
+                .filter { !$0.isIncognito && !$0.isNewTabPage }
+                .sorted { $0.lastAccessed > $1.lastAccessed }
+
+            if let tab = sameAccount.first ?? anyReal.first {
+                self.tabManager.selectTab(id: tab.id)
+                self.showSelectedTab()
+            } else {
+                Toast.show(AppL10n.string(.hubCloseNoTabsHint), from: self)
+            }
+        }
+    }
+
+    func accountHubDidRequestSettings(_ hub: AccountHubViewController) {
+        leaveAccountHubIfNeeded(hub) { [weak self] in
+            self?.openSettings()
+        }
+    }
+
+    func accountHubDidRequestManageAccounts(_ hub: AccountHubViewController) {
+        presentAccountManager(from: hub)
+    }
+
+    func accountHub(_ hub: AccountHubViewController, didSelectTabID tabID: UUID, accountID: UUID) {
+        // Close hub first (overlay), then open the chosen tab in the browser.
+        leaveAccountHubIfNeeded(hub) { [weak self] in
+            guard let self else { return }
+            guard self.tabManager.tabs.contains(where: { $0.id == tabID }) else { return }
+            // Avoid switchToAccount() — it picks the most-recent tab, not the tapped one.
+            self.tabManager.selectTab(id: tabID)
+            // selectTab notifies the delegate, but ensure UI commits even if already selected.
+            self.showSelectedTab()
+            self.refreshAccountChip()
+        }
+    }
+
+    func accountHub(_ hub: AccountHubViewController, didRequestNewTabInAccount accountID: UUID) {
+        leaveAccountHubIfNeeded(hub) { [weak self] in
+            guard let self else { return }
+            _ = self.tabManager.addTab(incognito: false, select: true, containerID: accountID)
+            self.showSelectedTab()
+            self.refreshAccountChip()
+        }
+    }
+
+    func accountHub(_ hub: AccountHubViewController, didRequestOpenURL url: URL, accountID: UUID) {
+        leaveAccountHubIfNeeded(hub) { [weak self] in
+            guard let self else { return }
+            self.openURLInNewTab(url, containerID: accountID)
+            self.refreshAccountChip()
+        }
+    }
+
+    func accountHub(_ hub: AccountHubViewController, didRequestMenuAction action: MenuAction) {
+        leaveAccountHubIfNeeded(hub) { [weak self] in
+            self?.performMenuAction(action)
+        }
+    }
+
+    private func leaveAccountHubIfNeeded(_ hub: AccountHubViewController, then: @escaping () -> Void) {
+        guard hub.isOverlay else {
+            then()
+            return
+        }
+        // Prefer dismissing from the hub itself so we always tear down the overlay page.
+        if hub.presentingViewController != nil {
+            hub.dismiss(animated: true, completion: then)
+        } else if presentedViewController != nil {
+            dismiss(animated: true, completion: then)
+        } else {
+            then()
+        }
+    }
+}
+
 extension BrowserViewController: NewTabViewControllerDelegate {
     func newTabDidRequestIncognito() {
         _ = tabManager.addTab(incognito: true, select: true)
@@ -1828,6 +1965,12 @@ extension BrowserViewController: TabSwitcherViewControllerDelegate {
     func tabSwitcherDidRequestOpenURLInNewTab(_ url: URL, containerID: UUID?) {
         dismiss(animated: true) {
             self.openURLInNewTab(url, incognito: false, containerID: containerID)
+        }
+    }
+
+    func tabSwitcherDidRequestAccountHub() {
+        dismiss(animated: true) { [weak self] in
+            self?.presentAccountHub()
         }
     }
 }

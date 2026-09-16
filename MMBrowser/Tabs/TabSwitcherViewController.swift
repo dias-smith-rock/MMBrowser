@@ -6,6 +6,8 @@ protocol TabSwitcherViewControllerDelegate: AnyObject {
     /// `containerID` is the container for the new normal tab (selected tab / active filter).
     func tabSwitcherDidRequestNewTab(incognito: Bool, containerID: UUID?)
     func tabSwitcherDidRequestOpenURLInNewTab(_ url: URL, containerID: UUID?)
+    /// Bottom + opens Account Hub (home / account entry).
+    func tabSwitcherDidRequestAccountHub()
 }
 
 final class TabSwitcherViewController: UIViewController {
@@ -80,7 +82,7 @@ final class TabSwitcherViewController: UIViewController {
 
     private var displayedTabs: [BrowserTab] {
         if showsAccountOverview { return [] }
-        let base = poolTabs
+        let base = poolTabs.filter { !$0.isNewTabPage }
         let q = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return base }
         return base.filter {
@@ -357,7 +359,7 @@ final class TabSwitcherViewController: UIViewController {
 
     private func reload() {
         modeControl.selectedSegmentIndex = surface.rawValue
-        let normalCount = tabManager.normalTabs.count
+        let normalCount = tabManager.normalTabs.filter { !$0.isNewTabPage }.count
         let symbolConfig = UIImage.SymbolConfiguration(pointSize: 17, weight: .regular)
         modeControl.setImage(
             Self.makeTabCountBadge(count: normalCount, symbolConfig: symbolConfig),
@@ -421,7 +423,7 @@ final class TabSwitcherViewController: UIViewController {
         accountsStack.isHidden = !showsAccountOverview
         collectionView.isHidden = showsAccountOverview
         doneButton.isHidden = false
-        addButton.accessibilityLabel = showsAccountOverview ? "New Account" : "New Tab"
+        addButton.accessibilityLabel = "Account Hub"
     }
 
     private func updateCollectionHeight() {
@@ -469,7 +471,7 @@ final class TabSwitcherViewController: UIViewController {
 
         let contentWidth = max(view.bounds.width - 32, UIScreen.main.bounds.width - 32)
         for container in tabManager.sortedContainers {
-            let tabs = tabManager.normalTabs.filter { $0.containerID == container.id }
+            let tabs = tabManager.normalTabs.filter { $0.containerID == container.id && !$0.isNewTabPage }
             let expanded = expandedAccountIDs.contains(container.id)
             let section = AccountSectionView()
             section.configure(
@@ -691,14 +693,7 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     @objc private func addTapped() {
-        if showsAccountOverview {
-            presentNewAccount()
-            return
-        }
-        delegate?.tabSwitcherDidRequestNewTab(
-            incognito: showingIncognito,
-            containerID: preferredContainerIDForNewTab
-        )
+        delegate?.tabSwitcherDidRequestAccountHub()
     }
 
     private func presentNewAccount() {

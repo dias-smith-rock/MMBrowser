@@ -88,7 +88,7 @@ enum AppSettings {
     }
 
     static var searchEngineID: String {
-        get { d.string(forKey: "search.engine") ?? SearchEngine.google.id }
+        get { d.string(forKey: "search.engine") ?? SearchEngine.youTube.id }
         set { d.set(newValue, forKey: "search.engine") }
     }
 

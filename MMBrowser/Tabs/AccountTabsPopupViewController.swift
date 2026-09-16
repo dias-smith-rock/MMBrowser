@@ -32,7 +32,7 @@ final class AccountTabsPopupViewController: UIViewController {
     required init?(coder: NSCoder) { fatalError() }
 
     private var displayedTabs: [BrowserTab] {
-        tabManager.normalTabs.filter { $0.containerID == containerID }
+        tabManager.normalTabs.filter { $0.containerID == containerID && !$0.isNewTabPage }
     }
 
     private var accountColor: UIColor {

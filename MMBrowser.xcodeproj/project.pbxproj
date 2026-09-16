@@ -72,6 +72,8 @@
 		A1B2C3D4E5F6010101010162 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020262 /* ThemeManager.swift */; };
 		A1B2C3D4E5F6010101010163 /* AppearanceSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020263 /* AppearanceSettingsViewController.swift */; };
 		A1B2C3D4E5F6010101010170 /* KeyboardDismissCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020270 /* KeyboardDismissCoordinator.swift */; };
+		A1B2C3D4E5F60101010101A1 /* AccountHubViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60202020202A1 /* AccountHubViewController.swift */; };
+		A1B2C3D4E5F60101010101L1 /* AppL10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60202020202L1 /* AppL10n.swift */; };
 		A1B2C3D4E5F6090909090961 /* PageRichMenuViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6090909090960 /* PageRichMenuViewController.swift */; };
 		A1B2C3D4E5F6090909090971 /* LibrarySheetViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6090909090970 /* LibrarySheetViewController.swift */; };
 		A1B2C3D4E5F6090909090973 /* TabUserAgentPickerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6090909090972 /* TabUserAgentPickerViewController.swift */; };
@@ -245,6 +247,8 @@
 		A1B2C3D4E5F6020202020262 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020263 /* AppearanceSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020270 /* KeyboardDismissCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardDismissCoordinator.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60202020202A1 /* AccountHubViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountHubViewController.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F60202020202L1 /* AppL10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppL10n.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6090909090960 /* PageRichMenuViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageRichMenuViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6090909090970 /* LibrarySheetViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibrarySheetViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6090909090972 /* TabUserAgentPickerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabUserAgentPickerViewController.swift; sourceTree = "<group>"; };
@@ -412,6 +416,7 @@
 				A1B2C3D4E5F6020202020221 /* FaviconImageView.swift */,
 				A1B2C3D4E5F6020202020220 /* NavigationDirectory.swift */,
 				81A1B2C3D4E54678A9B0C1D3 /* PrivateNewTabViewController.swift */,
+				A1B2C3D4E5F60202020202A1 /* AccountHubViewController.swift */,
 			);
 			path = NewTab;
 			sourceTree = "<group>";
@@ -623,6 +628,7 @@
 				3979F26B75FD439E9108F7A7 /* LetterAvatarView.swift */,
 				1779FCB4C5AF48C29F8F9FFA /* Theme.swift */,
 				37FC46822386450BA067F7F5 /* Toast.swift */,
+				A1B2C3D4E5F60202020202L1 /* AppL10n.swift */,
 				TIP0SWIPEA1B2C3D4E5F60002 /* AddressBarSwipeTipView.swift */,
 				A1B2C3D4E5F6020202020270 /* KeyboardDismissCoordinator.swift */,
 				F1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift */,
@@ -927,6 +933,7 @@
 				A1B2C3D4E5F6010101010163 /* AppearanceSettingsViewController.swift in Sources */,
 				3B0B5010105C7BB485B89CD7 /* IsolatedVsSharedViewController.swift in Sources */,
 				90F8BD6BD7DB43AF80342259 /* Toast.swift in Sources */,
+				A1B2C3D4E5F60101010101L1 /* AppL10n.swift in Sources */,
 				TIP0SWIPEA1B2C3D4E5F60001 /* AddressBarSwipeTipView.swift in Sources */,
 				A1B2C3D4E5F6010101010170 /* KeyboardDismissCoordinator.swift in Sources */,
 				PWD0006F6D53A60E5B801 /* PasswordSettings.swift in Sources */,
@@ -967,6 +974,7 @@
 				A1B2C3D4E5F6010101010121 /* FaviconImageView.swift in Sources */,
 				A1B2C3D4E5F6010101010120 /* NavigationDirectory.swift in Sources */,
 				81A1B2C3D4E54678A9B0C1D2 /* PrivateNewTabViewController.swift in Sources */,
+				A1B2C3D4E5F60101010101A1 /* AccountHubViewController.swift in Sources */,
 				C5CC3025D67544A09B52DB05 /* OnboardingViewController.swift in Sources */,
 				81FD47C9E67B4DE0B05CED50 /* ClearBrowsingDataViewController.swift in Sources */,
 				72902D8D6B914EADAB7C35DF /* DangerousSiteGuard.swift in Sources */,
@@ -1163,7 +1171,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
@@ -1180,7 +1188,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -1199,7 +1207,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
@@ -1216,7 +1224,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

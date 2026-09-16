@@ -1046,13 +1046,17 @@ final class TabManager {
     }
 
     /// Tab count shown on the toolbar badge for the current browsing context.
+    /// Only counts the current account's real pages (excludes blank New Tab pages).
     func toolbarTabCount(incognito: Bool) -> Int {
         if incognito {
-            return max(incognitoTabs.count, 1)
+            return max(incognitoTabs.filter { !$0.isNewTabPage }.count, 1)
         }
         let containerID = selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
             ?? resolvedLastActiveContainerID
-        return max(normalTabs.filter { $0.containerID == containerID }.count, 1)
+        let count = normalTabs.filter {
+            $0.containerID == containerID && !$0.isNewTabPage
+        }.count
+        return max(count, 1)
     }
 
     private static func migrateContainers(from session: PersistedSession) -> [BrowserContainer] {

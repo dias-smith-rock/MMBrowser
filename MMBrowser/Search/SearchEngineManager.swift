@@ -101,7 +101,7 @@ struct SearchEngine: Equatable {
 enum SearchEngineManager {
     static var current: SearchEngine {
         let id = AppSettings.searchEngineID
-        return SearchEngine.all.first { $0.id == id } ?? .google
+        return SearchEngine.all.first { $0.id == id } ?? .youTube
     }
 
     static func setCurrent(_ engine: SearchEngine) {
