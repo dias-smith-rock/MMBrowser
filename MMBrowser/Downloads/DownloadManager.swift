@@ -213,7 +213,13 @@ final class DownloadManager: NSObject {
         save()
         notify()
 
-        if Self.needsXMediaHeaders(for: url) || unique.lowercased().hasPrefix("x-") {
+        let offlineName = unique.lowercased()
+        if Self.needsXMediaHeaders(for: url)
+            || offlineName.hasPrefix("x-")
+            || offlineName.hasPrefix("ph-")
+            || offlineName.hasPrefix("xv-")
+            || offlineName.hasPrefix("xnxx-")
+            || offlineName.hasPrefix("video-") {
             XVideoOfflineProbe.log("dl.request", [
                 "id": item.id.uuidString,
                 "file": unique,
@@ -444,26 +450,25 @@ final class DownloadManager: NSObject {
     }
 
     private static func needsXMediaHeaders(for url: URL) -> Bool {
-        let host = url.host?.lowercased() ?? ""
-        return host.contains("twimg.com") || host.contains("pscp.tv") || host.contains("periscope.tv")
+        XVideoOfflineProbe.isMediaHost(url.host)
     }
 
     private static func defaultExtraHeaders(for url: URL) -> [String: String] {
         guard needsXMediaHeaders(for: url) else { return [:] }
+        let pair = XVideoOfflineProbe.downloadRefererOrigin(for: url)
         return [
-            "Referer": "https://x.com/",
-            "Origin": "https://x.com"
+            "Referer": pair.referer,
+            "Origin": pair.origin
         ]
     }
 
-    /// Match cookies for the download host, and for X media also include x.com / twitter.com session cookies.
+    /// Match cookies for the download host plus site session cookies (X / PH / XV / XNXX).
     private static func cookies(for url: URL, from all: [HTTPCookie]) -> [HTTPCookie] {
-        let host = url.host?.lowercased() ?? ""
         let related: [String] = {
             if needsXMediaHeaders(for: url) {
-                return [host, "x.com", "twitter.com", "api.x.com", "api.twitter.com"]
+                return XVideoOfflineProbe.relatedCookieHosts(for: url)
             }
-            return [host]
+            return [url.host?.lowercased() ?? ""]
         }()
         return all.filter { cookie in
             let domain = cookie.domain.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
@@ -524,6 +529,32 @@ final class DownloadManager: NSObject {
 
     func item(id: UUID) -> DownloadItem? {
         items.first { $0.id == id }
+    }
+
+    /// True when this offline video is already downloading or finished (not failed/cancelled).
+    func hasActiveOrCompletedOfflineVideo(matching candidate: XVideoOfflineCandidate) -> Bool {
+        let urlKey = XVideoOfflineProbe.urlDedupeKey(for: candidate.url)
+        let mediaID = XVideoOfflineProbe.mediaID(from: candidate.url)
+        let pageVideoID = XVideoOfflineProbe.videoID(fromPageURL: candidate.pageURL)
+            ?? candidate.statusID
+        return items.contains { item in
+            guard item.status == .downloading || item.status == .completed else { return false }
+            if let src = URL(string: item.sourceURL) {
+                if XVideoOfflineProbe.urlDedupeKey(for: src) == urlKey { return true }
+                if let mediaID, !mediaID.isEmpty,
+                   XVideoOfflineProbe.mediaID(from: src) == mediaID || item.sourceURL.contains(mediaID) {
+                    return true
+                }
+            }
+            if let pageVideoID, !pageVideoID.isEmpty {
+                let name = item.fileName.lowercased()
+                let needle = pageVideoID.lowercased()
+                if name.contains("-\(needle)-") || name.contains("-\(needle).") {
+                    return true
+                }
+            }
+            return false
+        }
     }
 
     // MARK: - Classification helpers
@@ -904,8 +935,10 @@ extension DownloadManager: URLSessionDownloadDelegate {
         let response = downloadTask.response
         let http = response as? HTTPURLResponse
         let status = http?.statusCode ?? 200
+        let fname = items[index].fileName.lowercased()
         let isXMedia = Self.needsXMediaHeaders(for: URL(string: items[index].sourceURL) ?? items[index].fileURL)
-            || items[index].fileName.lowercased().hasPrefix("x-")
+            || fname.hasPrefix("x-") || fname.hasPrefix("ph-") || fname.hasPrefix("xv-")
+            || fname.hasPrefix("xnxx-") || fname.hasPrefix("video-")
         if isXMedia {
             var fields: [String: Any] = [
                 "id": id.uuidString,

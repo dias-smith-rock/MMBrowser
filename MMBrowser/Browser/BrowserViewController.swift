@@ -1995,6 +1995,15 @@ extension BrowserViewController: WebViewControllerDelegate {
     func webViewController(_ controller: WebViewController, didOfferOfflineVideo candidate: XVideoOfflineCandidate) {
         guard tabManager.selectedTab?.webController === controller else { return }
         guard tabManager.selectedTab?.isIncognito != true else { return }
+        // Downloads list may already have this video (or a same-page download just started).
+        if DownloadManager.shared.hasActiveOrCompletedOfflineVideo(matching: candidate) {
+            XVideoOfflineProbe.log("offer.skip", [
+                "why": "alreadySavedOrDownloading",
+                "where": "toast",
+                "file": candidate.suggestedFileName
+            ])
+            return
+        }
         Toast.show(
             "Save this video offline?",
             from: self,

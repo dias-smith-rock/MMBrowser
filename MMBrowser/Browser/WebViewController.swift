@@ -275,7 +275,9 @@ final class WebViewController: UIViewController {
     /// Offline-save candidate for the page menu (progressive MP4 or HLS; nil when unavailable / Private).
     var offlineVideoCandidate: XVideoOfflineCandidate? {
         guard !isIncognito else { return nil }
-        return xVideoOfflineProbe.bestProgressiveCandidate ?? xVideoOfflineProbe.bestHLSCandidate
+        guard let candidate = xVideoOfflineProbe.bestCandidate else { return nil }
+        if xVideoOfflineProbe.isAlreadySavedOrDownloading(candidate) { return nil }
+        return candidate
     }
     private var httpsFallbackAttempted = false
     private var tabUserAgentSettings = TabUserAgentSettings(userAgentMode: .automatic, customUserAgent: nil)
@@ -766,7 +768,7 @@ final class WebViewController: UIViewController {
                 ucc.addUserScript(MediaPlaybackSupport.mediaUserScript)
             }
         }
-        if !isIncognito, !didInstallXVideoOfflineScript, XVideoOfflineProbe.isXPage(url) {
+        if !isIncognito, !didInstallXVideoOfflineScript, XVideoOfflineProbe.isSupportedPage(url) {
             didInstallXVideoOfflineScript = true
             ucc.addUserScript(XVideoOfflineProbe.userScript)
             // If the document is already loaded, user scripts alone won't run until next navigation.
@@ -1765,33 +1767,91 @@ final class WebViewController: UIViewController {
         guard !isIncognito else { return }
         guard let body = message.body as? [String: Any] else { return }
         let event = (body["event"] as? String) ?? ""
-        guard event == "playing" || event == "resources" else { return }
+        guard event == "playing" || event == "resources" || event == "play"
+            || event == "fullscreen" || event == "fullscreenExit" else {
+            return
+        }
 
         let pageURL = body["pageURL"] as? String
         let statusID = body["statusID"] as? String
         let currentSrc = body["currentSrc"] as? String
         let resources = body["resources"] as? [String] ?? []
+        let reason = body["reason"] as? String ?? ""
+        let fullscreenFlag = (body["fullscreen"] as? Int).map { $0 != 0 }
+            ?? (body["fullscreen"] as? Bool)
+            ?? (event == "fullscreen")
+        let adultSite = XVideoOfflineProbe.isAdultVideoPageURLString(pageURL)
+            || XVideoOfflineProbe.isAdultVideoPage(webView?.url)
         XVideoOfflineProbe.log("js.\(event)", [
             "statusID": statusID ?? "",
             "currentSrc": currentSrc ?? "",
             "resourceCount": resources.count,
+            "fullscreen": fullscreenFlag,
+            "adult": adultSite,
+            "reason": reason,
             "w": body["width"] as? Int ?? 0,
             "h": body["height"] as? Int ?? 0
         ])
-        _ = xVideoOfflineProbe.notePlaying(pageURL: pageURL, statusID: statusID, currentSrc: currentSrc)
 
+        // Always seed page context + media URLs.
+        xVideoOfflineProbe.notePageContext(pageURL: pageURL, statusID: statusID)
+        // Pin real player currentSrc (master.m3u8) even when event is just `resources`.
+        xVideoOfflineProbe.noteCurrentSrc(currentSrc)
         for raw in resources {
-            guard let url = URL(string: raw) else { continue }
+            // PH sometimes JSON-escapes slashes.
+            let cleaned = raw.replacingOccurrences(of: "\\/", with: "/")
+            guard let url = URL(string: cleaned) else { continue }
             _ = xVideoOfflineProbe.noteMediaURL(url, mimeType: nil)
         }
 
-        maybeOfferOfflineVideoSave()
+        // PH / XV / XNXX: toast on fullscreen. Native iOS FS covers our toast, so also offer on exit.
+        if adultSite {
+            if event == "fullscreen" || (fullscreenFlag && (event == "playing" || event == "play")) {
+                _ = xVideoOfflineProbe.notePlaying(pageURL: pageURL, statusID: statusID, currentSrc: currentSrc)
+                pendingAdultOfflineOffer = true
+                maybeOfferOfflineVideoSave(force: false)
+                // If toast was covered by system video FS, re-offer shortly after enter as fallback.
+                scheduleAdultOfflineOfferRetry()
+            } else if event == "fullscreenExit" {
+                _ = xVideoOfflineProbe.notePlaying(pageURL: pageURL, statusID: statusID, currentSrc: currentSrc)
+                if pendingAdultOfflineOffer || xVideoOfflineProbe.bestCandidate != nil {
+                    pendingAdultOfflineOffer = false
+                    // Delay so the system fullscreen player has finished dismissing.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+                        self?.maybeOfferOfflineVideoSave(force: true)
+                    }
+                }
+            }
+        } else if event == "playing" || event == "play" {
+            _ = xVideoOfflineProbe.notePlaying(pageURL: pageURL, statusID: statusID, currentSrc: currentSrc)
+            maybeOfferOfflineVideoSave(force: false)
+        } else if xVideoOfflineProbe.isArmed {
+            maybeOfferOfflineVideoSave(force: false)
+        }
     }
 
-    private func maybeOfferOfflineVideoSave() {
+    /// Adult sites: system fullscreen covers in-app toasts; retry / show after exit.
+    private var pendingAdultOfflineOffer = false
+    private var adultOfflineOfferRetryWorkItem: DispatchWorkItem?
+
+    private func scheduleAdultOfflineOfferRetry() {
+        adultOfflineOfferRetryWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            // Still pending means the first toast likely never landed (covered by FS).
+            if self.pendingAdultOfflineOffer {
+                self.maybeOfferOfflineVideoSave(force: true)
+            }
+        }
+        adultOfflineOfferRetryWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: work)
+    }
+
+    private func maybeOfferOfflineVideoSave(force: Bool = false) {
         guard !isIncognito else { return }
-        guard let candidate = xVideoOfflineProbe.candidateForOffer(allowHLS: true) else { return }
+        guard let candidate = xVideoOfflineProbe.candidateForOffer(allowHLS: true, force: force) else { return }
         xVideoOfflineProbe.markOffered(candidate)
+        pendingAdultOfflineOffer = false
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.delegate?.webViewController(self, didOfferOfflineVideo: candidate)
@@ -1805,16 +1865,23 @@ final class WebViewController: UIViewController {
             XVideoOfflineProbe.log("download.abort", ["why": "incognito"])
             return false
         }
-        // Prefer true progressive; modern X serves CMAF init at `/vid/avc1/*.mp4`, so fall back to HLS.
-        let candidate = xVideoOfflineProbe.bestProgressiveCandidate ?? xVideoOfflineProbe.bestHLSCandidate
+        // Adult sites: HLS of the playing video. X: progressive when real, else HLS (not CMAF init).
+        let candidate = xVideoOfflineProbe.bestCandidate
         guard let candidate else {
             XVideoOfflineProbe.log("download.abort", [
                 "why": "noCandidate",
-                "armed": xVideoOfflineProbe.isArmed,
-                "bestAny": xVideoOfflineProbe.bestCandidate?.url.absoluteString ?? ""
+                "armed": xVideoOfflineProbe.isArmed
             ])
             return false
         }
+        if xVideoOfflineProbe.isAlreadySavedOrDownloading(candidate) {
+            XVideoOfflineProbe.log("download.abort", ["why": "alreadySavedOrDownloading"])
+            xVideoOfflineProbe.markDownloadStarted(candidate)
+            pendingAdultOfflineOffer = false
+            return false
+        }
+        xVideoOfflineProbe.markDownloadStarted(candidate)
+        pendingAdultOfflineOffer = false
         XVideoOfflineProbe.log("download.start", [
             "file": candidate.suggestedFileName,
             "mime": candidate.mimeType ?? (candidate.isHLS ? "application/vnd.apple.mpegurl" : "video/mp4"),
@@ -1823,6 +1890,14 @@ final class WebViewController: UIViewController {
             "statusID": candidate.statusID ?? "",
             "url": candidate.url.absoluteString
         ])
+        let refererPair = XVideoOfflineProbe.downloadRefererOrigin(
+            for: candidate.url,
+            pageURL: candidate.pageURL ?? webView?.url?.absoluteString
+        )
+        let siteHeaders = [
+            "Referer": refererPair.referer,
+            "Origin": refererPair.origin
+        ]
         if candidate.isHLS {
             DownloadManager.shared.startXHLSOffline(
                 masterURL: candidate.url,
@@ -1834,11 +1909,20 @@ final class WebViewController: UIViewController {
             }
             return true
         }
-        beginDownload(
+        DownloadManager.shared.start(
             url: candidate.url,
             suggestedName: candidate.suggestedFileName,
-            mimeType: candidate.mimeType ?? "video/mp4"
-        )
+            mimeType: candidate.mimeType ?? "video/mp4",
+            from: webView
+        ) { [weak self] item in
+            guard let self else { return }
+            Toast.show("Downloading \(item.fileName)…", from: self)
+        }
+        // `start(from:)` already applies site Referer via media-host defaults; keep pair for logging.
+        XVideoOfflineProbe.log("download.headers", [
+            "referer": siteHeaders["Referer"] ?? "",
+            "origin": siteHeaders["Origin"] ?? ""
+        ])
         return true
     }
 
@@ -2203,7 +2287,10 @@ extension WebViewController: WKNavigationDelegate {
                 let needsMediaScript = mediaFeaturesOn
                     && !didInstallMediaScript
                     && MediaPlaybackSupport.shouldInstallScript(for: url)
-                if needsYouTubeScripts || needsMediaScript {
+                let needsOfflineVideoScript = !isIncognito
+                    && !didInstallXVideoOfflineScript
+                    && XVideoOfflineProbe.isSupportedPage(url)
+                if needsYouTubeScripts || needsMediaScript || needsOfflineVideoScript {
                     ensureOnDemandScripts(for: url)
                     decisionHandler(.cancel)
                     load(url: url)
@@ -2276,11 +2363,19 @@ extension WebViewController: WKNavigationDelegate {
         if PageCleanerManager.shouldApplyEarly(on: webView.url) {
             PageCleanerManager.apply(to: webView, url: webView.url)
         }
-        // Fresh document — clear armed state / candidates.
-        let stayingOnX = XVideoOfflineProbe.isXPage(webView.url)
-        xVideoOfflineProbe.reset()
-        if !stayingOnX {
-            xVideoOfflineProbe.clearSessionOffers()
+        // Fresh document — clear armed state / candidates, unless same watch page
+        // (PH fullscreen / ad iframes often commit navigations that would wipe HLS masters).
+        let stayingOnSupported = XVideoOfflineProbe.isSupportedPage(webView.url)
+        let prevVideoID = XVideoOfflineProbe.videoID(fromPageURL: xVideoOfflineProbe.pageURL)
+        let nextVideoID = XVideoOfflineProbe.videoID(fromPageURL: webView.url?.absoluteString)
+        let sameWatchPage = prevVideoID != nil && prevVideoID == nextVideoID
+        if sameWatchPage {
+            xVideoOfflineProbe.notePageContext(pageURL: webView.url?.absoluteString, statusID: nextVideoID)
+        } else {
+            xVideoOfflineProbe.reset()
+            if !stayingOnSupported {
+                xVideoOfflineProbe.clearSessionOffers()
+            }
         }
         desktopUAHintGeneration += 1
         recordNavigationHistory(from: webView.url)

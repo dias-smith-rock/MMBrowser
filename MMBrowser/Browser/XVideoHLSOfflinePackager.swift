@@ -75,9 +75,14 @@ enum XVideoHLSOfflinePackager {
         guard !videoParts.segments.isEmpty || videoParts.mapURI != nil else {
             throw PackagerError.emptySegments
         }
-        let videoFile = workDir.appendingPathComponent("video.mp4")
+        let videoIsTS = videoParts.looksLikeMPEGTS
+        let videoFile = workDir.appendingPathComponent(videoIsTS ? "video.ts" : "video.mp4")
         try concatTrack(parts: videoParts, to: videoFile, session: session, bytes: &downloaded, progress: progress, isCancelled: isCancelled)
-        XVideoOfflineProbe.log("hls.videoTrack", XVideoOfflineProbe.fileProbeSummary(at: videoFile))
+        XVideoOfflineProbe.log("hls.videoTrack", {
+            var f = XVideoOfflineProbe.fileProbeSummary(at: videoFile)
+            f["container"] = videoIsTS ? "ts" : "fmp4"
+            return f
+        }())
 
         var audioFile: URL?
         if let audioURL = master.bestAudioURL {
@@ -85,7 +90,8 @@ enum XVideoHLSOfflinePackager {
             let audioMedia = try fetchText(audioURL, session: session, bytes: &downloaded, progress: progress)
             let audioParts = parseMedia(audioMedia, base: audioURL)
             if !audioParts.segments.isEmpty || audioParts.mapURI != nil {
-                let out = workDir.appendingPathComponent("audio.m4a")
+                let audioIsTS = audioParts.looksLikeMPEGTS
+                let out = workDir.appendingPathComponent(audioIsTS ? "audio.ts" : "audio.m4a")
                 try concatTrack(parts: audioParts, to: out, session: session, bytes: &downloaded, progress: progress, isCancelled: isCancelled)
                 audioFile = out
                 XVideoOfflineProbe.log("hls.audioTrack", XVideoOfflineProbe.fileProbeSummary(at: out))
@@ -99,6 +105,9 @@ enum XVideoHLSOfflinePackager {
 
         if let audioFile {
             try muxPassthrough(video: videoFile, audio: audioFile, to: destinationURL, isCancelled: isCancelled)
+        } else if videoIsTS {
+            // Remux MPEG-TS → MP4 so Downloads / AVPlayer treat it as a normal file.
+            try remuxToMP4(input: videoFile, output: destinationURL, isCancelled: isCancelled)
         } else {
             try FileManager.default.copyItem(at: videoFile, to: destinationURL)
         }
@@ -184,6 +193,41 @@ enum XVideoHLSOfflinePackager {
 
     // MARK: - Mux
 
+    private static func remuxToMP4(
+        input: URL,
+        output: URL,
+        isCancelled: () -> Bool
+    ) throws {
+        try checkCancelled(isCancelled)
+        let asset = AVURLAsset(url: input)
+        guard let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetPassthrough)
+                ?? AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
+            try FileManager.default.copyItem(at: input, to: output)
+            return
+        }
+        export.outputURL = output
+        export.outputFileType = .mp4
+        let sema = DispatchSemaphore(value: 0)
+        export.exportAsynchronously { sema.signal() }
+        sema.wait()
+        switch export.status {
+        case .completed:
+            return
+        case .cancelled:
+            throw PackagerError.cancelled
+        default:
+            XVideoOfflineProbe.log("hls.remuxFail", [
+                "error": export.error?.localizedDescription ?? "unknown",
+                "input": input.lastPathComponent
+            ])
+            // Last resort: keep concatenated TS with .mp4 extension (often still playable).
+            if FileManager.default.fileExists(atPath: output.path) {
+                try? FileManager.default.removeItem(at: output)
+            }
+            try FileManager.default.copyItem(at: input, to: output)
+        }
+    }
+
     private static func muxPassthrough(
         video: URL,
         audio: URL,
@@ -250,12 +294,19 @@ enum XVideoHLSOfflinePackager {
         var baseURL: URL
         var mapURI: String?
         var segments: [String]
+
+        var looksLikeMPEGTS: Bool {
+            if mapURI != nil { return false }
+            return segments.contains { $0.lowercased().contains(".ts") }
+        }
     }
 
     private static func parseMaster(_ text: String, base: URL) -> MasterPlaylist {
         var result = MasterPlaylist()
         var pendingBandwidth = 0
         var pendingAudioGroup: String?
+        var awaitingStreamURI = false
+        var sawStreamInf = false
         var audioGroups: [String: URL] = [:]
 
         let lines = text.split(whereSeparator: \.isNewline).map { String($0).trimmingCharacters(in: .whitespaces) }
@@ -275,12 +326,18 @@ enum XVideoHLSOfflinePackager {
                 let attrs = parseAttrs(String(line.dropFirst("#EXT-X-STREAM-INF:".count)))
                 pendingBandwidth = Int(attrs["BANDWIDTH"] ?? attrs["AVERAGE-BANDWIDTH"] ?? "0") ?? 0
                 pendingAudioGroup = attrs["AUDIO"]
+                awaitingStreamURI = true
+                sawStreamInf = true
                 continue
             }
             if line.isEmpty || line.hasPrefix("#") {
                 continue
             }
-            // URI line following STREAM-INF
+            // Only URI lines that immediately follow STREAM-INF are variants.
+            // Media playlists list hundreds of `.ts` segment URIs — never treat those as variants
+            // (previously the last segment won and fetch returned HTTP 400).
+            guard awaitingStreamURI else { continue }
+            awaitingStreamURI = false
             let url = resolve(line, relativeTo: base)
             let path = url.path.lowercased()
             // Skip pure audio variant rows if mis-tagged.
@@ -296,9 +353,10 @@ enum XVideoHLSOfflinePackager {
             pendingAudioGroup = nil
         }
 
-        // Master that is already a media playlist (no STREAM-INF).
-        if result.bestVideoURL == nil, text.contains("#EXTINF") || text.contains("#EXT-X-MAP") {
+        // Already a media playlist (no STREAM-INF) — download its own segments.
+        if !sawStreamInf, text.contains("#EXTINF") || text.contains("#EXT-X-MAP") {
             result.bestVideoURL = base
+            result.bestBandwidth = 0
         }
         return result
     }
