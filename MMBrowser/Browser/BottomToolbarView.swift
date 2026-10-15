@@ -158,6 +158,8 @@ final class BottomToolbarView: UIView {
         setNeedsLayout()
     }
 
+    private var spaceTintColor: UIColor?
+
     func setPrivateMode(_ isPrivate: Bool) {
         isPrivateMode = isPrivate
         accountChip.isHidden = isPrivate || !accountChipVisible
@@ -165,10 +167,17 @@ final class BottomToolbarView: UIView {
         setNeedsLayout()
     }
 
+    /// Tints toolbar chrome with the active Space color (ignored in Private).
+    func setSpaceChrome(_ color: UIColor?) {
+        spaceTintColor = color
+        applyTheme()
+    }
+
     func setAccount(name: String, color: UIColor, visible: Bool) {
         accountChipVisible = visible
         accountName = name
         accountColor = color
+        spaceTintColor = visible ? color : nil
         let show = visible && !isPrivateMode
         accountChip.isHidden = !show
         accountTitle.text = accountName
@@ -176,6 +185,7 @@ final class BottomToolbarView: UIView {
         accountChevron.tintColor = color
         accountChip.backgroundColor = color.withAlphaComponent(0.18)
         accountChip.accessibilityValue = name
+        applyTheme()
         setNeedsLayout()
     }
 
@@ -229,7 +239,9 @@ final class BottomToolbarView: UIView {
     }
 
     @objc private func applyTheme() {
-        backgroundColor = isPrivateMode ? BrowserTheme.privateBackground : BrowserTheme.background
+        backgroundColor = isPrivateMode
+            ? BrowserTheme.privateBackground
+            : BrowserTheme.spaceSurfaceColor(spaceColor: spaceTintColor)
         let tint = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
         let config = Self.iconConfig
         let size = Self.iconPointSize
@@ -248,7 +260,9 @@ final class BottomToolbarView: UIView {
 
         accountTitle.textColor = accountColor
         accountChevron.tintColor = accountColor
-        tabsBadgeLabel.backgroundColor = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
+        tabsBadgeLabel.backgroundColor = isPrivateMode
+            ? BrowserTheme.privateAccent
+            : (spaceTintColor ?? BrowserTheme.chromeBlue)
         tabsBadgeLabel.textColor = isPrivateMode ? BrowserTheme.privateBackground : .black
         tabsBadgeLabel.isHidden = false
         applyNavigationEnabledState()

@@ -737,10 +737,12 @@ final class BrowserViewController: UIViewController {
     private func refreshAccountChip() {
         guard let tab = tabManager.selectedTab else {
             toolbar.setAccount(name: "", color: .clear, visible: false)
+            applyPrivateChrome(false)
             return
         }
         if tab.isIncognito {
             toolbar.setAccount(name: "", color: .clear, visible: false)
+            applyPrivateChrome(true)
             return
         }
         let container = tabManager.container(id: tab.containerID) ?? tabManager.defaultContainer
@@ -749,6 +751,7 @@ final class BrowserViewController: UIViewController {
             color: AccountColor.color(for: container),
             visible: true
         )
+        applyPrivateChrome(false)
     }
 
     /// Switch space and show a strong, hard-to-miss identity change.
@@ -900,14 +903,32 @@ final class BrowserViewController: UIViewController {
     }
 
     private func applyPrivateChrome(_ isPrivate: Bool) {
-        let bg = isPrivate ? BrowserTheme.privateBackground : BrowserTheme.background
+        let spaceColor: UIColor? = {
+            guard !isPrivate,
+                  let tab = tabManager.selectedTab,
+                  !tab.isIncognito else { return nil }
+            let container = tabManager.container(id: tab.containerID) ?? tabManager.defaultContainer
+            return AccountColor.color(for: container)
+        }()
+        let bg = isPrivate
+            ? BrowserTheme.privateBackground
+            : BrowserTheme.spaceSurfaceColor(spaceColor: spaceColor)
         view.backgroundColor = bg
         statusBarFill.backgroundColor = bg
         contentClipView.backgroundColor = bg
         contentContainer.backgroundColor = bg
         addressBar.setPrivateMode(isPrivate)
         toolbar.setPrivateMode(isPrivate)
-        collapsedProgressView.progressTintColor = isPrivate ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
+        if isPrivate {
+            addressBar.setSpaceChrome(nil)
+            toolbar.setSpaceChrome(nil)
+            collapsedProgressView.progressTintColor = BrowserTheme.privateAccent
+        } else {
+            addressBar.setSpaceChrome(spaceColor)
+            toolbar.setSpaceChrome(spaceColor)
+            collapsedProgressView.progressTintColor = spaceColor ?? BrowserTheme.chromeBlue
+        }
+        accountHubController?.applySpaceChrome(spaceColor: spaceColor)
     }
 
     private func showNewTab(for tab: BrowserTab) {

@@ -331,6 +331,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         updateClearButtonVisibility()
     }
 
+    private var spaceTintColor: UIColor?
+
     func setPrivateMode(_ isPrivate: Bool) {
         isPrivateMode = isPrivate
         privateBadge.isHidden = !isPrivate
@@ -338,10 +340,21 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         applyTheme()
     }
 
+    /// Tints address-bar chrome with the active Space color (ignored in Private).
+    func setSpaceChrome(_ color: UIColor?) {
+        spaceTintColor = color
+        applyTheme()
+    }
+
     @objc private func applyTheme() {
-        backgroundColor = isPrivateMode ? BrowserTheme.privateBackground : BrowserTheme.background
-        container.backgroundColor = isPrivateMode ? BrowserTheme.privateElevated : BrowserTheme.elevated
-        let accent = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
+        if isPrivateMode {
+            backgroundColor = BrowserTheme.privateBackground
+            container.backgroundColor = BrowserTheme.privateElevated
+        } else {
+            backgroundColor = BrowserTheme.spaceSurfaceColor(spaceColor: spaceTintColor)
+            container.backgroundColor = BrowserTheme.spaceElevatedColor(spaceColor: spaceTintColor)
+        }
+        let accent = isPrivateMode ? BrowserTheme.privateAccent : (spaceTintColor ?? BrowserTheme.chromeBlue)
         reloadButton.setImage(ThemeManager.shared.image(for: .menuReload, pointSize: 16), for: .normal)
         reloadButton.tintColor = BrowserTheme.textSecondary
         richMenuButton.setImage(UIImage(systemName: "ellipsis"), for: .normal)
@@ -356,7 +369,9 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         peekLabel.textColor = BrowserTheme.textSecondary
         progressView.progressTintColor = accent
         updateSearchPlaceholder()
-        cleanerMenuContainer.backgroundColor = BrowserTheme.elevated
+        cleanerMenuContainer.backgroundColor = isPrivateMode
+            ? BrowserTheme.privateElevated
+            : BrowserTheme.spaceElevatedColor(spaceColor: spaceTintColor)
         cleanerTitleLabel.textColor = BrowserTheme.textSecondary
         [cleanerSiteChip, cleanerPageChip, cleanerExitChip].forEach {
             $0.setTitleColor(BrowserTheme.textPrimary, for: .normal)

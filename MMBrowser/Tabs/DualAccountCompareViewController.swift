@@ -201,7 +201,6 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
     private func makePane(side: Side) -> UIView {
         let pane = state(for: side)
         let wrap = UIView()
-        wrap.backgroundColor = BrowserTheme.secondaryCard
         pane.wrap = wrap
 
         let chrome = UIStackView()
@@ -222,11 +221,13 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         accountButton.contentHorizontalAlignment = .leading
         accountButton.setImage(UIImage(systemName: "chevron.down", withConfiguration: UIImage.SymbolConfiguration(pointSize: 10, weight: .semibold)), for: .normal)
         accountButton.semanticContentAttribute = .forceRightToLeft
+        accountButton.layer.cornerRadius = 14
+        accountButton.clipsToBounds = true
+        accountButton.contentEdgeInsets = UIEdgeInsets(top: 5, left: 8, bottom: 5, right: 8)
         accountButton.tag = side == .top ? 0 : 1
         accountButton.addTarget(self, action: #selector(accountTapped(_:)), for: .touchUpInside)
         accountButton.accessibilityLabel = "Change space"
         pane.accountButton = accountButton
-        refreshAccountButton(side: side)
 
         let closePaneButton = UIButton(type: .system)
         let xConfig = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
@@ -292,7 +293,6 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         address.text = startURL.absoluteString
         address.font = .systemFont(ofSize: 14)
         address.textColor = BrowserTheme.textPrimary
-        address.backgroundColor = BrowserTheme.card
         address.layer.cornerRadius = 10
         address.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 1))
         address.leftViewMode = .always
@@ -316,7 +316,6 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         }
 
         let progressView = UIProgressView(progressViewStyle: .bar)
-        progressView.progressTintColor = BrowserTheme.chromeBlue
         progressView.trackTintColor = .clear
         progressView.isHidden = true
         progressView.progress = 0
@@ -335,6 +334,7 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         }
         pane.chrome = chrome
 
+        applyPaneChrome(side: side)
         installWeb(in: pane, url: startURL)
         return wrap
     }
@@ -358,11 +358,31 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
     }
 
     private func refreshAccountButton(side: Side) {
+        applyPaneChrome(side: side)
+    }
+
+    /// Tint each split pane with its Space theme color (chip, chrome, address bar, progress).
+    private func applyPaneChrome(side: Side) {
         let pane = state(for: side)
         let color = AccountColor.color(for: pane.container)
+        let surface = BrowserTheme.spaceSurfaceColor(spaceColor: color)
+        let elevated = BrowserTheme.spaceElevatedColor(spaceColor: color)
+
+        pane.wrap?.backgroundColor = surface
+        pane.chrome?.backgroundColor = surface
+        pane.addressField?.backgroundColor = elevated
+        pane.addressField?.tintColor = color
+        pane.progressView?.progressTintColor = color
+
         pane.accountButton?.setTitle(" \(pane.container.name) ", for: .normal)
         pane.accountButton?.setTitleColor(color, for: .normal)
         pane.accountButton?.tintColor = color
+        pane.accountButton?.backgroundColor = color.withAlphaComponent(0.18)
+
+        let iconTint = BrowserTheme.textPrimary
+        [pane.backButton, pane.forwardButton, pane.reloadButton, pane.pageSettingsButton, pane.closePaneButton].forEach {
+            $0?.tintColor = iconTint
+        }
     }
 
     private func installWeb(in pane: PaneState, url: URL) {
@@ -680,15 +700,15 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
             let previous = pane.container
             pane.container = container
             otherPane.container = previous
-            refreshAccountButton(side: side)
-            refreshAccountButton(side: otherSide)
+            applyPaneChrome(side: side)
+            applyPaneChrome(side: otherSide)
             installWeb(in: pane, url: currentURL)
             installWeb(in: otherPane, url: otherURL)
             return
         }
 
         pane.container = container
-        refreshAccountButton(side: side)
+        applyPaneChrome(side: side)
         installWeb(in: pane, url: currentURL)
     }
 

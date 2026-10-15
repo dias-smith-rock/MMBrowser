@@ -46,6 +46,27 @@ enum BrowserTheme {
         ]
     }
 
+    /// Browser chrome / home surface tinted with the active Space color.
+    static func spaceSurfaceColor(spaceColor: UIColor?) -> UIColor {
+        guard let spaceColor else { return background }
+        let amount: CGFloat = ThemeManager.shared.current.isLight ? 0.16 : 0.32
+        return blend(background, spaceColor, amount: amount)
+    }
+
+    static func spaceElevatedColor(spaceColor: UIColor?) -> UIColor {
+        guard let spaceColor else { return elevated }
+        let amount: CGFloat = ThemeManager.shared.current.isLight ? 0.12 : 0.22
+        return blend(elevated, spaceColor, amount: amount)
+    }
+
+    /// Home wallpaper blended with the active Space accent.
+    static func spaceHomeColor(spaceColor: UIColor?, wallpaperIndex: Int = AppSettings.homeWallpaperIndex) -> UIColor {
+        let base = homeWallpaperColor(at: wallpaperIndex)
+        guard let spaceColor else { return base }
+        let amount: CGFloat = ThemeManager.shared.current.isLight ? 0.18 : 0.36
+        return blend(base, spaceColor, amount: amount)
+    }
+
     private static func blend(_ a: UIColor, _ b: UIColor, amount: CGFloat) -> UIColor {
         let t = min(max(amount, 0), 1)
         var ar: CGFloat = 0, ag: CGFloat = 0, ab: CGFloat = 0, aa: CGFloat = 0

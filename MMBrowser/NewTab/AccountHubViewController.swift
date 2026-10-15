@@ -45,9 +45,10 @@ final class AccountHubViewController: UIViewController {
         self.isOverlay = isOverlay
     }
 
+    private var spaceTintColor: UIColor?
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = BrowserTheme.homeWallpaperColor()
         overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         setupChrome()
         reloadAll()
@@ -69,15 +70,31 @@ final class AccountHubViewController: UIViewController {
         reloadAll()
     }
 
+    func applySpaceChrome(spaceColor: UIColor?) {
+        spaceTintColor = spaceColor
+        guard isViewLoaded else { return }
+        view.backgroundColor = BrowserTheme.spaceHomeColor(spaceColor: spaceColor)
+    }
+
     @objc private func themeChanged() {
-        view.backgroundColor = BrowserTheme.homeWallpaperColor()
+        applyResolvedSpaceChrome()
         reloadAll()
     }
 
     @objc private func directoryChanged() { reloadShortcuts() }
     @objc private func homeSettingsChanged() {
-        view.backgroundColor = BrowserTheme.homeWallpaperColor()
+        applyResolvedSpaceChrome()
         reloadAll()
+    }
+
+    private func applyResolvedSpaceChrome() {
+        let color = spaceTintColor ?? {
+            let id = resolvedPreviewID()
+            guard let container = tabManager?.container(id: id) else { return nil as UIColor? }
+            return AccountColor.color(for: container)
+        }()
+        spaceTintColor = color
+        view.backgroundColor = BrowserTheme.spaceHomeColor(spaceColor: color)
     }
 
     // MARK: - Layout
@@ -170,9 +187,11 @@ final class AccountHubViewController: UIViewController {
     // MARK: - Reload
 
     private func reloadAll() {
+        applyResolvedSpaceChrome()
+        let accent = spaceTintColor ?? BrowserTheme.chromeBlue
         favoritesTitle.textColor = BrowserTheme.textSecondary
-        favoritesDoneButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
-        closeButton.backgroundColor = BrowserTheme.chromeBlue
+        favoritesDoneButton.setTitleColor(accent, for: .normal)
+        closeButton.backgroundColor = accent
         reloadShortcuts()
         reloadBookmarks()
     }
