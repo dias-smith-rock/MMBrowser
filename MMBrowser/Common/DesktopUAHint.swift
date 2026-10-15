@@ -15,6 +15,8 @@ enum DesktopUAHint {
         Site(
             displayName: "WhatsApp Web",
             // Matches whatsapp.com, www.whatsapp.com, web.whatsapp.com, …
+            // autoApplyComputerUserAgent: enforced in WebViewController before the first request
+            // (not only as a post-load delegate hint).
             hostSuffixes: ["whatsapp.com"],
             loginPathTokens: ["/mobile", "/lite"],
             autoApplyComputerUserAgent: true,

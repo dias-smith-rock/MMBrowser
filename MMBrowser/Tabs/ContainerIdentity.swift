@@ -204,7 +204,31 @@ enum ContainerTemplate: String, CaseIterable {
         let preset = SpoofLocationPreset.all[sortIndex % SpoofLocationPreset.all.count]
 
         switch self {
-        case .whatsapp, .instagram, .telegram, .facebook:
+        case .whatsapp:
+            // WhatsApp Web requires a Computer UA for the real web client (QR login).
+            return BrowserContainer(
+                id: UUID(),
+                name: displayName,
+                sessionID: UUID(),
+                sortIndex: sortIndex,
+                colorIndex: colorIndex,
+                locationMode: .ask,
+                latitude: preset.latitude,
+                longitude: preset.longitude,
+                timeZoneIdentifier: preset.timeZoneIdentifier,
+                locationPresetID: preset.id,
+                pinnedSites: [],
+                persistence: .persistent,
+                identity: IdentityProfile(
+                    localeIdentifier: "en-US",
+                    userAgentMode: .desktop,
+                    customUserAgent: nil,
+                    customProfile: nil,
+                    stripTrackingParams: true
+                ),
+                templateID: rawValue
+            )
+        case .instagram, .telegram, .facebook:
             return BrowserContainer(
                 id: UUID(),
                 name: displayName,

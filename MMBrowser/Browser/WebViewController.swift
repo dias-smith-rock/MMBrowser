@@ -25,6 +25,8 @@ final class WebViewController: UIViewController {
     var onNavigationStateChanged: ((Bool, Bool) -> Void)?
     var onURLChanged: ((URL?) -> Void)?
     var onProgressChanged: ((Double, Bool) -> Void)?
+    /// Fired when this web view self-promotes to Computer UA (e.g. WhatsApp). Split View uses this to persist tab settings without a full `delegate`.
+    var onAutoComputerUserAgent: ((TabUserAgentSettings) -> Void)?
 
     /// Rewrites viewport meta so pinch-zoom works like Safari on restrictive pages.
     /// Skipped on YouTube / Bilibili: unlocking scale breaks sticky players and list layout.
@@ -704,12 +706,36 @@ final class WebViewController: UIViewController {
             ])
         }
         YouTubeDarkMode.applyAppearance(to: webView, url: url)
+        // WhatsApp (and similar) must use Computer UA on the first request — post-load
+        // hints need a delegate and often run too late after /mobile/ already rendered.
+        let promoted = promoteAutoComputerUAIfNeeded(for: url)
         applyUserAgent(to: webView)
         // Fire-and-forget cookie warm-up — do not delay navigation on cookie store I/O.
         if YouTubeDarkMode.isYouTube(url) {
             YouTubeDarkMode.ensureDarkCookie(in: webView.configuration.websiteDataStore) {}
         }
         webView.load(URLRequest(url: url))
+        if promoted, let site = DesktopUAHint.site(matching: url) {
+            notifyAutoComputerUAApplied(siteName: site.displayName)
+        }
+    }
+
+    /// Promotes this web view to Computer UA for hosts marked `autoApplyComputerUserAgent`
+    /// (currently WhatsApp). Returns true when settings changed.
+    @discardableResult
+    private func promoteAutoComputerUAIfNeeded(for url: URL?) -> Bool {
+        guard let url, let site = DesktopUAHint.site(matching: url), site.autoApplyComputerUserAgent else {
+            return false
+        }
+        guard !tabUserAgentSettings.looksLikeComputer else { return false }
+        tabUserAgentSettings = TabUserAgentSettings(userAgentMode: .desktop, customUserAgent: nil)
+        return true
+    }
+
+    private func notifyAutoComputerUAApplied(siteName: String) {
+        // Persist on the owning tab when a browser delegate is present (Split View may be nil).
+        delegate?.webViewController(self, autoApplyComputerUserAgentFor: siteName)
+        onAutoComputerUserAgent?(tabUserAgentSettings)
     }
 
     /// Install heavy host-specific user scripts before the document loads (document-start).
@@ -2051,6 +2077,14 @@ extension WebViewController: WKNavigationDelegate {
                 return
             }
 
+            // In-page / redirect navigations to WhatsApp: upgrade UA before the request goes out.
+            if isMainFrame, promoteAutoComputerUAIfNeeded(for: url) {
+                applyUserAgent(to: webView)
+                if let site = DesktopUAHint.site(matching: url) {
+                    notifyAutoComputerUAApplied(siteName: site.displayName)
+                }
+            }
+
             // Document-start scripts only apply to loads that begin after they are added.
             // First hit on YouTube / a media host: install then cancel+reload so scripts run.
             if isMainFrame, ["http", "https"].contains(scheme) {
@@ -2308,9 +2342,14 @@ extension WebViewController: WKNavigationDelegate {
         guard !tabUserAgentSettings.looksLikeComputer else { return }
 
         if site.autoApplyComputerUserAgent {
+            // Fallback if the first request somehow used Phone UA (e.g. restored session).
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
                 guard let self, generation == self.desktopUAHintGeneration else { return }
-                self.delegate?.webViewController(self, autoApplyComputerUserAgentFor: site.displayName)
+                guard self.promoteAutoComputerUAIfNeeded(for: url) else { return }
+                guard let webView = self.webView else { return }
+                self.applyUserAgent(to: webView)
+                self.notifyAutoComputerUAApplied(siteName: site.displayName)
+                webView.reload()
             }
             return
         }

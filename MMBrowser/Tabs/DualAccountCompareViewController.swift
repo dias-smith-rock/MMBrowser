@@ -446,6 +446,16 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
             guard current.web === web else { return }
             self.applyProgress(to: current, progress: progress, isLoading: isLoading)
         }
+        web.onAutoComputerUserAgent = { [weak self] settings in
+            guard let self else { return }
+            let current = self.state(for: side)
+            guard current.web === web else { return }
+            if let tabID = current.borrowedTabID,
+               let tab = self.tabManager.tabs.first(where: { $0.id == tabID }) {
+                tab.applyUserAgentSettings(settings)
+                self.tabManager.persistSessionIfNeeded()
+            }
+        }
         refreshNavButtons(for: pane)
     }
 
@@ -561,6 +571,7 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         web.onNavigationStateChanged = nil
         web.onURLChanged = nil
         web.onProgressChanged = nil
+        web.onAutoComputerUserAgent = nil
         pane.borrowedTabID = nil
         pane.web = nil
         web.willMove(toParent: nil)

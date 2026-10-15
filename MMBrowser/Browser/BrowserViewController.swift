@@ -1869,19 +1869,23 @@ extension BrowserViewController: WebViewControllerDelegate {
     }
 
     func webViewController(_ controller: WebViewController, autoApplyComputerUserAgentFor siteName: String) {
-        guard tabManager.selectedTab?.webController === controller else { return }
-        guard let tab = tabManager.selectedTab else { return }
-        let host = (tab.url?.host ?? "").lowercased()
-        guard !host.isEmpty else { return }
+        // Prefer the tab that owns this web view (Split View panes are often not selectedTab).
+        let tab = tabManager.tabs.first(where: { $0.webController === controller })
+            ?? (tabManager.selectedTab?.webController === controller ? tabManager.selectedTab : nil)
+        guard let tab else { return }
+        let host = (controller.webView?.url?.host ?? tab.url?.host ?? "").lowercased()
         // Remember the apex too so www / web dismissals stay in sync.
         let apex = host.split(separator: ".").suffix(2).joined(separator: ".")
-        guard !tab.dismissedDesktopUAHintHosts.contains(host),
-              !tab.dismissedDesktopUAHintHosts.contains(apex) else { return }
+        if !host.isEmpty {
+            guard !tab.dismissedDesktopUAHintHosts.contains(host),
+                  !tab.dismissedDesktopUAHintHosts.contains(apex) else { return }
+        }
         guard !tab.userAgentSettings.looksLikeComputer else { return }
-        applyComputerUserAgent(to: tab)
+        // WebViewController already set Computer UA on the request; only persist + toast here.
+        applyComputerUserAgent(to: tab, reloadWebView: false)
     }
 
-    private func applyComputerUserAgent(to tab: BrowserTab) {
+    private func applyComputerUserAgent(to tab: BrowserTab, reloadWebView: Bool = true) {
         let settings = TabUserAgentSettings(userAgentMode: .desktop, customUserAgent: nil)
         tab.applyUserAgentSettings(settings)
         if let host = tab.url?.host?.lowercased() {
@@ -1891,7 +1895,7 @@ extension BrowserViewController: WebViewControllerDelegate {
                 tab.dismissedDesktopUAHintHosts.insert(apex)
             }
         }
-        tab.webController?.applyTabUserAgentSettings(settings)
+        tab.webController?.applyTabUserAgentSettings(settings, reload: reloadWebView)
         tabManager.persistSessionIfNeeded()
         Toast.show("This tab looks like: Computer", from: self)
     }
