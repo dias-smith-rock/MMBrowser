@@ -208,10 +208,13 @@ final class TabManager {
     }
 
     /// Indices of tabs that address-bar swipe may move between (same pool + same container for normal tabs).
+    /// New Tab / Account Hub pages stay out of the queue — swipe only cycles real pages.
     private func swipePoolIndices(around tab: BrowserTab) -> [Int] {
         tabs.indices.filter { index in
             let candidate = tabs[index]
             guard candidate.isIncognito == tab.isIncognito else { return false }
+            // Never include New Tab placeholders in address-bar swipe (to or from).
+            if candidate.isNewTabPage { return false }
             if tab.isIncognito { return true }
             return candidate.containerID == tab.containerID
         }
