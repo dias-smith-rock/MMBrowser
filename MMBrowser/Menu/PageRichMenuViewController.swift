@@ -8,6 +8,7 @@ struct PageRichMenuContext {
     let userAgentMode: UserAgentMode
     let adBlockerEnabled: Bool
     let hasLoadablePage: Bool
+    let canSaveOfflineVideo: Bool
 
     var host: String {
         if let host = url?.host, !host.isEmpty { return host }
@@ -67,7 +68,13 @@ final class PageRichMenuViewController: UIViewController {
         stack.addArrangedSubview(makeRowsCard([
             row("Add to Bookmarks", symbol: "bookmark", action: .addBookmark, enabled: context.hasLoadablePage && !context.isIncognito),
             row("Add to Reading List", symbol: "eyeglasses", action: .addReadingList, enabled: context.hasLoadablePage && !context.isIncognito),
-            row("Add to Favorites", symbol: "star", action: .addToHomepage, enabled: context.hasLoadablePage && !context.isIncognito)
+            row("Add to Favorites", symbol: "star", action: .addToHomepage, enabled: context.hasLoadablePage && !context.isIncognito),
+            row(
+                "Save Video Offline",
+                symbol: "arrow.down.to.line",
+                action: .saveOfflineVideo,
+                enabled: context.canSaveOfflineVideo && !context.isIncognito
+            )
         ]))
         stack.addArrangedSubview(makeRowsCard([
             row("Long screenshot", symbol: "rectangle.bottomthird.inset.filled", action: .longScreenshot, enabled: context.hasLoadablePage),

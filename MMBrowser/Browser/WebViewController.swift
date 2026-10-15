@@ -17,6 +17,11 @@ protocol WebViewControllerDelegate: AnyObject {
     func webViewController(_ controller: WebViewController, didDetectSessionAvatar url: URL?)
     func webViewController(_ controller: WebViewController, suggestComputerUserAgentFor siteName: String)
     func webViewController(_ controller: WebViewController, autoApplyComputerUserAgentFor siteName: String)
+    func webViewController(_ controller: WebViewController, didOfferOfflineVideo candidate: XVideoOfflineCandidate)
+}
+
+extension WebViewControllerDelegate {
+    func webViewController(_ controller: WebViewController, didOfferOfflineVideo candidate: XVideoOfflineCandidate) {}
 }
 
 final class WebViewController: UIViewController {
@@ -264,6 +269,14 @@ final class WebViewController: UIViewController {
     private var didInstallYouTubeScripts = false
     /// Large media/PiP bridge — installed before first likely-media document load (or PiP intent).
     private var didInstallMediaScript = false
+    private var didInstallXVideoOfflineScript = false
+    private let xVideoOfflineProbe = XVideoOfflineProbe()
+
+    /// Offline-save candidate for the page menu (progressive MP4 or HLS; nil when unavailable / Private).
+    var offlineVideoCandidate: XVideoOfflineCandidate? {
+        guard !isIncognito else { return nil }
+        return xVideoOfflineProbe.bestProgressiveCandidate ?? xVideoOfflineProbe.bestHLSCandidate
+    }
     private var httpsFallbackAttempted = false
     private var tabUserAgentSettings = TabUserAgentSettings(userAgentMode: .automatic, customUserAgent: nil)
 
@@ -413,6 +426,7 @@ final class WebViewController: UIViewController {
             config.userContentController.addUserScript(XSiteProbe.userScript)
         }
         if !isIncognito {
+            config.userContentController.add(proxy, name: XVideoOfflineProbe.handlerName)
             config.userContentController.addUserScript(BrowserAutofillCoordinator.userScript)
         }
         // Default WKWebView UA omits "Safari/…" which makes x.com issue x-safari-https:// kickouts.
@@ -751,6 +765,12 @@ final class WebViewController: UIViewController {
                 didInstallMediaScript = true
                 ucc.addUserScript(MediaPlaybackSupport.mediaUserScript)
             }
+        }
+        if !isIncognito, !didInstallXVideoOfflineScript, XVideoOfflineProbe.isXPage(url) {
+            didInstallXVideoOfflineScript = true
+            ucc.addUserScript(XVideoOfflineProbe.userScript)
+            // If the document is already loaded, user scripts alone won't run until next navigation.
+            webView.evaluateJavaScript(XVideoOfflineProbe.scriptSourceForEvaluation, completionHandler: nil)
         }
         guard YouTubeDarkMode.isYouTube(url), !didInstallYouTubeScripts else { return }
         didInstallYouTubeScripts = true
@@ -1741,6 +1761,87 @@ final class WebViewController: UIViewController {
         XSiteProbe.logJS(body)
     }
 
+    fileprivate func handleXVideoOfflineMessage(_ message: WKScriptMessage) {
+        guard !isIncognito else { return }
+        guard let body = message.body as? [String: Any] else { return }
+        let event = (body["event"] as? String) ?? ""
+        guard event == "playing" || event == "resources" else { return }
+
+        let pageURL = body["pageURL"] as? String
+        let statusID = body["statusID"] as? String
+        let currentSrc = body["currentSrc"] as? String
+        let resources = body["resources"] as? [String] ?? []
+        XVideoOfflineProbe.log("js.\(event)", [
+            "statusID": statusID ?? "",
+            "currentSrc": currentSrc ?? "",
+            "resourceCount": resources.count,
+            "w": body["width"] as? Int ?? 0,
+            "h": body["height"] as? Int ?? 0
+        ])
+        _ = xVideoOfflineProbe.notePlaying(pageURL: pageURL, statusID: statusID, currentSrc: currentSrc)
+
+        for raw in resources {
+            guard let url = URL(string: raw) else { continue }
+            _ = xVideoOfflineProbe.noteMediaURL(url, mimeType: nil)
+        }
+
+        maybeOfferOfflineVideoSave()
+    }
+
+    private func maybeOfferOfflineVideoSave() {
+        guard !isIncognito else { return }
+        guard let candidate = xVideoOfflineProbe.candidateForOffer(allowHLS: true) else { return }
+        xVideoOfflineProbe.markOffered(candidate)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.delegate?.webViewController(self, didOfferOfflineVideo: candidate)
+        }
+    }
+
+    /// Starts a cookie-aware download for the best offline candidate (progressive MP4, else HLS).
+    @discardableResult
+    func startOfflineVideoDownload() -> Bool {
+        guard !isIncognito else {
+            XVideoOfflineProbe.log("download.abort", ["why": "incognito"])
+            return false
+        }
+        // Prefer true progressive; modern X serves CMAF init at `/vid/avc1/*.mp4`, so fall back to HLS.
+        let candidate = xVideoOfflineProbe.bestProgressiveCandidate ?? xVideoOfflineProbe.bestHLSCandidate
+        guard let candidate else {
+            XVideoOfflineProbe.log("download.abort", [
+                "why": "noCandidate",
+                "armed": xVideoOfflineProbe.isArmed,
+                "bestAny": xVideoOfflineProbe.bestCandidate?.url.absoluteString ?? ""
+            ])
+            return false
+        }
+        XVideoOfflineProbe.log("download.start", [
+            "file": candidate.suggestedFileName,
+            "mime": candidate.mimeType ?? (candidate.isHLS ? "application/vnd.apple.mpegurl" : "video/mp4"),
+            "rank": candidate.rank,
+            "hls": candidate.isHLS,
+            "statusID": candidate.statusID ?? "",
+            "url": candidate.url.absoluteString
+        ])
+        if candidate.isHLS {
+            DownloadManager.shared.startXHLSOffline(
+                masterURL: candidate.url,
+                suggestedName: candidate.suggestedFileName,
+                from: webView
+            ) { [weak self] item in
+                guard let self else { return }
+                Toast.show("Downloading \(item.fileName)…", from: self)
+            }
+            return true
+        }
+        beginDownload(
+            url: candidate.url,
+            suggestedName: candidate.suggestedFileName,
+            mimeType: candidate.mimeType ?? "video/mp4"
+        )
+        return true
+    }
+
     fileprivate func handlePictureInPictureMessage(_ message: WKScriptMessage) {
         guard message.name == MediaPlaybackSupport.pipHandlerName else { return }
         if let body = message.body as? [String: Any] {
@@ -1922,6 +2023,8 @@ private final class WebViewScriptProxy: NSObject, WKScriptMessageHandler {
             target?.handlePictureInPictureMessage(message)
         case XSiteProbe.handlerName:
             target?.handleXSiteProbeMessage(message)
+        case XVideoOfflineProbe.handlerName:
+            target?.handleXVideoOfflineMessage(message)
         default:
             break
         }
@@ -2051,6 +2154,13 @@ extension WebViewController: WKNavigationDelegate {
                 return
             }
 
+            if !isIncognito, XVideoOfflineProbe.isLikelyMediaURL(url) {
+                _ = xVideoOfflineProbe.noteMediaURL(url, mimeType: nil)
+                if xVideoOfflineProbe.isArmed {
+                    maybeOfferOfflineVideoSave()
+                }
+            }
+
             let scheme = (url.scheme ?? "").lowercased()
             // Ignore App/deeplink schemes (common on Chinese portals like Sogou) to avoid "Unsupported URL".
             let allowed = ["http", "https", "about", "blob", "data", "file"]
@@ -2132,6 +2242,16 @@ extension WebViewController: WKNavigationDelegate {
     ) {
         let response = navigationResponse.response
         let isMain = navigationResponse.isForMainFrame
+        if !isIncognito, let url = response.url {
+            let mime = response.mimeType
+            if XVideoOfflineProbe.isLikelyMediaURL(url)
+                || (mime?.lowercased().hasPrefix("video/") == true && XVideoOfflineProbe.isMediaHost(url.host)) {
+                _ = xVideoOfflineProbe.noteMediaURL(url, mimeType: mime)
+                if xVideoOfflineProbe.isArmed {
+                    maybeOfferOfflineVideoSave()
+                }
+            }
+        }
         guard DownloadManager.shouldDownload(response: response, isForMainFrame: isMain),
               let url = response.url else {
             decisionHandler(.allow)
@@ -2139,6 +2259,11 @@ extension WebViewController: WKNavigationDelegate {
         }
         let scheme = (url.scheme ?? "").lowercased()
         guard scheme == "http" || scheme == "https" else {
+            decisionHandler(.allow)
+            return
+        }
+        // Never cancel inline X/Twitter video playback to "download" it automatically.
+        if XVideoOfflineProbe.isLikelyMediaURL(url) || XVideoOfflineProbe.isMediaHost(url.host) {
             decisionHandler(.allow)
             return
         }
@@ -2150,6 +2275,12 @@ extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         if PageCleanerManager.shouldApplyEarly(on: webView.url) {
             PageCleanerManager.apply(to: webView, url: webView.url)
+        }
+        // Fresh document — clear armed state / candidates.
+        let stayingOnX = XVideoOfflineProbe.isXPage(webView.url)
+        xVideoOfflineProbe.reset()
+        if !stayingOnX {
+            xVideoOfflineProbe.clearSessionOffers()
         }
         desktopUAHintGeneration += 1
         recordNavigationHistory(from: webView.url)

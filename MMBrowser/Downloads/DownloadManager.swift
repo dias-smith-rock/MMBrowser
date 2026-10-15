@@ -76,11 +76,16 @@ final class DownloadManager: NSObject {
 
     private var tasks: [UUID: URLSessionDownloadTask] = [:]
     private var taskIDToItem: [Int: UUID] = [:]
+    /// HLS packager jobs (multi-step; not URLSessionDownloadTask).
+    private var hlsJobs: Set<UUID> = []
+    private let hlsStateLock = NSLock()
+    private var hlsCancelFlags: [UUID: Bool] = [:]
     private var backgroundCompletionHandler: (() -> Void)?
     private var lastProgressSaveTime: CFAbsoluteTime = 0
     private var lastProgressNotifyTime: CFAbsoluteTime = 0
     private let progressSaveInterval: TimeInterval = 0.5
     private let progressNotifyInterval: TimeInterval = 0.1
+    private let hlsQueue = DispatchQueue(label: "com.mmbrowser.hls-offline", qos: .utility)
 
     static var directory: URL {
         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -162,7 +167,8 @@ final class DownloadManager: NSObject {
         url: URL,
         suggestedName: String? = nil,
         mimeType: String? = nil,
-        cookies: [HTTPCookie] = []
+        cookies: [HTTPCookie] = [],
+        extraHeaders: [String: String] = [:]
     ) -> DownloadItem {
         let baseName = Self.sanitizeFileName(
             suggestedName?.nilIfEmpty
@@ -172,7 +178,19 @@ final class DownloadManager: NSObject {
         )
         let unique = Self.uniqueFileName(baseName, in: Self.directory, excluding: items)
         var request = URLRequest(url: url)
-        request.setValue("Mozilla/5.0", forHTTPHeaderField: "User-Agent")
+        request.setValue(
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+            forHTTPHeaderField: "User-Agent"
+        )
+        request.setValue("*/*", forHTTPHeaderField: "Accept")
+        // X/Twitter CDN often rejects bare downloads without a site referer.
+        if Self.needsXMediaHeaders(for: url) {
+            request.setValue("https://x.com/", forHTTPHeaderField: "Referer")
+            request.setValue("https://x.com", forHTTPHeaderField: "Origin")
+        }
+        for (k, v) in extraHeaders {
+            request.setValue(v, forHTTPHeaderField: k)
+        }
         if !cookies.isEmpty {
             let header = HTTPCookie.requestHeaderFields(with: cookies)
             for (k, v) in header {
@@ -195,6 +213,19 @@ final class DownloadManager: NSObject {
         save()
         notify()
 
+        if Self.needsXMediaHeaders(for: url) || unique.lowercased().hasPrefix("x-") {
+            XVideoOfflineProbe.log("dl.request", [
+                "id": item.id.uuidString,
+                "file": unique,
+                "cookieCount": cookies.count,
+                "cookieDomains": Array(Set(cookies.map(\.domain))).sorted().joined(separator: ","),
+                "hasReferer": request.value(forHTTPHeaderField: "Referer") != nil,
+                "hasOrigin": request.value(forHTTPHeaderField: "Origin") != nil,
+                "uaPrefix": String((request.value(forHTTPHeaderField: "User-Agent") ?? "").prefix(48)),
+                "url": url.absoluteString
+            ])
+        }
+
         DownloadLocalNotifications.shared.requestAuthorizationIfNeeded()
 
         let task = session.downloadTask(with: request)
@@ -208,21 +239,239 @@ final class DownloadManager: NSObject {
     /// Convenience: pull cookies from a web view's store for the download URL host.
     func start(url: URL, suggestedName: String?, mimeType: String?, from webView: WKWebView?, completion: ((DownloadItem) -> Void)? = nil) {
         let store = webView?.configuration.websiteDataStore.httpCookieStore
+        let headers = Self.defaultExtraHeaders(for: url)
         guard let store else {
-            let item = start(url: url, suggestedName: suggestedName, mimeType: mimeType, cookies: [])
+            let item = start(url: url, suggestedName: suggestedName, mimeType: mimeType, cookies: [], extraHeaders: headers)
             completion?(item)
             return
         }
         store.getAllCookies { [weak self] all in
             guard let self else { return }
-            let host = url.host?.lowercased() ?? ""
-            let matched = all.filter { cookie in
-                let domain = cookie.domain.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
-                return host == domain || host.hasSuffix("." + domain) || host.hasSuffix(cookie.domain.lowercased())
-            }
+            let matched = Self.cookies(for: url, from: all)
             DispatchQueue.main.async {
-                let item = self.start(url: url, suggestedName: suggestedName, mimeType: mimeType, cookies: matched)
+                let item = self.start(
+                    url: url,
+                    suggestedName: suggestedName,
+                    mimeType: mimeType,
+                    cookies: matched,
+                    extraHeaders: headers
+                )
                 completion?(item)
+            }
+        }
+    }
+
+    /// Offline-save path for X HLS masters (progressive `/vid/avc1/*.mp4` is init-only CMAF).
+    @discardableResult
+    func startXHLSOffline(
+        masterURL: URL,
+        suggestedName: String?,
+        cookies: [HTTPCookie] = [],
+        extraHeaders: [String: String] = [:]
+    ) -> DownloadItem {
+        let baseName = Self.sanitizeFileName(
+            suggestedName?.nilIfEmpty
+                ?? "x-video.mp4"
+        )
+        let unique = Self.uniqueFileName(baseName, in: Self.directory, excluding: items)
+        var item = DownloadItem(
+            id: UUID(),
+            fileName: unique,
+            sourceURL: masterURL.absoluteString,
+            savedAt: Date(),
+            status: .downloading,
+            bytesWritten: 0,
+            totalBytes: -1,
+            errorMessage: nil,
+            mimeType: "video/mp4"
+        )
+        items.insert(item, at: 0)
+        save()
+        notify()
+        hlsJobs.insert(item.id)
+        hlsStateLock.lock()
+        hlsCancelFlags[item.id] = false
+        hlsStateLock.unlock()
+        DownloadLocalNotifications.shared.requestAuthorizationIfNeeded()
+
+        var headers = Self.defaultExtraHeaders(for: masterURL)
+        for (k, v) in extraHeaders { headers[k] = v }
+        headers["User-Agent"] = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+        headers["Accept"] = "*/*"
+        if !cookies.isEmpty {
+            let cookieHeader = HTTPCookie.requestHeaderFields(with: cookies)
+            for (k, v) in cookieHeader { headers[k] = v }
+        }
+
+        XVideoOfflineProbe.log("hls.start", [
+            "id": item.id.uuidString,
+            "file": unique,
+            "cookieCount": cookies.count,
+            "url": masterURL.absoluteString
+        ])
+
+        let itemID = item.id
+        let dest = item.fileURL
+        hlsQueue.async { [weak self] in
+            guard let self else { return }
+            do {
+                let result = try XVideoHLSOfflinePackager.package(
+                    masterURL: masterURL,
+                    destinationURL: dest,
+                    headers: headers,
+                    progress: { [weak self] bytes in
+                        DispatchQueue.main.async {
+                            self?.updateHLSProgress(id: itemID, bytes: bytes)
+                        }
+                    },
+                    isCancelled: { [weak self] in
+                        guard let self else { return true }
+                        self.hlsStateLock.lock()
+                        defer { self.hlsStateLock.unlock() }
+                        return self.hlsCancelFlags[itemID] == true
+                    }
+                )
+                DispatchQueue.main.async {
+                    self.finishHLS(id: itemID, result: .success(result))
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.finishHLS(id: itemID, result: .failure(error))
+                }
+            }
+        }
+        return item
+    }
+
+    func startXHLSOffline(
+        masterURL: URL,
+        suggestedName: String?,
+        from webView: WKWebView?,
+        completion: ((DownloadItem) -> Void)? = nil
+    ) {
+        let store = webView?.configuration.websiteDataStore.httpCookieStore
+        let headers = Self.defaultExtraHeaders(for: masterURL)
+        guard let store else {
+            let item = startXHLSOffline(
+                masterURL: masterURL,
+                suggestedName: suggestedName,
+                cookies: [],
+                extraHeaders: headers
+            )
+            completion?(item)
+            return
+        }
+        store.getAllCookies { [weak self] all in
+            guard let self else { return }
+            let matched = Self.cookies(for: masterURL, from: all)
+            DispatchQueue.main.async {
+                let item = self.startXHLSOffline(
+                    masterURL: masterURL,
+                    suggestedName: suggestedName,
+                    cookies: matched,
+                    extraHeaders: headers
+                )
+                completion?(item)
+            }
+        }
+    }
+
+    private func updateHLSProgress(id: UUID, bytes: Int64) {
+        guard let index = items.firstIndex(where: { $0.id == id }),
+              items[index].status == .downloading else { return }
+        items[index].bytesWritten = bytes
+        let now = CFAbsoluteTimeGetCurrent()
+        if now - lastProgressNotifyTime >= progressNotifyInterval {
+            lastProgressNotifyTime = now
+            notify()
+        }
+        if now - lastProgressSaveTime >= progressSaveInterval {
+            lastProgressSaveTime = now
+            save()
+        }
+    }
+
+    private func finishHLS(id: UUID, result: Swift.Result<XVideoHLSOfflinePackager.Result, Error>) {
+        hlsJobs.remove(id)
+        hlsStateLock.lock()
+        hlsCancelFlags[id] = nil
+        hlsStateLock.unlock()
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        switch result {
+        case .success(let packaged):
+            if let reason = Self.unplayableMediaFailureReason(
+                fileURL: packaged.outputURL,
+                mimeType: "video/mp4",
+                expectedName: items[index].fileName
+            ) {
+                XVideoOfflineProbe.log("hls.fail", [
+                    "id": id.uuidString,
+                    "why": "validate",
+                    "reason": reason,
+                    "size": packaged.bytesWritten
+                ])
+                try? FileManager.default.removeItem(at: packaged.outputURL)
+                items[index].status = .failed
+                items[index].errorMessage = reason
+                items[index].bytesWritten = packaged.bytesWritten
+            } else {
+                items[index].status = .completed
+                items[index].bytesWritten = packaged.bytesWritten
+                items[index].totalBytes = packaged.bytesWritten
+                items[index].errorMessage = nil
+                items[index].savedAt = Date()
+                items[index].mimeType = "video/mp4"
+                var fields = XVideoOfflineProbe.fileProbeSummary(at: items[index].fileURL)
+                fields["id"] = id.uuidString
+                fields["file"] = items[index].fileName
+                XVideoOfflineProbe.log("hls.ok", fields)
+            }
+        case .failure(let error):
+            if items[index].status != .cancelled {
+                items[index].status = .failed
+                items[index].errorMessage = error.localizedDescription
+            }
+            try? FileManager.default.removeItem(at: items[index].fileURL)
+            XVideoOfflineProbe.log("hls.fail", [
+                "id": id.uuidString,
+                "why": "error",
+                "error": error.localizedDescription
+            ])
+        }
+        save()
+        notify()
+        notifyFinish(items[index])
+    }
+
+    private static func needsXMediaHeaders(for url: URL) -> Bool {
+        let host = url.host?.lowercased() ?? ""
+        return host.contains("twimg.com") || host.contains("pscp.tv") || host.contains("periscope.tv")
+    }
+
+    private static func defaultExtraHeaders(for url: URL) -> [String: String] {
+        guard needsXMediaHeaders(for: url) else { return [:] }
+        return [
+            "Referer": "https://x.com/",
+            "Origin": "https://x.com"
+        ]
+    }
+
+    /// Match cookies for the download host, and for X media also include x.com / twitter.com session cookies.
+    private static func cookies(for url: URL, from all: [HTTPCookie]) -> [HTTPCookie] {
+        let host = url.host?.lowercased() ?? ""
+        let related: [String] = {
+            if needsXMediaHeaders(for: url) {
+                return [host, "x.com", "twitter.com", "api.x.com", "api.twitter.com"]
+            }
+            return [host]
+        }()
+        return all.filter { cookie in
+            let domain = cookie.domain.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            return related.contains { relatedHost in
+                relatedHost == domain
+                    || relatedHost.hasSuffix("." + domain)
+                    || domain.hasSuffix(relatedHost)
+                    || relatedHost.hasSuffix(cookie.domain.lowercased())
             }
         }
     }
@@ -231,6 +480,11 @@ final class DownloadManager: NSObject {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         tasks[id]?.cancel()
         tasks[id] = nil
+        if hlsJobs.contains(id) {
+            hlsStateLock.lock()
+            hlsCancelFlags[id] = true
+            hlsStateLock.unlock()
+        }
         items[index].status = .cancelled
         items[index].errorMessage = "Cancelled"
         save()
@@ -246,7 +500,13 @@ final class DownloadManager: NSObject {
             cancel(id: id)
         }
         removeMetadataOnly(id: id, deleteFile: old.status != .completed)
-        start(url: url, suggestedName: old.fileName, mimeType: old.mimeType, from: nil)
+        let isHLS = url.pathExtension.lowercased() == "m3u8"
+            || url.absoluteString.lowercased().contains(".m3u8")
+        if isHLS {
+            _ = startXHLSOffline(masterURL: url, suggestedName: old.fileName, cookies: [], extraHeaders: Self.defaultExtraHeaders(for: url))
+        } else {
+            start(url: url, suggestedName: old.fileName, mimeType: old.mimeType, from: nil)
+        }
     }
 
     func remove(id: UUID) {
@@ -429,7 +689,15 @@ final class DownloadManager: NSObject {
             .replacingOccurrences(of: ":", with: "-")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if name.isEmpty { name = "download" }
-        if name.count > 180 { name = String(name.prefix(180)) }
+        // Keep the extension when truncating long names (e.g. x-{status}-{date}.mp4).
+        if name.count > 120 {
+            let ns = name as NSString
+            let ext = ns.pathExtension
+            let base = ns.deletingPathExtension
+            let maxBase = max(16, 120 - (ext.isEmpty ? 0 : ext.count + 1))
+            let trimmedBase = String(base.prefix(maxBase))
+            name = ext.isEmpty ? trimmedBase : "\(trimmedBase).\(ext)"
+        }
         return name
     }
 
@@ -450,6 +718,118 @@ final class DownloadManager: NSObject {
             index += 1
         }
         return candidate
+    }
+
+    /// Reject HTML/JSON error bodies and CMAF init-only “MP4”s that CDNs return with HTTP 200.
+    private static func unplayableMediaFailureReason(fileURL: URL, mimeType: String?, expectedName: String) -> String? {
+        let ext = (expectedName as NSString).pathExtension.lowercased()
+        let mime = (mimeType ?? "").lowercased()
+        let looksLikeSavedVideo = mime.hasPrefix("video/")
+            || ["mp4", "mov", "m4v", "webm"].contains(ext)
+            || expectedName.lowercased().hasPrefix("x-")
+        guard looksLikeSavedVideo else { return nil }
+
+        let size = ((try? FileManager.default.attributesOfItem(atPath: fileURL.path))?[.size] as? NSNumber)?.int64Value ?? 0
+        // Modern X progressive URLs often return only an fMP4 init (~0.5–2KB). Real clips are much larger.
+        if size > 0, size < 32_768 {
+            return "Download was only a video stub (incomplete). Try Save again after the video plays."
+        }
+
+        guard let handle = try? FileHandle(forReadingFrom: fileURL) else {
+            return "Couldn’t read downloaded file"
+        }
+        defer { try? handle.close() }
+        let prefix = handle.readData(ofLength: 64)
+        guard prefix.count >= 12 else { return "Downloaded file is empty or truncated" }
+
+        // ISO BMFF / MP4: ....ftyp — also require an `mdat` so we reject init-only CMAF.
+        if prefix.count >= 8 {
+            let ftyp = prefix.subdata(in: 4..<8)
+            if String(data: ftyp, encoding: .ascii) == "ftyp" {
+                if mp4ContainsBox(fileURL, type: "mdat") { return nil }
+                return "Download was only a video init segment (not playable)"
+            }
+        }
+        // WebM / Matroska EBML header
+        if prefix.starts(with: [0x1A, 0x45, 0xDF, 0xA3]) { return nil }
+
+        if let text = String(data: prefix, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+            if text.hasPrefix("<!doctype") || text.hasPrefix("<html") || text.hasPrefix("{") || text.hasPrefix("<?xml") {
+                return "Download wasn’t a video file (CDN blocked or expired link)"
+            }
+        }
+        if mime.contains("mp4") || ext == "mp4" || expectedName.lowercased().hasPrefix("x-") {
+            return "Download wasn’t a valid MP4"
+        }
+        return nil
+    }
+
+    /// Scans the first ~2MB for a top-level ISO-BMFF box type (e.g. `mdat`).
+    private static func mp4ContainsBox(_ fileURL: URL, type: String) -> Bool {
+        guard type.utf8.count == 4,
+              let handle = try? FileHandle(forReadingFrom: fileURL) else { return false }
+        defer { try? handle.close() }
+        let budget = 2 * 1024 * 1024
+        var offset = 0
+        while offset < budget {
+            handle.seek(toFileOffset: UInt64(offset))
+            let header = handle.readData(ofLength: 8)
+            guard header.count == 8 else { break }
+            let size = beUInt32(header, at: 0)
+            let box = String(data: header.subdata(in: 4..<8), encoding: .ascii) ?? ""
+            if box == type { return true }
+            if size == 1 {
+                let large = handle.readData(ofLength: 8)
+                guard large.count == 8 else { break }
+                let big = beUInt64(large, at: 0)
+                guard big >= 16, big <= UInt64(Int.max) else { break }
+                offset += Int(big)
+            } else if size >= 8 {
+                offset += Int(size)
+            } else if size == 0 {
+                break
+            } else {
+                break
+            }
+        }
+        return false
+    }
+
+    private static func beUInt32(_ data: Data, at: Int) -> UInt32 {
+        guard at + 4 <= data.count else { return 0 }
+        return (UInt32(data[at]) << 24) | (UInt32(data[at + 1]) << 16)
+            | (UInt32(data[at + 2]) << 8) | UInt32(data[at + 3])
+    }
+
+    private static func beUInt64(_ data: Data, at: Int) -> UInt64 {
+        guard at + 8 <= data.count else { return 0 }
+        var value: UInt64 = 0
+        for i in 0..<8 { value = (value << 8) | UInt64(data[at + i]) }
+        return value
+    }
+
+    private func ensurePlayableExtension(for item: inout DownloadItem, mimeType: String?) {
+        let ext = (item.fileName as NSString).pathExtension.lowercased()
+        guard ext.isEmpty else { return }
+        let mime = (mimeType ?? "").lowercased()
+        let add: String?
+        if mime.contains("mp4") || mime.contains("m4v") { add = "mp4" }
+        else if mime.contains("webm") { add = "webm" }
+        else if mime.contains("quicktime") { add = "mov" }
+        else if item.fileName.lowercased().hasPrefix("x-") { add = "mp4" }
+        else { add = nil }
+        guard let add else { return }
+        let renamed = Self.uniqueFileName(
+            "\(item.fileName).\(add)",
+            in: Self.directory,
+            excluding: items.filter { $0.id != item.id }
+        )
+        let oldURL = Self.directory.appendingPathComponent(item.fileName)
+        let newURL = Self.directory.appendingPathComponent(renamed)
+        if FileManager.default.fileExists(atPath: oldURL.path) {
+            try? FileManager.default.moveItem(at: oldURL, to: newURL)
+        }
+        item.fileName = renamed
     }
 
     static func fileNameFromContentDisposition(_ header: String?) -> String? {
@@ -524,10 +904,34 @@ extension DownloadManager: URLSessionDownloadDelegate {
         let response = downloadTask.response
         let http = response as? HTTPURLResponse
         let status = http?.statusCode ?? 200
+        let isXMedia = Self.needsXMediaHeaders(for: URL(string: items[index].sourceURL) ?? items[index].fileURL)
+            || items[index].fileName.lowercased().hasPrefix("x-")
+        if isXMedia {
+            var fields: [String: Any] = [
+                "id": id.uuidString,
+                "http": status,
+                "mime": http?.mimeType ?? response?.mimeType ?? "",
+                "len": http?.expectedContentLength ?? -1,
+                "file": items[index].fileName,
+                "url": items[index].sourceURL
+            ]
+            if let http {
+                fields["contentType"] = http.value(forHTTPHeaderField: "Content-Type") ?? ""
+                fields["contentRange"] = http.value(forHTTPHeaderField: "Content-Range") ?? ""
+                fields["acceptRanges"] = http.value(forHTTPHeaderField: "Accept-Ranges") ?? ""
+            }
+            // Peek temp file before move.
+            var probe = XVideoOfflineProbe.fileProbeSummary(at: location)
+            for (k, v) in probe { fields["tmp_\(k)"] = v }
+            XVideoOfflineProbe.log("dl.response", fields)
+        }
         if !(200..<300).contains(status) {
             try? FileManager.default.removeItem(at: location)
             items[index].status = .failed
             items[index].errorMessage = "HTTP \(status)"
+            if isXMedia {
+                XVideoOfflineProbe.log("dl.fail", ["id": id.uuidString, "why": "http", "http": status])
+            }
             tasks[id] = nil
             taskIDToItem[downloadTask.taskIdentifier] = nil
             save()
@@ -558,17 +962,49 @@ extension DownloadManager: URLSessionDownloadDelegate {
             try FileManager.default.moveItem(at: location, to: dest)
             let attrs = try? FileManager.default.attributesOfItem(atPath: dest.path)
             let size = (attrs?[.size] as? NSNumber)?.int64Value ?? items[index].bytesWritten
-            items[index].status = .completed
-            items[index].bytesWritten = size
-            items[index].totalBytes = size
-            items[index].errorMessage = nil
-            items[index].savedAt = Date()
-            if let mime = http?.mimeType ?? response?.mimeType {
-                items[index].mimeType = mime
+            let mime = http?.mimeType ?? response?.mimeType ?? items[index].mimeType
+            if let reason = Self.unplayableMediaFailureReason(fileURL: dest, mimeType: mime, expectedName: items[index].fileName) {
+                if isXMedia {
+                    var fields = XVideoOfflineProbe.fileProbeSummary(at: dest)
+                    fields["id"] = id.uuidString
+                    fields["why"] = "validate"
+                    fields["reason"] = reason
+                    fields["mime"] = mime ?? ""
+                    XVideoOfflineProbe.log("dl.fail", fields)
+                }
+                try? FileManager.default.removeItem(at: dest)
+                items[index].status = .failed
+                items[index].errorMessage = reason
+                items[index].bytesWritten = size
+                items[index].totalBytes = size
+                if let mime { items[index].mimeType = mime }
+            } else {
+                items[index].status = .completed
+                items[index].bytesWritten = size
+                items[index].totalBytes = size
+                items[index].errorMessage = nil
+                items[index].savedAt = Date()
+                if let mime { items[index].mimeType = mime }
+                // Ensure video files keep a playable extension.
+                ensurePlayableExtension(for: &items[index], mimeType: mime)
+                if isXMedia {
+                    var fields = XVideoOfflineProbe.fileProbeSummary(at: items[index].fileURL)
+                    fields["id"] = id.uuidString
+                    fields["file"] = items[index].fileName
+                    fields["mime"] = items[index].mimeType ?? ""
+                    XVideoOfflineProbe.log("dl.ok", fields)
+                }
             }
         } catch {
             items[index].status = .failed
             items[index].errorMessage = error.localizedDescription
+            if isXMedia {
+                XVideoOfflineProbe.log("dl.fail", [
+                    "id": id.uuidString,
+                    "why": "move",
+                    "error": error.localizedDescription
+                ])
+            }
             try? FileManager.default.removeItem(at: location)
         }
 

@@ -9,6 +9,7 @@ enum MenuAction: Equatable {
     case downloadFile
     case copyURL, aboutSite, addToHomepage, printPage, translate, changeTextSize, adBlocker
     case pictureInPicture
+    case saveOfflineVideo
     case setDefaultBrowser, passwords, backgroundGallery, theme, feedback
     case placeholder(String)
 }

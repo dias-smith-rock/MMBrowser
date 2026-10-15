@@ -1,5 +1,6 @@
 import UIKit
 import SnapKit
+import AVKit
 
 final class BrowserViewController: UIViewController {
     let tabManager = TabManager()
@@ -78,12 +79,85 @@ final class BrowserViewController: UIViewController {
         guard let item = note.userInfo?["item"] as? DownloadItem else { return }
         switch item.status {
         case .completed:
-            Toast.show("Downloaded \(item.fileName)", from: self)
+            let isVideo = (item.mimeType?.lowercased().hasPrefix("video/") == true)
+                || ["mp4", "mov", "m4v", "webm"].contains(
+                    (item.fileName as NSString).pathExtension.lowercased()
+                )
+            if isVideo, FileManager.default.fileExists(atPath: item.fileURL.path) {
+                Toast.show(
+                    "Downloaded \(item.fileName)",
+                    from: self,
+                    actionTitle: "Play",
+                    action: { [weak self] in
+                        self?.playDownloadedFile(item)
+                    },
+                    duration: 4.5
+                )
+            } else {
+                Toast.show("Downloaded \(item.fileName)", from: self)
+            }
         case .failed:
             let detail = (item.errorMessage?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 } ?? "Unknown error"
             Toast.show("Download failed · \(detail)", from: self)
         default:
             break
+        }
+    }
+
+    private var offlinePlayStatusObserver: NSKeyValueObservation?
+    private var offlinePlayItem: AVPlayerItem?
+
+    private func playDownloadedFile(_ item: DownloadItem) {
+        var probe = XVideoOfflineProbe.fileProbeSummary(at: item.fileURL)
+        probe["file"] = item.fileName
+        probe["mime"] = item.mimeType ?? ""
+        probe["source"] = item.sourceURL
+        XVideoOfflineProbe.log("play.begin", probe)
+
+        guard FileManager.default.fileExists(atPath: item.fileURL.path) else {
+            XVideoOfflineProbe.log("play.fail", ["why": "missing", "file": item.fileName])
+            Toast.show("File missing", from: self)
+            return
+        }
+        let playerItem = AVPlayerItem(url: item.fileURL)
+        offlinePlayItem = playerItem
+        offlinePlayStatusObserver = playerItem.observe(\.status, options: [.initial, .new]) { item, _ in
+            let name = (item.asset as? AVURLAsset)?.url.lastPathComponent ?? "?"
+            switch item.status {
+            case .readyToPlay:
+                XVideoOfflineProbe.log("play.ready", [
+                    "file": name,
+                    "duration": CMTimeGetSeconds(item.duration)
+                ])
+            case .failed:
+                let err = item.error as NSError?
+                XVideoOfflineProbe.log("play.fail", [
+                    "why": "avplayer",
+                    "file": name,
+                    "domain": err?.domain ?? "",
+                    "code": err?.code ?? 0,
+                    "error": err?.localizedDescription ?? "unknown"
+                ])
+            case .unknown:
+                XVideoOfflineProbe.log("play.status", ["status": "unknown", "file": name])
+            @unknown default:
+                XVideoOfflineProbe.log("play.status", ["status": "other", "file": name])
+            }
+        }
+        let player = AVPlayer(playerItem: playerItem)
+        let controller = AVPlayerViewController()
+        controller.player = player
+        let presentPlayer = { [weak self] in
+            guard let self else { return }
+            self.present(controller, animated: true) {
+                XVideoOfflineProbe.log("play.presented", ["file": item.fileName])
+                player.play()
+            }
+        }
+        if presentedViewController != nil {
+            dismiss(animated: false, completion: presentPlayer)
+        } else {
+            presentPlayer()
         }
     }
 
@@ -1246,7 +1320,8 @@ final class BrowserViewController: UIViewController {
             isIncognito: tab?.isIncognito ?? false,
             userAgentMode: tab?.userAgentMode ?? .automatic,
             adBlockerEnabled: AppSettings.trackerProtectionEnabled,
-            hasLoadablePage: tab?.isNewTabPage != true && tab?.url != nil
+            hasLoadablePage: tab?.isNewTabPage != true && tab?.url != nil,
+            canSaveOfflineVideo: tab?.webController?.offlineVideoCandidate != nil
         )
         let menu = PageRichMenuViewController(context: context)
         menu.delegate = self
@@ -1917,6 +1992,20 @@ extension BrowserViewController: WebViewControllerDelegate {
         applyComputerUserAgent(to: tab, reloadWebView: false)
     }
 
+    func webViewController(_ controller: WebViewController, didOfferOfflineVideo candidate: XVideoOfflineCandidate) {
+        guard tabManager.selectedTab?.webController === controller else { return }
+        guard tabManager.selectedTab?.isIncognito != true else { return }
+        Toast.show(
+            "Save this video offline?",
+            from: self,
+            actionTitle: "Save",
+            action: { [weak controller] in
+                _ = controller?.startOfflineVideoDownload()
+            },
+            duration: 5.0
+        )
+    }
+
     private func applyComputerUserAgent(to tab: BrowserTab, reloadWebView: Bool = true) {
         let settings = TabUserAgentSettings(userAgentMode: .desktop, customUserAgent: nil)
         tab.applyUserAgentSettings(settings)
@@ -2110,6 +2199,14 @@ extension BrowserViewController: MenuViewControllerDelegate {
             tabManager.selectedTab?.webController?.sharePDF()
         case .downloadFile:
             tabManager.selectedTab?.webController?.downloadCurrentIfFile()
+        case .saveOfflineVideo:
+            if tabManager.selectedTab?.isIncognito == true {
+                Toast.show("Downloads are disabled in Private Browsing", from: self)
+                return
+            }
+            if tabManager.selectedTab?.webController?.startOfflineVideoDownload() != true {
+                Toast.show("No offline video available yet — play the video first", from: self)
+            }
         case .screenshot:
             tabManager.selectedTab?.webController?.screenshot()
         case .longScreenshot:

@@ -70,7 +70,10 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
             ?? UITableViewCell(style: .subtitle, reuseIdentifier: "c")
         let item = items[indexPath.row]
         cell.textLabel?.text = item.fileName
+        cell.textLabel?.lineBreakMode = .byTruncatingMiddle
+        cell.textLabel?.numberOfLines = 1
         cell.detailTextLabel?.numberOfLines = 2
+        cell.detailTextLabel?.lineBreakMode = .byTruncatingMiddle
         cell.detailTextLabel?.text = statusText(for: item)
         cell.textLabel?.textColor = BrowserTheme.textPrimary
         cell.detailTextLabel?.textColor = BrowserTheme.textSecondary
@@ -101,15 +104,33 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
     private func statusText(for item: DownloadItem) -> String {
         switch item.status {
         case .downloading:
+            let sizePart: String = {
+                if item.totalBytes > 0 {
+                    return "\(DownloadItem.formatBytes(item.bytesWritten)) / \(DownloadItem.formatBytes(item.totalBytes))"
+                }
+                if item.bytesWritten > 0 {
+                    return DownloadItem.formatBytes(item.bytesWritten)
+                }
+                return "Downloading…"
+            }()
             let pct = item.totalBytes > 0 ? " · \(Int(item.progress * 100))%" : ""
-            return "Downloading\(pct)\n\(item.displayDetail)"
+            return "\(sizePart)\(pct)"
         case .completed:
-            return item.sourceURL
+            let size = resolvedFileSize(for: item)
+            let sizeText = size > 0 ? DownloadItem.formatBytes(size) : "Unknown size"
+            return "\(sizeText)\n\(item.sourceURL)"
         case .failed:
             return "Failed · \(item.errorMessage ?? "Unknown error")"
         case .cancelled:
             return "Cancelled"
         }
+    }
+
+    private func resolvedFileSize(for item: DownloadItem) -> Int64 {
+        if item.totalBytes > 0 { return item.totalBytes }
+        if item.bytesWritten > 0 { return item.bytesWritten }
+        let attrs = try? FileManager.default.attributesOfItem(atPath: item.fileURL.path)
+        return (attrs?[.size] as? NSNumber)?.int64Value ?? 0
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -183,15 +204,22 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
     }
 
     private func previewOrShare(_ item: DownloadItem) {
+        var fields = XVideoOfflineProbe.fileProbeSummary(at: item.fileURL)
+        fields["file"] = item.fileName
+        fields["mime"] = item.mimeType ?? ""
+        fields["canQL"] = QLPreviewController.canPreview(item.fileURL as QLPreviewItem)
+        XVideoOfflineProbe.log("downloads.open", fields)
         if QLPreviewController.canPreview(item.fileURL as QLPreviewItem) {
             preview(item)
         } else {
+            XVideoOfflineProbe.log("downloads.open.fallbackShare", ["file": item.fileName])
             share(item)
         }
     }
 
     private func preview(_ item: DownloadItem) {
         guard FileManager.default.fileExists(atPath: item.fileURL.path) else {
+            XVideoOfflineProbe.log("downloads.open.fail", ["why": "missing", "file": item.fileName])
             Toast.show("File missing", from: self)
             return
         }

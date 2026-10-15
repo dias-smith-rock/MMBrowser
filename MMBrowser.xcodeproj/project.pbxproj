@@ -139,11 +139,11 @@
 		PWD000C2F36FB601D0BB0 /* PasswordsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00045F172A9EFBE8F4 /* PasswordsViewController.swift */; };
 		PWD000C4D4F482494D0C9 /* AutofillSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD0001F365462803B334 /* AutofillSettingsViewController.swift */; };
 		PWD000D2DE12EF3CF5CC9 /* VaultKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000C6D05B5242BACB5 /* VaultKeychain.swift */; };
-		SPMBFCL01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFFA01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFGMA010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFRC01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFUMP010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFCL01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFFA01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFGMA010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFRC01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFUMP010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		TIP0SWIPEA1B2C3D4E5F60001 /* AddressBarSwipeTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIP0SWIPEA1B2C3D4E5F60002 /* AddressBarSwipeTipView.swift */; };
 		TSS0000101010101010171 /* TabSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020271 /* TabSnapshotStore.swift */; };
 		TSS0000101010101010172 /* TabSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020272 /* TabSessionStore.swift */; };
@@ -151,6 +151,8 @@
 		TSS0000101010101010174 /* ContainerManageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020274 /* ContainerManageViewController.swift */; };
 		TSS0000101010101010175 /* ContainerEditViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020275 /* ContainerEditViewController.swift */; };
 		XSP0000101010101010101 /* XSiteProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = XSP0000202020202020202 /* XSiteProbe.swift */; };
+		XVO0000101010101010101 /* XVideoOfflineProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = XVO0000202020202020202 /* XVideoOfflineProbe.swift */; };
+		XHL0000101010101010101 /* XVideoHLSOfflinePackager.swift in Sources */ = {isa = PBXBuildFile; fileRef = XHL0000202020202020202 /* XVideoHLSOfflinePackager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -322,6 +324,8 @@
 		TSS0000202020202020274 /* ContainerManageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerManageViewController.swift; sourceTree = "<group>"; };
 		TSS0000202020202020275 /* ContainerEditViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerEditViewController.swift; sourceTree = "<group>"; };
 		XSP0000202020202020202 /* XSiteProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XSiteProbe.swift; sourceTree = "<group>"; };
+		XVO0000202020202020202 /* XVideoOfflineProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XVideoOfflineProbe.swift; sourceTree = "<group>"; };
+		XHL0000202020202020202 /* XVideoHLSOfflinePackager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XVideoHLSOfflinePackager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -329,11 +333,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				SPMBFFA01010101010101 /* BuildFile in Frameworks */,
-				SPMBFRC01010101010101 /* BuildFile in Frameworks */,
-				SPMBFCL01010101010101 /* BuildFile in Frameworks */,
-				SPMBFGMA010101010101 /* BuildFile in Frameworks */,
-				SPMBFUMP010101010101 /* BuildFile in Frameworks */,
+				SPMBFFA01010101010101 /* (null) in Frameworks */,
+				SPMBFRC01010101010101 /* (null) in Frameworks */,
+				SPMBFCL01010101010101 /* (null) in Frameworks */,
+				SPMBFGMA010101010101 /* (null) in Frameworks */,
+				SPMBFUMP010101010101 /* (null) in Frameworks */,
 				F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -559,6 +563,8 @@
 				2F17FA7E6B9649618EC381DB /* MediaPlaybackSupport.swift */,
 				PIP0000202020202020202 /* PipProbe.swift */,
 				XSP0000202020202020202 /* XSiteProbe.swift */,
+				XVO0000202020202020202 /* XVideoOfflineProbe.swift */,
+				XHL0000202020202020202 /* XVideoHLSOfflinePackager.swift */,
 				06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */,
 				80B4B9A76DFE4E32A1FD3ADD /* YouTubeShortsFocus.swift */,
 			);
@@ -800,9 +806,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -817,9 +827,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -908,6 +922,8 @@
 				09FB7CC9808A4DD0A7C8E3AC /* MediaPlaybackSupport.swift in Sources */,
 				PIP0000101010101010101 /* PipProbe.swift in Sources */,
 				XSP0000101010101010101 /* XSiteProbe.swift in Sources */,
+				XVO0000101010101010101 /* XVideoOfflineProbe.swift in Sources */,
+				XHL0000101010101010101 /* XVideoHLSOfflinePackager.swift in Sources */,
 				7327DB1D31CC49F6AF6A888E /* FilterUpdateManager.swift in Sources */,
 				E465FC0279854A2096A2DF80 /* AdBlockManager.swift in Sources */,
 				82A1B2C3D4E54678A9B0C1D2 /* ImageBlockManager.swift in Sources */,
@@ -1180,7 +1196,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -1216,7 +1232,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1.0;
+				MARKETING_VERSION = 1.2.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
