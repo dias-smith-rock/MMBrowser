@@ -23,7 +23,7 @@ final class OnboardingViewController: UIViewController {
         ),
         (
             "Work stays at work",
-            "Use a dedicated work identity for email and docs. One tap on the account chip switches you back—history and home stay separate too.",
+            "Use a dedicated work identity for email and docs. One tap on the space chip switches you back—history and home stay separate too.",
             "onboarding_work"
         )
     ]

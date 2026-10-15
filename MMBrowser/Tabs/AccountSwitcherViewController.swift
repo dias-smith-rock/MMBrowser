@@ -9,7 +9,7 @@ protocol AccountSwitcherViewControllerDelegate: AnyObject {
     func accountSwitcher(_ controller: AccountSwitcherViewController, didRequestCompare leftID: UUID, rightID: UUID)
 }
 
-/// Sheet to switch / manage browsing accounts (containers).
+/// Sheet to switch / manage browsing spaces (containers).
 final class AccountSwitcherViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     weak var delegate: AccountSwitcherViewControllerDelegate?
 
@@ -28,7 +28,7 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Accounts"
+        title = "Spaces"
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         configureSheetPresentation()
 
@@ -98,7 +98,7 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
         configureSheetPresentation()
     }
 
-    private var comparableAccounts: [BrowserContainer] {
+    private var comparableSpaces: [BrowserContainer] {
         tabManager.sortedContainers
     }
 
@@ -113,8 +113,8 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
             action: #selector(compareTapped),
             emphasized: true
         )
-        compare.isEnabled = comparableAccounts.count >= 2
-        compare.alpha = comparableAccounts.count >= 2 ? 1 : 0.45
+        compare.isEnabled = comparableSpaces.count >= 2
+        compare.alpha = comparableSpaces.count >= 2 ? 1 : 0.45
         splitViewButton = compare
         actionBar.addArrangedSubview(compare)
 
@@ -156,7 +156,7 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
         actionBar.addArrangedSubview(topRow)
         actionBar.addArrangedSubview(bottomRow)
 
-        let manage = makeFooterButton(title: "Manage Accounts", action: #selector(manageTapped), emphasized: false)
+        let manage = makeFooterButton(title: "Manage Spaces", action: #selector(manageTapped), emphasized: false)
         let addCustom = makeFooterButton(title: "Add Custom…", action: #selector(addCustomTapped), emphasized: false)
         actionBar.addArrangedSubview(manage)
         actionBar.addArrangedSubview(addCustom)
@@ -198,13 +198,13 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
     }
 
     @objc private func compareTapped() {
-        let accounts = comparableAccounts
-        guard accounts.count >= 2 else { return }
+        let spaces = comparableSpaces
+        guard spaces.count >= 2 else { return }
 
         let currentID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
             ?? tabManager.resolvedLastActiveContainerID
-        let left = accounts.first(where: { $0.id == currentID }) ?? accounts[0]
-        let others = accounts.filter { $0.id != left.id }
+        let left = spaces.first(where: { $0.id == currentID }) ?? spaces[0]
+        let others = spaces.filter { $0.id != left.id }
 
         if others.count == 1 {
             delegate?.accountSwitcher(self, didRequestCompare: left.id, rightID: others[0].id)
@@ -213,7 +213,7 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
 
         let sheet = UIAlertController(
             title: "Split with…",
-            message: "Open “\(left.name)” above another account.",
+            message: "Open “\(left.name)” above another space.",
             preferredStyle: .actionSheet
         )
         for other in others {
@@ -237,9 +237,9 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
     }
 
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-        comparableAccounts.count >= 2
-            ? "Split View opens the current page in two accounts, one above the other."
-            : "Add another account to enable Split View."
+        comparableSpaces.count >= 2
+            ? "Split View opens the current page in two spaces, one above the other."
+            : "Add another space to enable Split View."
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {

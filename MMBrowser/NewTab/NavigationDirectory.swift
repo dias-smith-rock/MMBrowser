@@ -33,7 +33,7 @@ struct NavigationCategory: Codable, Equatable, Identifiable {
 
 /// Built-in seed catalog (also used by “Restore Defaults”).
 enum NavigationDirectory {
-    /// Default homepage shortcut cards for every account (3×2).
+    /// Default homepage shortcut cards for every space (3×2).
     static let defaultHomeSites: [NavigationSite] = [
         NavigationSite(title: "WhatsApp", urlString: "https://web.whatsapp.com", logoAssetName: "nav_whatsapp"),
         NavigationSite(title: "Instagram", urlString: "https://www.instagram.com", logoAssetName: "nav_instagram"),
@@ -47,7 +47,7 @@ enum NavigationDirectory {
         NavigationCategory(title: "Social", sites: defaultHomeSites)
     ]
 
-    /// Former default Home shortcuts (from ShortcutStore) — strip these so every account
+    /// Former default Home shortcuts (from ShortcutStore) — strip these so every space
     /// shows only the shared social card grid.
     static let legacyHomeShortcutURLKeys: Set<String> = [
         "https://www.google.com",
@@ -97,7 +97,7 @@ enum NavigationDirectory {
     }
 }
 
-/// Persisted editable homepage navigation (categories + sites), scoped per account container.
+/// Persisted editable homepage navigation (categories + sites), scoped per space container.
 final class NavigationStore {
     static let shared = NavigationStore()
 
@@ -142,7 +142,7 @@ final class NavigationStore {
         saveAll()
     }
 
-    /// One-shot: shared Social card grid for every account; drop legacy Home shortcuts
+    /// One-shot: shared Social card grid for every space; drop legacy Home shortcuts
     /// (Google / Wikipedia / Sogou / etc.) that used to stack above it.
     private func migrateAllToSocialShortcutsIfNeeded() {
         guard !defaults.bool(forKey: socialShortcutsKey) else { return }
@@ -178,8 +178,17 @@ final class NavigationStore {
         return home.sites.contains { normalizeURLKey($0.urlString) == key }
     }
 
+    /// True if the URL already appears in any Favorites category (Home or Social).
+    func containsFavorite(url: URL, containerID: UUID) -> Bool {
+        let key = normalizeURLKey(url.absoluteString)
+        return categories(for: containerID).contains { category in
+            category.sites.contains { normalizeURLKey($0.urlString) == key }
+        }
+    }
+
     @discardableResult
     func addToHome(title: String, url: URL, containerID: UUID, logoAssetName: String? = nil) -> Bool {
+        if containsFavorite(url: url, containerID: containerID) { return false }
         var added = false
         mutate(containerID: containerID) { categories in
             ensureHomeCategory(in: &categories)

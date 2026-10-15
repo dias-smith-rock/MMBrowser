@@ -12,7 +12,7 @@ protocol DualAccountCompareViewControllerDelegate: AnyObject {
     )
 }
 
-/// Top/bottom browsing in two accounts (split view).
+/// Top/bottom browsing in two spaces (split view).
 final class DualAccountCompareViewController: UIViewController, UITextFieldDelegate {
     weak var delegate: DualAccountCompareViewControllerDelegate?
 
@@ -224,7 +224,7 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         accountButton.semanticContentAttribute = .forceRightToLeft
         accountButton.tag = side == .top ? 0 : 1
         accountButton.addTarget(self, action: #selector(accountTapped(_:)), for: .touchUpInside)
-        accountButton.accessibilityLabel = "Change account"
+        accountButton.accessibilityLabel = "Change space"
         pane.accountButton = accountButton
         refreshAccountButton(side: side)
 
@@ -647,8 +647,8 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         guard !options.isEmpty else { return }
 
         let sheet = UIAlertController(
-            title: "Account",
-            message: "Choose which account this pane uses.",
+            title: "Space",
+            message: "Choose which space this pane uses.",
             preferredStyle: .actionSheet
         )
         for container in options {

@@ -1,7 +1,7 @@
 import UIKit
 import SnapKit
 
-/// Per-account health summary: history/bookmarks counts, cookie domains, identity consistency hints.
+/// Per-space health summary: history/bookmarks counts, cookie domains, identity consistency hints.
 final class AccountHealthViewController: UIViewController, UITableViewDataSource {
     private let tabManager: TabManager
     private let container: BrowserContainer
@@ -18,7 +18,7 @@ final class AccountHealthViewController: UIViewController, UITableViewDataSource
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Account Health"
+        title = "Space Health"
         view.backgroundColor = BrowserTheme.background
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.dataSource = self

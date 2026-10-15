@@ -1,7 +1,7 @@
 import UIKit
 import SnapKit
 
-/// First-run guided demo: compare two accounts on the same site.
+/// First-run guided demo: compare two spaces on the same site.
 final class AccountOnboardingWowViewController: UIViewController {
     var onFinished: (() -> Void)?
     /// Called after the user starts Split View (sheet can dismiss underneath).
@@ -29,7 +29,7 @@ final class AccountOnboardingWowViewController: UIViewController {
         titleLabel.textAlignment = .center
 
         let bodyLabel = UILabel()
-        bodyLabel.text = "We’ll open WhatsApp Web in two accounts, one above the other. Scan or sign in on one side only — the other stays separate."
+        bodyLabel.text = "We’ll open WhatsApp Web in two spaces, one above the other. Scan or sign in on one side only — the other stays separate."
         bodyLabel.font = .systemFont(ofSize: 16)
         bodyLabel.textColor = BrowserTheme.textSecondary
         bodyLabel.numberOfLines = 0

@@ -115,7 +115,7 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .autoClear:
-            return "Only selected items are removed when you leave the app. Cache, Cookies, History, and Local Storage all default off so browsing sessions stay intact. Enabling Cookies or Local Storage will clear them for every account immediately."
+            return "Only selected items are removed when you leave the app. Cache, Cookies, History, and Local Storage all default off so browsing sessions stay intact. Enabling Cookies or Local Storage will clear them for every space immediately."
         case .session:
             return "Close All Tabs on Exit resets to a single New Tab when you background the app. Turn off preview images to hide webpage thumbnails in the tab switcher."
         }
@@ -179,8 +179,8 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
     private func confirmEnableLoginWipingClear(row: AutoClearRow, switch sw: UISwitch) {
         let title = row == .cookies ? "Clear Cookies on Exit?" : "Clear Site Storage on Exit?"
         let message = row == .cookies
-            ? "This signs you out of websites in every account now, and again each time you leave the app."
-            : "This removes local site data (including many login sessions) for every account now, and again each time you leave the app."
+            ? "This signs you out of websites in every space now, and again each time you leave the app."
+            : "This removes local site data (including many login sessions) for every space now, and again each time you leave the app."
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
             sw.setOn(false, animated: true)

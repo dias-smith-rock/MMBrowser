@@ -187,7 +187,7 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         accountHeroSubtitle.font = .systemFont(ofSize: 13, weight: .regular)
         accountHeroSubtitle.textColor = BrowserTheme.textSecondary
         accountHeroSubtitle.numberOfLines = 2
-        accountHeroSubtitle.text = "Separate cookies & logins per account"
+        accountHeroSubtitle.text = "Separate cookies & logins per space"
 
         accountHeroTextStack.axis = .vertical
         accountHeroTextStack.alignment = .leading
@@ -244,15 +244,15 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         accountHeroSubtitle.isHidden = !AppSettings.showsNewTabAccountHeroSubtitle
 
         let canSwitch = accountCount > 1
-        accountHeroButton.setTitle(canSwitch ? "Switch" : "Add Account", for: .normal)
+        accountHeroButton.setTitle(canSwitch ? "Switch" : "Add Space", for: .normal)
         accountHeroButton.setTitleColor(color, for: .normal)
         accountHeroButton.backgroundColor = color.withAlphaComponent(0.14)
         accountHeroButton.layer.borderColor = color.withAlphaComponent(0.45).cgColor
-        accountHeroButton.accessibilityLabel = canSwitch ? "Switch account" : "Add account"
+        accountHeroButton.accessibilityLabel = canSwitch ? "Switch space" : "Add space"
         accountHero.accessibilityLabel = accountHeroTitle.text
         accountHero.accessibilityHint = canSwitch
-            ? "Opens account switcher"
-            : "Create another account to keep logins separate"
+            ? "Opens space switcher"
+            : "Create another space to keep logins separate"
     }
 
     @objc private func accountHeroTapped() {
@@ -705,7 +705,7 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
 
     func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
         if gestureRecognizer !== siteDragGesture {
-            // Account hero strip tap — let the Switch / Add Account button handle itself.
+            // Account hero strip tap — let the Switch / Add Space button handle itself.
             if let touched = touch.view,
                touched === accountHeroButton || touched.isDescendant(of: accountHeroButton) {
                 return false

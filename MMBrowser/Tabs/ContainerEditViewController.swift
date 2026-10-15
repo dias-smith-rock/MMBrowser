@@ -40,7 +40,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = isNew ? "Add Account" : "Edit Account"
+        title = isNew ? "Add Space" : "Edit Space"
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .cancel,
@@ -109,7 +109,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
         view.endEditing(true)
         draft.name = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !draft.name.isEmpty else {
-            presentAlert("Enter an account name.")
+            presentAlert("Enter an space name.")
             return
         }
         delegate?.containerEditDidSave(draft, isNew: isNew)
@@ -121,7 +121,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
     }
 
     private func presentAlert(_ message: String) {
-        let alert = UIAlertController(title: "Account", message: message, preferredStyle: .alert)
+        let alert = UIAlertController(title: "Space", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
@@ -213,7 +213,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
         case .name: return "Name"
         case .color: return "Color"
         case .identity: return "How new tabs look"
-        case .mode: return "Location for Sites in This Account"
+        case .mode: return "Location for Sites in This Space"
         case .spoofPreset: return draft.locationMode == .spoof ? "Virtual City" : nil
         case .spoofCustom: return draft.locationMode == .spoof ? "Custom" : nil
         case .management: return "Management"
@@ -226,7 +226,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
         case .color:
             return "Tap a swatch, or + to pick a custom color."
         case .identity:
-            return "New tabs in this account start with this look. Existing tabs keep their own setting."
+            return "New tabs in this space start with this look. Existing tabs keep their own setting."
         case .mode:
             return "Deny and Spoof only affect the browser Geolocation API. Network IP is unchanged."
         case .spoofPreset:
@@ -337,7 +337,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
                 cell.textLabel?.text = "Site Data"
                 cell.accessoryType = .disclosureIndicator
             case 1:
-                cell.textLabel?.text = "Account Health"
+                cell.textLabel?.text = "Space Health"
                 cell.accessoryType = .disclosureIndicator
             default:
                 cell.textLabel?.text = "Split View"

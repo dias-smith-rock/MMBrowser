@@ -207,7 +207,7 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
             guard let id = containerID,
                   let name = ContainerScope.loadContainers().first(where: { $0.id == id })?.name
             else { return "" }
-            return "\nSaved for account “\(name)”."
+            return "\nSaved for space “\(name)”."
         }()
         let alert = UIAlertController(
             title: "Save Password?",

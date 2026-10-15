@@ -64,8 +64,8 @@ final class BottomToolbarView: UIView {
         accountChip.layer.cornerRadius = Self.chipHeight / 2
         accountChip.clipsToBounds = true
         accountChip.isHidden = true
-        accountChip.accessibilityLabel = "Account"
-        accountChip.accessibilityHint = "Double tap to switch accounts. Long press to jump to the previous account."
+        accountChip.accessibilityLabel = "Space"
+        accountChip.accessibilityHint = "Opens Space hub. Long press to jump to the previous space."
         accountChip.addTarget(self, action: #selector(accountTapped), for: .touchUpInside)
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(accountLongPressed(_:)))
         accountChip.addGestureRecognizer(longPress)
@@ -180,7 +180,7 @@ final class BottomToolbarView: UIView {
     }
 
     /// Keep + / tabs / menu in the same trailing slots as the 5-icon layout;
-    /// when back/forward are removed, their slot width is absorbed by the account chip.
+    /// when back/forward are removed, their slot width is absorbed by the space chip.
     private func updateSlotLayout() {
         let contentWidth = bounds.width - Self.leadingInset - Self.trailingInset
         guard contentWidth > 0 else { return }

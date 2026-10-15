@@ -1,13 +1,13 @@
 import Foundation
 
-/// Shared container identifiers and helpers for per-account library data.
+/// Shared container identifiers and helpers for per-space library data.
 enum ContainerScope {
     static let libraryMigratedV4Key = "mmbrowser.library.migrated.v4"
     static let containersMigratedV5Key = "mmbrowser.containers.migrated.v5"
     static let containersMigratedV6Key = "mmbrowser.containers.migrated.v6"
     static let containersMigratedV7Key = "mmbrowser.containers.migrated.v7"
     static let didShowAccountWowKey = "mmbrowser.onboarding.accountWow.v1"
-    /// After skipping the Split View demo, nudge once via the account chip.
+    /// After skipping the Split View demo, nudge once via the space chip.
     static let needsAccountChipTipKey = "mmbrowser.onboarding.accountChipTip.v1"
     static let didShowAccountChipTipKey = "mmbrowser.onboarding.accountChipTipShown.v1"
 

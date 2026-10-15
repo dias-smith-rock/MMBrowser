@@ -39,7 +39,7 @@ final class TabUserAgentPickerViewController: UITableViewController {
     }
 
     override func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-        "Applies to this tab only. New tabs use your account default unless opened from a link."
+        "Applies to this tab only. New tabs use your space default unless opened from a link."
     }
 
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {

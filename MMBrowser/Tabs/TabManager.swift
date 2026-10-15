@@ -73,7 +73,7 @@ final class TabManager {
         return addTab(incognito: false, select: true, containerID: id)
     }
 
-    /// Account to jump to from a chip long-press (previous, else another account).
+    /// Account to jump to from a chip long-press (previous, else another space).
     func quickSwitchTargetAccountID() -> UUID? {
         if let previous = previousContainerID, container(id: previous) != nil,
            previous != resolvedLastActiveContainerID {
@@ -84,7 +84,7 @@ final class TabManager {
 
     func uniqueAccountName(base: String) -> String {
         let trimmed = base.trimmingCharacters(in: .whitespacesAndNewlines)
-        let root = trimmed.isEmpty ? "Account" : trimmed
+        let root = trimmed.isEmpty ? "Space" : trimmed
         if !containers.contains(where: { $0.name.caseInsensitiveCompare(root) == .orderedSame }) {
             return root
         }
@@ -208,7 +208,7 @@ final class TabManager {
     }
 
     /// Indices of tabs that address-bar swipe may move between (same pool + same container for normal tabs).
-    /// New Tab / Account Hub pages stay out of the queue — swipe only cycles real pages.
+    /// New Tab / Space Hub pages stay out of the queue — swipe only cycles real pages.
     private func swipePoolIndices(around tab: BrowserTab) -> [Int] {
         tabs.indices.filter { index in
             let candidate = tabs[index]
@@ -1049,7 +1049,7 @@ final class TabManager {
     }
 
     /// Tab count shown on the toolbar badge for the current browsing context.
-    /// Only counts the current account's real pages (excludes blank New Tab pages).
+    /// Only counts the current space's real pages (excludes blank New Tab pages).
     func toolbarTabCount(incognito: Bool) -> Int {
         if incognito {
             return max(incognitoTabs.filter { !$0.isNewTabPage }.count, 1)

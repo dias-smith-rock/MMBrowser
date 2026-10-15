@@ -24,7 +24,7 @@ final class ContainerManageViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Accounts"
+        title = "Spaces"
         BrowserTheme.applyScreenChrome(to: self)
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .add,
@@ -84,12 +84,12 @@ final class ContainerManageViewController: UIViewController {
 
     private func confirmDelete(_ container: BrowserContainer) {
         guard tabManager.containers.count > 1 else {
-            presentError("Keep at least one account.")
+            presentError("Keep at least one space.")
             return
         }
         let alert = UIAlertController(
-            title: "Delete Account?",
-            message: "Tabs in “\(container.name)” will move to another account. Their login session for this account will be removed.",
+            title: "Delete Space?",
+            message: "Tabs in “\(container.name)” will move to another space. Their login session for this space will be removed.",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -104,7 +104,7 @@ final class ContainerManageViewController: UIViewController {
     }
 
     private func presentError(_ message: String) {
-        let alert = UIAlertController(title: "Accounts", message: message, preferredStyle: .alert)
+        let alert = UIAlertController(title: "Spaces", message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }

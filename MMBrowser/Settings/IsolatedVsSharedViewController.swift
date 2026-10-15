@@ -1,7 +1,7 @@
 import UIKit
 import SnapKit
 
-/// Explains which data is isolated per account vs shared across the app.
+/// Explains which data is isolated per space vs shared across the app.
 final class IsolatedVsSharedViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -17,8 +17,8 @@ final class IsolatedVsSharedViewController: UIViewController {
         stack.layoutMargins = UIEdgeInsets(top: 20, left: 20, bottom: 32, right: 20)
 
         stack.addArrangedSubview(makeBlock(
-            title: "Isolated per account",
-            body: "Cookies and website data, browsing history, bookmarks, home-page shortcuts, open tabs, and saved passwords (when saved while using that account)."
+            title: "Isolated per space",
+            body: "Cookies and website data, browsing history, bookmarks, home-page shortcuts, open tabs, and saved passwords (when saved while using that space)."
         ))
         stack.addArrangedSubview(makeBlock(
             title: "Shared across the app",
@@ -26,11 +26,11 @@ final class IsolatedVsSharedViewController: UIViewController {
         ))
         stack.addArrangedSubview(makeBlock(
             title: "Location spoof",
-            body: "Per-account location Deny / Current Location / Spoof only affects browser geolocation APIs. It does not change your network IP address."
+            body: "Per-space location Deny / Current Location / Spoof only affects browser geolocation APIs. It does not change your network IP address."
         ))
         stack.addArrangedSubview(makeBlock(
             title: "Clear Option",
-            body: "Auto-clear when you leave the app can remove site data for every account’s data store. Delete a single account anytime under Manage Accounts to wipe only that identity."
+            body: "Auto-clear when you leave the app can remove site data for every space’s data store. Delete a single space anytime under Manage Spaces to wipe only that identity."
         ))
 
         view.addSubview(scroll)

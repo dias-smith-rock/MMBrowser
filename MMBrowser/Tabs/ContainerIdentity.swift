@@ -7,7 +7,7 @@ enum ContainerPersistence: String, Codable, CaseIterable {
     var displayName: String { "Persistent" }
 
     var detail: String {
-        "Keeps cookies and data until you delete this account."
+        "Keeps cookies and data until you delete this space."
     }
 
     init(from decoder: Decoder) throws {
@@ -160,7 +160,7 @@ enum ContainerTemplate: String, CaseIterable {
     var detail: String {
         switch self {
         case .whatsapp: return "WhatsApp Web session with its own cookies."
-        case .instagram: return "Instagram web login isolated from other accounts."
+        case .instagram: return "Instagram web login isolated from other spaces."
         case .telegram: return "Telegram Web session that won’t mix with others."
         case .facebook: return "Facebook web login in a dedicated identity."
         case .shop: return "Separate storefront or seller logins."
@@ -317,7 +317,7 @@ enum ContainerTemplate: String, CaseIterable {
         }
     }
 
-    /// Homepage cards live in `NavigationDirectory` so every account shares one grid (no pinned row).
+    /// Homepage cards live in `NavigationDirectory` so every space shares one grid (no pinned row).
     static func defaultPinned(forName name: String) -> [NavigationSite] {
         _ = name
         return []

@@ -20,9 +20,9 @@ struct BrowserContainer: Codable, Equatable, Identifiable {
     var pinnedSites: [NavigationSite]
     /// Persistent vs auto-delete when last tab closes.
     var persistence: ContainerPersistence
-    /// Locale, user agent, and URL tracking settings for this account.
+    /// Locale, user agent, and URL tracking settings for this space.
     var identity: IdentityProfile
-    /// Template used when creating this account (`work`, `social`, etc.).
+    /// Template used when creating this space (`work`, `social`, etc.).
     var templateID: String?
 
     var locationSummary: String {

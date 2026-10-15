@@ -12,10 +12,10 @@ final class PrivacyInfoViewController: UIViewController {
         text.font = .systemFont(ofSize: 16)
         text.isEditable = false
         text.text = """
-        XBrowser is a private browser for separate accounts and cleaner browsing on the open web.
+        XBrowser is a private browser for separate spaces and cleaner browsing on the open web.
 
-        Accounts
-        Each account keeps its own cookies and site data, so you can stay signed in to different logins side by side. You can also set location to Deny, Current Location, or a virtual city per account.
+        Spaces
+        Each space keeps its own cookies and site data, so you can stay signed in to different logins side by side. You can also set location to Deny, Current Location, or a virtual city per space.
 
         Ads and App Tracking
         XBrowser shows ads. To measure those ads and show more relevant ones, the app may use Apple’s advertising identifier to track your activity across other companies’ apps and websites. iOS will ask you to Allow or Ask App Not to Track. You can change this later in iOS Settings → Privacy & Security → Tracking, and in Settings → Ad Tracking.
@@ -36,7 +36,7 @@ final class PrivacyInfoViewController: UIViewController {
         Prefers secure connections when you type a domain without a scheme.
 
         Limits
-        Account separation does not change your network IP address or make you anonymous on the internet. No browser can fully prevent fingerprinting on the open web. XBrowser focuses on practical tracking reduction, cleaner pages, and local data control—not impossible absolute anonymity.
+        Space separation does not change your network IP address or make you anonymous on the internet. No browser can fully prevent fingerprinting on the open web. XBrowser focuses on practical tracking reduction, cleaner pages, and local data control—not impossible absolute anonymity.
         """
         view.addSubview(text)
         text.snp.makeConstraints { make in

@@ -156,7 +156,7 @@ final class AccountTabsPopupViewController: UIViewController {
         let rename = UIAction(title: "Rename", image: UIImage(systemName: "pencil")) { [weak self] _ in
             self?.promptRename()
         }
-        let manage = UIAction(title: "Manage Accounts", image: UIImage(systemName: "slider.horizontal.3")) { [weak self] _ in
+        let manage = UIAction(title: "Manage Spaces", image: UIImage(systemName: "slider.horizontal.3")) { [weak self] _ in
             self?.presentManageAccounts()
         }
         let closeAll = UIAction(
@@ -167,7 +167,7 @@ final class AccountTabsPopupViewController: UIViewController {
             self?.closeAllTabs()
         }
         let deleteGroup = UIAction(
-            title: "Delete Account",
+            title: "Delete Space",
             image: UIImage(systemName: "trash"),
             attributes: .destructive
         ) { [weak self] _ in
@@ -186,7 +186,7 @@ final class AccountTabsPopupViewController: UIViewController {
 
     private func promptRename() {
         guard let container = tabManager.container(id: containerID) else { return }
-        let alert = UIAlertController(title: "Rename Account", message: nil, preferredStyle: .alert)
+        let alert = UIAlertController(title: "Rename Space", message: nil, preferredStyle: .alert)
         alert.addTextField { $0.text = container.name; $0.placeholder = "Name" }
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Save", style: .default, handler: { [weak self] _ in
@@ -197,7 +197,7 @@ final class AccountTabsPopupViewController: UIViewController {
                 self.delegate?.accountTabsPopupDidChangeAccounts()
             } else {
                 let err = UIAlertController(
-                    title: "Accounts",
+                    title: "Spaces",
                     message: "Couldn’t rename. Use a unique non-empty name.",
                     preferredStyle: .alert
                 )
@@ -226,14 +226,14 @@ final class AccountTabsPopupViewController: UIViewController {
     private func confirmDelete() {
         guard let container = tabManager.container(id: containerID) else { return }
         guard tabManager.containers.count > 1 else {
-            let alert = UIAlertController(title: "Accounts", message: "Keep at least one account.", preferredStyle: .alert)
+            let alert = UIAlertController(title: "Spaces", message: "Keep at least one space.", preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "OK", style: .default))
             present(alert, animated: true)
             return
         }
         let alert = UIAlertController(
-            title: "Delete Account?",
-            message: "Tabs in “\(container.name)” will move to another account. Their login session for this account will be removed.",
+            title: "Delete Space?",
+            message: "Tabs in “\(container.name)” will move to another space. Their login session for this space will be removed.",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -247,7 +247,7 @@ final class AccountTabsPopupViewController: UIViewController {
     }
 
     private func promptMoveGroup(for tab: BrowserTab) {
-        let alert = UIAlertController(title: "Move to Account", message: tab.title, preferredStyle: .actionSheet)
+        let alert = UIAlertController(title: "Move to Space", message: tab.title, preferredStyle: .actionSheet)
         for container in tabManager.sortedContainers {
             let title = container.id == tab.containerID ? "\(container.name) ✓" : container.name
             alert.addAction(UIAlertAction(title: title, style: .default, handler: { [weak self] _ in
@@ -266,7 +266,7 @@ final class AccountTabsPopupViewController: UIViewController {
         if tab.containerID == container.id { return }
         let alert = UIAlertController(
             title: "Move to “\(container.name)”?",
-            message: "This tab will use that account’s cookies and login. It may look logged out of the previous account.",
+            message: "This tab will use that space’s cookies and login. It may look logged out of the previous space.",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -339,7 +339,7 @@ extension AccountTabsPopupViewController: UICollectionViewDataSource, UICollecti
                 }
             }
             return UIMenu(title: "", children: [
-                UIMenu(title: "Move to Account", options: .displayInline, children: moveChildren)
+                UIMenu(title: "Move to Space", options: .displayInline, children: moveChildren)
             ])
         }
     }

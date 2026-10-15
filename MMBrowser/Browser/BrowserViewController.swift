@@ -27,7 +27,7 @@ final class BrowserViewController: UIViewController {
     private let chromeScrollThreshold: CGFloat = 10
     /// Blocks scroll→chrome feedback while we resize chrome or nudge `contentOffset`.
     private var isAdjustingChromeLayout = false
-    /// Account Hub NTP hides the bottom address bar + toolbar entirely.
+    /// Space Hub NTP hides the bottom address bar + toolbar entirely.
     private var isBrowserChromeHiddenForHub = false
     private var isPageLoading = false
     private var pageLoadProgress: Double = 0
@@ -387,14 +387,14 @@ final class BrowserViewController: UIViewController {
         defaults.set(false, forKey: ContainerScope.needsAccountChipTipKey)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
             guard let self else { return }
-            Toast.show("Tap the account chip to switch identities — long-press for the previous account", from: self)
+            Toast.show("Tap the space chip to switch identities — long-press for the previous space", from: self)
         }
     }
 
     func presentDualAccountCompare(leftID: UUID? = nil, rightID: UUID? = nil) {
         let containers = tabManager.sortedContainers
         guard containers.count >= 2 else {
-            Toast.show("Add another account first", from: self)
+            Toast.show("Add another space first", from: self)
             return
         }
 
@@ -683,7 +683,7 @@ final class BrowserViewController: UIViewController {
         applyLoadingProgress(0, isLoading: false)
     }
 
-    /// Hides address bar + toolbar for Account Hub; restores them for web / private NTP.
+    /// Hides address bar + toolbar for Space Hub; restores them for web / private NTP.
     private func setBrowserChromeHiddenForHub(_ hidden: Bool) {
         guard hidden != isBrowserChromeHiddenForHub else { return }
         isBrowserChromeHiddenForHub = hidden
@@ -751,7 +751,7 @@ final class BrowserViewController: UIViewController {
         )
     }
 
-    /// Switch account and show a strong, hard-to-miss identity change.
+    /// Switch space and show a strong, hard-to-miss identity change.
     private func switchToAccountWithFeedback(_ id: UUID, subtitle: String? = nil) {
         guard let container = tabManager.container(id: id) else { return }
         _ = tabManager.switchToAccount(id)
@@ -761,7 +761,7 @@ final class BrowserViewController: UIViewController {
         AppAnalytics.logAccountSwitch(accountName: container.name)
         let color = AccountColor.color(for: container)
         let detail = subtitle
-            ?? "Cookies, history, bookmarks & home stay with this account"
+            ?? "Cookies, history, bookmarks & home stay with this space"
         presentAccountSwitchBanner(name: container.name, detail: detail, color: color)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         flashChrome(with: color)
@@ -878,7 +878,7 @@ final class BrowserViewController: UIViewController {
         let nav = UINavigationController(rootViewController: vc)
         nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         BrowserTheme.applyNavigationBar(to: nav.navigationBar)
-        // Prefer the requester (e.g. overlay Account Hub) so we don't fail when BVC
+        // Prefer the requester (e.g. overlay Space Hub) so we don't fail when BVC
         // is already presenting another modal.
         let host = presenter
             ?? presentedViewController
@@ -911,7 +911,8 @@ final class BrowserViewController: UIViewController {
     }
 
     private func showNewTab(for tab: BrowserTab) {
-        setBrowserChromeHiddenForHub(true)
+        // Keep address bar + toolbar visible so home matches the simple Favorites layout.
+        setBrowserChromeHiddenForHub(false)
         let hub: AccountHubViewController
         if let existing = accountHubController {
             hub = existing
@@ -928,6 +929,7 @@ final class BrowserViewController: UIViewController {
         embed(hub)
         addressBar.setURLText("")
         addressBar.setProgress(0, isLoading: false)
+        refreshToolbar()
     }
 
     private func showPrivateNewTab() {
@@ -1551,7 +1553,8 @@ extension BrowserViewController: AddressBarViewDelegate {
 extension BrowserViewController: BottomToolbarViewDelegate {
     func toolbarDidTapAccount() {
         AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_account")
-        presentAccountSwitcher()
+        // Same destination as the tabs button: Space hub (pills + tab grid).
+        presentTabSwitcher()
     }
 
     func toolbarDidLongPressAccount() {
@@ -2103,8 +2106,8 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 Toast.show("No page to add", from: self)
                 return
             }
-            if NavigationStore.shared.containsOnHome(url: url, containerID: tab.containerID) {
-                Toast.show("Already on Home", from: self)
+            if NavigationStore.shared.containsFavorite(url: url, containerID: tab.containerID) {
+                Toast.show("Already in Favorites", from: self)
             } else {
                 let title = tab.title.trimmingCharacters(in: .whitespacesAndNewlines)
                 let ok = NavigationStore.shared.addToHome(
@@ -2112,7 +2115,8 @@ extension BrowserViewController: MenuViewControllerDelegate {
                     url: url,
                     containerID: tab.containerID
                 )
-                Toast.show(ok ? "Added to Home" : "Already on Home", from: self)
+                Toast.show(ok ? "Added to Favorites" : "Already in Favorites", from: self)
+                accountHubController?.reloadFromExternalChange()
             }
         case .printPage:
             tabManager.selectedTab?.webController?.printPage()
@@ -2347,7 +2351,7 @@ extension BrowserViewController: DualAccountCompareViewControllerDelegate {
                 navigate(to: url)
             }
         }
-        let name = tabManager.container(id: accountID)?.name ?? "Account"
+        let name = tabManager.container(id: accountID)?.name ?? "Space"
         Toast.show("Continued in \(name)", from: self)
         refreshAccountChip()
     }
@@ -2380,7 +2384,7 @@ extension BrowserViewController: AccountSwitcherViewControllerDelegate {
             colorIndex: tabManager.containers.count % AccountColor.palette.count
         )
         guard let created = tabManager.addContainer(draft) else {
-            Toast.show("Could not create account", from: controller)
+            Toast.show("Could not create space", from: controller)
             return
         }
         let homeURL = template.homeURL
@@ -2389,7 +2393,7 @@ extension BrowserViewController: AccountSwitcherViewControllerDelegate {
             self.switchToAccountWithFeedback(
                 created.id,
                 subtitle: homeURL == nil
-                    ? "\(template.displayName) account ready"
+                    ? "\(template.displayName) space ready"
                     : "Opening \(template.displayName) Web…"
             )
             if let homeURL {
@@ -2423,7 +2427,7 @@ extension BrowserViewController: ContainerEditViewControllerDelegate {
                 Toast.show("Could not save. Choose a unique non-empty name.", from: self)
                 return
             }
-            switchToAccountWithFeedback(created.id, subtitle: "Account created")
+            switchToAccountWithFeedback(created.id, subtitle: "Space created")
         } else {
             guard tabManager.updateContainer(container) else {
                 Toast.show("Could not save. Choose a unique non-empty name.", from: self)

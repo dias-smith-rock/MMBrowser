@@ -78,7 +78,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .privacy: return "Privacy & Security"
-        case .accounts: return "Accounts"
+        case .accounts: return "Spaces"
         case .clearOption: return "Clear Option"
         case .tools: return "Tools"
         case .youtube: return "Focus & Video"
@@ -94,9 +94,9 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .privacy:
             return "Location Deny/Spoof only affects GPS-like browser APIs—not your network IP."
         case .accounts:
-            return "Accounts keep separate cookies, history, bookmarks, home shortcuts, and passwords. Downloads and Reading List are Shared."
+            return "Spaces keep separate cookies, history, bookmarks, home shortcuts, and passwords. Downloads and Reading List are Shared."
         case .clearOption:
-            return "Auto-clear when you leave can wipe site data for every account. To remove one identity only, delete that account under Manage Accounts. History listed here is still recorded during the session unless History auto-clear is on."
+            return "Auto-clear when you leave can wipe site data for every space. To remove one identity only, delete that space under Manage Spaces. History listed here is still recorded during the session unless History auto-clear is on."
         case .tools:
             return "Hide page elements and save rules for sites you visit often."
         case .youtube:
@@ -189,12 +189,12 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             }
         case .accounts:
             if indexPath.row == 0 {
-                cell.textLabel?.text = "Accounts"
+                cell.textLabel?.text = "Spaces"
                 cell.detailTextLabel?.text = "Separate logins and cookies"
                 cell.accessoryType = .disclosureIndicator
             } else {
                 cell.textLabel?.text = "Isolated vs Shared"
-                cell.detailTextLabel?.text = "What stays per account"
+                cell.detailTextLabel?.text = "What stays per space"
                 cell.accessoryType = .disclosureIndicator
             }
         case .clearOption:
@@ -338,7 +338,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             case 2:
                 let alert = UIAlertController(
                     title: "What's New",
-                    message: "Accounts: separate logins with a switcher in the address bar, plus lock, clear, and tracker blocking. Webpage Cleaner, Reader Mode, Reading List, Downloads, and a home page you control.",
+                    message: "Spaces: separate logins with a switcher in the address bar, plus lock, clear, and tracker blocking. Webpage Cleaner, Reader Mode, Reading List, Downloads, and a home page you control.",
                     preferredStyle: .alert
                 )
                 alert.addAction(UIAlertAction(title: "OK", style: .default))

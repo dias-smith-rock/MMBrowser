@@ -6,30 +6,31 @@ protocol TabSwitcherViewControllerDelegate: AnyObject {
     /// `containerID` is the container for the new normal tab (selected tab / active filter).
     func tabSwitcherDidRequestNewTab(incognito: Bool, containerID: UUID?)
     func tabSwitcherDidRequestOpenURLInNewTab(_ url: URL, containerID: UUID?)
-    /// Bottom + opens Account Hub (home / account entry).
+    /// Bottom + opens Space Hub (home / account entry).
     func tabSwitcherDidRequestAccountHub()
 }
 
 final class TabSwitcherViewController: UIViewController {
     weak var delegate: TabSwitcherViewControllerDelegate?
 
-    private enum Surface: Int {
-        case incognito = 0
-        case allTabs = 1
-        case accounts = 2
+    private enum Surface {
+        case spaces
+        case incognito
     }
 
     private let tabManager: TabManager
     private var collectionView: UICollectionView!
     private var collectionHeightConstraint: Constraint?
     private let topBar = UIView()
-    private var modeControl = UISegmentedControl(items: ["", "", ""])
+    private let spacesScroll = UIScrollView()
+    private let spacesStack = UIStackView()
+    private let addSpaceButton = UIButton(type: .system)
+    private let bottomBar = UIView()
+    private let privateButton = UIButton(type: .system)
     private let doneButton = UIButton(type: .system)
     private let addButton = UIButton(type: .system)
-    private let moreButton = UIButton(type: .system)
     private let mainScroll = UIScrollView()
     private let contentStack = UIStackView()
-    private let accountsStack = UIStackView()
     private let bookmarksSection = UIStackView()
     private let historySection = UIStackView()
     private let bookmarksTable = UITableView(frame: .zero, style: .plain)
@@ -43,76 +44,78 @@ final class TabSwitcherViewController: UIViewController {
     private var historyExpanded = false
     private weak var bookmarksHeaderButton: UIButton?
     private weak var historyHeaderButton: UIButton?
-    private var searchQuery = ""
     private var surface: Surface
-    /// Account IDs whose tab grids are expanded on the Accounts overview.
-    private var expandedAccountIDs: Set<UUID> = []
-    private var didSeedAccountExpansion = false
+    /// Space whose tabs are shown in the grid (normal mode).
+    private var focusedSpaceID: UUID
 
     init(tabManager: TabManager) {
         self.tabManager = tabManager
+        let activeID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
+            ?? tabManager.resolvedLastActiveContainerID
+        self.focusedSpaceID = activeID
         if tabManager.selectedTab?.isIncognito == true {
             self.surface = .incognito
         } else {
-            self.surface = .accounts
+            self.surface = .spaces
         }
         super.init(nibName: nil, bundle: nil)
     }
 
     private var currentAccountID: UUID {
-        tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
-            ?? tabManager.resolvedLastActiveContainerID
+        focusedSpaceID
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
     private var showingIncognito: Bool { surface == .incognito }
 
-    private var isSearching: Bool {
-        !searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private var showsAccountOverview: Bool {
-        surface == .accounts && !isSearching
-    }
-
     private var poolTabs: [BrowserTab] {
         showingIncognito ? tabManager.incognitoTabs : tabManager.normalTabs
     }
 
+    /// Real pages in the current surface (excludes blank New Tab pages).
     private var displayedTabs: [BrowserTab] {
-        if showsAccountOverview { return [] }
-        let base = poolTabs.filter { !$0.isNewTabPage }
-        let q = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !q.isEmpty else { return base }
-        return base.filter {
-            let name = tabManager.containerName(for: $0)
-            return $0.title.lowercased().contains(q)
-                || ($0.url?.absoluteString.lowercased().contains(q) ?? false)
-                || name.lowercased().contains(q)
+        if showingIncognito {
+            return poolTabs.filter { !$0.isNewTabPage }
         }
+        return poolTabs.filter { $0.containerID == focusedSpaceID && !$0.isNewTabPage }
     }
 
-    /// Drag reorder on unfiltered All Tabs / Incognito grids only.
+    /// Empty space / private pool shows a synthetic New Tab card.
+    private var showsNewTabPlaceholder: Bool {
+        displayedTabs.isEmpty
+    }
+
+    private var gridItemCount: Int {
+        showsNewTabPlaceholder ? 1 : displayedTabs.count
+    }
+
+    /// Drag reorder when the grid has real tabs.
     private var canReorderTabs: Bool {
-        !isSearching && (surface == .allTabs || surface == .incognito)
+        !showsNewTabPlaceholder && !displayedTabs.isEmpty
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         applyChrome()
         setupTop()
-        setupMainScroll()
         setupBottom()
+        // mainScroll pins to topBar/bottomBar — both must already be in the hierarchy
+        setupMainScroll()
         reload()
     }
 
     private func applyChrome() {
         view.backgroundColor = showingIncognito ? BrowserTheme.privateBackground : BrowserTheme.background
         topBar.backgroundColor = .clear
+        bottomBar.backgroundColor = .clear
         let accent = showingIncognito ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
-        addButton.backgroundColor = accent
+        addButton.tintColor = accent
         doneButton.setTitleColor(accent, for: .normal)
+        privateButton.tintColor = showingIncognito ? accent : BrowserTheme.textPrimary
+        privateButton.setTitleColor(showingIncognito ? accent : BrowserTheme.textPrimary, for: .normal)
+        topBar.isHidden = showingIncognito
+        addSpaceButton.tintColor = BrowserTheme.textPrimary
     }
 
     override func viewDidLayoutSubviews() {
@@ -120,57 +123,51 @@ final class TabSwitcherViewController: UIViewController {
         updateCollectionHeight()
     }
 
-    // MARK: - Top / detail chrome
+    // MARK: - Top / space pills
 
     private func setupTop() {
         view.addSubview(topBar)
 
-        let search = UIButton(type: .system)
-        search.setImage(UIImage(systemName: "magnifyingglass"), for: .normal)
-        search.tintColor = BrowserTheme.textPrimary
-        search.accessibilityLabel = "Search tabs"
-        search.addTarget(self, action: #selector(searchPlaceholder), for: .touchUpInside)
+        spacesScroll.showsHorizontalScrollIndicator = false
+        spacesScroll.alwaysBounceHorizontal = true
+        topBar.addSubview(spacesScroll)
 
-        let symbolConfig = UIImage.SymbolConfiguration(pointSize: 17, weight: .regular)
-        let privateIcon = UIImage(systemName: "eyeglasses", withConfiguration: symbolConfig)
-        let groupsIcon = UIImage(systemName: "square.grid.2x2", withConfiguration: symbolConfig)
-        let countIcon = Self.makeTabCountBadge(count: 0, symbolConfig: symbolConfig)
-        modeControl = UISegmentedControl(items: [privateIcon as Any, countIcon as Any, groupsIcon as Any])
-        modeControl.selectedSegmentTintColor = BrowserTheme.secondaryCard
-        modeControl.setTitleTextAttributes([.foregroundColor: BrowserTheme.textPrimary], for: .normal)
-        modeControl.setTitleTextAttributes([.foregroundColor: BrowserTheme.textPrimary], for: .selected)
-        modeControl.addTarget(self, action: #selector(modeChanged), for: .valueChanged)
-        modeControl.accessibilityLabel = "Tabs mode"
+        spacesStack.axis = .horizontal
+        spacesStack.spacing = 8
+        spacesStack.alignment = .center
+        spacesScroll.addSubview(spacesStack)
 
-        moreButton.setImage(UIImage(systemName: "ellipsis"), for: .normal)
-        moreButton.tintColor = BrowserTheme.textPrimary
-        moreButton.accessibilityLabel = "More"
-        moreButton.showsMenuAsPrimaryAction = true
+        addSpaceButton.setImage(
+            UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold)),
+            for: .normal
+        )
+        addSpaceButton.backgroundColor = BrowserTheme.secondaryCard
+        addSpaceButton.tintColor = BrowserTheme.textPrimary
+        addSpaceButton.layer.cornerRadius = 16
+        addSpaceButton.accessibilityLabel = "Add Space"
+        addSpaceButton.addTarget(self, action: #selector(addSpaceTapped), for: .touchUpInside)
+        topBar.addSubview(addSpaceButton)
 
-        topBar.addSubview(search)
-        topBar.addSubview(modeControl)
-        topBar.addSubview(moreButton)
         topBar.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
             make.leading.trailing.equalToSuperview()
-            make.height.equalTo(48)
+            make.height.equalTo(52)
         }
-        search.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(16)
+        addSpaceButton.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().offset(-14)
             make.centerY.equalToSuperview()
-            make.size.equalTo(36)
+            make.size.equalTo(32)
         }
-        moreButton.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-16)
+        spacesScroll.snp.makeConstraints { make in
+            make.leading.equalToSuperview()
+            make.trailing.equalTo(addSpaceButton.snp.leading).offset(-8)
+            make.top.bottom.equalToSuperview()
+        }
+        spacesStack.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(14)
+            make.trailing.equalToSuperview().offset(-4)
             make.centerY.equalToSuperview()
-            make.size.equalTo(36)
-        }
-        modeControl.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-            make.height.equalTo(32)
-            make.width.equalTo(200)
-            make.leading.greaterThanOrEqualTo(search.snp.trailing).offset(8)
-            make.trailing.lessThanOrEqualTo(moreButton.snp.leading).offset(-8)
+            make.height.equalTo(36)
         }
     }
 
@@ -185,12 +182,6 @@ final class TabSwitcherViewController: UIViewController {
         contentStack.spacing = 16
         contentStack.alignment = .fill
         mainScroll.addSubview(contentStack)
-
-        accountsStack.axis = .vertical
-        accountsStack.spacing = 12
-        accountsStack.alignment = .fill
-        accountsStack.isLayoutMarginsRelativeArrangement = true
-        accountsStack.layoutMargins = UIEdgeInsets(top: 8, left: 16, bottom: 0, right: 16)
 
         let layout = UICollectionViewFlowLayout()
         layout.minimumLineSpacing = 12
@@ -210,7 +201,6 @@ final class TabSwitcherViewController: UIViewController {
         configureListSection(bookmarksSection, title: "Bookmarks", table: bookmarksTable, kind: .bookmarks)
         configureListSection(historySection, title: "History", table: historyTable, kind: .history)
 
-        contentStack.addArrangedSubview(accountsStack)
         contentStack.addArrangedSubview(collectionView)
         contentStack.addArrangedSubview(bookmarksSection)
         contentStack.addArrangedSubview(historySection)
@@ -218,7 +208,7 @@ final class TabSwitcherViewController: UIViewController {
         mainScroll.snp.makeConstraints { make in
             make.top.equalTo(topBar.snp.bottom)
             make.leading.trailing.equalToSuperview()
-            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).offset(-72)
+            make.bottom.equalTo(bottomBar.snp.top)
         }
         contentStack.snp.makeConstraints { make in
             make.edges.equalToSuperview()
@@ -331,44 +321,64 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func setupBottom() {
-        addButton.backgroundColor = BrowserTheme.chromeBlue
-        addButton.setImage(UIImage(systemName: "plus"), for: .normal)
-        addButton.tintColor = .white
-        addButton.layer.cornerRadius = 28
+        view.addSubview(bottomBar)
+
+        let symbolConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .medium)
+        privateButton.setImage(UIImage(systemName: "eyeglasses", withConfiguration: symbolConfig), for: .normal)
+        privateButton.setTitle(" Private", for: .normal)
+        privateButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        privateButton.contentHorizontalAlignment = .leading
+        privateButton.accessibilityLabel = "Private"
+        privateButton.addTarget(self, action: #selector(privateTapped), for: .touchUpInside)
+
+        addButton.setImage(
+            UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)),
+            for: .normal
+        )
+        addButton.accessibilityLabel = "New Tab"
         addButton.addTarget(self, action: #selector(addTapped), for: .touchUpInside)
 
         doneButton.setTitle("Done", for: .normal)
-        doneButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
         doneButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
         doneButton.addTarget(self, action: #selector(doneTapped), for: .touchUpInside)
 
-        view.addSubview(addButton)
-        view.addSubview(doneButton)
+        bottomBar.addSubview(privateButton)
+        bottomBar.addSubview(addButton)
+        bottomBar.addSubview(doneButton)
+
+        bottomBar.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview()
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+            make.height.equalTo(56)
+        }
+        privateButton.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(20)
+            make.centerY.equalToSuperview()
+            make.height.equalTo(44)
+        }
         addButton.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(24)
-            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).offset(-12)
-            make.size.equalTo(56)
+            make.center.equalToSuperview()
+            make.size.equalTo(44)
         }
         doneButton.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-24)
-            make.centerY.equalTo(addButton)
+            make.trailing.equalToSuperview().offset(-20)
+            make.centerY.equalToSuperview()
+            make.height.equalTo(44)
         }
     }
 
     // MARK: - Reload / layout mode
 
     private func reload() {
-        modeControl.selectedSegmentIndex = surface.rawValue
-        let normalCount = tabManager.normalTabs.filter { !$0.isNewTabPage }.count
-        let symbolConfig = UIImage.SymbolConfiguration(pointSize: 17, weight: .regular)
-        modeControl.setImage(
-            Self.makeTabCountBadge(count: normalCount, symbolConfig: symbolConfig),
-            forSegmentAt: Surface.allTabs.rawValue
-        )
-        moreButton.menu = makeMoreMenu()
+        if !showingIncognito {
+            if tabManager.container(id: focusedSpaceID) == nil {
+                focusedSpaceID = tabManager.resolvedLastActiveContainerID
+            }
+        }
         applyChrome()
         applySurfaceLayout()
-        rebuildAccountCards()
+        rebuildSpacePills()
+        collectionView.dragInteractionEnabled = canReorderTabs
         collectionView.reloadData()
         updateCollectionHeight()
         rebuildLibrarySections()
@@ -378,63 +388,22 @@ final class TabSwitcherViewController: UIViewController {
     func reloadPreviews() {
         guard isViewLoaded else { return }
         collectionView.reloadData()
-        rebuildAccountCards()
         presentedAccountPopup?.reloadPreviews()
     }
 
-    /// Number badge framed to match `square.grid.2x2` segment icon size.
-    private static func makeTabCountBadge(count: Int, symbolConfig: UIImage.SymbolConfiguration) -> UIImage {
-        let reference = UIImage(systemName: "square.grid.2x2", withConfiguration: symbolConfig)
-            ?? UIImage()
-        let side = max(ceil(max(reference.size.width, reference.size.height)), 20)
-        let size = CGSize(width: side, height: side)
-        let text = count > 99 ? "99+" : "\(max(count, 0))"
-        let renderer = UIGraphicsImageRenderer(size: size)
-        let image = renderer.image { _ in
-            let inset: CGFloat = 1
-            let rect = CGRect(origin: .zero, size: size).insetBy(dx: inset, dy: inset)
-            let path = UIBezierPath(roundedRect: rect, cornerRadius: max(2.5, side * 0.14))
-            UIColor.black.setStroke()
-            path.lineWidth = 1.5
-            path.stroke()
-
-            let fontSize: CGFloat = text.count >= 3 ? side * 0.42 : side * 0.58
-            let font = UIFont.systemFont(ofSize: fontSize, weight: .semibold)
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .foregroundColor: UIColor.black
-            ]
-            let ns = text as NSString
-            let textSize = ns.size(withAttributes: attrs)
-            ns.draw(
-                in: CGRect(
-                    x: (size.width - textSize.width) / 2,
-                    y: (size.height - textSize.height) / 2,
-                    width: textSize.width,
-                    height: textSize.height
-                ),
-                withAttributes: attrs
-            )
-        }
-        return image.withRenderingMode(.alwaysTemplate)
-    }
-
     private func applySurfaceLayout() {
-        accountsStack.isHidden = !showsAccountOverview
-        collectionView.isHidden = showsAccountOverview
-        doneButton.isHidden = false
-        addButton.accessibilityLabel = "Account Hub"
+        collectionView.isHidden = false
+        let topHeight: CGFloat = showingIncognito ? 0 : 52
+        topBar.snp.updateConstraints { $0.height.equalTo(topHeight) }
+        topBar.isHidden = showingIncognito
+        privateButton.accessibilityValue = showingIncognito ? "On" : "Off"
     }
 
     private func updateCollectionHeight() {
-        guard !showsAccountOverview else {
-            collectionHeightConstraint?.update(offset: 0)
-            return
-        }
         let width = collectionView.bounds.width > 0 ? collectionView.bounds.width : view.bounds.width
         guard width > 0 else { return }
         let metrics = TabGridMetrics.layout(forContainerWidth: width)
-        let count = displayedTabs.count
+        let count = max(gridItemCount, 0)
         let height: CGFloat
         if count == 0 {
             height = 24
@@ -456,75 +425,88 @@ final class TabSwitcherViewController: UIViewController {
         collectionView.collectionViewLayout.invalidateLayout()
     }
 
-    private func rebuildAccountCards() {
-        accountsStack.arrangedSubviews.forEach {
-            accountsStack.removeArrangedSubview($0)
+    private func rebuildSpacePills() {
+        spacesStack.arrangedSubviews.forEach {
+            spacesStack.removeArrangedSubview($0)
             $0.removeFromSuperview()
         }
-        guard showsAccountOverview else { return }
+        guard !showingIncognito else { return }
 
-        let currentID = currentAccountID
-        if !didSeedAccountExpansion {
-            expandedAccountIDs = [currentID]
-            didSeedAccountExpansion = true
-        }
-
-        let contentWidth = max(view.bounds.width - 32, UIScreen.main.bounds.width - 32)
         for container in tabManager.sortedContainers {
-            let tabs = tabManager.normalTabs.filter { $0.containerID == container.id && !$0.isNewTabPage }
-            let expanded = expandedAccountIDs.contains(container.id)
-            let section = AccountSectionView()
-            section.configure(
-                containerID: container.id,
-                name: container.name,
-                color: tabManager.accountColor(forContainer: container.id),
-                tabs: tabs,
-                selectedTabID: tabManager.selectedTab?.id,
-                isCurrentAccount: container.id == currentID,
-                isExpanded: expanded,
-                contentWidth: contentWidth,
-                containerNameProvider: { [weak self] tab in
-                    self?.tabManager.containerName(for: tab) ?? ""
-                },
-                accountColorProvider: { [weak self] tab in
-                    self?.tabManager.accountColor(for: tab) ?? BrowserTheme.chromeBlue
-                }
+            let selected = container.id == focusedSpaceID
+            let color = tabManager.accountColor(forContainer: container.id)
+            let pill = makeSpacePill(
+                title: container.name,
+                color: color,
+                selected: selected,
+                tag: tabManager.sortedContainers.firstIndex(where: { $0.id == container.id }) ?? 0,
+                containerID: container.id
             )
-            section.onToggleExpanded = { [weak self] id in
-                guard let self else { return }
-                if self.expandedAccountIDs.contains(id) {
-                    self.expandedAccountIDs.remove(id)
-                } else {
-                    self.expandedAccountIDs.insert(id)
-                }
-                self.rebuildAccountCards()
-            }
-            section.onSelectTab = { [weak self] tabID in
-                guard let self else { return }
-                self.tabManager.selectTab(id: tabID)
-                self.delegate?.tabSwitcherDidClose()
-            }
-            section.onCloseTab = { [weak self] tabID in
-                guard let self else { return }
-                self.tabManager.closeTab(id: tabID)
-                self.reload()
-                if self.tabManager.tabs.isEmpty {
-                    self.delegate?.tabSwitcherDidClose()
-                }
-            }
-            section.onMoveGroup = { [weak self] tab in
-                self?.promptMoveGroup(for: tab)
-            }
-            section.onOpenAccountSheet = { [weak self] id in
-                self?.presentAccountPopup(containerID: id)
-            }
-            accountsStack.addArrangedSubview(section)
+            pill.accessibilityIdentifier = container.id.uuidString
+            spacesStack.addArrangedSubview(pill)
         }
     }
 
+    private func makeSpacePill(
+        title: String,
+        color: UIColor,
+        selected: Bool,
+        tag: Int,
+        containerID: UUID
+    ) -> UIButton {
+        let button = UIButton(type: .system)
+        button.tag = tag
+        button.addTarget(self, action: #selector(spacePillTapped(_:)), for: .touchUpInside)
+        button.accessibilityLabel = title
+        button.layer.cornerRadius = 18
+        button.clipsToBounds = true
+        button.contentEdgeInsets = UIEdgeInsets(top: 7, left: 12, bottom: 7, right: 14)
+        // Long-press menu; tap still switches Space.
+        button.menu = makeSpacePillMenu(for: containerID)
+        button.showsMenuAsPrimaryAction = false
+
+        button.setImage(Self.spaceDotImage(color: color), for: .normal)
+        button.setTitle("  \(title)", for: .normal)
+        button.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
+        button.titleLabel?.lineBreakMode = .byTruncatingTail
+        button.tintColor = selected ? BrowserTheme.textPrimary : BrowserTheme.textSecondary
+        button.setTitleColor(selected ? BrowserTheme.textPrimary : BrowserTheme.textSecondary, for: .normal)
+        button.backgroundColor = selected
+            ? BrowserTheme.secondaryCard
+            : BrowserTheme.card.withAlphaComponent(0.55)
+        if selected {
+            button.layer.borderWidth = 1.5
+            button.layer.borderColor = color.withAlphaComponent(0.85).cgColor
+        } else {
+            button.layer.borderWidth = 0
+            button.layer.borderColor = UIColor.clear.cgColor
+        }
+        button.snp.makeConstraints { $0.height.equalTo(36) }
+        return button
+    }
+
+    private func makeSpacePillMenu(for containerID: UUID) -> UIMenu {
+        let edit = UIAction(
+            title: "Edit Space",
+            image: UIImage(systemName: "pencil")
+        ) { [weak self] _ in
+            guard let self, let container = self.tabManager.container(id: containerID) else { return }
+            self.presentEditSpace(container)
+        }
+        let delete = UIAction(
+            title: "Delete Space and Its Tabs",
+            image: UIImage(systemName: "trash"),
+            attributes: .destructive
+        ) { [weak self] _ in
+            guard let self, let container = self.tabManager.container(id: containerID) else { return }
+            self.confirmDeleteSpaceAndTabs(container)
+        }
+        return UIMenu(children: [edit, delete])
+    }
+
     private func rebuildLibrarySections() {
-        // Library only on Accounts overview (normal mode).
-        guard showsAccountOverview else {
+        // Library under the tab grid in Spaces mode only.
+        guard !showingIncognito else {
             bookmarkItems = []
             historyItems = []
             bookmarksSection.isHidden = true
@@ -535,8 +517,7 @@ final class TabSwitcherViewController: UIViewController {
             return
         }
 
-        let containerID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
-            ?? tabManager.resolvedLastActiveContainerID
+        let containerID = focusedSpaceID
         bookmarkItems = Array(BookmarkStore.shared.items(containerID: containerID).filter { $0.url != nil }.prefix(12))
         historyItems = Array(HistoryStore.shared.items(containerID: containerID).filter { $0.url != nil }.prefix(12))
 
@@ -547,33 +528,13 @@ final class TabSwitcherViewController: UIViewController {
         applyLibraryExpansion(animated: false)
     }
 
-    // MARK: - Menus
-
-    private func makeMoreMenu() -> UIMenu {
-        var children: [UIMenuElement] = []
-        if surface != .allTabs {
-            children.append(UIAction(title: "Rename", image: UIImage(systemName: "pencil")) { [weak self] _ in
-                self?.promptRename()
-            })
-        }
-        children.append(UIAction(title: "Manage Accounts", image: UIImage(systemName: "slider.horizontal.3")) { [weak self] _ in
-            self?.manageContainersTapped()
-        })
-        children.append(UIAction(
-            title: "Close All",
-            image: UIImage(systemName: "xmark.circle"),
-            attributes: .destructive
-        ) { [weak self] _ in
-            self?.closeAllTabs()
-        })
-        children.append(UIAction(
-            title: "Delete Account",
-            image: UIImage(systemName: "trash"),
-            attributes: .destructive
-        ) { [weak self] _ in
-            self?.promptDeleteAccount()
-        })
-        return UIMenu(title: "", children: children)
+    private static func spaceDotImage(color: UIColor, diameter: CGFloat = 10) -> UIImage {
+        let size = CGSize(width: diameter, height: diameter)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { _ in
+            color.setFill()
+            UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).fill()
+        }.withRenderingMode(.alwaysOriginal)
     }
 
     @objc private func manageContainersTapped() {
@@ -584,13 +545,13 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func promptRename() {
-        presentAccountPicker(title: "Rename Account") { [weak self] container in
+        presentAccountPicker(title: "Rename Space") { [weak self] container in
             self?.presentRenameAlert(for: container)
         }
     }
 
     private func presentRenameAlert(for container: BrowserContainer) {
-        let alert = UIAlertController(title: "Rename Account", message: nil, preferredStyle: .alert)
+        let alert = UIAlertController(title: "Rename Space", message: nil, preferredStyle: .alert)
         alert.addTextField { $0.text = container.name; $0.placeholder = "Name" }
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Save", style: .default, handler: { [weak self] _ in
@@ -599,7 +560,7 @@ final class TabSwitcherViewController: UIViewController {
             if self.tabManager.renameContainer(id: container.id, to: name) {
                 self.reload()
             } else {
-                let err = UIAlertController(title: "Accounts", message: "Couldn’t rename. Use a unique non-empty name.", preferredStyle: .alert)
+                let err = UIAlertController(title: "Spaces", message: "Couldn’t rename. Use a unique non-empty name.", preferredStyle: .alert)
                 err.addAction(UIAlertAction(title: "OK", style: .default))
                 self.present(err, animated: true)
             }
@@ -608,30 +569,54 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func promptDeleteAccount() {
-        presentAccountPicker(title: "Delete Account") { [weak self] container in
+        presentAccountPicker(title: "Delete Space") { [weak self] container in
             self?.confirmDelete(container)
         }
     }
 
     private func confirmDelete(_ container: BrowserContainer) {
+        confirmDeleteSpaceAndTabs(container)
+    }
+
+    private func confirmDeleteSpaceAndTabs(_ container: BrowserContainer) {
         guard tabManager.containers.count > 1 else {
-            let alert = UIAlertController(title: "Accounts", message: "Keep at least one account.", preferredStyle: .alert)
+            let alert = UIAlertController(title: "Spaces", message: "Keep at least one space.", preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "OK", style: .default))
             present(alert, animated: true)
             return
         }
         let alert = UIAlertController(
-            title: "Delete Account?",
-            message: "Tabs in “\(container.name)” will move to another account. Their login session for this account will be removed.",
+            title: "Delete Space?",
+            message: "“\(container.name)” and all of its tabs will be deleted. The login session for this space will be removed.",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive, handler: { [weak self] _ in
             guard let self else { return }
+            let tabIDs = self.tabManager.normalTabs
+                .filter { $0.containerID == container.id }
+                .map(\.id)
+            for id in tabIDs {
+                self.tabManager.closeTab(id: id)
+            }
+            let deletedFocused = self.focusedSpaceID == container.id
             _ = self.tabManager.deleteContainer(id: container.id)
+            if deletedFocused {
+                self.focusedSpaceID = self.tabManager.resolvedLastActiveContainerID
+                _ = self.tabManager.switchToAccount(self.focusedSpaceID)
+            }
             self.reload()
         }))
         present(alert, animated: true)
+    }
+
+    private func presentEditSpace(_ container: BrowserContainer) {
+        let edit = ContainerEditViewController(container: container, tabManager: tabManager)
+        edit.delegate = self
+        let nav = UINavigationController(rootViewController: edit)
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        present(nav, animated: true)
     }
 
     private func presentAccountPicker(title: String, onPick: @escaping (BrowserContainer) -> Void) {
@@ -665,35 +650,48 @@ final class TabSwitcherViewController: UIViewController {
         present(popup, animated: true)
     }
 
-    @objc private func modeChanged() {
-        let next = Surface(rawValue: modeControl.selectedSegmentIndex) ?? .accounts
-        surface = next
-        searchQuery = ""
-        if surface == .incognito {
+    @objc private func privateTapped() {
+        if showingIncognito {
+            surface = .spaces
+            _ = tabManager.switchToAccount(focusedSpaceID)
+        } else {
+            if let selected = tabManager.selectedTab, !selected.isIncognito {
+                focusedSpaceID = selected.containerID
+            }
+            surface = .incognito
             let pool = tabManager.incognitoTabs
             if let tab = pool.sorted(by: { $0.lastAccessed > $1.lastAccessed }).first {
                 tabManager.selectTab(id: tab.id)
+            } else {
+                _ = tabManager.addTab(incognito: true, select: true)
             }
-        } else if let tab = tabManager.normalTabs.sorted(by: { $0.lastAccessed > $1.lastAccessed }).first {
-            tabManager.selectTab(id: tab.id)
-        }
-        if surface == .accounts {
-            expandedAccountIDs = [currentAccountID]
-            didSeedAccountExpansion = true
         }
         reload()
     }
 
+    @objc private func spacePillTapped(_ sender: UIButton) {
+        let containers = tabManager.sortedContainers
+        guard containers.indices.contains(sender.tag) else { return }
+        let container = containers[sender.tag]
+        focusedSpaceID = container.id
+        _ = tabManager.switchToAccount(container.id)
+        reload()
+    }
+
+    @objc private func addSpaceTapped() {
+        presentNewAccount()
+    }
+
     private var preferredContainerIDForNewTab: UUID? {
         if showingIncognito { return nil }
-        if let selected = tabManager.selectedTab, !selected.isIncognito {
-            return selected.containerID
-        }
-        return tabManager.defaultContainer.id
+        return focusedSpaceID
     }
 
     @objc private func addTapped() {
-        delegate?.tabSwitcherDidRequestAccountHub()
+        delegate?.tabSwitcherDidRequestNewTab(
+            incognito: showingIncognito,
+            containerID: preferredContainerIDForNewTab
+        )
     }
 
     private func presentNewAccount() {
@@ -704,17 +702,23 @@ final class TabSwitcherViewController: UIViewController {
         )
         edit.delegate = self
         let nav = UINavigationController(rootViewController: edit)
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         present(nav, animated: true)
     }
 
     @objc private func doneTapped() {
         let selectedIsPrivate = tabManager.selectedTab?.isIncognito ?? false
         if selectedIsPrivate != showingIncognito {
-            let pool = showingIncognito ? tabManager.incognitoTabs : tabManager.normalTabs
-            if let tab = pool.sorted(by: { $0.lastAccessed > $1.lastAccessed }).first {
-                tabManager.selectTab(id: tab.id)
-            } else if showingIncognito {
-                _ = tabManager.addTab(incognito: true, select: true)
+            if showingIncognito {
+                let pool = tabManager.incognitoTabs
+                if let tab = pool.sorted(by: { $0.lastAccessed > $1.lastAccessed }).first {
+                    tabManager.selectTab(id: tab.id)
+                } else {
+                    _ = tabManager.addTab(incognito: true, select: true)
+                }
+            } else {
+                _ = tabManager.switchToAccount(focusedSpaceID)
             }
         }
         delegate?.tabSwitcherDidClose()
@@ -737,7 +741,7 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func promptMoveGroup(for tab: BrowserTab) {
-        let alert = UIAlertController(title: "Move to Account", message: tab.title, preferredStyle: .actionSheet)
+        let alert = UIAlertController(title: "Move to Space", message: tab.title, preferredStyle: .actionSheet)
         for container in tabManager.sortedContainers {
             let title = container.id == tab.containerID ? "\(container.name) ✓" : container.name
             alert.addAction(UIAlertAction(title: title, style: .default, handler: { [weak self] _ in
@@ -756,7 +760,7 @@ final class TabSwitcherViewController: UIViewController {
         if tab.containerID == container.id { return }
         let alert = UIAlertController(
             title: "Move to “\(container.name)”?",
-            message: "This tab will use that account’s cookies and login. It may look logged out of the previous account.",
+            message: "This tab will use that space’s cookies and login. It may look logged out of the previous space.",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -767,38 +771,28 @@ final class TabSwitcherViewController: UIViewController {
         present(alert, animated: true)
     }
 
-    @objc private func searchPlaceholder() {
-        let alert = UIAlertController(title: "Search tabs", message: nil, preferredStyle: .alert)
-        alert.addTextField { $0.placeholder = "Title, URL, or account"; $0.text = self.searchQuery }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Search", style: .default, handler: { [weak self] _ in
-            guard let self else { return }
-            self.searchQuery = alert.textFields?.first?.text ?? ""
-            if self.isSearching, self.surface == .accounts {
-                // Show matching tabs across accounts instead of the card list.
-                self.surface = .allTabs
-            }
-            self.reload()
-        }))
-        if !searchQuery.isEmpty {
-            alert.addAction(UIAlertAction(title: "Clear", style: .destructive, handler: { [weak self] _ in
-                self?.searchQuery = ""
-                self?.reload()
-            }))
-        }
-        present(alert, animated: true)
-    }
 }
 
 // MARK: - Collection
 
 extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        displayedTabs.count
+        gridItemCount
     }
 
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: TabGridCell.reuseID, for: indexPath) as! TabGridCell
+        if showsNewTabPlaceholder {
+            let color: UIColor = {
+                if showingIncognito { return BrowserTheme.privateAccent }
+                return tabManager.accountColor(forContainer: focusedSpaceID)
+            }()
+            cell.configureAsNewTabPlaceholder(accent: color, selected: true)
+            cell.onClose = nil
+            cell.onMoveGroup = nil
+            return cell
+        }
+
         let tab = displayedTabs[indexPath.item]
         let selected = tab.id == tabManager.selectedTab?.id
         cell.configure(
@@ -822,6 +816,13 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        if showsNewTabPlaceholder {
+            delegate?.tabSwitcherDidRequestNewTab(
+                incognito: showingIncognito,
+                containerID: preferredContainerIDForNewTab
+            )
+            return
+        }
         let tab = displayedTabs[indexPath.item]
         tabManager.selectTab(id: tab.id)
         delegate?.tabSwitcherDidClose()
@@ -836,6 +837,7 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
         contextMenuConfigurationForItemAt indexPath: IndexPath,
         point: CGPoint
     ) -> UIContextMenuConfiguration? {
+        guard !showsNewTabPlaceholder else { return nil }
         let tab = displayedTabs[indexPath.item]
         guard !tab.isIncognito else { return nil }
         return UIContextMenuConfiguration(identifier: tab.id.uuidString as NSString, previewProvider: nil) { [weak self] _ in
@@ -851,7 +853,7 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
                 }
             }
             return UIMenu(title: "", children: [
-                UIMenu(title: "Move to Account", options: .displayInline, children: moveChildren)
+                UIMenu(title: "Move to Space", options: .displayInline, children: moveChildren)
             ])
         }
     }
@@ -998,6 +1000,9 @@ extension TabSwitcherViewController: ContainerEditViewControllerDelegate {
     func containerEditDidSave(_ container: BrowserContainer, isNew: Bool) {
         if isNew {
             _ = tabManager.addContainer(container)
+            focusedSpaceID = container.id
+            surface = .spaces
+            _ = tabManager.switchToAccount(container.id)
         } else {
             _ = tabManager.updateContainer(container)
         }
@@ -1072,7 +1077,7 @@ private final class AccountSectionView: UIView, UICollectionViewDataSource, UICo
         addSubview(card)
         card.snp.makeConstraints { $0.edges.equalToSuperview() }
 
-        headerButton.accessibilityLabel = "Account"
+        headerButton.accessibilityLabel = "Space"
         headerButton.addTarget(self, action: #selector(headerTapped), for: .touchUpInside)
         let longPress = UILongPressGestureRecognizer(target: self, action: #selector(headerLongPressed(_:)))
         headerButton.addGestureRecognizer(longPress)
@@ -1315,7 +1320,7 @@ private final class AccountSectionView: UIView, UICollectionViewDataSource, UICo
         let tab = tabs[indexPath.item]
         return UIContextMenuConfiguration(identifier: tab.id.uuidString as NSString, previewProvider: nil) { [weak self] _ in
             UIMenu(title: "", children: [
-                UIAction(title: "Move to Account", image: UIImage(systemName: "folder")) { [weak self] _ in
+                UIAction(title: "Move to Space", image: UIImage(systemName: "folder")) { [weak self] _ in
                     self?.onMoveGroup?(tab)
                 },
                 UIAction(title: "Close Tab", image: UIImage(systemName: "xmark"), attributes: .destructive) { [weak self] _ in
@@ -1406,8 +1411,8 @@ final class TabGridCell: UICollectionViewCell {
         )
         groupButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -2, bottom: 0, right: 2)
         groupButton.titleEdgeInsets = UIEdgeInsets(top: 0, left: 2, bottom: 0, right: -2)
-        groupButton.accessibilityLabel = "Move to Account"
-        groupButton.accessibilityHint = "Choose an account for this tab"
+        groupButton.accessibilityLabel = "Move to Space"
+        groupButton.accessibilityHint = "Choose a space for this tab"
         groupButton.addTarget(self, action: #selector(groupTapped), for: .touchUpInside)
 
         closeButton.setImage(UIImage(systemName: "xmark"), for: .normal)
@@ -1475,8 +1480,11 @@ final class TabGridCell: UICollectionViewCell {
     func configure(tab: BrowserTab, containerName: String, accountColor: UIColor, selected: Bool) {
         configuredTabID = tab.id
         titleLabel.text = tab.title
+        groupButton.isHidden = false
+        closeButton.isHidden = false
+        colorBar.isHidden = false
         let name = containerName.trimmingCharacters(in: .whitespacesAndNewlines)
-        groupButton.setTitle(name.isEmpty ? "Account" : name, for: .normal)
+        groupButton.setTitle(name.isEmpty ? "Space" : name, for: .normal)
         groupButton.setTitleColor(accountColor, for: .normal)
         groupButton.tintColor = accountColor
         colorBar.backgroundColor = accountColor
@@ -1487,6 +1495,8 @@ final class TabGridCell: UICollectionViewCell {
             avatarView.image = nil
             avatarView.isHidden = true
         }
+        preview.contentMode = .scaleAspectFill
+        preview.tintColor = nil
         if AppSettings.showTabsPreviewImages, let snapshot = tab.snapshot {
             preview.image = snapshot
             placeholder.isHidden = true
@@ -1494,10 +1504,30 @@ final class TabGridCell: UICollectionViewCell {
         } else {
             preview.image = nil
             placeholder.isHidden = false
+            placeholder.text = "Page"
+            placeholder.font = .systemFont(ofSize: 15)
+            placeholder.textColor = BrowserTheme.textSecondary
         }
         // Always outline cards; selected uses a stronger stroke.
         card.layer.borderWidth = selected ? 2.5 : 1.5
         card.layer.borderColor = (selected ? accountColor : accountColor.withAlphaComponent(0.55)).cgColor
+    }
+
+    /// Empty-space placeholder matching the reference “New Tab” card.
+    func configureAsNewTabPlaceholder(accent: UIColor, selected: Bool) {
+        configuredTabID = nil
+        titleLabel.text = "New Tab"
+        groupButton.isHidden = true
+        closeButton.isHidden = true
+        colorBar.isHidden = true
+        avatarView.isHidden = true
+        placeholder.isHidden = true
+        preview.contentMode = .center
+        preview.tintColor = accent
+        let config = UIImage.SymbolConfiguration(pointSize: 40, weight: .medium)
+        preview.image = UIImage(systemName: "sparkle", withConfiguration: config)
+        card.layer.borderWidth = selected ? 2.5 : 1.5
+        card.layer.borderColor = accent.cgColor
     }
 
     private func upgradePreviewToStandard(for tabID: UUID) {

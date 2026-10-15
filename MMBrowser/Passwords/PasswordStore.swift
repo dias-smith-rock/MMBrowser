@@ -65,7 +65,7 @@ final class PasswordStore {
             guard let preferredContainerID else { return list }
             let exactScope = list.filter { $0.containerID == preferredContainerID }
             let shared = list.filter { $0.containerID == nil }
-            // Prefer this account’s entries, then shared (nil) entries not already covered.
+            // Prefer this space’s entries, then shared (nil) entries not already covered.
             var combined = exactScope
             for item in shared where !combined.contains(where: { $0.username == item.username }) {
                 combined.append(item)
