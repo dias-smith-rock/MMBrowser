@@ -1,0 +1,11 @@
+---
+description: UI and product copy must be English by default
+alwaysApply: true
+---
+
+# English copy
+
+- All user-facing strings (UI labels, buttons, toasts, alerts, menu items, accessibility labels, onboarding) must be **English**.
+- Prefer English for new code comments and commit/PR descriptions unless the user asks otherwise.
+- Do not introduce Chinese (or other non-English) UI copy unless the user explicitly requests localization.
+- Brand names that are normally Latinized (e.g. Sogou) stay in English form in the UI.
