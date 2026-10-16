@@ -12,6 +12,7 @@ final class AppOpenAdManager: NSObject {
 
     func loadAd() {
         guard AdMobConfig.adsEnabled, AdMobConfig.coldStartEnabled, AdConsentManager.canRequestAds else { return }
+        guard AdMobConfig.appOpenAdUnitID.hasPrefix("ca-app-pub-") else { return }
         guard !isLoadingAd, !isShowingAd else { return }
         isLoadingAd = true
 

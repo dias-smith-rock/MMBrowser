@@ -11,6 +11,7 @@ final class HotStartAdManager: NSObject {
 
     func loadAd() {
         guard AdMobConfig.adsEnabled, AdMobConfig.hotStartEnabled, AdConsentManager.canRequestAds else { return }
+        guard AdMobConfig.interstitialAdUnitID.hasPrefix("ca-app-pub-") else { return }
         guard !isLoadingAd, !isShowingAd else { return }
         isLoadingAd = true
 
