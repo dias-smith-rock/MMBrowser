@@ -68,9 +68,7 @@ final class MenuViewController: UIViewController {
     private func libraryItems() -> [(String, String, MenuAction)] {
         var items: [(String, String, MenuAction)] = [
             ("Settings", "gearshape", .settings),
-            ("Spaces", "person.2", .accounts),
             ("Split View", "rectangle.split.1x2", .compareAccounts),
-            ("New tab", "plus.square", .newTab),
             ("Incognito tab", "theatermasks", .newIncognitoTab),
             ("Passwords", "key", .passwords),
             ("Downloads (Shared)", "arrow.down.circle", .downloads),
