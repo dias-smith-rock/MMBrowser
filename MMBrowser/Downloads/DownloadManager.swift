@@ -33,10 +33,7 @@ struct DownloadItem: Codable, Equatable, Identifiable {
     var displayDetail: String {
         switch status {
         case .downloading:
-            if totalBytes > 0 {
-                return "\(Self.formatBytes(bytesWritten)) / \(Self.formatBytes(totalBytes))"
-            }
-            return bytesWritten > 0 ? Self.formatBytes(bytesWritten) : "Downloading…"
+            return Self.downloadingStatusText(bytesWritten: bytesWritten, totalBytes: totalBytes)
         case .completed:
             return sourceURL
         case .failed:
@@ -44,6 +41,20 @@ struct DownloadItem: Codable, Equatable, Identifiable {
         case .cancelled:
             return "Cancelled"
         }
+    }
+
+    /// e.g. `12.3 MB / 120 MB · 10%` or `12.3 MB downloaded` when total unknown.
+    static func downloadingStatusText(bytesWritten: Int64, totalBytes: Int64) -> String {
+        let written = formatBytes(max(0, bytesWritten))
+        if totalBytes > 0 {
+            let total = formatBytes(totalBytes)
+            let pct = Int(min(1, Double(bytesWritten) / Double(totalBytes)) * 100)
+            return "\(written) / \(total) · \(pct)%"
+        }
+        if bytesWritten > 0 {
+            return "\(written) downloaded"
+        }
+        return "Downloading…"
     }
 
     static func formatBytes(_ bytes: Int64) -> String {
@@ -325,9 +336,9 @@ final class DownloadManager: NSObject {
                     masterURL: masterURL,
                     destinationURL: dest,
                     headers: headers,
-                    progress: { [weak self] bytes in
+                    progress: { [weak self] bytes, expected in
                         DispatchQueue.main.async {
-                            self?.updateHLSProgress(id: itemID, bytes: bytes)
+                            self?.updateHLSProgress(id: itemID, bytes: bytes, expectedTotal: expected)
                         }
                     },
                     isCancelled: { [weak self] in
@@ -382,10 +393,13 @@ final class DownloadManager: NSObject {
         }
     }
 
-    private func updateHLSProgress(id: UUID, bytes: Int64) {
+    private func updateHLSProgress(id: UUID, bytes: Int64, expectedTotal: Int64) {
         guard let index = items.firstIndex(where: { $0.id == id }),
               items[index].status == .downloading else { return }
         items[index].bytesWritten = bytes
+        if expectedTotal > 0 {
+            items[index].totalBytes = max(expectedTotal, bytes)
+        }
         let now = CFAbsoluteTimeGetCurrent()
         if now - lastProgressNotifyTime >= progressNotifyInterval {
             lastProgressNotifyTime = now
@@ -916,7 +930,9 @@ extension DownloadManager: URLSessionDownloadDelegate {
         guard let id = itemID(for: downloadTask) else { return }
         updateItem(id: id, persistImmediately: false, notifyImmediately: false) { item in
             item.bytesWritten = totalBytesWritten
-            item.totalBytes = totalBytesExpectedToWrite
+            if totalBytesExpectedToWrite > 0 {
+                item.totalBytes = totalBytesExpectedToWrite
+            }
             item.status = .downloading
         }
     }

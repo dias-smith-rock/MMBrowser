@@ -30,24 +30,27 @@ enum XVideoHLSOfflinePackager {
     }
 
     /// - Parameters:
-    ///   - progress: called on the calling queue with approximate bytes downloaded.
+    ///   - progress: `(downloadedBytes, expectedTotalBytes)`; `expectedTotalBytes` is `-1` until estimated.
     ///   - isCancelled: polled between network steps.
     static func package(
         masterURL: URL,
         destinationURL: URL,
         headers: [String: String],
-        progress: ((Int64) -> Void)?,
+        progress: ((Int64, Int64) -> Void)?,
         isCancelled: () -> Bool
     ) throws -> Result {
         let session = makeSession(headers: headers)
         var downloaded: Int64 = 0
-        let bump: (Int64) -> Void = { n in
-            downloaded += n
-            progress?(downloaded)
+        var expectedTotal: Int64 = -1
+        let report: () -> Void = {
+            if expectedTotal > 0 {
+                expectedTotal = max(expectedTotal, downloaded)
+            }
+            progress?(downloaded, expectedTotal)
         }
 
         try checkCancelled(isCancelled)
-        let masterText = try fetchText(masterURL, session: session, bytes: &downloaded, progress: progress)
+        let masterText = try fetchText(masterURL, session: session, bytes: &downloaded, onProgress: report)
         XVideoOfflineProbe.log("hls.master", [
             "url": masterURL.absoluteString,
             "bytes": masterText.utf8.count,
@@ -70,14 +73,31 @@ enum XVideoHLSOfflinePackager {
         defer { try? FileManager.default.removeItem(at: workDir) }
 
         try checkCancelled(isCancelled)
-        let videoMedia = try fetchText(videoURL, session: session, bytes: &downloaded, progress: progress)
+        let videoMedia = try fetchText(videoURL, session: session, bytes: &downloaded, onProgress: report)
         let videoParts = parseMedia(videoMedia, base: videoURL)
         guard !videoParts.segments.isEmpty || videoParts.mapURI != nil else {
             throw PackagerError.emptySegments
         }
+        var estimated = estimateBytes(for: videoParts, bandwidth: master.bestBandwidth)
+        if master.bestAudioURL != nil, videoParts.totalDuration > 0 {
+            // Rough audio overhead before its playlist is fetched.
+            let audioBW = max(96_000, master.bestBandwidth / 10)
+            estimated += Int64(videoParts.totalDuration * Double(audioBW) / 8.0)
+        }
+        if estimated > 0 {
+            expectedTotal = max(estimated, downloaded)
+            report()
+        }
         let videoIsTS = videoParts.looksLikeMPEGTS
         let videoFile = workDir.appendingPathComponent(videoIsTS ? "video.ts" : "video.mp4")
-        try concatTrack(parts: videoParts, to: videoFile, session: session, bytes: &downloaded, progress: progress, isCancelled: isCancelled)
+        try concatTrack(
+            parts: videoParts,
+            to: videoFile,
+            session: session,
+            bytes: &downloaded,
+            onProgress: report,
+            isCancelled: isCancelled
+        )
         XVideoOfflineProbe.log("hls.videoTrack", {
             var f = XVideoOfflineProbe.fileProbeSummary(at: videoFile)
             f["container"] = videoIsTS ? "ts" : "fmp4"
@@ -87,12 +107,25 @@ enum XVideoHLSOfflinePackager {
         var audioFile: URL?
         if let audioURL = master.bestAudioURL {
             try checkCancelled(isCancelled)
-            let audioMedia = try fetchText(audioURL, session: session, bytes: &downloaded, progress: progress)
+            let audioMedia = try fetchText(audioURL, session: session, bytes: &downloaded, onProgress: report)
             let audioParts = parseMedia(audioMedia, base: audioURL)
             if !audioParts.segments.isEmpty || audioParts.mapURI != nil {
+                let audioEst = estimateBytes(for: audioParts, bandwidth: max(96_000, master.bestBandwidth / 10))
+                if audioEst > 0 {
+                    let videoOnly = estimateBytes(for: videoParts, bandwidth: master.bestBandwidth)
+                    expectedTotal = max(expectedTotal, max(videoOnly, 0) + audioEst)
+                    report()
+                }
                 let audioIsTS = audioParts.looksLikeMPEGTS
                 let out = workDir.appendingPathComponent(audioIsTS ? "audio.ts" : "audio.m4a")
-                try concatTrack(parts: audioParts, to: out, session: session, bytes: &downloaded, progress: progress, isCancelled: isCancelled)
+                try concatTrack(
+                    parts: audioParts,
+                    to: out,
+                    session: session,
+                    bytes: &downloaded,
+                    onProgress: report,
+                    isCancelled: isCancelled
+                )
                 audioFile = out
                 XVideoOfflineProbe.log("hls.audioTrack", XVideoOfflineProbe.fileProbeSummary(at: out))
             }
@@ -135,11 +168,11 @@ enum XVideoHLSOfflinePackager {
         _ url: URL,
         session: URLSession,
         bytes: inout Int64,
-        progress: ((Int64) -> Void)?
+        onProgress: () -> Void
     ) throws -> String {
         let data = try fetchData(url, session: session)
         bytes += Int64(data.count)
-        progress?(bytes)
+        onProgress()
         guard let text = String(data: data, encoding: .utf8)
                 ?? String(data: data, encoding: .isoLatin1) else {
             throw PackagerError.badPlaylist
@@ -170,7 +203,7 @@ enum XVideoHLSOfflinePackager {
         to file: URL,
         session: URLSession,
         bytes: inout Int64,
-        progress: ((Int64) -> Void)?,
+        onProgress: () -> Void,
         isCancelled: () -> Bool
     ) throws {
         FileManager.default.createFile(atPath: file.path, contents: nil)
@@ -187,7 +220,7 @@ enum XVideoHLSOfflinePackager {
             let data = try fetchData(url, session: session)
             handle.write(data)
             bytes += Int64(data.count)
-            progress?(bytes)
+            onProgress()
         }
     }
 
@@ -294,11 +327,25 @@ enum XVideoHLSOfflinePackager {
         var baseURL: URL
         var mapURI: String?
         var segments: [String]
+        var totalDuration: Double
+        var byteRangeTotal: Int64
 
         var looksLikeMPEGTS: Bool {
             if mapURI != nil { return false }
             return segments.contains { $0.lowercased().contains(".ts") }
         }
+    }
+
+    private static func estimateBytes(for media: MediaPlaylist, bandwidth: Int) -> Int64 {
+        if media.byteRangeTotal > 0 { return media.byteRangeTotal }
+        if media.totalDuration > 0, bandwidth > 0 {
+            return Int64(media.totalDuration * Double(bandwidth) / 8.0)
+        }
+        if !media.segments.isEmpty, bandwidth > 0 {
+            // Assume ~4s segments when EXTINF was missing.
+            return Int64(Double(media.segments.count) * 4.0 * Double(bandwidth) / 8.0)
+        }
+        return -1
     }
 
     private static func parseMaster(_ text: String, base: URL) -> MasterPlaylist {
@@ -364,17 +411,48 @@ enum XVideoHLSOfflinePackager {
     private static func parseMedia(_ text: String, base: URL) -> MediaPlaylist {
         var mapURI: String?
         var segments: [String] = []
+        var totalDuration: Double = 0
+        var byteRangeTotal: Int64 = 0
         let lines = text.split(whereSeparator: \.isNewline).map { String($0).trimmingCharacters(in: .whitespaces) }
         for line in lines {
             if line.hasPrefix("#EXT-X-MAP:") {
                 let attrs = parseAttrs(String(line.dropFirst("#EXT-X-MAP:".count)))
                 mapURI = attrs["URI"]
+                if let br = attrs["BYTERANGE"], let len = byteRangeLength(br) {
+                    byteRangeTotal += len
+                }
+                continue
+            }
+            if line.hasPrefix("#EXTINF:") {
+                let raw = String(line.dropFirst("#EXTINF:".count))
+                let value = raw.split(separator: ",", maxSplits: 1).first
+                    .map(String.init)?
+                    .trimmingCharacters(in: .whitespaces) ?? ""
+                if let seconds = Double(value) { totalDuration += seconds }
+                continue
+            }
+            if line.hasPrefix("#EXT-X-BYTERANGE:") {
+                let raw = String(line.dropFirst("#EXT-X-BYTERANGE:".count))
+                    .trimmingCharacters(in: .whitespaces)
+                if let len = byteRangeLength(raw) { byteRangeTotal += len }
                 continue
             }
             if line.isEmpty || line.hasPrefix("#") { continue }
             segments.append(line)
         }
-        return MediaPlaylist(baseURL: base, mapURI: mapURI, segments: segments)
+        return MediaPlaylist(
+            baseURL: base,
+            mapURI: mapURI,
+            segments: segments,
+            totalDuration: totalDuration,
+            byteRangeTotal: byteRangeTotal
+        )
+    }
+
+    /// `#EXT-X-BYTERANGE:length[@offset]` → length.
+    private static func byteRangeLength(_ raw: String) -> Int64? {
+        let lengthPart = raw.split(separator: "@", maxSplits: 1).first.map(String.init) ?? raw
+        return Int64(lengthPart.trimmingCharacters(in: .whitespaces))
     }
 
     private static func parseAttrs(_ raw: String) -> [String: String] {

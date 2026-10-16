@@ -87,14 +87,22 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
                 wrap = existing
                 progress = bar
             } else {
-                wrap = UIView(frame: CGRect(x: 0, y: 0, width: 72, height: 12))
+                wrap = UIView(frame: CGRect(x: 0, y: 0, width: 88, height: 14))
                 progress = UIProgressView(progressViewStyle: .default)
                 progress.frame = wrap.bounds
                 progress.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                progress.trackTintColor = BrowserTheme.textSecondary.withAlphaComponent(0.25)
                 wrap.addSubview(progress)
                 cell.accessoryView = wrap
             }
-            progress.progress = Float(item.progress)
+            if item.totalBytes > 0 {
+                progress.setProgress(Float(item.progress), animated: false)
+                progress.alpha = 1
+            } else {
+                // Total unknown — keep bar empty so the subtitle size text is the source of truth.
+                progress.setProgress(0, animated: false)
+                progress.alpha = 0.45
+            }
         } else {
             cell.accessoryView = nil
         }
@@ -104,17 +112,10 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
     private func statusText(for item: DownloadItem) -> String {
         switch item.status {
         case .downloading:
-            let sizePart: String = {
-                if item.totalBytes > 0 {
-                    return "\(DownloadItem.formatBytes(item.bytesWritten)) / \(DownloadItem.formatBytes(item.totalBytes))"
-                }
-                if item.bytesWritten > 0 {
-                    return DownloadItem.formatBytes(item.bytesWritten)
-                }
-                return "Downloading…"
-            }()
-            let pct = item.totalBytes > 0 ? " · \(Int(item.progress * 100))%" : ""
-            return "\(sizePart)\(pct)"
+            return DownloadItem.downloadingStatusText(
+                bytesWritten: item.bytesWritten,
+                totalBytes: item.totalBytes
+            )
         case .completed:
             let size = resolvedFileSize(for: item)
             let sizeText = size > 0 ? DownloadItem.formatBytes(size) : "Unknown size"

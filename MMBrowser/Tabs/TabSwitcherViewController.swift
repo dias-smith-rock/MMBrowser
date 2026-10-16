@@ -106,10 +106,16 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func applyChrome() {
-        view.backgroundColor = showingIncognito ? BrowserTheme.privateBackground : BrowserTheme.background
+        let spaceColor = showingIncognito ? nil : tabManager.accountColor(forContainer: focusedSpaceID)
+        view.backgroundColor = showingIncognito
+            ? BrowserTheme.privateBackground
+            : BrowserTheme.spaceSurfaceColor(spaceColor: spaceColor)
+        mainScroll.backgroundColor = .clear
         topBar.backgroundColor = .clear
         bottomBar.backgroundColor = .clear
-        let accent = showingIncognito ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
+        let accent = showingIncognito
+            ? BrowserTheme.privateAccent
+            : (spaceColor ?? BrowserTheme.chromeBlue)
         addButton.tintColor = accent
         doneButton.setTitleColor(accent, for: .normal)
         privateButton.tintColor = showingIncognito ? accent : BrowserTheme.textPrimary
