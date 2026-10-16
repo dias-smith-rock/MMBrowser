@@ -15,17 +15,28 @@ final class AdLifecycleCoordinator {
     private var didBootstrapAds = false
     private var isBootstrapping = false
     private var didFinishLaunchConsent = false
+    /// Set after first-run onboarding (and any sheet it presents) is no longer on screen.
+    private var isHostReadyForConsent = false
 
     private init() {}
 
+    /// Call once first-run onboarding has finished or was skipped.
+    func noteHostReadyForConsent(from root: UIViewController?) {
+        isHostReadyForConsent = true
+        startBootstrapIfNeeded(from: root)
+    }
+
     /// Call once the first window is interactive (SceneDelegate after makeKeyAndVisible).
+    /// Consent and ATT wait until onboarding is gone so the two presentations do not overlap.
     func startBootstrapIfNeeded(from root: UIViewController?) {
+        guard isHostReadyForConsent else { return }
         guard !didFinishLaunchConsent, !isBootstrapping else { return }
         isBootstrapping = true
 
         Task { @MainActor in
             // Let first frame render before consent / ATT UI.
             try? await Task.sleep(nanoseconds: 400_000_000)
+            await waitUntilPresentationIdle(from: root)
             if AdMobConfig.adsEnabled {
                 _ = await AdConsentManager.gatherConsentIfNeeded(from: root)
             } else {
@@ -37,6 +48,24 @@ final class AdLifecycleCoordinator {
             guard AdMobConfig.adsEnabled, AdConsentManager.canRequestAds else { return }
             startMobileAdsSDK()
         }
+    }
+
+    /// Onboarding, the follow-up sheet, and their dismiss animations must finish first.
+    private func waitUntilPresentationIdle(from root: UIViewController?) async {
+        guard let root else { return }
+        while isPresenting(root) {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+    }
+
+    private func isPresenting(_ root: UIViewController) -> Bool {
+        var current: UIViewController? = root
+        while let viewController = current {
+            if viewController.isBeingPresented || viewController.isBeingDismissed { return true }
+            guard let presented = viewController.presentedViewController else { break }
+            current = presented
+        }
+        return root.presentedViewController != nil
     }
 
     private func startMobileAdsSDK() {

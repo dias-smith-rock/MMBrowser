@@ -54,9 +54,14 @@ enum AdConsentManager {
     static func requestTrackingAuthorizationIfNeeded(from viewController: UIViewController?) async {
         guard ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
         if let viewController {
+            guard viewController.presentedViewController == nil,
+                  !viewController.isBeingPresented,
+                  !viewController.isBeingDismissed else { return }
             await presentTrackingExplainer(from: viewController)
         }
         guard ATTrackingManager.trackingAuthorizationStatus == .notDetermined else { return }
+        guard UIApplication.shared.applicationState == .active else { return }
+        if let viewController, viewController.presentedViewController != nil { return }
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
             ATTrackingManager.requestTrackingAuthorization { _ in
                 DispatchQueue.main.async { cont.resume() }
@@ -82,9 +87,17 @@ enum AdConsentManager {
                 preferredStyle: .alert
             )
             alert.addAction(UIAlertAction(title: "Continue", style: .default) { _ in
-                cont.resume()
+                Task { @MainActor in
+                    // The alert dismisses itself; wait until that transition ends
+                    // before the system tracking prompt is allowed to appear.
+                    for _ in 0..<20 {
+                        if viewController.presentedViewController == nil { break }
+                        try? await Task.sleep(nanoseconds: 50_000_000)
+                    }
+                    cont.resume()
+                }
             })
-            if viewController.presentedViewController == nil {
+            if viewController.presentedViewController == nil, viewController.view.window != nil {
                 viewController.present(alert, animated: true)
             } else {
                 cont.resume()

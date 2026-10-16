@@ -246,6 +246,8 @@ final class BrowserViewController: UIViewController {
         #else
         if !AppSettings.didShowOnboarding {
             presentOnboarding()
+        } else {
+            AdLifecycleCoordinator.shared.noteHostReadyForConsent(from: self)
         }
         #endif
     }
@@ -353,30 +355,36 @@ final class BrowserViewController: UIViewController {
         onboarding.onFinished = { [weak self, weak onboarding] in
             onboarding?.dismiss(animated: true) {
                 self?.maybeShowAddressBarSwipeTip()
-                self?.maybeShowAccountWow()
+                if self?.maybeShowAccountWow() != true {
+                    AdLifecycleCoordinator.shared.noteHostReadyForConsent(from: self)
+                }
             }
             self?.accountHubController?.reloadFromExternalChange()
         }
         present(onboarding, animated: true)
     }
 
-    private func maybeShowAccountWow() {
+    @discardableResult
+    private func maybeShowAccountWow() -> Bool {
         guard !UserDefaults.standard.bool(forKey: ContainerScope.didShowAccountWowKey) else {
             maybeShowAccountChipTip()
-            return
+            return false
         }
         let wow = AccountOnboardingWowViewController(tabManager: tabManager)
         wow.onFinished = { [weak self, weak wow] in
             wow?.dismiss(animated: true) {
                 self?.maybeShowAccountChipTip()
             }
+            AdLifecycleCoordinator.shared.noteHostReadyForConsent(from: self)
         }
         wow.onStartedSplitDemo = { [weak self] in
             // Split View dismisses the modal chain; tip not needed after a live demo.
             UserDefaults.standard.set(false, forKey: ContainerScope.needsAccountChipTipKey)
             self?.refreshAccountChip()
+            AdLifecycleCoordinator.shared.noteHostReadyForConsent(from: self)
         }
         present(wow, animated: true)
+        return true
     }
 
     private func maybeShowAccountChipTip() {

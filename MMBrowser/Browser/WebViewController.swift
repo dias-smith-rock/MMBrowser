@@ -2550,11 +2550,14 @@ extension WebViewController: WKUIDelegate {
 
         // Prefer a real popup WebView so window.open() returns a WindowProxy and
         // Google GSI (ux_mode=popup) can postMessage back to the opener.
-        if authPopup != nil {
-            // Already have a popup — return the same web view. Do NOT load() here;
-            // WebKit will navigate the returned web view and keep window.opener.
-            XSiteProbe.log("ui.createWebView.reusePopup", ["url": urlString])
-            return authPopup?.popupWebView
+        if let existing = authPopup?.popupWebView {
+            // The existing view was created with a different configuration. Returning it
+            // throws NSInternalInconsistencyException. Load real URLs into it instead.
+            XSiteProbe.log("ui.createWebView.reusePopup", ["url": urlString, "action": "loadExisting"])
+            if let url, Self.canLoadInExistingPopup(url) {
+                existing.load(URLRequest(url: url))
+            }
+            return nil
         }
 
         // Use WebKit's configuration exactly once. Do not call load() — WebKit loads
@@ -2594,6 +2597,11 @@ extension WebViewController: WKUIDelegate {
             }
         }
         return popupWebView
+    }
+
+    fileprivate static func canLoadInExistingPopup(_ url: URL) -> Bool {
+        let scheme = url.scheme?.lowercased() ?? ""
+        return scheme == "http" || scheme == "https"
     }
 
     func webViewDidClose(_ webView: WKWebView) {
@@ -2892,13 +2900,17 @@ final class AuthPopupViewController: UIViewController, WKUIDelegate, WKNavigatio
         for navigationAction: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        // Nested window.open: return this same view so opener chain stays intact.
-        // Do NOT call load() — WebKit navigates the returned web view itself.
+        // This web view was not created with `configuration`. Returning it crashes
+        // with "Returned WKWebView was not created with the given configuration."
+        let nestedURL = navigationAction.request.url
         XSiteProbe.log("popup.nestedOpen", [
-            "url": navigationAction.request.url?.absoluteString ?? "nil",
-            "action": "reuseSelf"
+            "url": nestedURL?.absoluteString ?? "nil",
+            "action": "loadExisting"
         ])
-        return webView
+        if let nestedURL, WebViewController.canLoadInExistingPopup(nestedURL) {
+            webView.load(URLRequest(url: nestedURL))
+        }
+        return nil
     }
 
     // MARK: - WKNavigationDelegate
