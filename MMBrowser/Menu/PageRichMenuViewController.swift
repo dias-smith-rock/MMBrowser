@@ -67,7 +67,7 @@ final class PageRichMenuViewController: UIViewController {
         stack.addArrangedSubview(makeToolsGridCard())
         stack.addArrangedSubview(makeRowsCard([
             row("Add to Bookmarks", symbol: "bookmark", action: .addBookmark, enabled: context.hasLoadablePage && !context.isIncognito),
-            row("Add to Reading List", symbol: "eyeglasses", action: .addReadingList, enabled: context.hasLoadablePage && !context.isIncognito),
+            row("Add to watch later", symbol: "clock", action: .addReadingList, enabled: context.hasLoadablePage && !context.isIncognito),
             row("Add to Favorites", symbol: "star", action: .addToHomepage, enabled: context.hasLoadablePage && !context.isIncognito),
             row(
                 "Save Video Offline",

@@ -40,17 +40,21 @@ enum XVideoHLSOfflinePackager {
         isCancelled: () -> Bool
     ) throws -> Result {
         let session = makeSession(headers: headers)
-        var downloaded: Int64 = 0
-        var expectedTotal: Int64 = -1
+        let tally = ByteTally()
         let report: () -> Void = {
-            if expectedTotal > 0 {
-                expectedTotal = max(expectedTotal, downloaded)
+            if tally.expectedTotal > 0 {
+                tally.expectedTotal = max(tally.expectedTotal, tally.downloaded)
             }
-            progress?(downloaded, expectedTotal)
+            progress?(tally.downloaded, tally.expectedTotal)
+        }
+        let noteBytes: (Int64) -> Void = { count in
+            tally.downloaded += count
+            report()
         }
 
         try checkCancelled(isCancelled)
-        let masterText = try fetchText(masterURL, session: session, bytes: &downloaded, onProgress: report)
+        let (masterText, masterBytes) = try fetchText(masterURL, session: session)
+        noteBytes(masterBytes)
         XVideoOfflineProbe.log("hls.master", [
             "url": masterURL.absoluteString,
             "bytes": masterText.utf8.count,
@@ -73,7 +77,8 @@ enum XVideoHLSOfflinePackager {
         defer { try? FileManager.default.removeItem(at: workDir) }
 
         try checkCancelled(isCancelled)
-        let videoMedia = try fetchText(videoURL, session: session, bytes: &downloaded, onProgress: report)
+        let (videoMedia, videoPlaylistBytes) = try fetchText(videoURL, session: session)
+        noteBytes(videoPlaylistBytes)
         let videoParts = parseMedia(videoMedia, base: videoURL)
         guard !videoParts.segments.isEmpty || videoParts.mapURI != nil else {
             throw PackagerError.emptySegments
@@ -85,7 +90,7 @@ enum XVideoHLSOfflinePackager {
             estimated += Int64(videoParts.totalDuration * Double(audioBW) / 8.0)
         }
         if estimated > 0 {
-            expectedTotal = max(estimated, downloaded)
+            tally.expectedTotal = max(estimated, tally.downloaded)
             report()
         }
         let videoIsTS = videoParts.looksLikeMPEGTS
@@ -94,8 +99,7 @@ enum XVideoHLSOfflinePackager {
             parts: videoParts,
             to: videoFile,
             session: session,
-            bytes: &downloaded,
-            onProgress: report,
+            onChunk: noteBytes,
             isCancelled: isCancelled
         )
         XVideoOfflineProbe.log("hls.videoTrack", {
@@ -107,13 +111,14 @@ enum XVideoHLSOfflinePackager {
         var audioFile: URL?
         if let audioURL = master.bestAudioURL {
             try checkCancelled(isCancelled)
-            let audioMedia = try fetchText(audioURL, session: session, bytes: &downloaded, onProgress: report)
+            let (audioMedia, audioPlaylistBytes) = try fetchText(audioURL, session: session)
+            noteBytes(audioPlaylistBytes)
             let audioParts = parseMedia(audioMedia, base: audioURL)
             if !audioParts.segments.isEmpty || audioParts.mapURI != nil {
                 let audioEst = estimateBytes(for: audioParts, bandwidth: max(96_000, master.bestBandwidth / 10))
                 if audioEst > 0 {
                     let videoOnly = estimateBytes(for: videoParts, bandwidth: master.bestBandwidth)
-                    expectedTotal = max(expectedTotal, max(videoOnly, 0) + audioEst)
+                    tally.expectedTotal = max(tally.expectedTotal, max(videoOnly, 0) + audioEst)
                     report()
                 }
                 let audioIsTS = audioParts.looksLikeMPEGTS
@@ -122,8 +127,7 @@ enum XVideoHLSOfflinePackager {
                     parts: audioParts,
                     to: out,
                     session: session,
-                    bytes: &downloaded,
-                    onProgress: report,
+                    onChunk: noteBytes,
                     isCancelled: isCancelled
                 )
                 audioFile = out
@@ -145,13 +149,19 @@ enum XVideoHLSOfflinePackager {
             try FileManager.default.copyItem(at: videoFile, to: destinationURL)
         }
 
-        let size = ((try? FileManager.default.attributesOfItem(atPath: destinationURL.path))?[.size] as? NSNumber)?.int64Value ?? downloaded
+        let size = ((try? FileManager.default.attributesOfItem(atPath: destinationURL.path))?[.size] as? NSNumber)?.int64Value ?? tally.downloaded
         XVideoOfflineProbe.log("hls.packaged", [
             "out": destinationURL.lastPathComponent,
             "size": size,
             "hadAudio": audioFile != nil
         ])
         return Result(outputURL: destinationURL, bytesWritten: size)
+    }
+
+    /// Class storage so progress closures do not inout-capture the same local `Int64`.
+    private final class ByteTally {
+        var downloaded: Int64 = 0
+        var expectedTotal: Int64 = -1
     }
 
     // MARK: - Network
@@ -166,18 +176,14 @@ enum XVideoHLSOfflinePackager {
 
     private static func fetchText(
         _ url: URL,
-        session: URLSession,
-        bytes: inout Int64,
-        onProgress: () -> Void
-    ) throws -> String {
+        session: URLSession
+    ) throws -> (String, Int64) {
         let data = try fetchData(url, session: session)
-        bytes += Int64(data.count)
-        onProgress()
         guard let text = String(data: data, encoding: .utf8)
                 ?? String(data: data, encoding: .isoLatin1) else {
             throw PackagerError.badPlaylist
         }
-        return text
+        return (text, Int64(data.count))
     }
 
     private static func fetchData(_ url: URL, session: URLSession) throws -> Data {
@@ -202,8 +208,7 @@ enum XVideoHLSOfflinePackager {
         parts: MediaPlaylist,
         to file: URL,
         session: URLSession,
-        bytes: inout Int64,
-        onProgress: () -> Void,
+        onChunk: (Int64) -> Void,
         isCancelled: () -> Bool
     ) throws {
         FileManager.default.createFile(atPath: file.path, contents: nil)
@@ -219,8 +224,7 @@ enum XVideoHLSOfflinePackager {
             let url = resolve(uri, relativeTo: parts.baseURL)
             let data = try fetchData(url, session: session)
             handle.write(data)
-            bytes += Int64(data.count)
-            onProgress()
+            onChunk(Int64(data.count))
         }
     }
 

@@ -1597,12 +1597,8 @@ final class WebViewController: UIViewController {
     }
 
     private func updatePipEntryButtonVisibility(reason: String = "unknown") {
-        // Show while a page video is playing (or already in system PiP).
-        // YouTube Music has no usable HTML video / PiP surface.
-        let wantShow = AppSettings.pictureInPictureEnabled
-            && !YouTubeDarkMode.isYouTubeMusic(webView?.url)
-            && !(webView?.isHidden ?? false)
-            && (pageHasPlayingVideo || isPictureInPictureActive)
+        // Floating PiP chip stays off. System PiP still starts from the page menu.
+        let wantShow = false
 
         if wantShow {
             pipChipHideWorkItem?.cancel()
@@ -1635,10 +1631,7 @@ final class WebViewController: UIViewController {
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.pipChipHideWorkItem = nil
-            let stillWantShow = AppSettings.pictureInPictureEnabled
-                && !YouTubeDarkMode.isYouTubeMusic(self.webView?.url)
-                && !(self.webView?.isHidden ?? false)
-                && (self.pageHasPlayingVideo || self.isPictureInPictureActive)
+            let stillWantShow = false
             if stillWantShow {
                 PipProbe.log("chip.hide.cancelled", [
                     "why": "playingAgain",
@@ -1848,14 +1841,8 @@ final class WebViewController: UIViewController {
     }
 
     private func maybeOfferOfflineVideoSave(force: Bool = false) {
-        guard !isIncognito else { return }
-        guard let candidate = xVideoOfflineProbe.candidateForOffer(allowHLS: true, force: force) else { return }
-        xVideoOfflineProbe.markOffered(candidate)
-        pendingAdultOfflineOffer = false
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.delegate?.webViewController(self, didOfferOfflineVideo: candidate)
-        }
+        // In-page "Save this video offline?" prompt is disabled.
+        _ = force
     }
 
     /// Starts a cookie-aware download for the best offline candidate (progressive MP4, else HLS).
@@ -2888,7 +2875,7 @@ extension WebViewController: WKUIDelegate {
                             self?.beginDownload(url: linkURL, suggestedName: linkURL.lastPathComponent)
                         })
                     }
-                    actions.append(UIAction(title: "Add to Reading List", image: UIImage(systemName: "eyeglasses")) { [weak self] _ in
+                    actions.append(UIAction(title: "Add to watch later", image: UIImage(systemName: "clock")) { [weak self] _ in
                         self?.addLinkToReadingList(linkURL)
                     })
                 }
