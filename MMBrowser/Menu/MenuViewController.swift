@@ -2,7 +2,7 @@ import UIKit
 import SnapKit
 
 enum MenuAction: Equatable {
-    case bookmarks, history, readingList, downloads, settings, accounts, compareAccounts
+    case bookmarks, history, watchLater, readingList, downloads, settings, accounts, compareAccounts
     case reload, newTab, newIncognitoTab, addBookmark, addReadingList
     case readerMode, findInPage, share, userAgent, sharePDF, screenshot, longScreenshot
     case pageCleaner
@@ -70,11 +70,11 @@ final class MenuViewController: UIViewController {
         var items: [(String, String, MenuAction)] = [
             ("Settings", "gearshape", .settings),
             ("Split View", "rectangle.split.1x2", .compareAccounts),
-            ("Incognito tab", "theatermasks", .newIncognitoTab),
             ("Passwords", "key", .passwords),
             ("Downloads (Shared)", "arrow.down.circle", .downloads),
             ("Bookmarks (Isolated)", "bookmark", .bookmarks),
             ("History (Isolated)", "clock", .history),
+            ("Watch Later (Isolated)", "clock.badge.checkmark", .watchLater),
             ("Reading list (Shared)", "text.book.closed", .readingList)
         ]
         if isIncognito {

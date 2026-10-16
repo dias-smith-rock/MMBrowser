@@ -1468,6 +1468,51 @@ final class BrowserViewController: UIViewController {
         }
         present(nav, animated: true)
     }
+
+    private func openWatchLater() {
+        if tabManager.selectedTab?.isIncognito == true {
+            Toast.show("Not available in Private Browsing", from: self)
+            return
+        }
+        let containerID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
+            ?? tabManager.resolvedLastActiveContainerID
+        let list = WatchLaterViewController()
+        list.containerID = containerID
+        if let tab = tabManager.selectedTab, !tab.isIncognito, !tab.isNewTabPage, let url = tab.url {
+            list.currentPageURL = url
+            list.currentPageTitle = tab.title
+        }
+        list.onSelectURL = { [weak self] url in
+            self?.dismiss(animated: true) {
+                self?.navigate(to: url)
+            }
+        }
+        let nav = UINavigationController(rootViewController: list)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        if let sheetPC = nav.sheetPresentationController {
+            sheetPC.detents = [.large()]
+            sheetPC.prefersGrabberVisible = true
+        }
+        present(nav, animated: true)
+    }
+
+    private func addCurrentPageToWatchLater() {
+        guard let tab = tabManager.selectedTab else { return }
+        if tab.isIncognito {
+            Toast.show("Not available in Private Browsing", from: self)
+            return
+        }
+        guard let url = tab.url, !tab.isNewTabPage else {
+            Toast.show("No page to save", from: self)
+            return
+        }
+        if WatchLaterStore.shared.add(title: tab.title, url: url, containerID: tab.containerID) {
+            Toast.show("Added to Watch Later", from: self)
+        } else {
+            Toast.show("Already in Watch Later", from: self)
+        }
+    }
 }
 
 extension BrowserViewController: TabManagerDelegate {
@@ -2122,6 +2167,8 @@ extension BrowserViewController: MenuViewControllerDelegate {
             openLibraryList(isBookmarks: true)
         case .history:
             openLibraryList(isBookmarks: false)
+        case .watchLater:
+            openWatchLater()
         case .readingList:
             openReadingList()
         case .downloads:
@@ -2173,11 +2220,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 Toast.show("Already bookmarked", from: self)
             }
         case .addReadingList:
-            if tabManager.selectedTab?.isIncognito == true {
-                Toast.show("Not available in Private Browsing", from: self)
-                return
-            }
-            tabManager.selectedTab?.webController?.saveReadingList()
+            addCurrentPageToWatchLater()
         case .readerMode:
             tabManager.selectedTab?.webController?.openReaderMode()
         case .findInPage:

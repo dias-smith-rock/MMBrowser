@@ -2875,8 +2875,8 @@ extension WebViewController: WKUIDelegate {
                             self?.beginDownload(url: linkURL, suggestedName: linkURL.lastPathComponent)
                         })
                     }
-                    actions.append(UIAction(title: "Add to watch later", image: UIImage(systemName: "clock")) { [weak self] _ in
-                        self?.addLinkToReadingList(linkURL)
+                    actions.append(UIAction(title: "Add to watch later", image: UIImage(systemName: "clock.badge.checkmark")) { [weak self] _ in
+                        self?.addLinkToWatchLater(linkURL)
                     })
                 }
 
@@ -2974,6 +2974,20 @@ extension WebViewController: WKUIDelegate {
             pop.permittedArrowDirections = []
         }
         present(activity, animated: true)
+    }
+
+    private func addLinkToWatchLater(_ url: URL) {
+        guard !isIncognito else {
+            Toast.show("Not available in Private Browsing", from: self)
+            return
+        }
+        let title = url.host ?? "Saved"
+        let containerID = browsingContainerID ?? ContainerScope.resolveContainerID(nil)
+        if WatchLaterStore.shared.add(title: title, url: url, containerID: containerID) {
+            Toast.show("Added to Watch Later", from: self)
+        } else {
+            Toast.show("Already in Watch Later", from: self)
+        }
     }
 
     private func addLinkToReadingList(_ url: URL) {
