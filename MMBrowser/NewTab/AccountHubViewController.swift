@@ -11,7 +11,7 @@ protocol AccountHubViewControllerDelegate: AnyObject {
     func accountHub(_ hub: AccountHubViewController, didRequestMenuAction action: MenuAction)
 }
 
-/// Simple home: Favorites grid + Bookmarks. Also used as a fullscreen overlay from Tabs / Space.
+/// Simple home: Favorites grid + library shortcuts. Also used as a fullscreen overlay from Tabs / Space.
 final class AccountHubViewController: UIViewController {
     weak var delegate: AccountHubViewControllerDelegate?
 
@@ -27,10 +27,8 @@ final class AccountHubViewController: UIViewController {
     private let favoritesTitle = UILabel()
     private let favoritesDoneButton = UIButton(type: .system)
     private let shortcutsGrid = UIStackView()
-    private let bookmarksHeader = HubSectionHeaderButton()
-    private let bookmarksBody = UIStackView()
+    private let libraryBar = UIStackView()
 
-    private var bookmarksExpanded = true
     private var isEditingFavorites = false
 
     private struct FavoriteEntry {
@@ -105,17 +103,36 @@ final class AccountHubViewController: UIViewController {
         scrollView.showsVerticalScrollIndicator = false
         scrollView.delaysContentTouches = false
         view.addSubview(scrollView)
+        view.addSubview(libraryBar)
 
         contentStack.axis = .vertical
         contentStack.spacing = 20
         contentStack.alignment = .fill
         scrollView.addSubview(contentStack)
 
-        scrollView.snp.makeConstraints { $0.edges.equalTo(view.safeAreaLayoutGuide) }
+        libraryBar.axis = .horizontal
+        libraryBar.alignment = .fill
+        libraryBar.distribution = .fillEqually
+        libraryBar.spacing = 10
+        [
+            makeLibraryButton(title: "Bookmark", symbol: "bookmark", action: .bookmarks),
+            makeLibraryButton(title: "History", symbol: "clock", action: .history),
+            makeLibraryButton(title: "Watch Later", symbol: "clock.badge.checkmark", action: .watchLater)
+        ].forEach { libraryBar.addArrangedSubview($0) }
+
+        libraryBar.snp.makeConstraints { make in
+            make.leading.trailing.equalTo(view.safeAreaLayoutGuide).inset(16)
+            make.bottom.equalTo(view.safeAreaLayoutGuide).offset(-12)
+            make.height.equalTo(72)
+        }
+        scrollView.snp.makeConstraints { make in
+            make.top.leading.trailing.equalTo(view.safeAreaLayoutGuide)
+            make.bottom.equalTo(libraryBar.snp.top).offset(-8)
+        }
         contentStack.snp.makeConstraints { make in
             make.top.equalToSuperview().offset(isOverlay ? 8 : 20)
             make.leading.trailing.equalToSuperview().inset(16)
-            make.bottom.equalToSuperview().offset(-28)
+            make.bottom.equalToSuperview().offset(-20)
             make.width.equalTo(scrollView).offset(-32)
         }
 
@@ -152,16 +169,46 @@ final class AccountHubViewController: UIViewController {
         shortcutsGrid.spacing = Self.favoriteRowSpacing
         shortcutsGrid.alignment = .fill
 
-        bookmarksBody.axis = .vertical
-        bookmarksBody.spacing = 0
-        bookmarksHeader.addTarget(self, action: #selector(toggleBookmarks), for: .touchUpInside)
-
         contentStack.addArrangedSubview(favoritesHeader)
         contentStack.addArrangedSubview(shortcutsGrid)
-        contentStack.setCustomSpacing(28, after: shortcutsGrid)
-        contentStack.addArrangedSubview(bookmarksHeader)
-        contentStack.setCustomSpacing(10, after: bookmarksHeader)
-        contentStack.addArrangedSubview(bookmarksBody)
+    }
+
+    private func makeLibraryButton(title: String, symbol: String, action: MenuAction) -> UIView {
+        let container = UIView()
+        container.backgroundColor = BrowserTheme.elevated
+        container.layer.cornerRadius = 16
+        container.clipsToBounds = true
+
+        let image = UIImageView(image: UIImage(systemName: symbol))
+        image.tintColor = BrowserTheme.textPrimary
+        image.contentMode = .scaleAspectFit
+
+        let label = UILabel()
+        label.text = title
+        label.font = .systemFont(ofSize: 12, weight: .medium)
+        label.textColor = BrowserTheme.textSecondary
+        label.textAlignment = .center
+        label.numberOfLines = 2
+
+        let button = MenuActionButton(action: action)
+        button.addTarget(self, action: #selector(libraryButtonTapped(_:)), for: .touchUpInside)
+        button.accessibilityLabel = title
+
+        container.addSubview(image)
+        container.addSubview(label)
+        container.addSubview(button)
+        image.snp.makeConstraints { make in
+            make.top.equalToSuperview().offset(14)
+            make.centerX.equalToSuperview()
+            make.size.equalTo(22)
+        }
+        label.snp.makeConstraints { make in
+            make.top.equalTo(image.snp.bottom).offset(8)
+            make.leading.trailing.equalToSuperview().inset(6)
+            make.bottom.lessThanOrEqualToSuperview().offset(-10)
+        }
+        button.snp.makeConstraints { $0.edges.equalToSuperview() }
+        return container
     }
 
     private func configureCloseButton() {
@@ -193,7 +240,9 @@ final class AccountHubViewController: UIViewController {
         favoritesDoneButton.setTitleColor(accent, for: .normal)
         closeButton.backgroundColor = accent
         reloadShortcuts()
-        reloadBookmarks()
+        libraryBar.arrangedSubviews.forEach { tile in
+            tile.backgroundColor = BrowserTheme.elevated
+        }
     }
 
     private func resolvedPreviewID() -> UUID {
@@ -430,69 +479,14 @@ final class AccountHubViewController: UIViewController {
         present(alert, animated: true)
     }
 
-    private func reloadBookmarks() {
-        let accountID = resolvedPreviewID()
-        let all = BookmarkStore.shared.items(containerID: accountID)
-        let items = Array(all.prefix(12))
-        let hasItems = !all.isEmpty
-        bookmarksHeader.isHidden = !hasItems
-        bookmarksHeader.configure(title: "Bookmarks", count: all.count, expanded: bookmarksExpanded)
-        bookmarksBody.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        bookmarksBody.isHidden = !hasItems || !bookmarksExpanded
-        guard hasItems, bookmarksExpanded else { return }
-        bookmarksBody.addArrangedSubview(makeListCard(items.map { ($0.title, $0.url) }))
-    }
-
-    private func makeListCard(_ rows: [(String, URL?)]) -> UIView {
-        let card = UIView()
-        card.backgroundColor = BrowserTheme.elevated
-        card.layer.cornerRadius = 16
-        card.clipsToBounds = true
-        let stack = UIStackView()
-        stack.axis = .vertical
-        stack.spacing = 0
-        card.addSubview(stack)
-        stack.snp.makeConstraints { $0.edges.equalToSuperview() }
-
-        for (index, row) in rows.enumerated() {
-            var config = UIButton.Configuration.plain()
-            config.title = row.0
-            config.baseForegroundColor = BrowserTheme.textPrimary
-            config.contentInsets = NSDirectionalEdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16)
-            config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
-                var outgoing = incoming
-                outgoing.font = .systemFont(ofSize: 16, weight: .regular)
-                return outgoing
-            }
-            let button = UIButton(configuration: config)
-            button.contentHorizontalAlignment = .leading
-            button.titleLabel?.lineBreakMode = .byTruncatingTail
-            if let url = row.1 {
-                button.addAction(UIAction { [weak self] _ in
-                    guard let self else { return }
-                    self.delegate?.accountHub(self, didRequestOpenURL: url, accountID: self.resolvedPreviewID())
-                }, for: .touchUpInside)
-            }
-            stack.addArrangedSubview(button)
-            if index < rows.count - 1 {
-                let line = UIView()
-                line.backgroundColor = BrowserTheme.textSecondary.withAlphaComponent(0.14)
-                line.snp.makeConstraints { $0.height.equalTo(1 / UIScreen.main.scale) }
-                stack.addArrangedSubview(line)
-            }
-        }
-        return card
-    }
-
     // MARK: - Actions
 
     @objc private func closeTapped() {
         delegate?.accountHubDidRequestClose(self)
     }
 
-    @objc private func toggleBookmarks() {
-        bookmarksExpanded.toggle()
-        reloadBookmarks()
+    @objc private func libraryButtonTapped(_ sender: MenuActionButton) {
+        delegate?.accountHub(self, didRequestMenuAction: sender.menuAction)
     }
 
     @objc private func favoriteLongPressed(_ gesture: UILongPressGestureRecognizer) {
@@ -505,41 +499,5 @@ final class AccountHubViewController: UIViewController {
     @objc private func doneEditingFavorites() {
         isEditingFavorites = false
         reloadShortcuts()
-    }
-}
-
-// MARK: - Section header
-
-private final class HubSectionHeaderButton: UIButton {
-    private let title = UILabel()
-    private let chevron = UIImageView()
-
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        title.font = .systemFont(ofSize: 15, weight: .semibold)
-        title.textColor = BrowserTheme.textPrimary
-        chevron.tintColor = BrowserTheme.textSecondary
-        chevron.contentMode = .scaleAspectFit
-        addSubview(title)
-        addSubview(chevron)
-        title.snp.makeConstraints { make in
-            make.leading.top.bottom.equalToSuperview()
-        }
-        chevron.snp.makeConstraints { make in
-            make.trailing.equalToSuperview()
-            make.centerY.equalToSuperview()
-            make.size.equalTo(14)
-            make.leading.greaterThanOrEqualTo(title.snp.trailing).offset(8)
-        }
-        snp.makeConstraints { $0.height.equalTo(28) }
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
-    func configure(title text: String, count: Int, expanded: Bool) {
-        title.text = "\(text) (\(count))"
-        chevron.image = UIImage(systemName: expanded ? "chevron.up" : "chevron.down")
-        title.textColor = BrowserTheme.textPrimary
-        chevron.tintColor = BrowserTheme.textSecondary
     }
 }

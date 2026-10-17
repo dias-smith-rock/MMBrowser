@@ -35,7 +35,7 @@ final class BottomToolbarView: UIView {
     private var iconStackWidthConstraint: Constraint?
     private var accountChipWidthConstraint: Constraint?
 
-    private static let iconPointSize: CGFloat = 26
+    private static let iconPointSize: CGFloat = 20
     private static let iconConfig = UIImage.SymbolConfiguration(pointSize: iconPointSize, weight: .regular)
     private static let leadingInset: CGFloat = 8
     private static let trailingInset: CGFloat = 4
@@ -44,6 +44,14 @@ final class BottomToolbarView: UIView {
     private static let chipMinWidth: CGFloat = 56
     private static let chipHeight: CGFloat = 36
     private static let iconSlotCount = 5
+    private static let slotWidth: CGFloat = 36
+
+    override var intrinsicContentSize: CGSize {
+        // Back/forward live in the address bar; toolbar keeps tabs / menu (+ optional new-tab).
+        let slots = hidesNavigationButtons ? 2 : 3
+        let width = Self.trailingInset + CGFloat(slots) * Self.slotWidth
+        return CGSize(width: width, height: BrowserTheme.chromeHeight)
+    }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -98,24 +106,16 @@ final class BottomToolbarView: UIView {
         iconStack.axis = .horizontal
         iconStack.distribution = .fillEqually
         iconStack.alignment = .center
-        [backButton, forwardButton, plusButton, tabsButton, menuButton].forEach { iconStack.addArrangedSubview($0) }
+        [plusButton, tabsButton, menuButton].forEach { iconStack.addArrangedSubview($0) }
 
-        addSubview(accountChip)
+        // Space chip lives in the ≡ menu now; keep the view for pulse/API compatibility.
+        accountChip.isHidden = true
         addSubview(iconStack)
 
-        accountChip.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(Self.leadingInset)
-            make.centerY.equalToSuperview()
-            make.height.equalTo(Self.chipHeight)
-            accountChipWidthConstraint = make.width.equalTo(Self.chipMinWidth).constraint
-        }
-        // Trailing-aligned icon strip: width is N slots so +/tabs/menu keep the same
-        // absolute positions when back/forward slots are absorbed by the chip.
         iconStack.snp.makeConstraints { make in
             make.trailing.equalToSuperview().offset(-Self.trailingInset)
-            make.top.equalToSuperview()
-            make.height.equalTo(BrowserTheme.toolbarHeight)
-            iconStackWidthConstraint = make.width.equalTo(200).constraint
+            make.top.bottom.equalToSuperview()
+            iconStackWidthConstraint = make.width.equalTo(Self.slotWidth * 3).constraint
         }
 
         tabsBadgeLabel.snp.makeConstraints { make in
@@ -155,6 +155,7 @@ final class BottomToolbarView: UIView {
         }
         rebuildIconStack()
         setPrivateMode(isPrivate)
+        invalidateIntrinsicContentSize()
         setNeedsLayout()
     }
 
@@ -162,7 +163,7 @@ final class BottomToolbarView: UIView {
 
     func setPrivateMode(_ isPrivate: Bool) {
         isPrivateMode = isPrivate
-        accountChip.isHidden = isPrivate || !accountChipVisible
+        accountChip.isHidden = true
         applyTheme()
         setNeedsLayout()
     }
@@ -174,64 +175,30 @@ final class BottomToolbarView: UIView {
     }
 
     func setAccount(name: String, color: UIColor, visible: Bool) {
-        accountChipVisible = visible
+        // Space switching moved to the ≡ menu; only keep tint/metadata.
+        _ = visible
+        accountChipVisible = false
         accountName = name
         accountColor = color
-        spaceTintColor = visible ? color : nil
-        let show = visible && !isPrivateMode
-        accountChip.isHidden = !show
+        spaceTintColor = isPrivateMode ? nil : color
+        accountChip.isHidden = true
         accountTitle.text = accountName
-        accountTitle.textColor = color
-        accountChevron.tintColor = color
-        accountChip.backgroundColor = color.withAlphaComponent(0.18)
         accountChip.accessibilityValue = name
         applyTheme()
         setNeedsLayout()
     }
 
-    /// Keep + / tabs / menu in the same trailing slots as the 5-icon layout;
-    /// when back/forward are removed, their slot width is absorbed by the space chip.
     private func updateSlotLayout() {
-        let contentWidth = bounds.width - Self.leadingInset - Self.trailingInset
-        guard contentWidth > 0 else { return }
-
-        let chipShowing = accountChipVisible && !isPrivateMode && !accountChip.isHidden
-        let compactChipWidth: CGFloat = {
-            guard chipShowing else { return 0 }
-            // Prefer fitting the full name; only truncate when width is truly tight.
-            let adaptiveMax = min(Self.chipMaxWidthCompact, max(Self.chipMinWidth, contentWidth * 0.42))
-            let titleWidth = ceil(accountTitle.intrinsicContentSize.width)
-            let fitting = 12 + titleWidth + 4 + 10 + 10 // padding + title + gap + chevron + trailing
-            return min(adaptiveMax, max(Self.chipMinWidth, fitting))
-        }()
-
-        let iconArea: CGFloat = {
-            if chipShowing {
-                return max(0, contentWidth - compactChipWidth - Self.chipIconSpacing)
-            }
-            return contentWidth
-        }()
-        let slotWidth = iconArea / CGFloat(Self.iconSlotCount)
-        let visibleIconCount = hidesNavigationButtons ? 3 : Self.iconSlotCount
-        let iconsWidth = slotWidth * CGFloat(visibleIconCount)
-
-        let chipWidth: CGFloat = {
-            guard chipShowing else { return 0 }
-            if hidesNavigationButtons {
-                return max(Self.chipMinWidth, contentWidth - Self.chipIconSpacing - iconsWidth)
-            }
-            return compactChipWidth
-        }()
-
-        accountChipWidthConstraint?.update(offset: chipWidth)
-        iconStackWidthConstraint?.update(offset: max(iconsWidth, 1))
-        accountChip.isHidden = !chipShowing
+        let slots = hidesNavigationButtons ? 2 : 3
+        iconStackWidthConstraint?.update(offset: Self.slotWidth * CGFloat(slots))
+        accountChip.isHidden = true
     }
 
     private func rebuildIconStack() {
+        // New Tab page: no "+" — open tabs from the tab switcher instead.
         let icons: [UIView] = hidesNavigationButtons
-            ? [plusButton, tabsButton, menuButton]
-            : [backButton, forwardButton, plusButton, tabsButton, menuButton]
+            ? [tabsButton, menuButton]
+            : [plusButton, tabsButton, menuButton]
         let current = iconStack.arrangedSubviews
         if current == icons { return }
         current.forEach { iconStack.removeArrangedSubview($0); $0.removeFromSuperview() }
@@ -250,7 +217,7 @@ final class BottomToolbarView: UIView {
         forwardButton.setImage(ThemeManager.shared.image(for: .toolbarForward, configuration: config, pointSize: size), for: .normal)
         plusButton.setImage(ThemeManager.shared.image(for: .toolbarNewTab, configuration: config, pointSize: size), for: .normal)
         tabsButton.setImage(ThemeManager.shared.image(for: .toolbarTabs, configuration: config, pointSize: size), for: .normal)
-        menuButton.setImage(ThemeManager.shared.image(for: .toolbarMenu, configuration: config, pointSize: size), for: .normal)
+        menuButton.setImage(Self.verticalEllipsisImage(configuration: config), for: .normal)
 
         [backButton, forwardButton, plusButton, tabsButton, menuButton].forEach { button in
             button.tintColor = tint
@@ -291,15 +258,34 @@ final class BottomToolbarView: UIView {
         button.addTarget(self, action: action, for: .touchUpInside)
     }
 
+    /// Prefer `ellipsis.vertical`; fall back to a rotated horizontal ellipsis if the symbol is missing.
+    private static func verticalEllipsisImage(configuration: UIImage.SymbolConfiguration) -> UIImage? {
+        if let vertical = UIImage(systemName: "ellipsis.vertical", withConfiguration: configuration) {
+            return vertical
+        }
+        guard let horizontal = UIImage(systemName: "ellipsis", withConfiguration: configuration) else {
+            return UIImage(systemName: "ellipsis")
+        }
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = horizontal.scale
+        format.opaque = false
+        let size = CGSize(width: max(horizontal.size.height, 1), height: max(horizontal.size.width, 1))
+        let rendered = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
+            let cg = ctx.cgContext
+            cg.translateBy(x: size.width / 2, y: size.height / 2)
+            cg.rotate(by: .pi / 2)
+            horizontal.draw(in: CGRect(
+                x: -horizontal.size.width / 2,
+                y: -horizontal.size.height / 2,
+                width: horizontal.size.width,
+                height: horizontal.size.height
+            ))
+        }
+        return rendered.withRenderingMode(.alwaysTemplate)
+    }
+
     func pulseAccountChip() {
-        guard !accountChip.isHidden else { return }
-        UIView.animate(withDuration: 0.12, animations: {
-            self.accountChip.transform = CGAffineTransform(scaleX: 1.06, y: 1.06)
-        }, completion: { _ in
-            UIView.animate(withDuration: 0.18) {
-                self.accountChip.transform = .identity
-            }
-        })
+        // No-op: the space chip is no longer on the toolbar.
     }
 
     @objc private func accountTapped() { delegate?.toolbarDidTapAccount() }

@@ -57,14 +57,16 @@ enum AccountColor {
     }
 }
 
-/// Compact color swatch grid: preset blocks + custom picker entry (2 rows).
+/// Compact color swatch grid: preset blocks + optional custom swatch + always-visible +.
 final class AccountColorSwatchView: UIView {
     var onSelectPreset: ((Int) -> Void)?
     var onSelectCustom: (() -> Void)?
 
     private let column = UIStackView()
     private var swatchButtons: [UIButton] = []
-    private let customButton = UIButton(type: .custom)
+    /// Shows the saved custom color when one exists (does not replace +).
+    private let customPreviewButton = UIButton(type: .custom)
+    private let addCustomButton = UIButton(type: .custom)
     private var selectedPresetIndex: Int = 0
     private var customHex: String?
     private let swatchSize: CGFloat = 34
@@ -98,10 +100,16 @@ final class AccountColorSwatchView: UIView {
             (i < 5 ? row1 : row2).addArrangedSubview(button)
         }
 
-        styleCustomButton()
-        customButton.addTarget(self, action: #selector(customTapped), for: .touchUpInside)
-        customButton.accessibilityLabel = "Custom color"
-        row2.addArrangedSubview(customButton)
+        styleSwatchChrome(customPreviewButton)
+        customPreviewButton.isHidden = true
+        customPreviewButton.addTarget(self, action: #selector(customTapped), for: .touchUpInside)
+        customPreviewButton.accessibilityLabel = "Custom color"
+        row2.addArrangedSubview(customPreviewButton)
+
+        styleAddButton()
+        addCustomButton.addTarget(self, action: #selector(customTapped), for: .touchUpInside)
+        addCustomButton.accessibilityLabel = "Add custom color"
+        row2.addArrangedSubview(addCustomButton)
 
         // Keep trailing flex so blocks stay left-aligned with even gaps.
         let spacer1 = UIView()
@@ -141,16 +149,24 @@ final class AccountColorSwatchView: UIView {
         return button
     }
 
-    private func styleCustomButton() {
-        customButton.layer.cornerRadius = 10
-        customButton.clipsToBounds = true
-        customButton.translatesAutoresizingMaskIntoConstraints = false
+    private func styleSwatchChrome(_ button: UIButton) {
+        button.layer.cornerRadius = 10
+        button.clipsToBounds = true
+        button.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            customButton.widthAnchor.constraint(equalToConstant: swatchSize),
-            customButton.heightAnchor.constraint(equalToConstant: swatchSize)
+            button.widthAnchor.constraint(equalToConstant: swatchSize),
+            button.heightAnchor.constraint(equalToConstant: swatchSize)
         ])
-        customButton.layer.borderWidth = 1
-        customButton.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.45).cgColor
+    }
+
+    private func styleAddButton() {
+        styleSwatchChrome(addCustomButton)
+        addCustomButton.backgroundColor = BrowserTheme.secondaryCard
+        addCustomButton.layer.borderWidth = 1
+        addCustomButton.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.45).cgColor
+        let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+        addCustomButton.setImage(UIImage(systemName: "plus", withConfiguration: config), for: .normal)
+        addCustomButton.tintColor = BrowserTheme.textPrimary
     }
 
     private func refreshSelection() {
@@ -161,15 +177,14 @@ final class AccountColorSwatchView: UIView {
         }
 
         if let hex = customHex, let color = AccountColor.uiColor(fromHex: hex) {
-            applySelection(to: customButton, selected: true, fill: color)
+            customPreviewButton.isHidden = false
+            applySelection(to: customPreviewButton, selected: usingCustom, fill: color)
         } else {
-            customButton.backgroundColor = BrowserTheme.secondaryCard
-            customButton.layer.borderWidth = 1
-            customButton.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.45).cgColor
-            let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
-            customButton.setImage(UIImage(systemName: "plus", withConfiguration: config), for: .normal)
-            customButton.tintColor = BrowserTheme.textPrimary
+            customPreviewButton.isHidden = true
+            customPreviewButton.setImage(nil, for: .normal)
         }
+        // + stays available after a custom color is chosen.
+        styleAddButton()
     }
 
     private func applySelection(to button: UIButton, selected: Bool, fill: UIColor) {

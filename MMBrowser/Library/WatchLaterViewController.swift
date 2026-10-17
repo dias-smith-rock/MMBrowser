@@ -1,4 +1,6 @@
+import AVKit
 import UIKit
+import WebKit
 
 /// Watch Later list for one space: add, edit, delete, and clear.
 final class WatchLaterViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
@@ -17,6 +19,8 @@ final class WatchLaterViewController: UIViewController, UITableViewDataSource, U
         formatter.timeStyle = .none
         return formatter
     }()
+
+    private var changeObserver: NSObjectProtocol?
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -41,7 +45,20 @@ final class WatchLaterViewController: UIViewController, UITableViewDataSource, U
         view.addSubview(tableView)
         tableView.frame = view.bounds
         tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        changeObserver = NotificationCenter.default.addObserver(
+            forName: WatchLaterStore.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.reloadAfterMutation()
+        }
         updateClearButton()
+    }
+
+    deinit {
+        if let changeObserver {
+            NotificationCenter.default.removeObserver(changeObserver)
+        }
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -84,17 +101,56 @@ final class WatchLaterViewController: UIViewController, UITableViewDataSource, U
             ?? UITableViewCell(style: .subtitle, reuseIdentifier: "cell")
         let item = sections[indexPath.section].items[indexPath.row]
         cell.textLabel?.text = item.title
-        cell.detailTextLabel?.text = item.urlString
+        cell.textLabel?.numberOfLines = 1
+        cell.detailTextLabel?.numberOfLines = 2
+        cell.detailTextLabel?.text = statusLine(for: item)
         cell.textLabel?.textColor = BrowserTheme.textPrimary
         cell.detailTextLabel?.textColor = BrowserTheme.textSecondary
         cell.backgroundColor = BrowserTheme.card
         cell.selectionStyle = .default
+        cell.imageView?.image = statusIcon(for: item)
+        cell.imageView?.tintColor = item.isCacheComplete ? BrowserTheme.chromeBlue : BrowserTheme.textSecondary
         return cell
+    }
+
+    private func statusLine(for item: WatchLaterItem) -> String {
+        let video = item.hasVideoFile ? "Video saved" : (item.hasVideo ? "Video" : "No video")
+        let cache: String
+        if item.isCacheComplete {
+            cache = "Cached"
+        } else if item.cacheState == "failed" {
+            cache = "Cache failed"
+        } else if item.cacheState == "saving" {
+            cache = "Caching…"
+        } else {
+            cache = "Not cached"
+        }
+        return "\(item.urlString)\n\(video) · \(cache)"
+    }
+
+    private func statusIcon(for item: WatchLaterItem) -> UIImage? {
+        let name: String
+        if item.hasVideoFile && item.isCacheComplete {
+            name = "play.rectangle.fill"
+        } else if item.hasVideo {
+            name = "play.rectangle"
+        } else if item.isCacheComplete {
+            name = "checkmark.circle.fill"
+        } else {
+            name = "arrow.down.circle"
+        }
+        return UIImage(systemName: name)
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        if let url = sections[indexPath.section].items[indexPath.row].url {
+        let item = sections[indexPath.section].items[indexPath.row]
+        if item.hasOfflinePage || item.hasVideoFile {
+            let reader = WatchLaterOfflineViewController(item: item)
+            navigationController?.pushViewController(reader, animated: true)
+            return
+        }
+        if let url = item.url {
             onSelectURL?(url)
         }
     }
@@ -238,7 +294,7 @@ final class WatchLaterViewController: UIViewController, UITableViewDataSource, U
                 } else {
                     Toast.show("Couldn’t save. Use a unique URL.", from: self)
                 }
-            } else if WatchLaterStore.shared.add(title: title, url: url, containerID: self.containerID) {
+            } else if let _ = WatchLaterStore.shared.add(title: title, url: url, containerID: self.containerID) {
                 Toast.show("Added to Watch Later", from: self)
             } else {
                 Toast.show("Already in Watch Later", from: self)
@@ -252,5 +308,66 @@ final class WatchLaterViewController: UIViewController, UITableViewDataSource, U
         reloadSections()
         tableView.reloadData()
         updateClearButton()
+    }
+}
+
+/// Opens a saved page without the network, and plays a saved video when one exists.
+final class WatchLaterOfflineViewController: UIViewController {
+    private let item: WatchLaterItem
+    private let webView = WKWebView(frame: .zero)
+    private let playerController = AVPlayerViewController()
+    private var showsPlayer = false
+
+    init(item: WatchLaterItem) {
+        self.item = item
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        title = item.title
+        view.backgroundColor = BrowserTheme.background
+        overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        showsPlayer = item.hasVideoFile
+        if showsPlayer, let url = item.videoFileURL {
+            playerController.player = AVPlayer(url: url)
+            addChild(playerController)
+            view.addSubview(playerController.view)
+            playerController.didMove(toParent: self)
+        }
+        view.addSubview(webView)
+        loadOfflinePage()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let width = view.bounds.width
+        let playerHeight: CGFloat = showsPlayer ? min(280, view.bounds.height * 0.42) : 0
+        playerController.view.frame = CGRect(x: 0, y: 0, width: width, height: playerHeight)
+        webView.frame = CGRect(x: 0, y: playerHeight, width: width, height: view.bounds.height - playerHeight)
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        playerController.player?.play()
+    }
+
+    private func loadOfflinePage() {
+        if let archiveURL = item.pageArchiveURL,
+           FileManager.default.fileExists(atPath: archiveURL.path),
+           let data = try? Data(contentsOf: archiveURL) {
+            webView.load(
+                data,
+                mimeType: "application/x-webarchive",
+                characterEncodingName: "utf-8",
+                baseURL: item.url ?? archiveURL
+            )
+            return
+        }
+        if let url = item.url {
+            webView.load(URLRequest(url: url))
+        }
     }
 }

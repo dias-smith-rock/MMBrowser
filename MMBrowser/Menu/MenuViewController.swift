@@ -68,6 +68,7 @@ final class MenuViewController: UIViewController {
 
     private func libraryItems() -> [(String, String, MenuAction)] {
         var items: [(String, String, MenuAction)] = [
+            ("Spaces", "person.2", .accounts),
             ("Settings", "gearshape", .settings),
             ("Split View", "rectangle.split.1x2", .compareAccounts),
             ("Passwords", "key", .passwords),
@@ -78,7 +79,7 @@ final class MenuViewController: UIViewController {
             ("Reading list (Shared)", "text.book.closed", .readingList)
         ]
         if isIncognito {
-            items.removeAll { $0.2 == .downloads }
+            items.removeAll { $0.2 == .downloads || $0.2 == .accounts }
         }
         return items
     }

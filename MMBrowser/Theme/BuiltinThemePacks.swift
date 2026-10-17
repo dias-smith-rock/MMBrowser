@@ -14,7 +14,7 @@ enum BuiltinThemePacks {
         .toolbarForward: .symbol("chevron.right"),
         .toolbarNewTab: .symbol("plus"),
         .toolbarTabs: .symbol("square.on.square"),
-        .toolbarMenu: .symbol("line.3.horizontal"),
+        .toolbarMenu: .symbol("ellipsis"),
         .addressScreenshot: .symbol("camera"),
         .addressCleaner: .symbol("wand.and.stars"),
         .menuSettings: .symbol("gear"),
@@ -85,7 +85,7 @@ enum BuiltinThemePacks {
             .toolbarForward: .symbol("chevron.forward"),
             .toolbarNewTab: .symbol("plus"),
             .toolbarTabs: .symbol("square"),
-            .toolbarMenu: .symbol("line.3.horizontal"),
+            .toolbarMenu: .symbol("ellipsis"),
             .addressCleaner: .symbol("sparkle")
         ])
     )

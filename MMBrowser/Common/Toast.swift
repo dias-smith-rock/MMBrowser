@@ -82,7 +82,7 @@ enum Toast {
         currentBanner = banner
 
         // Sit clearly above the bottom address bar + toolbar, not tucked into them.
-        let chromeLift = BrowserTheme.addressBarHeight + BrowserTheme.toolbarHeight + 16
+        let chromeLift = BrowserTheme.chromeHeight + 16
 
         var constraints: [NSLayoutConstraint] = [
             accent.leadingAnchor.constraint(equalTo: banner.leadingAnchor, constant: 10),

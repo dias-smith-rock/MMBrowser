@@ -16,6 +16,8 @@ enum BrowserTheme {
     static var textSecondary: UIColor { c.textSecondary }
     static let toolbarHeight: CGFloat = 52
     static let addressBarHeight: CGFloat = 44
+    /// Single-row bottom chrome (address field + trailing toolbar actions).
+    static let chromeHeight: CGFloat = 52
 
     static var preferredUserInterfaceStyle: UIUserInterfaceStyle {
         ThemeManager.shared.current.userInterfaceStyle

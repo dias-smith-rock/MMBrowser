@@ -2983,10 +2983,121 @@ extension WebViewController: WKUIDelegate {
         }
         let title = url.host ?? "Saved"
         let containerID = browsingContainerID ?? ContainerScope.resolveContainerID(nil)
-        if WatchLaterStore.shared.add(title: title, url: url, containerID: containerID) {
+        if WatchLaterStore.shared.add(title: title, url: url, containerID: containerID) != nil {
             Toast.show("Added to Watch Later", from: self)
+            if webView?.url?.absoluteString == url.absoluteString {
+                cacheCurrentPageForWatchLater(matching: url)
+            }
         } else {
             Toast.show("Already in Watch Later", from: self)
+        }
+    }
+
+    /// Saves a web archive of the open page, and the playing video, outside the Downloads list.
+    func cacheCurrentPageForWatchLater(matching url: URL) {
+        guard let webView else { return }
+        let containerID = browsingContainerID ?? ContainerScope.resolveContainerID(nil)
+        guard let item = WatchLaterStore.shared.items(containerID: containerID).first(where: { $0.urlString == url.absoluteString }) else {
+            return
+        }
+        let candidate = xVideoOfflineProbe.bestCandidate
+        WatchLaterStore.shared.markCaching(id: item.id, hasVideo: candidate != nil)
+        let itemID = item.id
+        webView.createWebArchiveData { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let data):
+                    let name = "\(itemID.uuidString).webarchive"
+                    let dest = WatchLaterStore.fileURL(named: name)
+                    do {
+                        try data.write(to: dest, options: .atomic)
+                        WatchLaterStore.shared.markPageArchived(id: itemID, fileName: name)
+                    } catch {
+                        WatchLaterStore.shared.markCacheFailed(id: itemID)
+                    }
+                case .failure:
+                    WatchLaterStore.shared.markCacheFailed(id: itemID)
+                }
+            }
+        }
+        if let candidate {
+            downloadWatchLaterVideo(candidate, itemID: itemID)
+        }
+    }
+
+    private func downloadWatchLaterVideo(_ candidate: XVideoOfflineCandidate, itemID: UUID) {
+        let fileName = "\(itemID.uuidString).mp4"
+        let dest = WatchLaterStore.fileURL(named: fileName)
+        let referer = XVideoOfflineProbe.downloadRefererOrigin(
+            for: candidate.url,
+            pageURL: candidate.pageURL ?? webView?.url?.absoluteString
+        )
+        let begin: ([HTTPCookie]) -> Void = { cookies in
+            var headers = [
+                "Referer": referer.referer,
+                "Origin": referer.origin,
+                "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
+                "Accept": "*/*"
+            ]
+            if !cookies.isEmpty {
+                for (key, value) in HTTPCookie.requestHeaderFields(with: cookies) {
+                    headers[key] = value
+                }
+            }
+            if candidate.isHLS {
+                DispatchQueue.global(qos: .utility).async {
+                    do {
+                        _ = try XVideoHLSOfflinePackager.package(
+                            masterURL: candidate.url,
+                            destinationURL: dest,
+                            headers: headers,
+                            progress: nil,
+                            isCancelled: { false }
+                        )
+                        DispatchQueue.main.async {
+                            WatchLaterStore.shared.markVideoSaved(id: itemID, fileName: fileName)
+                        }
+                    } catch {
+                        DispatchQueue.main.async {
+                            WatchLaterStore.shared.markCacheFailed(id: itemID)
+                        }
+                    }
+                }
+            } else {
+                var request = URLRequest(url: candidate.url)
+                headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+                URLSession.shared.downloadTask(with: request) { temp, response, error in
+                    let ok = error == nil
+                        && (response as? HTTPURLResponse).map { (200..<300).contains($0.statusCode) } == true
+                    DispatchQueue.main.async {
+                        guard ok, let temp else {
+                            WatchLaterStore.shared.markCacheFailed(id: itemID)
+                            return
+                        }
+                        try? FileManager.default.removeItem(at: dest)
+                        do {
+                            try FileManager.default.moveItem(at: temp, to: dest)
+                            WatchLaterStore.shared.markVideoSaved(id: itemID, fileName: fileName)
+                        } catch {
+                            WatchLaterStore.shared.markCacheFailed(id: itemID)
+                        }
+                    }
+                }.resume()
+            }
+        }
+        guard let store = webView?.configuration.websiteDataStore.httpCookieStore else {
+            begin([])
+            return
+        }
+        store.getAllCookies { all in
+            let related = XVideoOfflineProbe.relatedCookieHosts(for: candidate.url)
+            let matched = all.filter { cookie in
+                let domain = cookie.domain.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+                return related.contains { host in
+                    host == domain || host.hasSuffix("." + domain) || domain.hasSuffix(host)
+                }
+            }
+            DispatchQueue.main.async { begin(matched) }
         }
     }
 

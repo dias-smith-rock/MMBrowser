@@ -5,6 +5,8 @@ protocol AddressBarViewDelegate: AnyObject {
     func addressBarDidSubmit(_ text: String)
     func addressBarDidBeginEditing()
     func addressBarDidTapReload()
+    func addressBarDidTapBack()
+    func addressBarDidTapForward()
     func addressBarDidTapRichMenu()
     func addressBarCanSwipeToPreviousTab() -> Bool
     func addressBarCanSwipeToNextTab() -> Bool
@@ -22,10 +24,16 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     weak var delegate: AddressBarViewDelegate?
 
     private let container = UIView()
+    private let backButton = UIButton(type: .system)
+    private let forwardButton = UIButton(type: .system)
     private let reloadButton = UIButton(type: .system)
     private let richMenuButton = UIButton(type: .system)
     private let clearButton = UIButton(type: .system)
     private let shieldButton = UIButton(type: .custom)
+    private var containerLeadingConstraint: Constraint?
+    private var navigationVisible = false
+    private var canGoBack = false
+    private var canGoForward = false
     private let shieldBadge = UILabel()
     private let privateBadge = UILabel()
     let textField = UITextField()
@@ -57,6 +65,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private static let addressShortcuts = [
         "https://", "www.", ".", "/", ".com", ".net", ".org", ".io", "-"
     ]
+    private static let chromeIconPointSize: CGFloat = 18
+    private static let chromeIconButtonSize: CGFloat = 24
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -67,20 +77,26 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         container.layer.cornerRadius = 22
         addSubview(container)
 
+        configureNavButton(backButton, action: #selector(backTapped), label: "Back")
+        configureNavButton(forwardButton, action: #selector(forwardTapped), label: "Forward")
+        backButton.isHidden = true
+        forwardButton.isHidden = true
+
         reloadButton.accessibilityLabel = "Reload"
         reloadButton.addTarget(self, action: #selector(reloadTapped), for: .touchUpInside)
 
-        richMenuButton.accessibilityLabel = "Page menu"
-        richMenuButton.addTarget(self, action: #selector(richMenuTapped), for: .touchUpInside)
+        richMenuButton.isHidden = true
+        richMenuButton.isUserInteractionEnabled = false
+        richMenuButton.accessibilityElementsHidden = true
 
-        let clearConfig = UIImage.SymbolConfiguration(pointSize: 15, weight: .regular)
+        let clearConfig = UIImage.SymbolConfiguration(pointSize: Self.chromeIconPointSize, weight: .regular)
         clearButton.setImage(UIImage(systemName: "xmark.circle.fill", withConfiguration: clearConfig), for: .normal)
         clearButton.tintColor = BrowserTheme.textSecondary
         clearButton.accessibilityLabel = "Clear address"
         clearButton.isHidden = true
         clearButton.addTarget(self, action: #selector(clearAddressTapped), for: .touchUpInside)
 
-        let shieldConfig = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+        let shieldConfig = UIImage.SymbolConfiguration(pointSize: Self.chromeIconPointSize, weight: .regular)
         shieldButton.setImage(UIImage(systemName: "shield.lefthalf.filled", withConfiguration: shieldConfig), for: .normal)
         shieldButton.tintColor = BrowserTheme.textSecondary
         shieldButton.accessibilityLabel = "Ads and trackers blocked"
@@ -131,6 +147,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         peekLabel.isUserInteractionEnabled = false
         peekLabel.alpha = 0
 
+        addSubview(backButton)
+        addSubview(forwardButton)
         container.addSubview(reloadButton)
         container.addSubview(privateBadge)
         container.addSubview(swipeClip)
@@ -148,16 +166,26 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         NotificationCenter.default.addObserver(self, selector: #selector(applyTheme), name: .themeDidChange, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(updateSearchPlaceholder), name: .searchEngineChanged, object: nil)
 
+        backButton.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(2)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(Self.chromeIconButtonSize)
+        }
+        forwardButton.snp.makeConstraints { make in
+            make.leading.equalTo(backButton.snp.trailing).offset(2)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(Self.chromeIconButtonSize)
+        }
         container.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(12)
-            make.trailing.equalToSuperview().offset(-12)
-            make.top.equalToSuperview().offset(4)
+            containerLeadingConstraint = make.leading.equalToSuperview().offset(10).constraint
+            make.trailing.equalToSuperview().offset(-2)
+            make.centerY.equalToSuperview()
             make.height.equalTo(40)
         }
         reloadButton.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(10)
             make.centerY.equalToSuperview()
-            make.size.equalTo(22)
+            make.size.equalTo(Self.chromeIconButtonSize)
         }
         privateBadge.snp.makeConstraints { make in
             make.leading.equalTo(reloadButton.snp.trailing).offset(6)
@@ -166,14 +194,14 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.width.equalTo(52)
         }
         richMenuButton.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-10)
+            make.trailing.equalToSuperview()
             make.centerY.equalToSuperview()
-            make.size.equalTo(22)
+            make.size.equalTo(0)
         }
         shieldButton.snp.makeConstraints { make in
-            make.trailing.equalTo(richMenuButton.snp.leading).offset(-8)
+            make.trailing.equalToSuperview().offset(-10)
             make.centerY.equalToSuperview()
-            make.size.equalTo(22)
+            make.size.equalTo(Self.chromeIconButtonSize)
         }
         shieldBadge.snp.makeConstraints { make in
             make.top.equalTo(shieldButton).offset(-4)
@@ -355,12 +383,33 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             container.backgroundColor = BrowserTheme.spaceElevatedColor(spaceColor: spaceTintColor)
         }
         let accent = isPrivateMode ? BrowserTheme.privateAccent : (spaceTintColor ?? BrowserTheme.chromeBlue)
-        reloadButton.setImage(ThemeManager.shared.image(for: .menuReload, pointSize: 16), for: .normal)
+        let iconConfig = UIImage.SymbolConfiguration(pointSize: Self.chromeIconPointSize, weight: .regular)
+        let navTint = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
+        backButton.setImage(
+            ThemeManager.shared.image(for: .toolbarBack, configuration: iconConfig, pointSize: Self.chromeIconPointSize),
+            for: .normal
+        )
+        forwardButton.setImage(
+            ThemeManager.shared.image(for: .toolbarForward, configuration: iconConfig, pointSize: Self.chromeIconPointSize),
+            for: .normal
+        )
+        [backButton, forwardButton].forEach {
+            $0.tintColor = navTint
+            $0.setPreferredSymbolConfiguration(iconConfig, forImageIn: .normal)
+        }
+        applyNavigationEnabledState()
+        reloadButton.setImage(
+            ThemeManager.shared.image(for: .menuReload, configuration: iconConfig, pointSize: Self.chromeIconPointSize),
+            for: .normal
+        )
         reloadButton.tintColor = BrowserTheme.textSecondary
-        richMenuButton.setImage(UIImage(systemName: "ellipsis"), for: .normal)
-        richMenuButton.tintColor = BrowserTheme.textSecondary
+        reloadButton.setPreferredSymbolConfiguration(iconConfig, forImageIn: .normal)
+        clearButton.setImage(UIImage(systemName: "xmark.circle.fill", withConfiguration: iconConfig), for: .normal)
         clearButton.tintColor = BrowserTheme.textSecondary
+        clearButton.setPreferredSymbolConfiguration(iconConfig, forImageIn: .normal)
+        shieldButton.setImage(UIImage(systemName: "shield.lefthalf.filled", withConfiguration: iconConfig), for: .normal)
         shieldButton.tintColor = BrowserTheme.textSecondary
+        shieldButton.setPreferredSymbolConfiguration(iconConfig, forImageIn: .normal)
         shieldBadge.backgroundColor = accent
         privateBadge.textColor = BrowserTheme.privateAccent
         privateBadge.backgroundColor = BrowserTheme.privateAccent.withAlphaComponent(0.18)
@@ -483,13 +532,13 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         if !shieldButton.isHidden {
             trailingTarget = shieldButton.snp.leading
         } else {
-            trailingTarget = richMenuButton.snp.leading
+            trailingTarget = container.snp.trailing
         }
 
         clearButton.snp.remakeConstraints { make in
             make.trailing.equalTo(trailingTarget).offset(-4)
             make.centerY.equalToSuperview()
-            make.size.equalTo(22)
+            make.size.equalTo(Self.chromeIconButtonSize)
         }
 
         swipeClip.snp.remakeConstraints { make in
@@ -647,6 +696,46 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         textField.resignFirstResponder()
         hideCleanerMenu()
         delegate?.addressBarDidTapReload()
+    }
+
+    /// Shows back/forward to the left of the address field (hidden on New Tab).
+    func updateNavigation(canGoBack: Bool, canGoForward: Bool, visible: Bool) {
+        self.canGoBack = canGoBack
+        self.canGoForward = canGoForward
+        navigationVisible = visible
+        backButton.isHidden = !visible
+        forwardButton.isHidden = !visible
+        containerLeadingConstraint?.update(offset: visible ? 56 : 10)
+        applyNavigationEnabledState()
+    }
+
+    private func configureNavButton(_ button: UIButton, action: Selector, label: String) {
+        button.accessibilityLabel = label
+        button.tintColor = BrowserTheme.textPrimary
+        let config = UIImage.SymbolConfiguration(pointSize: Self.chromeIconPointSize, weight: .regular)
+        button.setPreferredSymbolConfiguration(config, forImageIn: .normal)
+        button.addTarget(self, action: action, for: .touchUpInside)
+    }
+
+    private func applyNavigationEnabledState() {
+        guard navigationVisible else { return }
+        backButton.isUserInteractionEnabled = canGoBack
+        forwardButton.isUserInteractionEnabled = canGoForward
+        let disabledAlpha: CGFloat = ThemeManager.shared.current.isLight ? 0.4 : 0.35
+        backButton.alpha = canGoBack ? 1 : disabledAlpha
+        forwardButton.alpha = canGoForward ? 1 : disabledAlpha
+    }
+
+    @objc private func backTapped() {
+        textField.resignFirstResponder()
+        hideCleanerMenu()
+        delegate?.addressBarDidTapBack()
+    }
+
+    @objc private func forwardTapped() {
+        textField.resignFirstResponder()
+        hideCleanerMenu()
+        delegate?.addressBarDidTapForward()
     }
 
     @objc private func richMenuTapped() {
@@ -834,6 +923,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             return !isPageCleanerActive
         }
         if gestureRecognizer === tabSwipe {
+            if view === backButton || view.isDescendant(of: backButton) { return false }
+            if view === forwardButton || view.isDescendant(of: forwardButton) { return false }
             if view === reloadButton || view.isDescendant(of: reloadButton) { return false }
             if view === richMenuButton || view.isDescendant(of: richMenuButton) { return false }
             if view === clearButton || view.isDescendant(of: clearButton) { return false }
@@ -845,7 +936,9 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             || view.isDescendant(of: cleanerMenuContainer) {
             return false
         }
-        if view === reloadButton || view === richMenuButton || view === clearButton || view === shieldButton { return false }
+        if view === backButton || view === forwardButton
+            || view === reloadButton || view === richMenuButton
+            || view === clearButton || view === shieldButton { return false }
         return true
     }
 

@@ -68,13 +68,7 @@ final class PageRichMenuViewController: UIViewController {
         stack.addArrangedSubview(makeRowsCard([
             row("Add to Bookmarks", symbol: "bookmark", action: .addBookmark, enabled: context.hasLoadablePage && !context.isIncognito),
             row("Add to watch later", symbol: "clock", action: .addReadingList, enabled: context.hasLoadablePage && !context.isIncognito),
-            row("Add to Favorites", symbol: "star", action: .addToHomepage, enabled: context.hasLoadablePage && !context.isIncognito),
-            row(
-                "Save Video Offline",
-                symbol: "arrow.down.to.line",
-                action: .saveOfflineVideo,
-                enabled: context.canSaveOfflineVideo && !context.isIncognito
-            )
+            row("Add to Favorites", symbol: "star", action: .addToHomepage, enabled: context.hasLoadablePage && !context.isIncognito)
         ]))
         stack.addArrangedSubview(makeRowsCard([
             row("Long screenshot", symbol: "rectangle.bottomthird.inset.filled", action: .longScreenshot, enabled: context.hasLoadablePage),
@@ -101,6 +95,73 @@ final class PageRichMenuViewController: UIViewController {
             row("Enable Reader mode", symbol: "doc.plaintext", action: .readerMode, enabled: context.hasLoadablePage),
             row("Change text size", symbol: "textformat.size", action: .changeTextSize, enabled: context.hasLoadablePage)
         ]))
+        // Former ≡ app menu — library + appearance shortcuts.
+        stack.addArrangedSubview(makeAppGridCard(items: appLibraryItems()))
+        stack.addArrangedSubview(makeAppGridCard(items: appExtrasItems()))
+    }
+
+    private func appLibraryItems() -> [(String, String, MenuAction)] {
+        var items: [(String, String, MenuAction)] = [
+            ("Spaces", "person.2", .accounts),
+            ("Settings", "gearshape", .settings),
+            ("Split View", "rectangle.split.1x2", .compareAccounts),
+            ("Passwords", "key", .passwords),
+            ("Downloads (Shared)", "arrow.down.circle", .downloads),
+            ("Bookmarks (Isolated)", "bookmark", .bookmarks),
+            ("History (Isolated)", "clock", .history),
+            ("Watch Later (Isolated)", "clock.badge.checkmark", .watchLater),
+            ("Reading list (Shared)", "text.book.closed", .readingList)
+        ]
+        if context.isIncognito {
+            items.removeAll { $0.2 == .downloads || $0.2 == .accounts }
+        }
+        return items
+    }
+
+    private func appExtrasItems() -> [(String, String, MenuAction)] {
+        [
+            ("Background gallery", "photo.on.rectangle", .backgroundGallery),
+            ("Theme", "paintpalette", .theme),
+            ("Feedback", "bubble.left", .feedback)
+        ]
+    }
+
+    private func makeAppGridCard(items: [(String, String, MenuAction)]) -> UIView {
+        let card = makeCardContainer()
+        let grid = UIStackView()
+        grid.axis = .vertical
+        grid.spacing = 10
+        grid.isLayoutMarginsRelativeArrangement = true
+        grid.layoutMargins = UIEdgeInsets(top: 14, left: 12, bottom: 14, right: 12)
+
+        let columns = 4
+        var row = UIStackView()
+        row.axis = .horizontal
+        row.spacing = 8
+        row.distribution = .fillEqually
+        row.alignment = .top
+
+        for (index, item) in items.enumerated() {
+            if index > 0, index % columns == 0 {
+                grid.addArrangedSubview(row)
+                row = UIStackView()
+                row.axis = .horizontal
+                row.spacing = 8
+                row.distribution = .fillEqually
+                row.alignment = .top
+            }
+            row.addArrangedSubview(makeGridItem(title: item.0, symbol: item.1, action: item.2, enabled: true))
+        }
+        let remainder = items.count % columns
+        if remainder != 0 {
+            for _ in remainder..<columns {
+                row.addArrangedSubview(UIView())
+            }
+        }
+        grid.addArrangedSubview(row)
+        card.addSubview(grid)
+        grid.snp.makeConstraints { make in make.edges.equalToSuperview() }
+        return card
     }
 
     // MARK: - Cards
@@ -116,7 +177,8 @@ final class PageRichMenuViewController: UIViewController {
                 "hand.raised",
                 .adBlocker,
                 true
-            )
+            ),
+            ("Watch Later", "clock.badge.checkmark", .watchLater, !context.isIncognito)
         ]
 
         let row = UIStackView()

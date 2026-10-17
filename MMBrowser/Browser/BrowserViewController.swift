@@ -516,10 +516,15 @@ final class BrowserViewController: UIViewController {
         addressBar.delegate = self
         toolbar.delegate = self
 
-        chromeStack.axis = .vertical
+        chromeStack.axis = .horizontal
+        chromeStack.alignment = .fill
         chromeStack.spacing = 0
         chromeStack.addArrangedSubview(addressBar)
         chromeStack.addArrangedSubview(toolbar)
+        addressBar.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        addressBar.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        toolbar.setContentHuggingPriority(.required, for: .horizontal)
+        toolbar.setContentCompressionResistancePriority(.required, for: .horizontal)
 
         chromeHost.clipsToBounds = false
         chromeHost.addSubview(chromeStack)
@@ -538,10 +543,10 @@ final class BrowserViewController: UIViewController {
         collapsedProgressView.progress = 0
 
         addressBar.snp.makeConstraints { make in
-            make.height.equalTo(BrowserTheme.addressBarHeight)
+            make.height.equalTo(BrowserTheme.chromeHeight)
         }
         toolbar.snp.makeConstraints { make in
-            make.height.equalTo(BrowserTheme.toolbarHeight)
+            make.height.equalTo(BrowserTheme.chromeHeight)
         }
         statusBarFill.snp.makeConstraints { make in
             make.top.leading.trailing.equalToSuperview()
@@ -549,7 +554,7 @@ final class BrowserViewController: UIViewController {
         }
         chromeHost.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview()
-            make.height.equalTo(BrowserTheme.addressBarHeight + BrowserTheme.toolbarHeight)
+            make.height.equalTo(BrowserTheme.chromeHeight)
             chromeBottomConstraint = make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).constraint
         }
         chromeStack.snp.makeConstraints { make in
@@ -656,7 +661,7 @@ final class BrowserViewController: UIViewController {
         let liftAboveSafeArea = max(0, keyboardOverlap - safeBottom)
         let offset: CGFloat
         if isChromeCollapsed && liftAboveSafeArea < 1 {
-            let chromeHeight = BrowserTheme.addressBarHeight + BrowserTheme.toolbarHeight
+            let chromeHeight = BrowserTheme.chromeHeight
             offset = chromeHeight + safeBottom
         } else {
             offset = -liftAboveSafeArea
@@ -1168,12 +1173,18 @@ final class BrowserViewController: UIViewController {
     func refreshToolbar() {
         let web = tabManager.selectedTab?.webController
         let isPrivate = tabManager.selectedTab?.isIncognito ?? false
+        let isNTP = tabManager.selectedTab?.isNewTabPage == true
         toolbar.update(
             canGoBack: web?.canGoBack ?? false,
             canGoForward: web?.canGoForward ?? false,
             tabCount: tabManager.toolbarTabCount(incognito: isPrivate),
             isPrivate: isPrivate,
-            hidesNavigationButtons: tabManager.selectedTab?.isNewTabPage == true
+            hidesNavigationButtons: isNTP
+        )
+        addressBar.updateNavigation(
+            canGoBack: web?.canGoBack ?? false,
+            canGoForward: web?.canGoForward ?? false,
+            visible: !isNTP
         )
         addressBar.setPageCleanerActive(tabManager.selectedTab?.webController?.isPageCleanerActive == true)
         maybeShowAddressBarSwipeTip()
@@ -1286,29 +1297,8 @@ final class BrowserViewController: UIViewController {
     }
 
     private func presentMenu() {
-        setChromeCollapsed(false, animated: true)
-        let menu = MenuViewController(isIncognito: tabManager.selectedTab?.isIncognito ?? false)
-        menu.delegate = self
-        if #available(iOS 15.0, *) {
-            if let sheet = menu.sheetPresentationController {
-                sheet.prefersGrabberVisible = true
-                if #available(iOS 16.0, *) {
-                    let fitted = UISheetPresentationController.Detent.custom(identifier: .init("menuFitted")) { context in
-                        // Taller than .medium so the extras row (Theme / Feedback) stays fully visible.
-                        min(context.maximumDetentValue * 0.78, context.maximumDetentValue)
-                    }
-                    sheet.detents = [fitted, .large()]
-                    sheet.selectedDetentIdentifier = fitted.identifier
-                } else {
-                    sheet.detents = [.large()]
-                    sheet.selectedDetentIdentifier = .large
-                }
-            }
-        }
-        present(menu, animated: true) { [weak self] in
-            guard self?.tabManager.selectedTab?.webController?.isPictureInPictureActive != true else { return }
-            MediaPlaybackSupport.resumeMediaIfNeeded(in: self?.tabManager.selectedTab?.webController?.webView)
-        }
+        // Page actions and app library share one sheet (former ··· + ≡ menus).
+        presentPageRichMenu()
     }
 
     private func presentPageRichMenu() {
@@ -1507,8 +1497,9 @@ final class BrowserViewController: UIViewController {
             Toast.show("No page to save", from: self)
             return
         }
-        if WatchLaterStore.shared.add(title: tab.title, url: url, containerID: tab.containerID) {
+        if WatchLaterStore.shared.add(title: tab.title, url: url, containerID: tab.containerID) != nil {
             Toast.show("Added to Watch Later", from: self)
+            tab.webController?.cacheCurrentPageForWatchLater(matching: url)
         } else {
             Toast.show("Already in Watch Later", from: self)
         }
@@ -1546,6 +1537,16 @@ extension BrowserViewController: AddressBarViewDelegate {
     func addressBarDidTapReload() {
         setChromeCollapsed(false, animated: true)
         tabManager.selectedTab?.webController?.reload()
+    }
+
+    func addressBarDidTapBack() {
+        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "address_back")
+        tabManager.selectedTab?.webController?.goBack()
+    }
+
+    func addressBarDidTapForward() {
+        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "address_forward")
+        tabManager.selectedTab?.webController?.goForward()
     }
 
     func addressBarDidTapRichMenu() {
