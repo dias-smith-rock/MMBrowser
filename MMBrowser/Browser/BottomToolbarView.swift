@@ -4,125 +4,77 @@ import SnapKit
 protocol BottomToolbarViewDelegate: AnyObject {
     func toolbarDidTapBack()
     func toolbarDidTapForward()
+    func toolbarDidTapHome()
     func toolbarDidTapNewTab()
     func toolbarDidTapTabs()
     func toolbarDidTapMenu()
+    func toolbarDidTapDownloads()
     func toolbarDidTapAccount()
     func toolbarDidLongPressAccount()
 }
 
+/// Icon row under the address field — sits on the shared chrome card surface.
 final class BottomToolbarView: UIView {
     weak var delegate: BottomToolbarViewDelegate?
 
-    private let accountChip = UIButton(type: .custom)
-    private let accountTitle = UILabel()
-    private let accountChevron = UIImageView()
     private let backButton = UIButton(type: .system)
-    private let forwardButton = UIButton(type: .system)
-    private let plusButton = UIButton(type: .system)
-    private let tabsButton = UIButton(type: .system)
+    private let homeButton = UIButton(type: .system)
     private let menuButton = UIButton(type: .system)
-    private let tabsBadgeLabel = UILabel()
+    private let downloadsButton = UIButton(type: .system)
+    private let tabsButton = UIButton(type: .system)
+    private let tabsGlyph = UIView()
+    private let tabsCountLabel = UILabel()
     private let iconStack = UIStackView()
     private var isPrivateMode = false
     private var canGoBack = false
-    private var canGoForward = false
     private var tabCount = 1
-    private var accountChipVisible = false
-    private var hidesNavigationButtons = false
-    private var accountName = ""
-    private var accountColor: UIColor = BrowserTheme.chromeBlue
-    private var iconStackWidthConstraint: Constraint?
-    private var accountChipWidthConstraint: Constraint?
+    private var spaceTintColor: UIColor?
 
     private static let iconPointSize: CGFloat = 20
     private static let iconConfig = UIImage.SymbolConfiguration(pointSize: iconPointSize, weight: .regular)
-    private static let leadingInset: CGFloat = 8
-    private static let trailingInset: CGFloat = 4
-    private static let chipIconSpacing: CGFloat = 4
-    private static let chipMaxWidthCompact: CGFloat = 200
-    private static let chipMinWidth: CGFloat = 56
-    private static let chipHeight: CGFloat = 36
-    private static let iconSlotCount = 5
-    private static let slotWidth: CGFloat = 36
 
     override var intrinsicContentSize: CGSize {
-        // Back/forward live in the address bar; toolbar keeps tabs / menu (+ optional new-tab).
-        let slots = hidesNavigationButtons ? 2 : 3
-        let width = Self.trailingInset + CGFloat(slots) * Self.slotWidth
-        return CGSize(width: width, height: BrowserTheme.chromeHeight)
+        CGSize(width: UIView.noIntrinsicMetric, height: BrowserTheme.toolbarHeight)
     }
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-
-        accountTitle.font = .systemFont(ofSize: 14, weight: .semibold)
-        accountTitle.textColor = accountColor
-        accountTitle.textAlignment = .center
-        accountTitle.lineBreakMode = .byTruncatingTail
-        accountTitle.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        accountChevron.contentMode = .scaleAspectFit
-        accountChevron.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 10, weight: .semibold)
-        accountChevron.image = UIImage(systemName: "chevron.up")
-        accountChevron.tintColor = accountColor
-        accountChevron.setContentHuggingPriority(.required, for: .horizontal)
-        accountChevron.setContentCompressionResistancePriority(.required, for: .horizontal)
-        accountChip.addSubview(accountTitle)
-        accountChip.addSubview(accountChevron)
-        accountChip.layer.cornerRadius = Self.chipHeight / 2
-        accountChip.clipsToBounds = true
-        accountChip.isHidden = true
-        accountChip.accessibilityLabel = "Space"
-        accountChip.accessibilityHint = "Opens Space hub. Long press to jump to the previous space."
-        accountChip.addTarget(self, action: #selector(accountTapped), for: .touchUpInside)
-        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(accountLongPressed(_:)))
-        accountChip.addGestureRecognizer(longPress)
-        accountChevron.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-10)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(CGSize(width: 10, height: 10))
-        }
-        accountTitle.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(12)
-            make.trailing.equalTo(accountChevron.snp.leading).offset(-4)
-            make.centerY.equalToSuperview()
-        }
+        backgroundColor = .clear
 
         configure(backButton, action: #selector(backTapped), label: "Back")
-        configure(forwardButton, action: #selector(forwardTapped), label: "Forward")
-        configure(plusButton, action: #selector(plusTapped), label: "New Tab")
-        configure(tabsButton, action: #selector(tabsTapped), label: "Tabs")
+        configure(homeButton, action: #selector(homeTapped), label: "Home")
         configure(menuButton, action: #selector(menuTapped), label: "Menu")
+        configure(downloadsButton, action: #selector(downloadsTapped), label: "Downloads")
+        configure(tabsButton, action: #selector(tabsTapped), label: "Tabs")
 
-        tabsBadgeLabel.font = .systemFont(ofSize: 10, weight: .bold)
-        tabsBadgeLabel.textAlignment = .center
-        tabsBadgeLabel.textColor = .white
-        tabsBadgeLabel.backgroundColor = BrowserTheme.chromeBlue
-        tabsBadgeLabel.layer.cornerRadius = 7
-        tabsBadgeLabel.clipsToBounds = true
-        tabsBadgeLabel.isUserInteractionEnabled = false
-        tabsButton.addSubview(tabsBadgeLabel)
+        tabsGlyph.isUserInteractionEnabled = false
+        tabsGlyph.layer.borderWidth = 1.6
+        tabsGlyph.layer.cornerRadius = 5
+        tabsGlyph.layer.cornerCurve = .continuous
+        tabsCountLabel.font = .systemFont(ofSize: 12, weight: .semibold)
+        tabsCountLabel.textAlignment = .center
+        tabsCountLabel.isUserInteractionEnabled = false
+        tabsButton.addSubview(tabsGlyph)
+        tabsGlyph.addSubview(tabsCountLabel)
+        tabsGlyph.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+            make.width.equalTo(22)
+            make.height.equalTo(20)
+        }
+        tabsCountLabel.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
+        }
 
         iconStack.axis = .horizontal
         iconStack.distribution = .fillEqually
         iconStack.alignment = .center
-        [plusButton, tabsButton, menuButton].forEach { iconStack.addArrangedSubview($0) }
-
-        // Space chip lives in the ≡ menu now; keep the view for pulse/API compatibility.
-        accountChip.isHidden = true
-        addSubview(iconStack)
-
-        iconStack.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-Self.trailingInset)
-            make.top.bottom.equalToSuperview()
-            iconStackWidthConstraint = make.width.equalTo(Self.slotWidth * 3).constraint
+        [backButton, homeButton, menuButton, downloadsButton, tabsButton].forEach {
+            iconStack.addArrangedSubview($0)
         }
-
-        tabsBadgeLabel.snp.makeConstraints { make in
-            make.centerX.equalTo(tabsButton.snp.centerX).offset(10)
-            make.centerY.equalTo(tabsButton.snp.centerY).offset(-10)
-            make.height.equalTo(14)
-            make.width.greaterThanOrEqualTo(14)
+        addSubview(iconStack)
+        iconStack.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview().inset(4)
+            make.top.bottom.equalToSuperview()
         }
 
         applyTheme()
@@ -133,11 +85,6 @@ final class BottomToolbarView: UIView {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        updateSlotLayout()
-    }
-
     func update(
         canGoBack: Bool,
         canGoForward: Bool,
@@ -145,110 +92,61 @@ final class BottomToolbarView: UIView {
         isPrivate: Bool = false,
         hidesNavigationButtons: Bool = false
     ) {
+        _ = hidesNavigationButtons
+        _ = canGoForward
         self.canGoBack = canGoBack
-        self.canGoForward = canGoForward
         self.tabCount = max(tabCount, 1)
-        self.hidesNavigationButtons = hidesNavigationButtons
-        tabsBadgeLabel.text = " \(min(self.tabCount, 99)) "
-        tabsBadgeLabel.snp.updateConstraints { make in
-            make.width.greaterThanOrEqualTo(self.tabCount >= 10 ? 20 : 14)
-        }
-        rebuildIconStack()
+        tabsCountLabel.text = "\(min(self.tabCount, 99))"
         setPrivateMode(isPrivate)
-        invalidateIntrinsicContentSize()
-        setNeedsLayout()
+        applyNavigationEnabledState()
     }
-
-    private var spaceTintColor: UIColor?
 
     func setPrivateMode(_ isPrivate: Bool) {
         isPrivateMode = isPrivate
-        accountChip.isHidden = true
         applyTheme()
-        setNeedsLayout()
     }
 
-    /// Tints toolbar chrome with the active Space color (ignored in Private).
     func setSpaceChrome(_ color: UIColor?) {
         spaceTintColor = color
         applyTheme()
     }
 
     func setAccount(name: String, color: UIColor, visible: Bool) {
-        // Space switching moved to the ≡ menu; only keep tint/metadata.
+        _ = name
         _ = visible
-        accountChipVisible = false
-        accountName = name
-        accountColor = color
         spaceTintColor = isPrivateMode ? nil : color
-        accountChip.isHidden = true
-        accountTitle.text = accountName
-        accountChip.accessibilityValue = name
         applyTheme()
-        setNeedsLayout()
     }
 
-    private func updateSlotLayout() {
-        let slots = hidesNavigationButtons ? 2 : 3
-        iconStackWidthConstraint?.update(offset: Self.slotWidth * CGFloat(slots))
-        accountChip.isHidden = true
-    }
-
-    private func rebuildIconStack() {
-        // New Tab page: no "+" — open tabs from the tab switcher instead.
-        let icons: [UIView] = hidesNavigationButtons
-            ? [tabsButton, menuButton]
-            : [plusButton, tabsButton, menuButton]
-        let current = iconStack.arrangedSubviews
-        if current == icons { return }
-        current.forEach { iconStack.removeArrangedSubview($0); $0.removeFromSuperview() }
-        icons.forEach { iconStack.addArrangedSubview($0) }
-    }
+    func pulseAccountChip() {}
 
     @objc private func applyTheme() {
-        backgroundColor = isPrivateMode
-            ? BrowserTheme.privateBackground
-            : BrowserTheme.spaceSurfaceColor(spaceColor: spaceTintColor)
+        backgroundColor = .clear
         let tint = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
         let config = Self.iconConfig
         let size = Self.iconPointSize
 
         backButton.setImage(ThemeManager.shared.image(for: .toolbarBack, configuration: config, pointSize: size), for: .normal)
-        forwardButton.setImage(ThemeManager.shared.image(for: .toolbarForward, configuration: config, pointSize: size), for: .normal)
-        plusButton.setImage(ThemeManager.shared.image(for: .toolbarNewTab, configuration: config, pointSize: size), for: .normal)
-        tabsButton.setImage(ThemeManager.shared.image(for: .toolbarTabs, configuration: config, pointSize: size), for: .normal)
-        menuButton.setImage(Self.verticalEllipsisImage(configuration: config), for: .normal)
+        homeButton.setImage(UIImage(systemName: "house", withConfiguration: config), for: .normal)
+        menuButton.setImage(UIImage(systemName: "line.3.horizontal", withConfiguration: config), for: .normal)
+        downloadsButton.setImage(UIImage(systemName: "arrow.down.to.line", withConfiguration: config), for: .normal)
+        tabsButton.setImage(nil, for: .normal)
 
-        [backButton, forwardButton, plusButton, tabsButton, menuButton].forEach { button in
+        [backButton, homeButton, menuButton, downloadsButton, tabsButton].forEach { button in
             button.tintColor = tint
             button.imageView?.contentMode = .scaleAspectFit
             button.setPreferredSymbolConfiguration(config, forImageIn: .normal)
         }
 
-        accountTitle.textColor = accountColor
-        accountChevron.tintColor = accountColor
-        tabsBadgeLabel.backgroundColor = isPrivateMode
-            ? BrowserTheme.privateAccent
-            : (spaceTintColor ?? BrowserTheme.chromeBlue)
-        tabsBadgeLabel.textColor = isPrivateMode ? BrowserTheme.privateBackground : .black
-        tabsBadgeLabel.isHidden = false
+        tabsGlyph.layer.borderColor = tint.cgColor
+        tabsCountLabel.textColor = tint
         applyNavigationEnabledState()
     }
 
-    /// Soften unavailable back/forward without UIButton's disabled gray (keeps theme tint).
     private func applyNavigationEnabledState() {
-        guard !hidesNavigationButtons else {
-            backButton.alpha = 1
-            forwardButton.alpha = 1
-            return
-        }
-        backButton.isEnabled = true
-        forwardButton.isEnabled = true
         backButton.isUserInteractionEnabled = canGoBack
-        forwardButton.isUserInteractionEnabled = canGoForward
         let disabledAlpha: CGFloat = ThemeManager.shared.current.isLight ? 0.4 : 0.35
         backButton.alpha = canGoBack ? 1 : disabledAlpha
-        forwardButton.alpha = canGoForward ? 1 : disabledAlpha
     }
 
     private func configure(_ button: UIButton, action: Selector, label: String) {
@@ -258,44 +156,9 @@ final class BottomToolbarView: UIView {
         button.addTarget(self, action: action, for: .touchUpInside)
     }
 
-    /// Prefer `ellipsis.vertical`; fall back to a rotated horizontal ellipsis if the symbol is missing.
-    private static func verticalEllipsisImage(configuration: UIImage.SymbolConfiguration) -> UIImage? {
-        if let vertical = UIImage(systemName: "ellipsis.vertical", withConfiguration: configuration) {
-            return vertical
-        }
-        guard let horizontal = UIImage(systemName: "ellipsis", withConfiguration: configuration) else {
-            return UIImage(systemName: "ellipsis")
-        }
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = horizontal.scale
-        format.opaque = false
-        let size = CGSize(width: max(horizontal.size.height, 1), height: max(horizontal.size.width, 1))
-        let rendered = UIGraphicsImageRenderer(size: size, format: format).image { ctx in
-            let cg = ctx.cgContext
-            cg.translateBy(x: size.width / 2, y: size.height / 2)
-            cg.rotate(by: .pi / 2)
-            horizontal.draw(in: CGRect(
-                x: -horizontal.size.width / 2,
-                y: -horizontal.size.height / 2,
-                width: horizontal.size.width,
-                height: horizontal.size.height
-            ))
-        }
-        return rendered.withRenderingMode(.alwaysTemplate)
-    }
-
-    func pulseAccountChip() {
-        // No-op: the space chip is no longer on the toolbar.
-    }
-
-    @objc private func accountTapped() { delegate?.toolbarDidTapAccount() }
-    @objc private func accountLongPressed(_ gesture: UILongPressGestureRecognizer) {
-        guard gesture.state == .began else { return }
-        delegate?.toolbarDidLongPressAccount()
-    }
     @objc private func backTapped() { delegate?.toolbarDidTapBack() }
-    @objc private func forwardTapped() { delegate?.toolbarDidTapForward() }
-    @objc private func plusTapped() { delegate?.toolbarDidTapNewTab() }
-    @objc private func tabsTapped() { delegate?.toolbarDidTapTabs() }
+    @objc private func homeTapped() { delegate?.toolbarDidTapHome() }
     @objc private func menuTapped() { delegate?.toolbarDidTapMenu() }
+    @objc private func downloadsTapped() { delegate?.toolbarDidTapDownloads() }
+    @objc private func tabsTapped() { delegate?.toolbarDidTapTabs() }
 }

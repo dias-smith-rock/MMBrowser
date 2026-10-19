@@ -13,6 +13,7 @@ final class BrowserViewController: UIViewController {
     private let addressBar = AddressBarView()
     private let toolbar = BottomToolbarView()
     private let chromeHost = BrowserChromeView()
+    private let chromeCard = UIView()
     private let chromeStack = UIStackView()
     /// Shown only while loading AND bottom chrome is collapsed.
     private let collapsedProgressView = UIProgressView(progressViewStyle: .bar)
@@ -72,6 +73,11 @@ final class BrowserViewController: UIViewController {
             name: DownloadLocalNotifications.openDownloadsNotification,
             object: nil
         )
+    }
+
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        updateWebChromeContentInset()
     }
 
     @objc private func downloadDidFinish(_ note: Notification) {
@@ -516,18 +522,21 @@ final class BrowserViewController: UIViewController {
         addressBar.delegate = self
         toolbar.delegate = self
 
-        chromeStack.axis = .horizontal
+        chromeStack.axis = .vertical
         chromeStack.alignment = .fill
-        chromeStack.spacing = 0
+        chromeStack.spacing = 4
         chromeStack.addArrangedSubview(addressBar)
         chromeStack.addArrangedSubview(toolbar)
-        addressBar.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        addressBar.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        toolbar.setContentHuggingPriority(.required, for: .horizontal)
-        toolbar.setContentCompressionResistancePriority(.required, for: .horizontal)
 
+        chromeCard.backgroundColor = BrowserTheme.elevated
+        chromeCard.layer.cornerRadius = 28
+        chromeCard.layer.cornerCurve = .continuous
+        chromeCard.clipsToBounds = true
+        chromeCard.addSubview(chromeStack)
+
+        chromeHost.backgroundColor = .clear
         chromeHost.clipsToBounds = false
-        chromeHost.addSubview(chromeStack)
+        chromeHost.addSubview(chromeCard)
 
         statusBarFill.backgroundColor = BrowserTheme.background
         view.addSubview(statusBarFill)
@@ -543,10 +552,10 @@ final class BrowserViewController: UIViewController {
         collapsedProgressView.progress = 0
 
         addressBar.snp.makeConstraints { make in
-            make.height.equalTo(BrowserTheme.chromeHeight)
+            make.height.equalTo(BrowserTheme.addressBarHeight)
         }
         toolbar.snp.makeConstraints { make in
-            make.height.equalTo(BrowserTheme.chromeHeight)
+            make.height.equalTo(BrowserTheme.toolbarHeight)
         }
         statusBarFill.snp.makeConstraints { make in
             make.top.leading.trailing.equalToSuperview()
@@ -557,13 +566,19 @@ final class BrowserViewController: UIViewController {
             make.height.equalTo(BrowserTheme.chromeHeight)
             chromeBottomConstraint = make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).constraint
         }
+        chromeCard.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview().inset(BrowserTheme.chromeCardInset)
+            make.top.equalToSuperview()
+            make.bottom.equalToSuperview()
+        }
         chromeStack.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
+            make.edges.equalToSuperview().inset(UIEdgeInsets(top: 8, left: 8, bottom: 6, right: 8))
         }
         contentClipView.snp.makeConstraints { make in
             contentTopConstraint = make.top.equalTo(view.safeAreaLayoutGuide.snp.top).constraint
             make.leading.trailing.equalToSuperview()
-            make.bottom.equalTo(chromeHost.snp.top)
+            // Full-bleed to the physical bottom so the home-indicator band stays transparent.
+            make.bottom.equalToSuperview()
         }
         contentContainer.snp.makeConstraints { make in
             make.edges.equalToSuperview()
@@ -624,6 +639,7 @@ final class BrowserViewController: UIViewController {
         // Keep only one progress UI: address bar when expanded, bottom bar when collapsed.
         addressBar.setProgress(pageLoadProgress, isLoading: isPageLoading && !collapsed)
         updateCollapsedProgressVisibility()
+        updateWebChromeContentInset()
         setNeedsStatusBarAppearanceUpdate()
     }
 
@@ -784,14 +800,37 @@ final class BrowserViewController: UIViewController {
         contentClipView.snp.remakeConstraints { make in
             contentTopConstraint = make.top.equalTo(view.safeAreaLayoutGuide.snp.top).constraint
             make.leading.trailing.equalToSuperview()
-            if hidden {
-                make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
-            } else {
-                make.bottom.equalTo(chromeHost.snp.top)
-            }
+            make.bottom.equalToSuperview()
         }
+        updateWebChromeContentInset()
         view.layoutIfNeeded()
         setNeedsStatusBarAppearanceUpdate()
+    }
+
+    /// Keep page content scrollable above the floating chrome; page paints through the home-indicator band.
+    private func updateWebChromeContentInset() {
+        let safeBottom = view.safeAreaInsets.bottom
+        let chromeBottom: CGFloat
+        if isBrowserChromeHiddenForHub || chromeHost.isHidden || isChromeCollapsed {
+            chromeBottom = 0
+        } else {
+            chromeBottom = BrowserTheme.chromeHeight
+        }
+        // WebView reaches the physical bottom; inset covers chrome + home indicator.
+        let bottom = chromeBottom + safeBottom
+        for tab in tabManager.tabs {
+            guard let scrollView = tab.webController?.webView?.scrollView else { continue }
+            var inset = scrollView.contentInset
+            var indicator = scrollView.verticalScrollIndicatorInsets
+            guard abs(inset.bottom - bottom) > 0.5 || abs(indicator.bottom - bottom) > 0.5 else { continue }
+            inset.bottom = bottom
+            indicator.bottom = bottom
+            scrollView.contentInset = inset
+            scrollView.verticalScrollIndicatorInsets = indicator
+        }
+        // Account hub library row sits above the floating chrome (system safe area already
+        // excludes the home indicator).
+        accountHubController?.additionalSafeAreaInsets.bottom = chromeBottom
     }
 
     private func showSelectedTab() {
@@ -819,6 +858,7 @@ final class BrowserViewController: UIViewController {
             showWeb(for: tab)
         }
         refreshToolbar()
+        updateWebChromeContentInset()
     }
 
     private func refreshAccountChip() {
@@ -1004,6 +1044,10 @@ final class BrowserViewController: UIViewController {
         statusBarFill.backgroundColor = bg
         contentClipView.backgroundColor = bg
         contentContainer.backgroundColor = bg
+        chromeHost.backgroundColor = .clear
+        chromeCard.backgroundColor = isPrivate
+            ? BrowserTheme.privateElevated
+            : BrowserTheme.spaceElevatedColor(spaceColor: spaceColor)
         addressBar.setPrivateMode(isPrivate)
         toolbar.setPrivateMode(isPrivate)
         if isPrivate {
@@ -1173,18 +1217,16 @@ final class BrowserViewController: UIViewController {
     func refreshToolbar() {
         let web = tabManager.selectedTab?.webController
         let isPrivate = tabManager.selectedTab?.isIncognito ?? false
-        let isNTP = tabManager.selectedTab?.isNewTabPage == true
         toolbar.update(
             canGoBack: web?.canGoBack ?? false,
             canGoForward: web?.canGoForward ?? false,
             tabCount: tabManager.toolbarTabCount(incognito: isPrivate),
-            isPrivate: isPrivate,
-            hidesNavigationButtons: isNTP
+            isPrivate: isPrivate
         )
         addressBar.updateNavigation(
             canGoBack: web?.canGoBack ?? false,
             canGoForward: web?.canGoForward ?? false,
-            visible: !isNTP
+            visible: false
         )
         addressBar.setPageCleanerActive(tabManager.selectedTab?.webController?.isPageCleanerActive == true)
         maybeShowAddressBarSwipeTip()
@@ -1703,7 +1745,6 @@ extension BrowserViewController: AddressBarViewDelegate {
 extension BrowserViewController: BottomToolbarViewDelegate {
     func toolbarDidTapAccount() {
         AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_account")
-        // Same destination as the tabs button: Space hub (pills + tab grid).
         presentTabSwitcher()
     }
 
@@ -1720,25 +1761,48 @@ extension BrowserViewController: BottomToolbarViewDelegate {
         AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_back")
         tabManager.selectedTab?.webController?.goBack()
     }
+
     func toolbarDidTapForward() {
         AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_forward")
         tabManager.selectedTab?.webController?.goForward()
     }
+
+    func toolbarDidTapHome() {
+        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_home")
+        if tabManager.selectedTab?.isNewTabPage == true, tabManager.selectedTab?.isIncognito != true {
+            return
+        }
+        let containerID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
+        if let existing = tabManager.tabs.first(where: {
+            !$0.isIncognito && $0.isNewTabPage && $0.containerID == containerID
+        }) {
+            tabManager.selectTab(id: existing.id)
+        } else {
+            _ = tabManager.addTab(incognito: false, select: true, containerID: containerID)
+        }
+        showSelectedTab()
+    }
+
     func toolbarDidTapNewTab() {
         AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_new_tab")
-        // Always open a normal tab; private browsing is opt-in only.
-        // Inherit the currently selected tab's container (Firefox Container semantics).
         let containerID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
         _ = tabManager.addTab(incognito: false, select: true, containerID: containerID)
         showSelectedTab()
     }
+
     func toolbarDidTapTabs() {
         AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_tabs")
         presentTabSwitcher()
     }
+
     func toolbarDidTapMenu() {
         AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_menu")
         presentMenu()
+    }
+
+    func toolbarDidTapDownloads() {
+        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_downloads")
+        openDownloads()
     }
 }
 

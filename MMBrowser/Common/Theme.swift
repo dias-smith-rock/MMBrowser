@@ -14,10 +14,11 @@ enum BrowserTheme {
     static var chromeBlue: UIColor { c.accent }
     static var textPrimary: UIColor { c.textPrimary }
     static var textSecondary: UIColor { c.textSecondary }
-    static let toolbarHeight: CGFloat = 52
+    static let toolbarHeight: CGFloat = 44
     static let addressBarHeight: CGFloat = 44
-    /// Single-row bottom chrome (address field + trailing toolbar actions).
-    static let chromeHeight: CGFloat = 52
+    /// Stacked bottom chrome card: address field + icon row (+ vertical insets).
+    static let chromeCardInset: CGFloat = 10
+    static let chromeHeight: CGFloat = addressBarHeight + toolbarHeight + 22
 
     static var preferredUserInterfaceStyle: UIUserInterfaceStyle {
         ThemeManager.shared.current.userInterfaceStyle

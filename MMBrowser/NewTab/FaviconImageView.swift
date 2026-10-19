@@ -117,6 +117,9 @@ final class FaviconImageView: UIImageView {
         let size = CGSize(width: 64, height: 64)
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { _ in
+            let bounds = CGRect(origin: .zero, size: size)
+            UIColor.systemGray3.setFill()
+            UIBezierPath(roundedRect: bounds, cornerRadius: 14).fill()
             let letter = String(title.prefix(1)).uppercased()
             let paragraph = NSMutableParagraphStyle()
             paragraph.alignment = .center

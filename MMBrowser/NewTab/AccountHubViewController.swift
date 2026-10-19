@@ -20,8 +20,11 @@ final class AccountHubViewController: UIViewController {
     private weak var tabManager: TabManager?
     private(set) var previewAccountID: UUID?
 
+    private let spaceNameLabel = UILabel()
     private let scrollView = UIScrollView()
-    private let contentStack = UIStackView()
+    private let scrollContentView = UIView()
+    private let favoritesStack = UIStackView()
+    private let titleBandGuide = UILayoutGuide()
     private let closeButton = UIButton(type: .system)
     private let favoritesHeader = UIView()
     private let favoritesTitle = UILabel()
@@ -98,17 +101,22 @@ final class AccountHubViewController: UIViewController {
     // MARK: - Layout
 
     private func setupChrome() {
+        spaceNameLabel.font = .systemFont(ofSize: 34, weight: .bold)
+        spaceNameLabel.textColor = BrowserTheme.textPrimary
+        spaceNameLabel.textAlignment = .center
+        spaceNameLabel.numberOfLines = 2
+        spaceNameLabel.adjustsFontSizeToFitWidth = true
+        spaceNameLabel.minimumScaleFactor = 0.7
+        spaceNameLabel.accessibilityTraits = .header
+
         scrollView.alwaysBounceVertical = true
         scrollView.keyboardDismissMode = .onDrag
         scrollView.showsVerticalScrollIndicator = false
         scrollView.delaysContentTouches = false
-        view.addSubview(scrollView)
-        view.addSubview(libraryBar)
 
-        contentStack.axis = .vertical
-        contentStack.spacing = 20
-        contentStack.alignment = .fill
-        scrollView.addSubview(contentStack)
+        favoritesStack.axis = .vertical
+        favoritesStack.spacing = 16
+        favoritesStack.alignment = .fill
 
         libraryBar.axis = .horizontal
         libraryBar.alignment = .fill
@@ -120,25 +128,59 @@ final class AccountHubViewController: UIViewController {
             makeLibraryButton(title: "Watch Later", symbol: "clock.badge.checkmark", action: .watchLater)
         ].forEach { libraryBar.addArrangedSubview($0) }
 
-        libraryBar.snp.makeConstraints { make in
-            make.leading.trailing.equalTo(view.safeAreaLayoutGuide).inset(16)
-            make.bottom.equalTo(view.safeAreaLayoutGuide).offset(-12)
-            make.height.equalTo(72)
-        }
-        scrollView.snp.makeConstraints { make in
-            make.top.leading.trailing.equalTo(view.safeAreaLayoutGuide)
-            make.bottom.equalTo(libraryBar.snp.top).offset(-8)
-        }
-        contentStack.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(isOverlay ? 8 : 20)
-            make.leading.trailing.equalToSuperview().inset(16)
-            make.bottom.equalToSuperview().offset(-20)
-            make.width.equalTo(scrollView).offset(-32)
-        }
+        view.addSubview(scrollView)
+        view.addSubview(libraryBar)
+        scrollView.addSubview(scrollContentView)
+        scrollContentView.addSubview(spaceNameLabel)
+        scrollContentView.addSubview(favoritesStack)
+        scrollContentView.addLayoutGuide(titleBandGuide)
 
         if isOverlay {
             configureCloseButton()
-            contentStack.addArrangedSubview(makeOverlayHeader())
+            view.addSubview(closeButton)
+            closeButton.snp.makeConstraints { make in
+                make.top.equalTo(view.safeAreaLayoutGuide).offset(8)
+                make.trailing.equalTo(view.safeAreaLayoutGuide).inset(16)
+            }
+        }
+
+        // Parent raises additionalSafeAreaInsets so this sits flush above the floating chrome.
+        libraryBar.snp.makeConstraints { make in
+            make.leading.trailing.equalTo(view.safeAreaLayoutGuide).inset(16)
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+            make.height.equalTo(72)
+        }
+
+        scrollView.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide)
+            make.leading.trailing.equalToSuperview()
+            make.bottom.equalTo(libraryBar.snp.top).offset(-10)
+        }
+
+        // Center favorites when short; allow scrolling when the grid grows.
+        scrollContentView.snp.makeConstraints { make in
+            make.edges.equalTo(scrollView.contentLayoutGuide)
+            make.width.equalTo(scrollView.frameLayoutGuide)
+            make.height.greaterThanOrEqualTo(scrollView.frameLayoutGuide)
+        }
+        favoritesStack.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview().inset(16)
+            make.centerY.equalToSuperview()
+            make.top.greaterThanOrEqualToSuperview().offset(8)
+            make.bottom.lessThanOrEqualToSuperview().offset(-8)
+        }
+
+        // Space title sits midway between the top and Favorites (equal gaps).
+        titleBandGuide.snp.makeConstraints { make in
+            make.top.equalToSuperview()
+            make.bottom.equalTo(favoritesStack.snp.top)
+            make.leading.trailing.equalToSuperview()
+        }
+        spaceNameLabel.snp.makeConstraints { make in
+            make.centerY.equalTo(titleBandGuide)
+            make.leading.trailing.equalToSuperview().inset(24)
+            make.top.greaterThanOrEqualTo(titleBandGuide.snp.top).offset(4)
+            make.bottom.lessThanOrEqualTo(titleBandGuide.snp.bottom).offset(-4)
         }
 
         favoritesTitle.text = "FAVORITES"
@@ -169,8 +211,8 @@ final class AccountHubViewController: UIViewController {
         shortcutsGrid.spacing = Self.favoriteRowSpacing
         shortcutsGrid.alignment = .fill
 
-        contentStack.addArrangedSubview(favoritesHeader)
-        contentStack.addArrangedSubview(shortcutsGrid)
+        favoritesStack.addArrangedSubview(favoritesHeader)
+        favoritesStack.addArrangedSubview(shortcutsGrid)
     }
 
     private func makeLibraryButton(title: String, symbol: String, action: MenuAction) -> UIView {
@@ -224,18 +266,13 @@ final class AccountHubViewController: UIViewController {
         closeButton.snp.makeConstraints { $0.size.equalTo(32) }
     }
 
-    private func makeOverlayHeader() -> UIView {
-        let row = UIStackView(arrangedSubviews: [closeButton, UIView()])
-        row.axis = .horizontal
-        row.alignment = .center
-        return row
-    }
-
     // MARK: - Reload
 
     private func reloadAll() {
         applyResolvedSpaceChrome()
         let accent = spaceTintColor ?? BrowserTheme.chromeBlue
+        spaceNameLabel.text = currentSpaceName()
+        spaceNameLabel.textColor = BrowserTheme.textPrimary
         favoritesTitle.textColor = BrowserTheme.textSecondary
         favoritesDoneButton.setTitleColor(accent, for: .normal)
         closeButton.backgroundColor = accent
@@ -243,6 +280,15 @@ final class AccountHubViewController: UIViewController {
         libraryBar.arrangedSubviews.forEach { tile in
             tile.backgroundColor = BrowserTheme.elevated
         }
+    }
+
+    private func currentSpaceName() -> String {
+        let id = resolvedPreviewID()
+        if let name = tabManager?.container(id: id)?.name.trimmingCharacters(in: .whitespacesAndNewlines),
+           !name.isEmpty {
+            return name
+        }
+        return "Space"
     }
 
     private func resolvedPreviewID() -> UUID {
@@ -268,11 +314,12 @@ final class AccountHubViewController: UIViewController {
         return entries
     }
 
-    private static let favoriteColumns = 6
-    private static let favoriteIconSize: CGFloat = 44
-    private static let favoriteTileHeight: CGFloat = 72
-    private static let favoriteRowSpacing: CGFloat = 10
-    private static let favoriteColumnSpacing: CGFloat = 6
+    private static let favoriteColumns = 5
+    private static let favoriteIconSize: CGFloat = 56
+    private static let favoriteCornerRadius: CGFloat = 14
+    private static let favoriteTileHeight: CGFloat = 82
+    private static let favoriteRowSpacing: CGFloat = 12
+    private static let favoriteColumnSpacing: CGFloat = 8
 
     private func reloadShortcuts() {
         shortcutsGrid.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -285,9 +332,7 @@ final class AccountHubViewController: UIViewController {
 
         let columns = Self.favoriteColumns
         var tiles: [UIView] = entries.map { makeFavoriteTile($0) }
-        if isEditingFavorites || entries.isEmpty {
-            tiles.append(makeAddFavoriteTile())
-        }
+        tiles.append(makeAddFavoriteTile())
 
         var row = UIStackView()
         row.axis = .horizontal
@@ -318,13 +363,16 @@ final class AccountHubViewController: UIViewController {
         let wrap = UIView()
 
         let iconWell = UIView()
-        iconWell.backgroundColor = BrowserTheme.elevated
-        iconWell.layer.cornerRadius = Self.favoriteIconSize / 2
+        // White well so transparent logo corners don't read as a dark frame.
+        iconWell.backgroundColor = .white
+        iconWell.layer.cornerRadius = Self.favoriteCornerRadius
+        iconWell.layer.cornerCurve = .continuous
         iconWell.clipsToBounds = true
 
         let icon = FaviconImageView()
+        icon.contentMode = .scaleAspectFill
         icon.clipsToBounds = true
-        icon.layer.cornerRadius = (Self.favoriteIconSize - 8) / 2
+        icon.backgroundColor = .white
         icon.setLogo(assetName: site.logoAssetName, urlString: site.urlString, fallbackTitle: site.title)
 
         let label = UILabel()
@@ -356,7 +404,7 @@ final class AccountHubViewController: UIViewController {
             make.centerX.equalToSuperview()
             make.size.equalTo(Self.favoriteIconSize)
         }
-        icon.snp.makeConstraints { $0.edges.equalToSuperview().inset(4) }
+        icon.snp.makeConstraints { $0.edges.equalToSuperview() }
         label.snp.makeConstraints { make in
             make.top.equalTo(iconWell.snp.bottom).offset(6)
             make.leading.trailing.equalToSuperview()
@@ -402,13 +450,14 @@ final class AccountHubViewController: UIViewController {
 
         let iconWell = UIView()
         iconWell.backgroundColor = BrowserTheme.elevated
-        iconWell.layer.cornerRadius = Self.favoriteIconSize / 2
+        iconWell.layer.cornerRadius = Self.favoriteCornerRadius
+        iconWell.layer.cornerCurve = .continuous
         iconWell.clipsToBounds = true
         iconWell.layer.borderWidth = 1
         iconWell.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.28).cgColor
 
-        let plus = UIImageView(image: UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)))
-        plus.tintColor = BrowserTheme.chromeBlue
+        let plus = UIImageView(image: UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)))
+        plus.tintColor = BrowserTheme.textSecondary
         plus.contentMode = .scaleAspectFit
 
         let label = UILabel()

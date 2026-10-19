@@ -71,16 +71,20 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     override init(frame: CGRect) {
         super.init(frame: frame)
         clipsToBounds = false
-        backgroundColor = BrowserTheme.background
+        backgroundColor = .clear
 
-        container.backgroundColor = BrowserTheme.elevated
-        container.layer.cornerRadius = 22
+        // Recessed field inside the shared chrome card (card is lighter; field is darker).
+        container.backgroundColor = BrowserTheme.background
+        container.layer.cornerRadius = 18
+        container.layer.cornerCurve = .continuous
         addSubview(container)
 
         configureNavButton(backButton, action: #selector(backTapped), label: "Back")
         configureNavButton(forwardButton, action: #selector(forwardTapped), label: "Forward")
         backButton.isHidden = true
         forwardButton.isHidden = true
+        backButton.isUserInteractionEnabled = false
+        forwardButton.isUserInteractionEnabled = false
 
         reloadButton.accessibilityLabel = "Reload"
         reloadButton.addTarget(self, action: #selector(reloadTapped), for: .touchUpInside)
@@ -177,18 +181,18 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.size.equalTo(Self.chromeIconButtonSize)
         }
         container.snp.makeConstraints { make in
-            containerLeadingConstraint = make.leading.equalToSuperview().offset(10).constraint
-            make.trailing.equalToSuperview().offset(-2)
+            containerLeadingConstraint = make.leading.equalToSuperview().offset(4).constraint
+            make.trailing.equalToSuperview().offset(-4)
             make.centerY.equalToSuperview()
             make.height.equalTo(40)
         }
-        reloadButton.snp.makeConstraints { make in
+        shieldButton.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(10)
             make.centerY.equalToSuperview()
             make.size.equalTo(Self.chromeIconButtonSize)
         }
         privateBadge.snp.makeConstraints { make in
-            make.leading.equalTo(reloadButton.snp.trailing).offset(6)
+            make.leading.equalTo(shieldButton.snp.trailing).offset(6)
             make.centerY.equalToSuperview()
             make.height.equalTo(20)
             make.width.equalTo(52)
@@ -198,7 +202,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.centerY.equalToSuperview()
             make.size.equalTo(0)
         }
-        shieldButton.snp.makeConstraints { make in
+        reloadButton.snp.makeConstraints { make in
             make.trailing.equalToSuperview().offset(-10)
             make.centerY.equalToSuperview()
             make.size.equalTo(Self.chromeIconButtonSize)
@@ -210,9 +214,9 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.width.greaterThanOrEqualTo(14)
         }
         // Trailing is owned exclusively by refreshTextFieldConstraints() so it can track the
-        // shield button without fighting a second trailing constraint to richMenuButton.
+        // reload button without fighting a second trailing constraint to richMenuButton.
         swipeClip.snp.makeConstraints { make in
-            make.leading.equalTo(reloadButton.snp.trailing).offset(8)
+            make.leading.equalTo(shieldButton.snp.trailing).offset(8)
             make.top.bottom.equalToSuperview()
         }
         textField.snp.makeConstraints { make in
@@ -375,12 +379,14 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     @objc private func applyTheme() {
+        // Outer chrome card owns the elevated surface; this pill is the recessed field.
+        backgroundColor = .clear
         if isPrivateMode {
-            backgroundColor = BrowserTheme.privateBackground
-            container.backgroundColor = BrowserTheme.privateElevated
+            container.backgroundColor = BrowserTheme.privateBackground
+        } else if ThemeManager.shared.current.isLight {
+            container.backgroundColor = BrowserTheme.secondaryCard
         } else {
-            backgroundColor = BrowserTheme.spaceSurfaceColor(spaceColor: spaceTintColor)
-            container.backgroundColor = BrowserTheme.spaceElevatedColor(spaceColor: spaceTintColor)
+            container.backgroundColor = BrowserTheme.background
         }
         let accent = isPrivateMode ? BrowserTheme.privateAccent : (spaceTintColor ?? BrowserTheme.chromeBlue)
         let iconConfig = UIImage.SymbolConfiguration(pointSize: Self.chromeIconPointSize, weight: .regular)
@@ -528,11 +534,29 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     private func refreshTextFieldConstraints() {
-        let trailingTarget: ConstraintItem
-        if !shieldButton.isHidden {
-            trailingTarget = shieldButton.snp.leading
-        } else {
-            trailingTarget = container.snp.trailing
+        let trailingTarget = reloadButton.snp.leading
+
+        // Collapse the leading shield when hidden so the field doesn't keep a gap.
+        shieldButton.snp.remakeConstraints { make in
+            make.leading.equalToSuperview().offset(shieldButton.isHidden ? 0 : 10)
+            make.centerY.equalToSuperview()
+            if shieldButton.isHidden {
+                make.size.equalTo(0)
+            } else {
+                make.size.equalTo(Self.chromeIconButtonSize)
+            }
+        }
+
+        // Keep Private badge after the leading shield (or at the leading edge if shield is hidden).
+        privateBadge.snp.remakeConstraints { make in
+            if shieldButton.isHidden {
+                make.leading.equalToSuperview().offset(10)
+            } else {
+                make.leading.equalTo(shieldButton.snp.trailing).offset(6)
+            }
+            make.centerY.equalToSuperview()
+            make.height.equalTo(20)
+            make.width.equalTo(52)
         }
 
         clearButton.snp.remakeConstraints { make in
@@ -544,8 +568,10 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         swipeClip.snp.remakeConstraints { make in
             if isPrivateMode {
                 make.leading.equalTo(privateBadge.snp.trailing).offset(6)
+            } else if !shieldButton.isHidden {
+                make.leading.equalTo(shieldButton.snp.trailing).offset(8)
             } else {
-                make.leading.equalTo(reloadButton.snp.trailing).offset(8)
+                make.leading.equalToSuperview().offset(12)
             }
             if clearButton.isHidden {
                 make.trailing.equalTo(trailingTarget).offset(-6)
@@ -698,14 +724,15 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         delegate?.addressBarDidTapReload()
     }
 
-    /// Shows back/forward to the left of the address field (hidden on New Tab).
+    /// Navigation lives in the bottom toolbar row; keep field chrome full-width.
     func updateNavigation(canGoBack: Bool, canGoForward: Bool, visible: Bool) {
         self.canGoBack = canGoBack
         self.canGoForward = canGoForward
-        navigationVisible = visible
-        backButton.isHidden = !visible
-        forwardButton.isHidden = !visible
-        containerLeadingConstraint?.update(offset: visible ? 56 : 10)
+        navigationVisible = false
+        _ = visible
+        backButton.isHidden = true
+        forwardButton.isHidden = true
+        containerLeadingConstraint?.update(offset: 4)
         applyNavigationEnabledState()
     }
 
