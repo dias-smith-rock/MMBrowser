@@ -18,7 +18,8 @@ final class BottomToolbarView: UIView {
     weak var delegate: BottomToolbarViewDelegate?
 
     private let backButton = UIButton(type: .system)
-    private let homeButton = UIButton(type: .system)
+    /// Shows Home normally; swaps to Forward when the page can go forward.
+    private let homeOrForwardButton = UIButton(type: .system)
     private let menuButton = UIButton(type: .system)
     private let downloadsButton = UIButton(type: .system)
     private let tabsButton = UIButton(type: .system)
@@ -27,6 +28,9 @@ final class BottomToolbarView: UIView {
     private let iconStack = UIStackView()
     private var isPrivateMode = false
     private var canGoBack = false
+    private var canGoForward = false
+    /// Back is tappable for web history, or to leave a page for Home (synthetic back).
+    private var backActionable = false
     private var tabCount = 1
     private var spaceTintColor: UIColor?
 
@@ -42,7 +46,7 @@ final class BottomToolbarView: UIView {
         backgroundColor = .clear
 
         configure(backButton, action: #selector(backTapped), label: "Back")
-        configure(homeButton, action: #selector(homeTapped), label: "Home")
+        configure(homeOrForwardButton, action: #selector(homeOrForwardTapped), label: "Home")
         configure(menuButton, action: #selector(menuTapped), label: "Menu")
         configure(downloadsButton, action: #selector(downloadsTapped), label: "Downloads")
         configure(tabsButton, action: #selector(tabsTapped), label: "Tabs")
@@ -68,7 +72,7 @@ final class BottomToolbarView: UIView {
         iconStack.axis = .horizontal
         iconStack.distribution = .fillEqually
         iconStack.alignment = .center
-        [backButton, homeButton, menuButton, downloadsButton, tabsButton].forEach {
+        [backButton, homeOrForwardButton, menuButton, downloadsButton, tabsButton].forEach {
             iconStack.addArrangedSubview($0)
         }
         addSubview(iconStack)
@@ -90,14 +94,18 @@ final class BottomToolbarView: UIView {
         canGoForward: Bool,
         tabCount: Int,
         isPrivate: Bool = false,
-        hidesNavigationButtons: Bool = false
+        hidesNavigationButtons: Bool = false,
+        backActionable: Bool? = nil
     ) {
         _ = hidesNavigationButtons
-        _ = canGoForward
         self.canGoBack = canGoBack
+        self.canGoForward = canGoForward
+        // Default: tappable when web can go back, or when Forward is hidden (Home slot) on a page.
+        self.backActionable = backActionable ?? (canGoBack || !canGoForward)
         self.tabCount = max(tabCount, 1)
         tabsCountLabel.text = "\(min(self.tabCount, 99))"
         setPrivateMode(isPrivate)
+        applyHomeOrForwardAppearance()
         applyNavigationEnabledState()
     }
 
@@ -127,12 +135,11 @@ final class BottomToolbarView: UIView {
         let size = Self.iconPointSize
 
         backButton.setImage(ThemeManager.shared.image(for: .toolbarBack, configuration: config, pointSize: size), for: .normal)
-        homeButton.setImage(UIImage(systemName: "house", withConfiguration: config), for: .normal)
         menuButton.setImage(UIImage(systemName: "line.3.horizontal", withConfiguration: config), for: .normal)
         downloadsButton.setImage(UIImage(systemName: "arrow.down.to.line", withConfiguration: config), for: .normal)
         tabsButton.setImage(nil, for: .normal)
 
-        [backButton, homeButton, menuButton, downloadsButton, tabsButton].forEach { button in
+        [backButton, homeOrForwardButton, menuButton, downloadsButton, tabsButton].forEach { button in
             button.tintColor = tint
             button.imageView?.contentMode = .scaleAspectFit
             button.setPreferredSymbolConfiguration(config, forImageIn: .normal)
@@ -140,13 +147,35 @@ final class BottomToolbarView: UIView {
 
         tabsGlyph.layer.borderColor = tint.cgColor
         tabsCountLabel.textColor = tint
+        applyHomeOrForwardAppearance()
         applyNavigationEnabledState()
     }
 
+    private func applyHomeOrForwardAppearance() {
+        let config = Self.iconConfig
+        let size = Self.iconPointSize
+        // Forward when web (or synthetic home-return) can go forward; otherwise Home.
+        if canGoForward {
+            homeOrForwardButton.setImage(
+                ThemeManager.shared.image(for: .toolbarForward, configuration: config, pointSize: size),
+                for: .normal
+            )
+            homeOrForwardButton.accessibilityLabel = "Forward"
+        } else {
+            homeOrForwardButton.setImage(UIImage(systemName: "house", withConfiguration: config), for: .normal)
+            homeOrForwardButton.accessibilityLabel = "Home"
+        }
+    }
+
     private func applyNavigationEnabledState() {
-        backButton.isUserInteractionEnabled = canGoBack
+        backButton.isUserInteractionEnabled = backActionable
+        backButton.accessibilityLabel = "Back"
         let disabledAlpha: CGFloat = ThemeManager.shared.current.isLight ? 0.4 : 0.35
+        // Dim when there is no web history (synthetic back-to-home still uses the dimmed control).
         backButton.alpha = canGoBack ? 1 : disabledAlpha
+        if !backActionable {
+            backButton.alpha = disabledAlpha
+        }
     }
 
     private func configure(_ button: UIButton, action: Selector, label: String) {
@@ -156,8 +185,16 @@ final class BottomToolbarView: UIView {
         button.addTarget(self, action: action, for: .touchUpInside)
     }
 
-    @objc private func backTapped() { delegate?.toolbarDidTapBack() }
-    @objc private func homeTapped() { delegate?.toolbarDidTapHome() }
+    @objc private func backTapped() {
+        delegate?.toolbarDidTapBack()
+    }
+    @objc private func homeOrForwardTapped() {
+        if canGoForward {
+            delegate?.toolbarDidTapForward()
+        } else {
+            delegate?.toolbarDidTapHome()
+        }
+    }
     @objc private func menuTapped() { delegate?.toolbarDidTapMenu() }
     @objc private func downloadsTapped() { delegate?.toolbarDidTapDownloads() }
     @objc private func tabsTapped() { delegate?.toolbarDidTapTabs() }

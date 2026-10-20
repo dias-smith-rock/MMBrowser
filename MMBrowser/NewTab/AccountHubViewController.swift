@@ -11,7 +11,7 @@ protocol AccountHubViewControllerDelegate: AnyObject {
     func accountHub(_ hub: AccountHubViewController, didRequestMenuAction action: MenuAction)
 }
 
-/// Simple home: Favorites grid + library shortcuts. Also used as a fullscreen overlay from Tabs / Space.
+/// Simple home: Favorites grid. Also used as a fullscreen overlay from Tabs / Space.
 final class AccountHubViewController: UIViewController {
     weak var delegate: AccountHubViewControllerDelegate?
 
@@ -30,7 +30,6 @@ final class AccountHubViewController: UIViewController {
     private let favoritesTitle = UILabel()
     private let favoritesDoneButton = UIButton(type: .system)
     private let shortcutsGrid = UIStackView()
-    private let libraryBar = UIStackView()
 
     private var isEditingFavorites = false
 
@@ -118,18 +117,7 @@ final class AccountHubViewController: UIViewController {
         favoritesStack.spacing = 16
         favoritesStack.alignment = .fill
 
-        libraryBar.axis = .horizontal
-        libraryBar.alignment = .fill
-        libraryBar.distribution = .fillEqually
-        libraryBar.spacing = 10
-        [
-            makeLibraryButton(title: "Bookmark", symbol: "bookmark", action: .bookmarks),
-            makeLibraryButton(title: "History", symbol: "clock", action: .history),
-            makeLibraryButton(title: "Watch Later", symbol: "clock.badge.checkmark", action: .watchLater)
-        ].forEach { libraryBar.addArrangedSubview($0) }
-
         view.addSubview(scrollView)
-        view.addSubview(libraryBar)
         scrollView.addSubview(scrollContentView)
         scrollContentView.addSubview(spaceNameLabel)
         scrollContentView.addSubview(favoritesStack)
@@ -144,17 +132,10 @@ final class AccountHubViewController: UIViewController {
             }
         }
 
-        // Parent raises additionalSafeAreaInsets so this sits flush above the floating chrome.
-        libraryBar.snp.makeConstraints { make in
-            make.leading.trailing.equalTo(view.safeAreaLayoutGuide).inset(16)
-            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
-            make.height.equalTo(72)
-        }
-
         scrollView.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide)
             make.leading.trailing.equalToSuperview()
-            make.bottom.equalTo(libraryBar.snp.top).offset(-10)
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
         }
 
         // Center favorites when short; allow scrolling when the grid grows.
@@ -215,44 +196,6 @@ final class AccountHubViewController: UIViewController {
         favoritesStack.addArrangedSubview(shortcutsGrid)
     }
 
-    private func makeLibraryButton(title: String, symbol: String, action: MenuAction) -> UIView {
-        let container = UIView()
-        container.backgroundColor = BrowserTheme.elevated
-        container.layer.cornerRadius = 16
-        container.clipsToBounds = true
-
-        let image = UIImageView(image: UIImage(systemName: symbol))
-        image.tintColor = BrowserTheme.textPrimary
-        image.contentMode = .scaleAspectFit
-
-        let label = UILabel()
-        label.text = title
-        label.font = .systemFont(ofSize: 12, weight: .medium)
-        label.textColor = BrowserTheme.textSecondary
-        label.textAlignment = .center
-        label.numberOfLines = 2
-
-        let button = MenuActionButton(action: action)
-        button.addTarget(self, action: #selector(libraryButtonTapped(_:)), for: .touchUpInside)
-        button.accessibilityLabel = title
-
-        container.addSubview(image)
-        container.addSubview(label)
-        container.addSubview(button)
-        image.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(14)
-            make.centerX.equalToSuperview()
-            make.size.equalTo(22)
-        }
-        label.snp.makeConstraints { make in
-            make.top.equalTo(image.snp.bottom).offset(8)
-            make.leading.trailing.equalToSuperview().inset(6)
-            make.bottom.lessThanOrEqualToSuperview().offset(-10)
-        }
-        button.snp.makeConstraints { $0.edges.equalToSuperview() }
-        return container
-    }
-
     private func configureCloseButton() {
         closeButton.setImage(
             UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .bold)),
@@ -277,9 +220,6 @@ final class AccountHubViewController: UIViewController {
         favoritesDoneButton.setTitleColor(accent, for: .normal)
         closeButton.backgroundColor = accent
         reloadShortcuts()
-        libraryBar.arrangedSubviews.forEach { tile in
-            tile.backgroundColor = BrowserTheme.elevated
-        }
     }
 
     private func currentSpaceName() -> String {
@@ -532,10 +472,6 @@ final class AccountHubViewController: UIViewController {
 
     @objc private func closeTapped() {
         delegate?.accountHubDidRequestClose(self)
-    }
-
-    @objc private func libraryButtonTapped(_ sender: MenuActionButton) {
-        delegate?.accountHub(self, didRequestMenuAction: sender.menuAction)
     }
 
     @objc private func favoriteLongPressed(_ gesture: UILongPressGestureRecognizer) {

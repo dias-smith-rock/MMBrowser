@@ -23,8 +23,11 @@ final class BrowserViewController: UIViewController {
     private var currentContent: UIViewController?
 
     private var chromeBottomConstraint: Constraint?
+    private var chromeHeightConstraint: Constraint?
     private var contentTopConstraint: Constraint?
     private var isChromeCollapsed = false
+    /// Tab to restore when user taps Forward after a synthetic Back→Home.
+    private var chromeReturnTabID: UUID?
     private var scrollAccumulator: CGFloat = 0
     private let chromeScrollThreshold: CGFloat = 10
     /// Blocks scroll→chrome feedback while we resize chrome or nudge `contentOffset`.
@@ -563,13 +566,12 @@ final class BrowserViewController: UIViewController {
         }
         chromeHost.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview()
-            make.height.equalTo(BrowserTheme.chromeHeight)
+            chromeHeightConstraint = make.height.equalTo(BrowserTheme.chromeHeight).constraint
             chromeBottomConstraint = make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).constraint
         }
         chromeCard.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview().inset(BrowserTheme.chromeCardInset)
-            make.top.equalToSuperview()
-            make.bottom.equalToSuperview()
+            make.top.bottom.equalToSuperview()
         }
         chromeStack.snp.makeConstraints { make in
             make.edges.equalToSuperview().inset(UIEdgeInsets(top: 8, left: 8, bottom: 6, right: 8))
@@ -593,15 +595,14 @@ final class BrowserViewController: UIViewController {
         }
     }
 
-    /// Hides / shows the bottom address bar + toolbar while scrolling a web page.
-    /// Only the bottom chrome moves — content top stays on the safe area. Extending under
-    /// the status bar / Dynamic Island breaks sticky mobile players (e.g. Bilibili) on device.
+    /// Scroll-down: shrink address into a bottom domain pill and hide the toolbar.
+    /// Scroll-up / tap pill: restore the full chrome card.
     private func setChromeCollapsed(_ collapsed: Bool, animated: Bool) {
         if collapsed {
             guard tabManager.selectedTab?.isNewTabPage != true else { return }
             guard !isBrowserChromeHiddenForHub else { return }
             guard !addressBar.isHidden else { return }
-            // Don't hide chrome while the keyboard is up — address field would stay covered.
+            // Don't collapse chrome while the keyboard is up — address field would stay covered.
             guard keyboardOverlap < 1 else { return }
         }
         guard !isBrowserChromeHiddenForHub else { return }
@@ -611,6 +612,7 @@ final class BrowserViewController: UIViewController {
 
         isChromeCollapsed = collapsed
         isAdjustingChromeLayout = true
+        applyCompactChromeLayout(collapsed)
         updateChromeBottomOffset(animated: false)
 
         let animations = {
@@ -636,11 +638,68 @@ final class BrowserViewController: UIViewController {
             animations()
             finish()
         }
-        // Keep only one progress UI: address bar when expanded, bottom bar when collapsed.
+        // Keep only one progress UI: address bar when expanded, thin bar when compact.
         addressBar.setProgress(pageLoadProgress, isLoading: isPageLoading && !collapsed)
         updateCollapsedProgressVisibility()
         updateWebChromeContentInset()
         setNeedsStatusBarAppearanceUpdate()
+    }
+
+    private func applyCompactChromeLayout(_ compact: Bool) {
+        let host = Self.compactHostDisplay(
+            for: tabManager.selectedTab?.url ?? tabManager.selectedTab?.webController?.webView?.url
+        )
+        addressBar.setCompact(compact, host: host)
+        toolbar.isHidden = compact
+        toolbar.alpha = compact ? 0 : 1
+
+        chromeHeightConstraint?.update(offset: compact ? BrowserTheme.chromeCompactHeight : BrowserTheme.chromeHeight)
+        addressBar.snp.updateConstraints { make in
+            make.height.equalTo(compact ? BrowserTheme.chromeCompactPillHeight : BrowserTheme.addressBarHeight)
+        }
+
+        chromeCard.backgroundColor = compact
+            ? .clear
+            : (tabManager.selectedTab?.isIncognito == true
+                ? BrowserTheme.privateElevated
+                : BrowserTheme.elevated)
+        chromeCard.layer.cornerRadius = compact ? 0 : 28
+        // Allow the compact pill shadow to draw outside the card.
+        chromeCard.clipsToBounds = !compact
+
+        let pillWidth = compactChromeWidth(for: host)
+        chromeCard.snp.remakeConstraints { make in
+            make.top.bottom.equalToSuperview()
+            if compact {
+                make.centerX.equalToSuperview()
+                make.width.equalTo(pillWidth)
+            } else {
+                make.leading.trailing.equalToSuperview().inset(BrowserTheme.chromeCardInset)
+            }
+        }
+        chromeStack.snp.remakeConstraints { make in
+            if compact {
+                make.edges.equalToSuperview()
+            } else {
+                make.edges.equalToSuperview().inset(UIEdgeInsets(top: 8, left: 8, bottom: 6, right: 8))
+            }
+        }
+        if compact {
+            view.bringSubviewToFront(chromeHost)
+        }
+    }
+
+    private func compactChromeWidth(for host: String) -> CGFloat {
+        let font = UIFont.systemFont(ofSize: 15, weight: .medium)
+        let textW = ceil((host as NSString).size(withAttributes: [.font: font]).width)
+        let width = textW + 64
+        let maxW = max(view.bounds.width - 72, 160)
+        return min(max(width, 148), maxW)
+    }
+
+    private static func compactHostDisplay(for url: URL?) -> String {
+        guard let host = url?.host, !host.isEmpty else { return "Search" }
+        return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 
     /// When bottom chrome shows, the web view shrinks from the bottom. Without adjusting
@@ -671,24 +730,29 @@ final class BrowserViewController: UIViewController {
     }
 
     /// Places chrome above the home indicator, or above the keyboard when it overlaps.
+    /// When compact, the domain pill sits near the physical bottom of the screen.
     private func updateChromeBottomOffset(animated: Bool) {
         guard !isBrowserChromeHiddenForHub else { return }
         let safeBottom = view.safeAreaInsets.bottom
         let liftAboveSafeArea = max(0, keyboardOverlap - safeBottom)
         let offset: CGFloat
-        if isChromeCollapsed && liftAboveSafeArea < 1 {
-            let chromeHeight = BrowserTheme.chromeHeight
-            offset = chromeHeight + safeBottom
-        } else {
+        if liftAboveSafeArea > 0 {
             offset = -liftAboveSafeArea
+        } else if isChromeCollapsed {
+            // Move down into the home-indicator band so the pill floats at screen bottom.
+            offset = max(0, safeBottom - 10)
+        } else {
+            offset = 0
         }
         chromeBottomConstraint?.update(offset: offset)
-        // Keep collapsed progress just above the lifted chrome / home indicator.
+        // Keep collapsed progress just above the compact pill / home indicator.
         collapsedProgressView.snp.remakeConstraints { make in
             make.leading.trailing.equalToSuperview()
             make.height.equalTo(2)
             if liftAboveSafeArea > 0 {
                 make.bottom.equalTo(chromeHost.snp.top)
+            } else if isChromeCollapsed {
+                make.bottom.equalTo(chromeHost.snp.top).offset(-2)
             } else {
                 make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
             }
@@ -811,13 +875,16 @@ final class BrowserViewController: UIViewController {
     private func updateWebChromeContentInset() {
         let safeBottom = view.safeAreaInsets.bottom
         let chromeBottom: CGFloat
-        if isBrowserChromeHiddenForHub || chromeHost.isHidden || isChromeCollapsed {
+        if isBrowserChromeHiddenForHub || chromeHost.isHidden {
             chromeBottom = 0
+        } else if isChromeCollapsed {
+            // Pill floats in/near the home-indicator band — don't double-count safe area.
+            chromeBottom = BrowserTheme.chromeCompactHeight
         } else {
             chromeBottom = BrowserTheme.chromeHeight
         }
-        // WebView reaches the physical bottom; inset covers chrome + home indicator.
-        let bottom = chromeBottom + safeBottom
+        // WebView reaches the physical bottom; expanded chrome also clears the home indicator.
+        let bottom = isChromeCollapsed ? chromeBottom : (chromeBottom + safeBottom)
         for tab in tabManager.tabs {
             guard let scrollView = tab.webController?.webView?.scrollView else { continue }
             var inset = scrollView.contentInset
@@ -828,9 +895,10 @@ final class BrowserViewController: UIViewController {
             scrollView.contentInset = inset
             scrollView.verticalScrollIndicatorInsets = indicator
         }
-        // Account hub library row sits above the floating chrome (system safe area already
+        // Account hub content sits above the floating chrome (system safe area already
         // excludes the home indicator).
-        accountHubController?.additionalSafeAreaInsets.bottom = chromeBottom
+        accountHubController?.additionalSafeAreaInsets.bottom =
+            (isBrowserChromeHiddenForHub || chromeHost.isHidden) ? 0 : BrowserTheme.chromeHeight
     }
 
     private func showSelectedTab() {
@@ -842,6 +910,10 @@ final class BrowserViewController: UIViewController {
            outgoing.id != tab.id,
            !outgoing.isNewTabPage {
             captureSnapshot(for: outgoing, completion: nil)
+        }
+        // Drop synthetic Forward→page if the user switched to some other real tab.
+        if let returnID = chromeReturnTabID, !tab.isNewTabPage, tab.id != returnID {
+            chromeReturnTabID = nil
         }
         applyPrivateChrome(tab.isIncognito)
         resetChromeForCurrentTab()
@@ -1037,17 +1109,21 @@ final class BrowserViewController: UIViewController {
             let container = tabManager.container(id: tab.containerID) ?? tabManager.defaultContainer
             return AccountColor.color(for: container)
         }()
+        let onHome = !isPrivate && tabManager.selectedTab?.isNewTabPage == true
         let bg = isPrivate
             ? BrowserTheme.privateBackground
-            : BrowserTheme.spaceSurfaceColor(spaceColor: spaceColor)
+            : (onHome
+                ? BrowserTheme.spaceHomeColor(spaceColor: spaceColor)
+                : BrowserTheme.spaceSurfaceColor(spaceColor: spaceColor))
         view.backgroundColor = bg
         statusBarFill.backgroundColor = bg
         contentClipView.backgroundColor = bg
         contentContainer.backgroundColor = bg
         chromeHost.backgroundColor = .clear
-        chromeCard.backgroundColor = isPrivate
-            ? BrowserTheme.privateElevated
-            : BrowserTheme.spaceElevatedColor(spaceColor: spaceColor)
+        // Shared floating card (same on home and web). Home-indicator band stays clear of this fill.
+        if !isChromeCollapsed {
+            chromeCard.backgroundColor = isPrivate ? BrowserTheme.privateElevated : BrowserTheme.elevated
+        }
         addressBar.setPrivateMode(isPrivate)
         toolbar.setPrivateMode(isPrivate)
         if isPrivate {
@@ -1150,6 +1226,7 @@ final class BrowserViewController: UIViewController {
 
     private func navigate(to url: URL, in tab: BrowserTab? = nil) {
         guard let tab = tab ?? tabManager.selectedTab else { return }
+        chromeReturnTabID = nil
         tab.isNewTabPage = false
         tab.url = url
         tab.title = url.host ?? "Untitled"
@@ -1215,21 +1292,48 @@ final class BrowserViewController: UIViewController {
     }
 
     func refreshToolbar() {
-        let web = tabManager.selectedTab?.webController
-        let isPrivate = tabManager.selectedTab?.isIncognito ?? false
+        let tab = tabManager.selectedTab
+        let web = tab?.webController
+        let isPrivate = tab?.isIncognito ?? false
+        let isNTP = tab?.isNewTabPage == true
+        let webCanGoBack = web?.canGoBack ?? false
+        let webCanGoForward = web?.canGoForward ?? false
+        // After Back→Home, keep Forward available to restore the previous tab.
+        let hasHomeReturn = chromeReturnTabID != nil && isNTP
+        let canGoForward = webCanGoForward || hasHomeReturn
+        // Back works for web history, or to leave a page for Home when history is empty.
+        let backActionable = webCanGoBack || (!isNTP && tab?.url != nil)
         toolbar.update(
-            canGoBack: web?.canGoBack ?? false,
-            canGoForward: web?.canGoForward ?? false,
+            canGoBack: webCanGoBack,
+            canGoForward: canGoForward,
             tabCount: tabManager.toolbarTabCount(incognito: isPrivate),
-            isPrivate: isPrivate
+            isPrivate: isPrivate,
+            backActionable: backActionable
         )
         addressBar.updateNavigation(
-            canGoBack: web?.canGoBack ?? false,
-            canGoForward: web?.canGoForward ?? false,
+            canGoBack: webCanGoBack,
+            canGoForward: webCanGoForward,
             visible: false
         )
         addressBar.setPageCleanerActive(tabManager.selectedTab?.webController?.isPageCleanerActive == true)
         maybeShowAddressBarSwipeTip()
+    }
+
+    /// Opens / selects the Home (NTP) tab without clearing a pending Forward→page return.
+    private func openHomeTabPreservingReturn() {
+        if tabManager.selectedTab?.isNewTabPage == true, tabManager.selectedTab?.isIncognito != true {
+            refreshToolbar()
+            return
+        }
+        let containerID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
+        if let existing = tabManager.tabs.first(where: {
+            !$0.isIncognito && $0.isNewTabPage && $0.containerID == containerID
+        }) {
+            tabManager.selectTab(id: existing.id)
+        } else {
+            _ = tabManager.addTab(incognito: false, select: true, containerID: containerID)
+        }
+        showSelectedTab()
     }
 
     private weak var addressBarSwipeTip: AddressBarSwipeTipView?
@@ -1707,6 +1811,10 @@ extension BrowserViewController: AddressBarViewDelegate {
         addressBar.setPageCleanerActive(false)
     }
 
+    func addressBarDidTapCompactExpand() {
+        setChromeCollapsed(false, animated: true)
+    }
+
     func addressBarDidTapShield(blockCount: Int) {
         let tpOn = AppSettings.trackerProtectionEnabled
         let shortsOn = AppSettings.hideShortsEnabled
@@ -1759,32 +1867,45 @@ extension BrowserViewController: BottomToolbarViewDelegate {
 
     func toolbarDidTapBack() {
         AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_back")
-        tabManager.selectedTab?.webController?.goBack()
+        let tab = tabManager.selectedTab
+        let web = tab?.webController
+        if web?.canGoBack == true {
+            web?.goBack()
+            return
+        }
+        // No web history: Back goes to Home, and Forward can restore this tab.
+        guard let tab, !tab.isNewTabPage, tab.url != nil else { return }
+        chromeReturnTabID = tab.id
+        openHomeTabPreservingReturn()
     }
 
     func toolbarDidTapForward() {
         AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_forward")
-        tabManager.selectedTab?.webController?.goForward()
+        let web = tabManager.selectedTab?.webController
+        if web?.canGoForward == true {
+            chromeReturnTabID = nil
+            web?.goForward()
+            return
+        }
+        // Synthetic Forward after Back→Home: restore the previous tab.
+        if let returnID = chromeReturnTabID,
+           tabManager.tabs.contains(where: { $0.id == returnID }) {
+            chromeReturnTabID = nil
+            tabManager.selectTab(id: returnID)
+            showSelectedTab()
+            return
+        }
     }
 
     func toolbarDidTapHome() {
         AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_home")
-        if tabManager.selectedTab?.isNewTabPage == true, tabManager.selectedTab?.isIncognito != true {
-            return
-        }
-        let containerID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
-        if let existing = tabManager.tabs.first(where: {
-            !$0.isIncognito && $0.isNewTabPage && $0.containerID == containerID
-        }) {
-            tabManager.selectTab(id: existing.id)
-        } else {
-            _ = tabManager.addTab(incognito: false, select: true, containerID: containerID)
-        }
-        showSelectedTab()
+        chromeReturnTabID = nil
+        openHomeTabPreservingReturn()
     }
 
     func toolbarDidTapNewTab() {
         AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_new_tab")
+        chromeReturnTabID = nil
         let containerID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
         _ = tabManager.addTab(incognito: false, select: true, containerID: containerID)
         showSelectedTab()
@@ -1947,20 +2068,16 @@ extension BrowserViewController: WebViewControllerDelegate {
         // Ignore programmatic offset / layout changes from chrome show/hide.
         guard !isAdjustingChromeLayout else { return }
 
-        // Sticky players reflow when WKWebView height oscillates (Bilibili / YouTube on device).
-        if WebViewController.isViewportFragileHost(controller.webView?.url) {
-            scrollAccumulator = 0
-            if isChromeCollapsed {
-                setChromeCollapsed(false, animated: false)
-            }
-            return
-        }
+        // Allow drag + fling. Nested short-video pans also report through here.
+        let scrollView = controller.webView?.scrollView
+        let userScrolling = scrollView?.isDragging == true || scrollView?.isDecelerating == true
+        // Nested pan path uses offsetY >= 21 even when the root scroller stays at 0.
+        let nestedScrollHint = offsetY > 20 && scrollView?.isDragging != true && scrollView?.isDecelerating != true
+        guard userScrolling || nestedScrollHint else { return }
 
-        // Rubber-band / deceleration at maxOffset flips chrome hide↔show in a loop.
-        guard controller.webView?.scrollView.isDragging == true else { return }
-
-        // Always reveal chrome near the top of the page.
-        if offsetY <= 20 {
+        // Near the true top of the root scroller, scrolling back up restores full chrome.
+        // Do not force-expand when nested short-video pages keep offset ≈ 0 while swiping.
+        if offsetY <= 20, deltaY < 0 {
             scrollAccumulator = 0
             setChromeCollapsed(false, animated: true)
             return
@@ -1968,11 +2085,11 @@ extension BrowserViewController: WebViewControllerDelegate {
 
         scrollAccumulator += deltaY
         if scrollAccumulator > chromeScrollThreshold {
-            // Content moving up → hide chrome
+            // Content moving up → shrink to bottom domain pill
             scrollAccumulator = 0
             setChromeCollapsed(true, animated: true)
         } else if scrollAccumulator < -chromeScrollThreshold {
-            // Content moving down → show chrome
+            // Content moving down → restore full chrome
             scrollAccumulator = 0
             setChromeCollapsed(false, animated: true)
         }
@@ -1998,8 +2115,8 @@ extension BrowserViewController: WebViewControllerDelegate {
             addressBar.setURLText(Self.addressBarDisplayText(for: url))
             addressBar.setBlockCount(0)
             addressBar.setFocusIndicator(active: AppSettings.hideShortsEnabled && YouTubeDarkMode.isYouTube(url))
-            if WebViewController.isViewportFragileHost(url), isChromeCollapsed {
-                setChromeCollapsed(false, animated: false)
+            if isChromeCollapsed {
+                applyCompactChromeLayout(true)
             }
             refreshToolbar()
         }
@@ -2291,16 +2408,37 @@ extension BrowserViewController: MenuViewControllerDelegate {
         case .findInPage:
             tabManager.selectedTab?.webController?.showFindInPage()
         case .pictureInPicture:
+            PipProbe.log("menu.pip.tap", [
+                "host": tabManager.selectedTab?.url?.host ?? "?",
+                "url": tabManager.selectedTab?.url?.absoluteString ?? "",
+                "settingOn": AppSettings.pictureInPictureEnabled,
+                "hasWeb": tabManager.selectedTab?.webController != nil
+            ])
             guard AppSettings.pictureInPictureEnabled else {
                 Toast.show("Picture in Picture is off in Settings", from: self)
                 return
             }
-            AppSettings.stickyPictureInPicture = true
-            MediaPlaybackSupport.enterPictureInPicture(in: tabManager.selectedTab?.webController?.webView) { [weak self] ok in
+            guard let web = tabManager.selectedTab?.webController else {
+                PipProbe.log("menu.pip.fail", ["why": "noWebController"])
+                Toast.show("No playable video for PiP", from: self)
+                return
+            }
+            web.enterPictureInPictureFromUserAction(showFailureToast: true) { [weak self] ok in
                 guard let self else { return }
-                if !ok {
-                    AppSettings.stickyPictureInPicture = false
+                PipProbe.log("menu.pip.completion", [
+                    "ok": ok,
+                    "detail": web.lastPipEnterDetail
+                ])
+                guard !ok else { return }
+                let detail = web.lastPipEnterDetail
+                if detail.contains("unsupported") {
+                    Toast.show("PiP isn't available for this video", from: self)
+                } else {
+                    #if DEBUG
+                    Toast.show("PiP failed: \(detail)", from: self)
+                    #else
                     Toast.show("No playable video for PiP", from: self)
+                    #endif
                 }
             }
         case .share:

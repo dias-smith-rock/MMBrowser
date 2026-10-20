@@ -19,6 +19,9 @@ enum BrowserTheme {
     /// Stacked bottom chrome card: address field + icon row (+ vertical insets).
     static let chromeCardInset: CGFloat = 10
     static let chromeHeight: CGFloat = addressBarHeight + toolbarHeight + 22
+    /// Scroll-collapsed floating domain pill at the bottom of the screen.
+    static let chromeCompactPillHeight: CGFloat = 36
+    static let chromeCompactHeight: CGFloat = 48
 
     static var preferredUserInterfaceStyle: UIUserInterfaceStyle {
         ThemeManager.shared.current.userInterfaceStyle

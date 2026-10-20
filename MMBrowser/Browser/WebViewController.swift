@@ -24,7 +24,7 @@ extension WebViewControllerDelegate {
     func webViewController(_ controller: WebViewController, didOfferOfflineVideo candidate: XVideoOfflineCandidate) {}
 }
 
-final class WebViewController: UIViewController {
+final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
     weak var delegate: WebViewControllerDelegate?
     /// Optional Split View / embed hooks (do not replace `delegate`).
     var onNavigationStateChanged: ((Bool, Bool) -> Void)?
@@ -297,6 +297,10 @@ final class WebViewController: UIViewController {
     private var pageCleanerObserver: NSObjectProtocol?
     private var contentOffsetObservation: NSKeyValueObservation?
     private var contentSizeObservation: NSKeyValueObservation?
+    /// Drives chrome collapse when the page scrolls inside a nested scroller (X / shorts).
+    private var chromeNestScrollPan: UIPanGestureRecognizer?
+    private var chromeNestPanLastTranslationY: CGFloat = 0
+    private var chromeNestPanBaseOffsetY: CGFloat = 0
     private var stickyPlayerRepairWorkItem: DispatchWorkItem?
     /// Last video URL we finished sticky-player padding for — avoids re-running on infinite scroll.
     private var stickyPlayerRepairedURL: String?
@@ -534,6 +538,7 @@ final class WebViewController: UIViewController {
                 $0.delegate?.webViewController($0, didScroll: delta, offsetY: newY)
             }
         }
+        installChromeNestScrollPan(on: wv)
         contentSizeObservation = wv.scrollView.observe(\.contentSize, options: [.new, .old]) { [weak self] scrollView, change in
             guard let self else { return }
             let old = change.oldValue ?? .zero
@@ -843,6 +848,52 @@ final class WebViewController: UIViewController {
         (webView?.canGoForward == true) || (navigationHistory?.canGoForward == true)
     }
 
+    /// Short-video / SPA pages often scroll inside nested overflow containers, so WKWebView's
+    /// root `contentOffset` never moves. Mirror vertical pans into chrome collapse intents.
+    private func installChromeNestScrollPan(on webView: WKWebView) {
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(handleChromeNestScrollPan(_:)))
+        pan.maximumNumberOfTouches = 1
+        pan.cancelsTouchesInView = false
+        pan.delegate = self
+        webView.addGestureRecognizer(pan)
+        chromeNestScrollPan = pan
+    }
+
+    @objc private func handleChromeNestScrollPan(_ pan: UIPanGestureRecognizer) {
+        guard let scrollView = webView?.scrollView else { return }
+        switch pan.state {
+        case .began:
+            chromeNestPanLastTranslationY = 0
+            chromeNestPanBaseOffsetY = scrollView.contentOffset.y
+        case .changed:
+            let translationY = pan.translation(in: webView).y
+            let fingerDelta = translationY - chromeNestPanLastTranslationY
+            chromeNestPanLastTranslationY = translationY
+            // Root scroller is already driving chrome via KVO — avoid double-counting.
+            if abs(scrollView.contentOffset.y - chromeNestPanBaseOffsetY) > 2 {
+                chromeNestPanBaseOffsetY = scrollView.contentOffset.y
+                return
+            }
+            // Finger moving up (negative) ⇒ content moving up ⇒ positive content delta.
+            let contentDelta = -fingerDelta
+            guard abs(contentDelta) > 0.5 else { return }
+            // Keep offset above the "near top" expand threshold so nested swipes can collapse.
+            let reportedOffset = max(scrollView.contentOffset.y, 21)
+            notifyDelegateOnMain {
+                $0.delegate?.webViewController($0, didScroll: contentDelta, offsetY: reportedOffset)
+            }
+        default:
+            chromeNestPanLastTranslationY = 0
+        }
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        gestureRecognizer === chromeNestScrollPan
+    }
+
     private func publishNavigationState() {
         let back = canGoBack
         let forward = canGoForward
@@ -1115,6 +1166,10 @@ final class WebViewController: UIViewController {
         canGoForwardObservation = nil
         contentOffsetObservation = nil
         contentSizeObservation = nil
+        if let chromeNestScrollPan {
+            webView?.removeGestureRecognizer(chromeNestScrollPan)
+        }
+        chromeNestScrollPan = nil
         stickyPlayerRepairWorkItem?.cancel()
         stickyPlayerRepairWorkItem = nil
         if let pageCleanerObserver = pageCleanerObserver {
@@ -1689,34 +1744,70 @@ final class WebViewController: UIViewController {
     }
 
     @objc private func pipEntryTapped() {
+        enterPictureInPictureFromUserAction(showFailureToast: false, completion: nil)
+    }
+
+    /// Menu / floating chip entry — ensures the JS bridge is live, then requests system PiP.
+    func enterPictureInPictureFromUserAction(
+        showFailureToast: Bool = false,
+        completion: ((Bool) -> Void)? = nil
+    ) {
+        let host = webView?.url?.host ?? "?"
+        PipProbe.log("enter.userAction.begin", [
+            "host": host,
+            "url": webView?.url?.absoluteString ?? "",
+            "settingOn": AppSettings.pictureInPictureEnabled,
+            "didInstallMediaScript": didInstallMediaScript,
+            "prefer": prefersPictureInPicture,
+            "nativeActive": isPictureInPictureActive,
+            "pageHasPlayingVideo": pageHasPlayingVideo,
+            "fromMenu": showFailureToast
+        ])
         // Explicit user intent — allow PiP again after a prior yield suppress window.
         suppressPipClaimUntil = nil
-        guard !YouTubeDarkMode.isYouTubeMusic(webView?.url) else { return }
-        if !didInstallMediaScript {
-            ensureMediaScriptForPictureInPicture()
-            // Document-start script needs a reload to bind; then enter PiP.
-            webView?.reload()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
-                guard let self else { return }
-                MediaPlaybackSupport.enterPictureInPicture(in: self.webView) { [weak self] ok in
-                    DispatchQueue.main.async {
-                        guard let self, ok else { return }
-                        self.persistPipPrefer(true)
-                        self.setPictureInPictureActive(true)
-                    }
-                }
-            }
+        guard !YouTubeDarkMode.isYouTubeMusic(webView?.url) else {
+            PipProbe.log("enter.userAction.skip", ["why": "youtubeMusic", "host": host])
+            completion?(false)
             return
         }
-        // Silent no-op when PiP cannot start (no toast / alert).
-        MediaPlaybackSupport.enterPictureInPicture(in: webView) { [weak self] ok in
-            DispatchQueue.main.async {
-                guard let self, ok else { return }
-                self.persistPipPrefer(true)
-                self.setPictureInPictureActive(true)
-            }
+        guard AppSettings.pictureInPictureEnabled else {
+            PipProbe.log("enter.userAction.skip", ["why": "settingOff", "host": host])
+            completion?(false)
+            return
         }
+        ensureMediaScriptForPictureInPicture()
+        PipProbe.log("enter.userAction.afterEnsureScript", [
+            "host": host,
+            "didInstallMediaScript": didInstallMediaScript
+        ])
+        persistPipPrefer(true)
+        MediaPlaybackSupport.applyStickyPrefer(in: webView, prefer: true)
+        MediaPlaybackSupport.enterPictureInPicture(in: webView, detailedCompletion: { [weak self] ok, detail in
+            DispatchQueue.main.async {
+                guard let self else {
+                    completion?(false)
+                    return
+                }
+                PipProbe.log("enter.userAction.done", [
+                    "host": host,
+                    "ok": ok,
+                    "detail": detail,
+                    "nativeActive": self.isPictureInPictureActive
+                ])
+                if ok {
+                    self.setPictureInPictureActive(true)
+                } else if showFailureToast {
+                    self.persistPipPrefer(false)
+                }
+                completion?(ok)
+                // Stash last failure detail for the menu toast.
+                self.lastPipEnterDetail = detail
+            }
+        })
     }
+
+    /// Last PiP enter detail string (for DEBUG toasts).
+    private(set) var lastPipEnterDetail: String = ""
 
     private func reinforcePictureInPictureAfterForeground() {
         guard PipSession.isOwner(self),

@@ -18,6 +18,8 @@ protocol AddressBarViewDelegate: AnyObject {
     func addressBarDidChoosePageCleaner(urlOnly: Bool)
     func addressBarDidExitPageCleaner()
     func addressBarDidTapShield(blockCount: Int)
+    /// Compact bottom pill was tapped — expand the full chrome again.
+    func addressBarDidTapCompactExpand()
 }
 
 final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDelegate {
@@ -55,11 +57,14 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private var tabSwipe: UIPanGestureRecognizer?
     private let swipeClip = UIView()
     private let peekLabel = UILabel()
+    private let hostLabel = UILabel()
     private var shortcutAccessoryView: UIView?
     private var shortcutButtons: [UIButton] = []
     private let keyboardDismissButton = UIButton(type: .system)
     /// Skip expanding to the live page URL on the next begin-editing (used after clear).
     private var suppressNextEditingURLExpand = false
+    private var isCompact = false
+    private var compactExpandTap: UITapGestureRecognizer?
 
     /// Common URL fragments for the keyboard accessory above the address field.
     private static let addressShortcuts = [
@@ -151,6 +156,13 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         peekLabel.isUserInteractionEnabled = false
         peekLabel.alpha = 0
 
+        hostLabel.font = .systemFont(ofSize: 15, weight: .medium)
+        hostLabel.textColor = BrowserTheme.textPrimary
+        hostLabel.textAlignment = .center
+        hostLabel.lineBreakMode = .byTruncatingMiddle
+        hostLabel.isHidden = true
+        hostLabel.isUserInteractionEnabled = false
+
         addSubview(backButton)
         addSubview(forwardButton)
         container.addSubview(reloadButton)
@@ -158,11 +170,17 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         container.addSubview(swipeClip)
         swipeClip.addSubview(textField)
         swipeClip.addSubview(peekLabel)
+        container.addSubview(hostLabel)
         container.addSubview(clearButton)
         container.addSubview(shieldButton)
         container.addSubview(shieldBadge)
         container.addSubview(richMenuButton)
         addSubview(progressView)
+
+        let expandTap = UITapGestureRecognizer(target: self, action: #selector(compactExpandTapped))
+        expandTap.isEnabled = false
+        container.addGestureRecognizer(expandTap)
+        compactExpandTap = expandTap
 
         setupCleanerMenu()
         setupTabSwipe()
@@ -185,6 +203,11 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.trailing.equalToSuperview().offset(-4)
             make.centerY.equalToSuperview()
             make.height.equalTo(40)
+        }
+        hostLabel.snp.makeConstraints { make in
+            make.leading.equalTo(shieldButton.snp.trailing).offset(6)
+            make.trailing.equalToSuperview().offset(-14)
+            make.centerY.equalToSuperview()
         }
         shieldButton.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(10)
@@ -355,12 +378,78 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         // Don't clobber in-progress typing; apply once editing ends.
         guard !textField.isFirstResponder else { return }
         textField.text = text
+        if isCompact {
+            hostLabel.text = Self.compactHost(from: text)
+        }
     }
 
     /// Updates the field even while editing (e.g. expand to the full URL on focus).
     func setURLTextForcing(_ text: String) {
         textField.text = text
         updateClearButtonVisibility()
+        if isCompact {
+            hostLabel.text = Self.compactHost(from: text)
+        }
+    }
+
+    /// Shrinks to a domain pill (shield + host). Tap expands via `addressBarDidTapCompactExpand`.
+    func setCompact(_ compact: Bool, host: String? = nil) {
+        if let host {
+            hostLabel.text = host
+        } else if compact {
+            hostLabel.text = Self.compactHost(from: textField.text)
+        }
+        guard compact != isCompact else {
+            if compact { refreshTextFieldConstraints() }
+            return
+        }
+        isCompact = compact
+        if compact {
+            textField.resignFirstResponder()
+            hideCleanerMenu()
+            // Domain pill always shows a leading shield for the compact look.
+            shieldButton.isHidden = false
+            shieldBadge.isHidden = true
+        }
+        hostLabel.isHidden = !compact
+        swipeClip.isHidden = compact
+        reloadButton.isHidden = compact
+        clearButton.isHidden = true
+        privateBadge.isHidden = compact || !isPrivateMode
+        textField.isUserInteractionEnabled = !compact
+        shieldButton.isUserInteractionEnabled = !compact
+        tabSwipe?.isEnabled = !compact
+        compactExpandTap?.isEnabled = compact
+        container.layer.cornerRadius = compact ? BrowserTheme.chromeCompactPillHeight / 2 : 18
+        container.snp.remakeConstraints { make in
+            containerLeadingConstraint = make.leading.equalToSuperview().offset(compact ? 0 : 4).constraint
+            make.trailing.equalToSuperview().offset(compact ? 0 : -4)
+            make.centerY.equalToSuperview()
+            make.height.equalTo(compact ? BrowserTheme.chromeCompactPillHeight : 40)
+        }
+        applyTheme()
+        if !compact {
+            updateShieldAppearance()
+        } else {
+            refreshTextFieldConstraints()
+        }
+    }
+
+    private static func compactHost(from text: String?) -> String {
+        let raw = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else { return "Search" }
+        if let url = URL(string: raw), let host = url.host, !host.isEmpty {
+            return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        }
+        if let url = URL(string: "https://\(raw)"), let host = url.host, !host.isEmpty {
+            return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        }
+        return raw
+    }
+
+    @objc private func compactExpandTapped() {
+        guard isCompact else { return }
+        delegate?.addressBarDidTapCompactExpand()
     }
 
     private var spaceTintColor: UIColor?
@@ -380,14 +469,33 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
     @objc private func applyTheme() {
         // Outer chrome card owns the elevated surface; this pill is the recessed field.
+        // In compact mode the field *is* the floating pill.
         backgroundColor = .clear
-        if isPrivateMode {
-            container.backgroundColor = BrowserTheme.privateBackground
-        } else if ThemeManager.shared.current.isLight {
-            container.backgroundColor = BrowserTheme.secondaryCard
+        if isCompact {
+            container.backgroundColor = isPrivateMode ? BrowserTheme.privateElevated : BrowserTheme.elevated
+            container.layer.borderWidth = 1
+            container.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.28).cgColor
+            container.layer.shadowColor = UIColor.black.cgColor
+            container.layer.shadowOpacity = ThemeManager.shared.current.isLight ? 0.12 : 0.45
+            container.layer.shadowRadius = 10
+            container.layer.shadowOffset = CGSize(width: 0, height: 2)
+            // Shadow needs to escape the pill bounds.
+            container.clipsToBounds = false
+            layer.masksToBounds = false
         } else {
-            container.backgroundColor = BrowserTheme.background
+            container.layer.borderWidth = 0
+            container.layer.borderColor = UIColor.clear.cgColor
+            container.layer.shadowOpacity = 0
+            container.clipsToBounds = true
+            if isPrivateMode {
+                container.backgroundColor = BrowserTheme.privateBackground
+            } else if ThemeManager.shared.current.isLight {
+                container.backgroundColor = BrowserTheme.secondaryCard
+            } else {
+                container.backgroundColor = BrowserTheme.background
+            }
         }
+        hostLabel.textColor = BrowserTheme.textPrimary
         let accent = isPrivateMode ? BrowserTheme.privateAccent : (spaceTintColor ?? BrowserTheme.chromeBlue)
         let iconConfig = UIImage.SymbolConfiguration(pointSize: Self.chromeIconPointSize, weight: .regular)
         let navTint = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
@@ -501,6 +609,18 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     private func updateShieldAppearance() {
+        if isCompact {
+            // Compact domain pill always keeps the leading shield.
+            shieldButton.isHidden = false
+            shieldBadge.isHidden = true
+            let accent = isPrivateMode ? BrowserTheme.privateAccent : BrowserTheme.chromeBlue
+            shieldButton.tintColor = AppSettings.trackerProtectionEnabled
+                ? accent.withAlphaComponent(0.9)
+                : BrowserTheme.textSecondary
+            refreshTextFieldConstraints()
+            return
+        }
+
         let show = AppSettings.trackerProtectionEnabled || AppSettings.hideShortsEnabled || AppSettings.youtubeAdShieldEnabled
         guard show else {
             shieldButton.isHidden = true
@@ -538,7 +658,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
         // Collapse the leading shield when hidden so the field doesn't keep a gap.
         shieldButton.snp.remakeConstraints { make in
-            make.leading.equalToSuperview().offset(shieldButton.isHidden ? 0 : 10)
+            make.leading.equalToSuperview().offset(shieldButton.isHidden ? 0 : (isCompact ? 12 : 10))
             make.centerY.equalToSuperview()
             if shieldButton.isHidden {
                 make.size.equalTo(0)
@@ -563,6 +683,16 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.trailing.equalTo(trailingTarget).offset(-4)
             make.centerY.equalToSuperview()
             make.size.equalTo(Self.chromeIconButtonSize)
+        }
+
+        hostLabel.snp.remakeConstraints { make in
+            if shieldButton.isHidden {
+                make.leading.equalToSuperview().offset(14)
+            } else {
+                make.leading.equalTo(shieldButton.snp.trailing).offset(6)
+            }
+            make.trailing.equalToSuperview().offset(-14)
+            make.centerY.equalToSuperview()
         }
 
         swipeClip.snp.remakeConstraints { make in

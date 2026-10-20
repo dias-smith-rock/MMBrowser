@@ -43,7 +43,12 @@ enum MediaPlaybackSupport {
     }
 
     /// Full PiP / background-audio bridge. Install before loading a media host document.
-    static var mediaUserScript: WKUserScript { makeMediaScript() }
+    static var mediaUserScript: WKUserScript {
+        WKUserScript(source: mediaScriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+    }
+
+    /// Raw bridge source for document-start install and runtime re-injection after SPA navigations.
+    static var mediaScriptSource: String { makeMediaScriptSource() }
 
     static func shouldInstallScript(for url: URL?) -> Bool {
         isLikelyMediaHost(url)
@@ -147,32 +152,225 @@ enum MediaPlaybackSupport {
     }
 
     /// Enter PiP for the best matching video (menu / native floating button).
-    static func enterPictureInPicture(in webView: WKWebView?, completion: ((Bool) -> Void)? = nil) {
+    /// Completion receives `(ok, detail)` where `detail` is a short failure/stage string for toasts.
+    static func enterPictureInPicture(
+        in webView: WKWebView?,
+        completion: ((Bool) -> Void)? = nil
+    ) {
+        enterPictureInPicture(in: webView, detailedCompletion: { ok, _ in
+            completion?(ok)
+        })
+    }
+
+    static func enterPictureInPicture(
+        in webView: WKWebView?,
+        detailedCompletion: ((Bool, String) -> Void)? = nil
+    ) {
         guard let webView, AppSettings.pictureInPictureEnabled else {
+            let reason = webView == nil ? "nilWebView" : "pipDisabled"
             PipProbe.log("enter.native.skip", [
-                "reason": webView == nil ? "nilWebView" : "pipDisabled",
+                "reason": reason,
                 "sticky": AppSettings.stickyPictureInPicture
             ])
-            completion?(false)
+            detailedCompletion?(false, reason)
             return
         }
         let host = webView.url?.host ?? "?"
+        let allowsPiP: Bool = {
+            if #available(iOS 14.0, *) {
+                return webView.configuration.allowsPictureInPictureMediaPlayback
+            }
+            return true
+        }()
         PipProbe.log("enter.native.begin", [
             "host": host,
+            "url": webView.url?.absoluteString ?? "",
             "sticky": AppSettings.stickyPictureInPicture,
-            "isMusic": YouTubeDarkMode.isYouTubeMusic(webView.url)
+            "isMusic": YouTubeDarkMode.isYouTubeMusic(webView.url),
+            "allowsPiP": allowsPiP
         ])
         configureAudioSessionIfNeeded()
         PipProbe.requestTabDump(reason: "enter.native.begin")
-        webView.evaluateJavaScript(enterPipJS) { result, error in
-            let ok = (result as? Bool) ?? false
-            PipProbe.log("enter.native.done", [
+        probePageState(in: webView, reason: "enter.beforeBridge")
+        ensureBridgeReady(in: webView) { reinjected in
+            PipProbe.log("enter.bridge.ready", [
                 "host": host,
-                "ok": ok,
-                "error": error?.localizedDescription ?? "",
-                "sticky": AppSettings.stickyPictureInPicture
+                "reinjected": reinjected
             ])
-            completion?(ok)
+            probePageState(in: webView, reason: "enter.afterBridge")
+            webView.evaluateJavaScript(enterPipJS) { result, error in
+                var ok = false
+                var detail = "unknown"
+                if let error {
+                    detail = "jsError:\(error.localizedDescription)"
+                    PipProbe.log("enter.native.jsError", [
+                        "host": host,
+                        "error": error.localizedDescription
+                    ])
+                } else if let dict = result as? [String: Any] {
+                    ok = (dict["ok"] as? Bool) ?? false
+                    let stage = dict["stage"] as? String ?? "?"
+                    let inPip = dict["inPip"] as? Bool ?? false
+                    detail = ok ? (inPip ? "ok.inPip" : "ok.claimed") : "fail.\(stage)"
+                    PipProbe.log("enter.native.result", [
+                        "host": host,
+                        "ok": ok,
+                        "stage": stage,
+                        "inPip": inPip,
+                        "keepAlive": dict["keepAlive"] as? String ?? "",
+                        "snapshot": dict["snapshot"] as Any,
+                        "snapshotAfter": dict["snapshotAfter"] as Any,
+                        "error": dict["error"] as? String ?? ""
+                    ])
+                } else if let flag = result as? Bool {
+                    ok = flag
+                    detail = flag ? "ok.bool" : "fail.bool"
+                    PipProbe.log("enter.native.done", [
+                        "host": host,
+                        "ok": ok,
+                        "legacyBool": true
+                    ])
+                } else {
+                    detail = "badResult:\(String(describing: result))"
+                    PipProbe.log("enter.native.badResult", [
+                        "host": host,
+                        "result": "\(result ?? "nil")"
+                    ])
+                }
+                // Follow-up: async PiP latch often completes after the sync return.
+                // Also abort unsupported webkit PiP that latches late (Simulator freeze).
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                    let watchdog = """
+                    (function(){
+                      try {
+                        if (typeof window.__mmAbortZombiePip !== 'function') return 'noAbort';
+                        var vids = document.querySelectorAll('video');
+                        for (var i = 0; i < vids.length; i++) {
+                          var v = vids[i];
+                          var support = null;
+                          try {
+                            if (typeof v.webkitSupportsPresentationMode === 'function') {
+                              support = !!v.webkitSupportsPresentationMode('picture-in-picture');
+                            }
+                          } catch (e) {}
+                          var inPip = false;
+                          try {
+                            inPip = v.webkitPresentationMode === 'picture-in-picture'
+                              || document.pictureInPictureElement === v;
+                          } catch (e2) {}
+                          if (inPip && support === false) {
+                            window.__mmAbortZombiePip('nativeWatchdog', v);
+                            return 'aborted';
+                          }
+                        }
+                        return 'ok';
+                      } catch (e) { return 'err:' + String(e); }
+                    })();
+                    """
+                    webView.evaluateJavaScript(watchdog) { result, _ in
+                        PipProbe.log("enter.zombieWatchdog", [
+                            "host": host,
+                            "result": "\(result ?? "nil")"
+                        ])
+                        probePageState(in: webView, reason: "enter.after450ms")
+                    }
+                }
+                detailedCompletion?(ok, detail)
+            }
+        }
+    }
+
+    /// Re-inject the media bridge when SPA navigations left a stub (`skipped`) or never installed it.
+    /// Completion reports whether a reinject was performed.
+    static func ensureBridgeReady(in webView: WKWebView, completion: ((Bool) -> Void)? = nil) {
+        // Bump when PiP bridge behavior changes so open tabs pick up the fix.
+        let expectedScriptVersion = 4
+        let probe = """
+        (function(){
+          try {
+            return {
+              keepAlive: window.__mmMediaKeepAlive === true,
+              skipped: window.__mmMediaKeepAlive === 'skipped',
+              keepAliveRaw: String(window.__mmMediaKeepAlive),
+              hasEnter: typeof window.__mmEnterPiP === 'function',
+              scriptVersion: window.__mmMediaScriptVersion || 0,
+              suppressed: !!window.__mmPipSuppressed,
+              prefer: !!window.__mmPreferPip,
+              videoCount: document.querySelectorAll('video').length
+            };
+          } catch (e) {
+            return { keepAlive: false, skipped: false, hasEnter: false, scriptVersion: 0, error: String(e) };
+          }
+        })();
+        """
+        webView.evaluateJavaScript(probe) { result, error in
+            if let error {
+                PipProbe.log("enter.bridge.probeError", [
+                    "host": webView.url?.host ?? "?",
+                    "error": error.localizedDescription
+                ])
+            }
+            let dict = result as? [String: Any]
+            let keepAlive = (dict?["keepAlive"] as? Bool) ?? false
+            let skipped = (dict?["skipped"] as? Bool) ?? false
+            let hasEnter = (dict?["hasEnter"] as? Bool) ?? false
+            let scriptVersion = (dict?["scriptVersion"] as? Int)
+                ?? (dict?["scriptVersion"] as? Double).map { Int($0) }
+                ?? 0
+            let versionOK = scriptVersion >= expectedScriptVersion
+            PipProbe.log("enter.bridge.probe", [
+                "host": webView.url?.host ?? "?",
+                "keepAlive": keepAlive,
+                "skipped": skipped,
+                "keepAliveRaw": dict?["keepAliveRaw"] as? String ?? "",
+                "hasEnter": hasEnter,
+                "scriptVersion": scriptVersion,
+                "versionOK": versionOK,
+                "suppressed": dict?["suppressed"] as? Bool ?? false,
+                "prefer": dict?["prefer"] as? Bool ?? false,
+                "videoCount": dict?["videoCount"] as? Int ?? -1,
+                "error": dict?["error"] as? String ?? ""
+            ])
+            if keepAlive, hasEnter, versionOK {
+                completion?(false)
+                return
+            }
+            PipProbe.log("enter.bridge.reinject", [
+                "host": webView.url?.host ?? "?",
+                "skipped": skipped,
+                "hasEnter": hasEnter,
+                "scriptVersion": scriptVersion
+            ])
+            let reinject = """
+            (function(){
+              try {
+                window.__mmPreferPip = true;
+                window.__mmMediaKeepAlive = undefined;
+                window.__mmMediaScriptVersion = 0;
+                // Unwrap prior hooks so the new bridge can reinstall freeze-safe guards.
+                var proto = HTMLVideoElement.prototype;
+                if (proto && proto.__mmSetPresentationMode) {
+                  proto.webkitSetPresentationMode = proto.__mmSetPresentationMode;
+                  try { delete proto.__mmSetPresentationMode; } catch (e1) {
+                    proto.__mmSetPresentationMode = undefined;
+                  }
+                }
+                if (document.__mmExitPictureInPicture) {
+                  document.exitPictureInPicture = document.__mmExitPictureInPicture;
+                  try { delete document.__mmExitPictureInPicture; } catch (e2) {
+                    document.__mmExitPictureInPicture = undefined;
+                  }
+                }
+              } catch (e) {}
+            })();
+            """ + mediaScriptSource
+            webView.evaluateJavaScript(reinject) { _, reinjectError in
+                PipProbe.log("enter.bridge.reinject.done", [
+                    "host": webView.url?.host ?? "?",
+                    "error": reinjectError?.localizedDescription ?? ""
+                ])
+                completion?(true)
+            }
         }
     }
 
@@ -206,7 +404,12 @@ enum MediaPlaybackSupport {
         }
         webView.evaluateJavaScript("window.__mmPreferPip = true; true;") { _, _ in
             webView.evaluateJavaScript(enterPipJS) { result, _ in
-                let ok = (result as? Bool) ?? false
+                let ok: Bool
+                if let dict = result as? [String: Any] {
+                    ok = (dict["ok"] as? Bool) ?? false
+                } else {
+                    ok = (result as? Bool) ?? false
+                }
                 if !ok {
                     reinforcePictureInPictureIfNeeded(in: webView)
                 }
@@ -272,13 +475,63 @@ enum MediaPlaybackSupport {
     })();
     """
 
+    /// Returns a structured result for native `[PipProbe]` logging (not just a Bool).
     private static let enterPipJS = """
     (function() {
       try {
         window.__mmPipSuppressed = false;
-        if (typeof window.__mmEnterPiP === 'function') return !!window.__mmEnterPiP('native');
-        return false;
-      } catch (e) { return false; }
+        var keep = window.__mmMediaKeepAlive;
+        var snap = (typeof window.__mmPipEnterSnapshot === 'function')
+          ? window.__mmPipEnterSnapshot()
+          : null;
+        if (typeof window.__mmEnterPiP !== 'function') {
+          return {
+            ok: false,
+            stage: 'noEnterFn',
+            keepAlive: String(keep),
+            snapshot: snap
+          };
+        }
+        var ok = !!window.__mmEnterPiP('native');
+        var inPip = !!(window.__mmAnyInPiP && window.__mmAnyInPiP());
+        // Final safety: never leave the page in unsupported webkit PiP (UI freeze).
+        if (inPip && typeof window.__mmAbortZombiePip === 'function') {
+          try {
+            var vids = document.querySelectorAll('video');
+            for (var i = 0; i < vids.length; i++) {
+              var v = vids[i];
+              var support = null;
+              try {
+                if (typeof v.webkitSupportsPresentationMode === 'function') {
+                  support = !!v.webkitSupportsPresentationMode('picture-in-picture');
+                }
+              } catch (e) {}
+              var mode = '';
+              try { mode = v.webkitPresentationMode || ''; } catch (e2) {}
+              if (support === false && (mode === 'picture-in-picture'
+                  || document.pictureInPictureElement === v)) {
+                window.__mmAbortZombiePip('enterPipJS', v);
+                ok = false;
+                inPip = false;
+                break;
+              }
+            }
+          } catch (e3) {}
+        }
+        var snapAfter = (typeof window.__mmPipEnterSnapshot === 'function')
+          ? window.__mmPipEnterSnapshot()
+          : null;
+        return {
+          ok: ok,
+          stage: ok ? 'enter' : (inPip ? 'enter' : 'unsupportedOrFail'),
+          inPip: inPip,
+          keepAlive: String(keep),
+          snapshot: snap,
+          snapshotAfter: snapAfter
+        };
+      } catch (e) {
+        return { ok: false, stage: 'exception', error: String(e) };
+      }
     })();
     """
 
@@ -288,15 +541,21 @@ enum MediaPlaybackSupport {
         var vids = (typeof window.__mmPipVideoSnapshot === 'function')
           ? window.__mmPipVideoSnapshot()
           : [];
+        var snap = (typeof window.__mmPipEnterSnapshot === 'function')
+          ? window.__mmPipEnterSnapshot()
+          : null;
         return {
           host: location.hostname || '',
           path: (location.pathname || '').slice(0, 80),
           prefer: !!window.__mmPreferPip,
           inPip: !!(window.__mmAnyInPiP && window.__mmAnyInPiP()),
-          keepAlive: !!window.__mmMediaKeepAlive,
+          keepAlive: String(window.__mmMediaKeepAlive),
+          hasEnter: typeof window.__mmEnterPiP === 'function',
+          suppressed: !!window.__mmPipSuppressed,
           bgAudio: !!window.__mmBackgroundAudio,
           videoCount: vids.length,
-          videos: vids
+          videos: vids,
+          snapshot: snap
         };
       } catch (e) {
         return { error: String(e) };
@@ -378,11 +637,15 @@ enum MediaPlaybackSupport {
     /// YouTube listens for `webkitpresentationmodechanged` / `visibilitychange` and forces
     /// inline playback (Premium upsell). We capture those events first, notify native, then
     /// stop propagation so the site cannot dismiss system PiP when the app returns.
-    private static func makeMediaScript() -> WKUserScript {
+    private static func makeMediaScriptSource() -> String {
         let bgFlag = AppSettings.backgroundAudioEnabled ? "true" : "false"
-        let source = """
+        return """
         (function() {
-          if (window.__mmMediaKeepAlive) return;
+          // Full bridge already live — keep it. Allow re-entry after a prior 'skipped' stub.
+          if (window.__mmMediaKeepAlive === true) return;
+          if (window.__mmMediaKeepAlive === 'skipped') {
+            try { window.__mmMediaKeepAlive = undefined; } catch (e) {}
+          }
           \(mediaHostGateJS)
           var onMediaHost = __mmIsLikelyMediaHost(location.hostname);
           var preferPip = !!window.__mmPreferPip;
@@ -400,6 +663,7 @@ enum MediaPlaybackSupport {
           }
 
           window.__mmMediaKeepAlive = true;
+          window.__mmMediaScriptVersion = 4;
           window.__mmBackgroundAudio = \(bgFlag);
 
           // Subframes: light probe only on media hosts — full PiP stack runs in the top frame.
@@ -422,6 +686,7 @@ enum MediaPlaybackSupport {
 
           // Sticky user/system intent to stay in PiP across YouTube "next video" swaps.
           if (typeof window.__mmPreferPip === 'undefined') window.__mmPreferPip = false;
+          if (typeof window.__mmPipEnteredAt === 'undefined') window.__mmPipEnteredAt = 0;
           var reenterToken = 0;
           var reenterTimer = null;
           var playRetryToken = 0;
@@ -430,6 +695,7 @@ enum MediaPlaybackSupport {
           var pipLeftVideo = null;
           var pipLeftSrc = '';
           var pipLeftTime = 0;
+          var lastPipLeaveHandledAt = 0;
 
           var lastPostedActive = null;
           var lastPostedPrefer = null;
@@ -494,20 +760,63 @@ enum MediaPlaybackSupport {
           /// Closing PiP while the same clip still plays (in or outside the app) clears prefer.
           function handlePipLeave(v) {
             var leaveV = v && v.tagName === 'VIDEO' ? v : null;
+            // Duplicate leave events (webkitpresentationmodechanged + leavepictureinpicture,
+            // or a delayed leave after a failed reclaim claim) must not restart the scheduler.
+            if (lastPipLeaveHandledAt && (Date.now() - lastPipLeaveHandledAt) < 480) {
+              postDiag('presentation.leave.dedupe', {
+                age: Date.now() - lastPipLeaveHandledAt,
+                video: videoProbe(leaveV)
+              });
+              return;
+            }
+            lastPipLeaveHandledAt = Date.now();
             notePipLeft(leaveV);
             var ended = false;
             try { ended = !!(leaveV && leaveV.ended); } catch (e) {}
             var advancing = !!(window.__mmPipAdvanceUntil && Date.now() < window.__mmPipAdvanceUntil);
+            var enterAge = window.__mmPipEnteredAt ? (Date.now() - window.__mmPipEnteredAt) : 999999;
+            var stillPlaying = false;
+            try { stillPlaying = !!(leaveV && !leaveV.paused && !leaveV.ended); } catch (e) {}
             postDiag('presentation.leave', {
               ended: ended,
               advancing: advancing,
               visible: document.visibilityState,
+              enterAge: enterAge,
+              stillPlaying: stillPlaying,
               video: videoProbe(leaveV)
             });
             if (ended || advancing) {
               // Next-video handoff — keep sticky intent and try again shortly.
               postPip(false);
               schedulePipReenter(leaveV);
+              return;
+            }
+            // Never reclaim unsupported / zombie webkit PiP — that freezes interaction.
+            if (leaveV && videoSupportsPip(leaveV) === false) {
+              postDiag('presentation.leave.unsupported', {
+                enterAge: enterAge,
+                video: videoProbe(leaveV)
+              });
+              abortZombiePip('leaveUnsupported', leaveV);
+              return;
+            }
+            // X / SPA players often force inline right after a successful enter while the
+            // page stays foreground and the clip keeps playing. Treat that as a site kick
+            // (not a Springboard close) and reclaim PiP.
+            if (
+              window.__mmPreferPip
+              && stillPlaying
+              && document.visibilityState === 'visible'
+              && enterAge < 20000
+            ) {
+              postDiag('presentation.leave.reclaim', {
+                enterAge: enterAge,
+                video: videoProbe(leaveV)
+              });
+              postPip(false);
+              // Do not set __mmPipSuppressReenterUntil here — that flag both allows
+              // site setPresentationMode('inline') and aborts schedulePipReenter.
+              schedulePipReenter(leaveV, { kick: true });
               return;
             }
             // User closed the PiP window (app or Springboard). Block reenter immediately so
@@ -531,6 +840,11 @@ enum MediaPlaybackSupport {
           /// Same continuous clip still playing inline shortly after leave → user closed PiP.
           function looksLikeUserDismiss() {
             if (!pipLeftAt) return false;
+            // During the post-enter reclaim window, site kicks look identical to a user
+            // dismiss (same clip keeps playing). Prefer reclaim over clearing sticky.
+            if (window.__mmPipEnteredAt && (Date.now() - window.__mmPipEnteredAt) < 20000) {
+              return false;
+            }
             var age = Date.now() - pipLeftAt;
             // Ignore only tiny WebKit glitches; 200ms was too wide and let the first
             // reenter tick (120ms) reclaim PiP after a manual close.
@@ -622,6 +936,39 @@ enum MediaPlaybackSupport {
             try {
               return collectVideos(document, []).slice(0, 6).map(videoProbe);
             } catch (e) { return []; }
+          };
+
+          /// Compact snapshot for native enter diagnostics (menu / chip).
+          window.__mmPipEnterSnapshot = function() {
+            try {
+              var vids = collectVideos(document, []);
+              var playing = 0, visible = 0, paused = 0;
+              for (var i = 0; i < vids.length; i++) {
+                var v = vids[i];
+                if (!v) continue;
+                try {
+                  if (isVideoInViewport(v)) visible++;
+                  if (!v.paused && !v.ended) playing++;
+                  else if (v.paused) paused++;
+                } catch (e) {}
+              }
+              var best = (typeof pickVideoForEnter === 'function')
+                ? pickVideoForEnter()
+                : (typeof pickVideo === 'function' ? pickVideo() : null);
+              return {
+                videoCount: vids.length,
+                playing: playing,
+                visible: visible,
+                paused: paused,
+                suppressed: !!window.__mmPipSuppressed,
+                prefer: !!window.__mmPreferPip,
+                keepAlive: String(window.__mmMediaKeepAlive),
+                hasEnter: typeof window.__mmEnterPiP === 'function',
+                best: best ? videoProbe(best) : null
+              };
+            } catch (e) {
+              return { error: String(e) };
+            }
           };
 
           function isInPiP(v) {
@@ -763,12 +1110,14 @@ enum MediaPlaybackSupport {
           function clearPreferPip() {
             postDiag('prefer.clear', { videos: window.__mmPipVideoSnapshot ? window.__mmPipVideoSnapshot() : [] });
             window.__mmPreferPip = false;
+            window.__mmPipEnteredAt = 0;
             reenterToken += 1;
             if (reenterTimer) { try { clearTimeout(reenterTimer); } catch (e) {} reenterTimer = null; }
             pipLeftAt = 0;
             pipLeftVideo = null;
             pipLeftSrc = '';
             pipLeftTime = 0;
+            lastPipLeaveHandledAt = 0;
             lastPostedActive = null;
             lastPostedPrefer = null;
             try {
@@ -854,25 +1203,27 @@ enum MediaPlaybackSupport {
               if (v) v.dataset.mmWantPip = '0';
               var raw = HTMLVideoElement.prototype.__mmSetPresentationMode;
               if (v && raw && isInPiP(v)) raw.call(v, 'inline');
-              if (document.pictureInPictureElement && document.exitPictureInPicture) {
-                document.exitPictureInPicture();
+              if (document.pictureInPictureElement) {
+                var exitPip = document.__mmExitPictureInPicture || document.exitPictureInPicture;
+                if (exitPip) exitPip.call(document);
               }
             } catch (e) {}
           }
 
           /// After PiP drops (next video / element swap), re-enter with a single exponential scheduler.
-          function schedulePipReenter(previousVideo) {
+          function schedulePipReenter(previousVideo, opts) {
             if (!window.__mmPreferPip || isYouTubeMusic()) return;
             if (window.__mmPipSuppressReenterUntil && Date.now() < window.__mmPipSuppressReenterUntil) return;
+            var kick = !!(opts && opts.kick);
             var token = ++reenterToken;
             if (reenterTimer) { try { clearTimeout(reenterTimer); } catch (e) {} reenterTimer = null; }
             var prevSrc = videoSrc(previousVideo);
             var prevEnded = false;
             try { prevEnded = !!(previousVideo && previousVideo.ended); } catch (e) {}
             var advancing = !!(window.__mmPipAdvanceUntil && Date.now() < window.__mmPipAdvanceUntil);
-            var maxAttempts = (prevEnded || advancing) ? 4 : 3;
+            var maxAttempts = kick ? 6 : ((prevEnded || advancing) ? 4 : 3);
             var attempt = 0;
-            var delay = (prevEnded || advancing) ? 280 : 160;
+            var delay = kick ? 80 : ((prevEnded || advancing) ? 280 : 160);
 
             function tick() {
               reenterTimer = null;
@@ -904,19 +1255,23 @@ enum MediaPlaybackSupport {
                   && src
                   && src === prevSrc
                   && !v.ended;
-                if (sameClip && !prevEnded) {
+                var inEnterGrace = !!(window.__mmPipEnteredAt
+                  && (Date.now() - window.__mmPipEnteredAt) < 20000);
+                if (sameClip && !prevEnded && !inEnterGrace && !kick) {
+                  // Outside the enter-grace window, repeated same-clip failures usually
+                  // mean the user closed PiP — stop fighting.
                   if (attempt >= 1) {
                     clearPreferPip();
                     return;
                   }
                 } else {
-                  enterPiP(prevEnded ? 'ended.next:' + attempt : 'reenter:' + attempt);
+                  enterPiP(prevEnded ? 'ended.next:' + attempt : (kick ? 'reclaim:' + attempt : 'reenter:' + attempt));
                   if (anyInPiP()) return;
                 }
               }
               attempt += 1;
               if (attempt >= maxAttempts) return;
-              delay = Math.min(Math.round(delay * 1.9), 4000);
+              delay = Math.min(Math.round(delay * (kick ? 1.45 : 1.9)), kick ? 1200 : 4000);
               reenterTimer = setTimeout(tick, delay);
             }
             reenterTimer = setTimeout(tick, delay);
@@ -930,7 +1285,7 @@ enum MediaPlaybackSupport {
             } catch (e) {}
           }
 
-          // Block site JS (YouTube) from forcing the player back to inline while PiP should stay.
+          // Block site JS (YouTube / X) from forcing the player back to inline while PiP should stay.
           try {
             var proto = HTMLVideoElement.prototype;
             if (proto.webkitSetPresentationMode && !proto.__mmSetPresentationMode) {
@@ -941,6 +1296,14 @@ enum MediaPlaybackSupport {
                   if (mode === 'inline' && (window.__mmPreferPip || (this.dataset && this.dataset.mmWantPip === '1'))) {
                     // Allow leave when the clip ended / next-video handoff is in progress.
                     if (this.ended || (window.__mmPipAdvanceUntil && Date.now() < window.__mmPipAdvanceUntil)) {
+                      return originalSet.call(this, mode);
+                    }
+                    // Unsupported webkit PiP is a freeze risk — never trap the page in it.
+                    if (videoSupportsPip(this) === false) {
+                      try {
+                        window.__mmPreferPip = false;
+                        if (this.dataset) this.dataset.mmWantPip = '0';
+                      } catch (err) {}
                       return originalSet.call(this, mode);
                     }
                     // User tapped the PiP window (or app icon) to return — must allow inline
@@ -959,6 +1322,10 @@ enum MediaPlaybackSupport {
                     if (window.__mmPipSuppressReenterUntil && Date.now() < window.__mmPipSuppressReenterUntil) {
                       return originalSet.call(this, mode);
                     }
+                    postDiag('presentation.blockInline', {
+                      mode: mode,
+                      video: videoProbe(this)
+                    });
                     return;
                   }
                 } catch (e) {}
@@ -972,6 +1339,27 @@ enum MediaPlaybackSupport {
                 set: function() {}
               });
             } catch (e) {}
+          } catch (e) {}
+
+          // X often exits via the standard PiP API rather than webkitSetPresentationMode.
+          try {
+            if (document.exitPictureInPicture && !document.__mmExitPictureInPicture) {
+              var originalExitPip = document.exitPictureInPicture.bind(document);
+              document.__mmExitPictureInPicture = originalExitPip;
+              document.exitPictureInPicture = function() {
+                try {
+                  if (window.__mmPreferPip && !window.__mmPipSuppressed) {
+                    if (!(window.__mmPipAdvanceUntil && Date.now() < window.__mmPipAdvanceUntil)
+                        && !(window.__mmAllowInlineRestoreUntil && Date.now() < window.__mmAllowInlineRestoreUntil)
+                        && !(window.__mmPipSuppressReenterUntil && Date.now() < window.__mmPipSuppressReenterUntil)) {
+                      postDiag('presentation.blockExitPip', {});
+                      return Promise.resolve();
+                    }
+                  }
+                } catch (e) {}
+                return originalExitPip();
+              };
+            }
           } catch (e) {}
 
           function markPlayingState() {
@@ -1097,8 +1485,10 @@ enum MediaPlaybackSupport {
             } catch (e) {}
             // Limit shadow walks — full querySelectorAll('*') is too expensive on large SPAs.
             try {
-              var hosts = root.querySelectorAll('[class*="player"],[id*="player"],[class*="video"],yt-hover-card,ytd-player,video-stream');
-              var limit = Math.min(hosts.length, 40);
+              var hosts = root.querySelectorAll(
+                '[class*="player"],[id*="player"],[class*="video"],[data-testid*="video"],[data-testid*="Video"],yt-hover-card,ytd-player,video-stream'
+              );
+              var limit = Math.min(hosts.length, 60);
               for (var i = 0; i < limit; i++) {
                 var sr = hosts[i].shadowRoot;
                 if (sr) {
@@ -1216,6 +1606,48 @@ enum MediaPlaybackSupport {
             } catch (e) {}
           }
 
+          function videoSupportsPip(v) {
+            if (!v) return null;
+            try {
+              if (typeof v.webkitSupportsPresentationMode === 'function') {
+                return !!v.webkitSupportsPresentationMode('picture-in-picture');
+              }
+            } catch (e) {}
+            return null;
+          }
+
+          /// Half-detached webkit PiP (common when support=false / Simulator) freezes the
+          /// whole app — including native chrome. Always tear it down; never reclaim it.
+          function abortZombiePip(why, v) {
+            postDiag('zombie.abort', { why: String(why || ''), video: videoProbe(v || pickVideo()) });
+            window.__mmAllowInlineRestoreUntil = Date.now() + 2500;
+            window.__mmPipSuppressReenterUntil = Date.now() + 2500;
+            try {
+              var vids = collectVideos(document, []);
+              if (v && vids.indexOf(v) < 0) vids.push(v);
+              vids.forEach(function(vid) {
+                if (!vid) return;
+                try { vid.dataset.mmWantPip = '0'; } catch (e) {}
+                try {
+                  var raw = HTMLVideoElement.prototype.__mmSetPresentationMode;
+                  if (raw && isInPiP(vid)) raw.call(vid, 'inline');
+                  else if (vid.webkitSetPresentationMode && isInPiP(vid)) {
+                    vid.webkitSetPresentationMode('inline');
+                  }
+                } catch (e) {}
+              });
+              if (document.pictureInPictureElement) {
+                var exitPip = document.__mmExitPictureInPicture || document.exitPictureInPicture;
+                if (exitPip) {
+                  try { exitPip.call(document); } catch (e) {}
+                }
+              }
+            } catch (e) {}
+            clearPreferPip();
+            postPip(false);
+          }
+          window.__mmAbortZombiePip = abortZombiePip;
+
           /// Must stay synchronous when called from a tap — awaiting play() drops the user-gesture token.
           function requestPiPOnVideo(v) {
             if (!v) {
@@ -1223,12 +1655,36 @@ enum MediaPlaybackSupport {
               return false;
             }
             prepareVideoForPiP(v);
-            var support = null;
-            try {
-              if (typeof v.webkitSupportsPresentationMode === 'function') {
-                support = !!v.webkitSupportsPresentationMode('picture-in-picture');
+            var support = videoSupportsPip(v);
+            // Forcing webkitSetPresentationMode while support=false creates a zombie PiP
+            // layer that swallows all touches (page + native toolbar). Refuse that path.
+            if (support === false) {
+              var pathUnsupported = '';
+              var errUnsupported = '';
+              try {
+                if (v.requestPictureInPicture) {
+                  var reqU = v.requestPictureInPicture();
+                  if (reqU && reqU.catch) reqU.catch(function(e2) {
+                    postDiag('request.pipApi.reject', { error: String(e2) });
+                  });
+                  pathUnsupported = 'requestPictureInPicture';
+                }
+              } catch (e) { errUnsupported = String(e); }
+              var modeU = '';
+              try { modeU = v.webkitPresentationMode || ''; } catch (e) { modeU = '?'; }
+              postDiag('request.pip', {
+                path: pathUnsupported || 'none',
+                support: false,
+                modeAfter: modeU,
+                inPip: anyInPiP(),
+                error: errUnsupported || 'unsupported',
+                video: videoProbe(v)
+              });
+              if (anyInPiP() || modeU === 'picture-in-picture') {
+                abortZombiePip('unsupportedClaim', v);
               }
-            } catch (e) {}
+              return false;
+            }
             var path = '';
             var err = '';
             try {
@@ -1246,19 +1702,20 @@ enum MediaPlaybackSupport {
                 }
               } catch (e) { err = String(e); }
             }
-            if (!path) {
+            var modeAfter = '';
+            try { modeAfter = v.webkitPresentationMode || ''; } catch (e) { modeAfter = '?'; }
+            if ((!path || modeAfter !== 'picture-in-picture') && !anyInPiP()) {
               try {
                 if (v.requestPictureInPicture) {
                   var req = v.requestPictureInPicture();
                   if (req && req.catch) req.catch(function(e2) {
                     postDiag('request.pipApi.reject', { error: String(e2) });
                   });
-                  path = 'requestPictureInPicture';
+                  path = path ? (path + '+requestPictureInPicture') : 'requestPictureInPicture';
                 }
               } catch (e) { err = String(e); }
             }
-            var modeAfter = '';
-            try { modeAfter = v.webkitPresentationMode || ''; } catch (e) { modeAfter = '?'; }
+            try { modeAfter = v.webkitPresentationMode || modeAfter; } catch (e) {}
             postDiag('request.pip', {
               path: path || 'none',
               support: support,
@@ -1268,6 +1725,25 @@ enum MediaPlaybackSupport {
               video: videoProbe(v)
             });
             return !!path;
+          }
+
+          function pickVideoForEnter() {
+            var preferred = pickVideo();
+            if (preferred) return preferred;
+            // Explicit user enter (menu / chip): fall back to any playing / buffered clip,
+            // even when viewport heuristics miss SPA players (X / TikTok overlays).
+            var vids = collectVideos(document, []);
+            var playing = null;
+            var buffered = null;
+            for (var i = 0; i < vids.length; i++) {
+              var cand = vids[i];
+              if (!cand) continue;
+              try {
+                if (!cand.paused && !cand.ended) { playing = cand; break; }
+                if (!buffered && (cand.currentTime > 0.05 || (cand.readyState || 0) >= 2)) buffered = cand;
+              } catch (e) {}
+            }
+            return playing || buffered || (vids.length ? vids[0] : null);
           }
 
           function enterPiP(reason) {
@@ -1285,7 +1761,9 @@ enum MediaPlaybackSupport {
               exitInvisibleMusicHtmlPip();
               return false;
             }
-            var v = pickVideo();
+            var v = (why === 'native' || why === 'menu' || why === 'chip')
+              ? pickVideoForEnter()
+              : pickVideo();
             if (!v) {
               postDiag('enter.fail', { reason: why, why: 'noVideo', videoCount: collectVideos(document, []).length });
               return false;
@@ -1293,6 +1771,13 @@ enum MediaPlaybackSupport {
             if (v.ended) {
               postDiag('enter.fail', { reason: why, why: 'ended', video: videoProbe(v) });
               tryAdvanceYouTubeNext();
+              return false;
+            }
+            if (videoSupportsPip(v) === false) {
+              postDiag('enter.fail', { reason: why, why: 'unsupported', video: videoProbe(v) });
+              // Still attempt standard API once; requestPiPOnVideo aborts any zombie claim.
+              requestPiPOnVideo(v);
+              clearPreferPip();
               return false;
             }
             window.__mmPreferPip = true;
@@ -1309,6 +1794,15 @@ enum MediaPlaybackSupport {
 
             var claimed = requestPiPOnVideo(v);
             var inPipNow = anyInPiP();
+            if (inPipNow && videoSupportsPip(v) === false) {
+              abortZombiePip('enterUnsupported', v);
+              return false;
+            }
+            // Only stamp enteredAt once WebKit actually reports PiP — a bare claim often
+            // leaves modeAfter=inline and would reset the reclaim grace window on thrash.
+            if (inPipNow) {
+              window.__mmPipEnteredAt = Date.now();
+            }
             postDiag('enter.attempt', {
               reason: why,
               claimed: claimed,
@@ -1318,25 +1812,38 @@ enum MediaPlaybackSupport {
             postPip(true);
             setTimeout(function() {
               if (!window.__mmPreferPip) return;
+              var cur = pickVideo() || v;
               if (anyInPiP()) {
+                if (videoSupportsPip(cur) === false) {
+                  abortZombiePip('enterResultUnsupported', cur);
+                  return;
+                }
+                window.__mmPipEnteredAt = Date.now();
                 postDiag('enter.result', {
                   reason: why,
                   inPip: true,
                   prefer: true,
-                  video: videoProbe(pickVideo())
+                  video: videoProbe(cur)
                 });
                 return;
               }
               postDiag('enter.retry', { reason: why });
-              var v2 = pickVideo() || v;
+              var v2 = cur;
               prepareVideoForPiP(v2);
               requestPiPOnVideo(v2);
               setTimeout(function() {
+                var ok = anyInPiP();
+                var v3 = pickVideo() || v2;
+                if (ok && videoSupportsPip(v3) === false) {
+                  abortZombiePip('enterRetryUnsupported', v3);
+                  return;
+                }
+                if (ok) window.__mmPipEnteredAt = Date.now();
                 postDiag('enter.result', {
                   reason: why,
-                  inPip: anyInPiP(),
+                  inPip: ok,
                   prefer: !!window.__mmPreferPip,
-                  video: videoProbe(pickVideo())
+                  video: videoProbe(v3)
                 });
               }, 240);
             }, 280);
@@ -1533,6 +2040,15 @@ enum MediaPlaybackSupport {
                   }
                   return;
                 }
+                // Simulator / unsupported element: webkit mode latches without a real PiP
+                // window and freezes the whole UI — abort immediately.
+                if (videoSupportsPip(v) === false) {
+                  abortZombiePip('presentationUnsupported', v);
+                  try { e.stopImmediatePropagation(); } catch (err) {
+                    try { e.stopPropagation(); } catch (err2) {}
+                  }
+                  return;
+                }
                 if (window.__mmPipSuppressed) {
                   // Another tab took audio — finish tearing down instead of reclaiming.
                   try {
@@ -1543,6 +2059,7 @@ enum MediaPlaybackSupport {
                 } else {
                   pipLeftAt = 0;
                   window.__mmPreferPip = true;
+                  window.__mmPipEnteredAt = Date.now();
                   v.dataset.mmWantPip = '1';
                   v.dataset.mmWantPlay = '1';
                   postPip(true);
@@ -1576,6 +2093,7 @@ enum MediaPlaybackSupport {
             }
             pipLeftAt = 0;
             window.__mmPreferPip = true;
+            window.__mmPipEnteredAt = Date.now();
             if (v && v.tagName === 'VIDEO') {
               v.dataset.mmWantPip = '1';
               v.dataset.mmWantPlay = '1';
@@ -1762,6 +2280,5 @@ enum MediaPlaybackSupport {
           }, true);
         })();
         """
-        return WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: false)
     }
 }
