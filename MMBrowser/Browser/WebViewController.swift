@@ -17,11 +17,11 @@ protocol WebViewControllerDelegate: AnyObject {
     func webViewController(_ controller: WebViewController, didDetectSessionAvatar url: URL?)
     func webViewController(_ controller: WebViewController, suggestComputerUserAgentFor siteName: String)
     func webViewController(_ controller: WebViewController, autoApplyComputerUserAgentFor siteName: String)
-    func webViewController(_ controller: WebViewController, didOfferOfflineVideo candidate: XVideoOfflineCandidate)
+    func webViewController(_ controller: WebViewController, didOfferOfflineVideo candidate: PageMediaCandidate)
 }
 
 extension WebViewControllerDelegate {
-    func webViewController(_ controller: WebViewController, didOfferOfflineVideo candidate: XVideoOfflineCandidate) {}
+    func webViewController(_ controller: WebViewController, didOfferOfflineVideo candidate: PageMediaCandidate) {}
 }
 
 final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
@@ -269,14 +269,15 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
     private var didInstallYouTubeScripts = false
     /// Large media/PiP bridge — installed before first likely-media document load (or PiP intent).
     private var didInstallMediaScript = false
-    private var didInstallXVideoOfflineScript = false
-    private let xVideoOfflineProbe = XVideoOfflineProbe()
+    private var didInstallPageMediaScript = false
+    private let pageMediaProbe = PageMediaProbe()
 
     /// Offline-save candidate for the page menu (progressive MP4 or HLS; nil when unavailable / Private).
-    var offlineVideoCandidate: XVideoOfflineCandidate? {
+    var offlineVideoCandidate: PageMediaCandidate? {
         guard !isIncognito else { return nil }
-        guard let candidate = xVideoOfflineProbe.bestCandidate else { return nil }
-        if xVideoOfflineProbe.isAlreadySavedOrDownloading(candidate) { return nil }
+        if OfflineMediaCopyrightPolicy.restrictsAudioVideo(on: webView?.url) { return nil }
+        guard let candidate = pageMediaProbe.bestCandidate else { return nil }
+        if pageMediaProbe.isAlreadySavedOrDownloading(candidate) { return nil }
         return candidate
     }
     private var httpsFallbackAttempted = false
@@ -432,7 +433,7 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
             config.userContentController.addUserScript(XSiteProbe.userScript)
         }
         if !isIncognito {
-            config.userContentController.add(proxy, name: XVideoOfflineProbe.handlerName)
+            config.userContentController.add(proxy, name: PageMediaProbe.handlerName)
             config.userContentController.addUserScript(BrowserAutofillCoordinator.userScript)
         }
         // Default WKWebView UA omits "Safari/…" which makes x.com issue x-safari-https:// kickouts.
@@ -773,11 +774,11 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
                 ucc.addUserScript(MediaPlaybackSupport.mediaUserScript)
             }
         }
-        if !isIncognito, !didInstallXVideoOfflineScript, XVideoOfflineProbe.isSupportedPage(url) {
-            didInstallXVideoOfflineScript = true
-            ucc.addUserScript(XVideoOfflineProbe.userScript)
+        if !isIncognito, !didInstallPageMediaScript, PageMediaProbe.isEligiblePage(url) {
+            didInstallPageMediaScript = true
+            ucc.addUserScript(PageMediaProbe.userScript)
             // If the document is already loaded, user scripts alone won't run until next navigation.
-            webView.evaluateJavaScript(XVideoOfflineProbe.scriptSourceForEvaluation, completionHandler: nil)
+            webView.evaluateJavaScript(PageMediaProbe.scriptSourceForEvaluation, completionHandler: nil)
         }
         guard YouTubeDarkMode.isYouTube(url), !didInstallYouTubeScripts else { return }
         didInstallYouTubeScripts = true
@@ -1847,12 +1848,11 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         XSiteProbe.logJS(body)
     }
 
-    fileprivate func handleXVideoOfflineMessage(_ message: WKScriptMessage) {
+    fileprivate func handlePageMediaMessage(_ message: WKScriptMessage) {
         guard !isIncognito else { return }
         guard let body = message.body as? [String: Any] else { return }
         let event = (body["event"] as? String) ?? ""
-        guard event == "playing" || event == "resources" || event == "play"
-            || event == "fullscreen" || event == "fullscreenExit" else {
+        guard event == "playing" || event == "resources" || event == "play" else {
             return
         }
 
@@ -1860,107 +1860,55 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         let statusID = body["statusID"] as? String
         let currentSrc = body["currentSrc"] as? String
         let resources = body["resources"] as? [String] ?? []
-        let reason = body["reason"] as? String ?? ""
-        let fullscreenFlag = (body["fullscreen"] as? Int).map { $0 != 0 }
-            ?? (body["fullscreen"] as? Bool)
-            ?? (event == "fullscreen")
-        let adultSite = XVideoOfflineProbe.isAdultVideoPageURLString(pageURL)
-            || XVideoOfflineProbe.isAdultVideoPage(webView?.url)
-        XVideoOfflineProbe.log("js.\(event)", [
+        PageMediaProbe.log("js.\(event)", [
             "statusID": statusID ?? "",
             "currentSrc": currentSrc ?? "",
             "resourceCount": resources.count,
-            "fullscreen": fullscreenFlag,
-            "adult": adultSite,
-            "reason": reason,
             "w": body["width"] as? Int ?? 0,
             "h": body["height"] as? Int ?? 0
         ])
 
-        // Always seed page context + media URLs.
-        xVideoOfflineProbe.notePageContext(pageURL: pageURL, statusID: statusID)
-        // Pin real player currentSrc (master.m3u8) even when event is just `resources`.
-        xVideoOfflineProbe.noteCurrentSrc(currentSrc)
+        pageMediaProbe.notePageContext(pageURL: pageURL, statusID: statusID)
+        pageMediaProbe.noteCurrentSrc(currentSrc)
         for raw in resources {
-            // PH sometimes JSON-escapes slashes.
             let cleaned = raw.replacingOccurrences(of: "\\/", with: "/")
             guard let url = URL(string: cleaned) else { continue }
-            _ = xVideoOfflineProbe.noteMediaURL(url, mimeType: nil)
+            _ = pageMediaProbe.noteMediaURL(url, mimeType: nil)
         }
 
-        // PH / XV / XNXX: toast on fullscreen. Native iOS FS covers our toast, so also offer on exit.
-        if adultSite {
-            if event == "fullscreen" || (fullscreenFlag && (event == "playing" || event == "play")) {
-                _ = xVideoOfflineProbe.notePlaying(pageURL: pageURL, statusID: statusID, currentSrc: currentSrc)
-                pendingAdultOfflineOffer = true
-                maybeOfferOfflineVideoSave(force: false)
-                // If toast was covered by system video FS, re-offer shortly after enter as fallback.
-                scheduleAdultOfflineOfferRetry()
-            } else if event == "fullscreenExit" {
-                _ = xVideoOfflineProbe.notePlaying(pageURL: pageURL, statusID: statusID, currentSrc: currentSrc)
-                if pendingAdultOfflineOffer || xVideoOfflineProbe.bestCandidate != nil {
-                    pendingAdultOfflineOffer = false
-                    // Delay so the system fullscreen player has finished dismissing.
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
-                        self?.maybeOfferOfflineVideoSave(force: true)
-                    }
-                }
-            }
-        } else if event == "playing" || event == "play" {
-            _ = xVideoOfflineProbe.notePlaying(pageURL: pageURL, statusID: statusID, currentSrc: currentSrc)
-            maybeOfferOfflineVideoSave(force: false)
-        } else if xVideoOfflineProbe.isArmed {
-            maybeOfferOfflineVideoSave(force: false)
+        if event == "playing" || event == "play" {
+            _ = pageMediaProbe.notePlaying(pageURL: pageURL, statusID: statusID, currentSrc: currentSrc)
         }
-    }
-
-    /// Adult sites: system fullscreen covers in-app toasts; retry / show after exit.
-    private var pendingAdultOfflineOffer = false
-    private var adultOfflineOfferRetryWorkItem: DispatchWorkItem?
-
-    private func scheduleAdultOfflineOfferRetry() {
-        adultOfflineOfferRetryWorkItem?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let self else { return }
-            // Still pending means the first toast likely never landed (covered by FS).
-            if self.pendingAdultOfflineOffer {
-                self.maybeOfferOfflineVideoSave(force: true)
-            }
-        }
-        adultOfflineOfferRetryWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: work)
-    }
-
-    private func maybeOfferOfflineVideoSave(force: Bool = false) {
-        // In-page "Save this video offline?" prompt is disabled.
-        _ = force
+        // Auto toast disabled — Save / Watch Later are user-triggered.
     }
 
     /// Starts a cookie-aware download for the best offline candidate (progressive MP4, else HLS).
     @discardableResult
     func startOfflineVideoDownload() -> Bool {
         guard !isIncognito else {
-            XVideoOfflineProbe.log("download.abort", ["why": "incognito"])
+            PageMediaProbe.log("download.abort", ["why": "incognito"])
             return false
         }
-        // Adult sites: HLS of the playing video. X: progressive when real, else HLS (not CMAF init).
-        let candidate = xVideoOfflineProbe.bestCandidate
+        if OfflineMediaCopyrightPolicy.restrictsAudioVideo(on: webView?.url) {
+            PageMediaProbe.log("download.abort", ["why": "copyrightPolicy"])
+            Toast.show(OfflineMediaCopyrightPolicy.saveVideoBlockedNotice, from: self)
+            return false
+        }
+        let candidate = pageMediaProbe.bestCandidate
         guard let candidate else {
-            XVideoOfflineProbe.log("download.abort", [
+            PageMediaProbe.log("download.abort", [
                 "why": "noCandidate",
-                "armed": xVideoOfflineProbe.isArmed
+                "armed": pageMediaProbe.isArmed
             ])
             return false
         }
-        if xVideoOfflineProbe.isAlreadySavedOrDownloading(candidate) {
-            XVideoOfflineProbe.log("download.abort", ["why": "alreadySavedOrDownloading"])
-            xVideoOfflineProbe.markDownloadStarted(candidate)
-            pendingAdultOfflineOffer = false
+        if pageMediaProbe.isAlreadySavedOrDownloading(candidate) {
+            PageMediaProbe.log("download.abort", ["why": "alreadySavedOrDownloading"])
+            pageMediaProbe.markDownloadStarted(candidate)
             return false
         }
-        xVideoOfflineProbe.markDownloadStarted(candidate)
-        pendingAdultOfflineOffer = false
-        XVideoOfflineProbe.log("download.start", [
+        pageMediaProbe.markDownloadStarted(candidate)
+        PageMediaProbe.log("download.start", [
             "file": candidate.suggestedFileName,
             "mime": candidate.mimeType ?? (candidate.isHLS ? "application/vnd.apple.mpegurl" : "video/mp4"),
             "rank": candidate.rank,
@@ -1968,7 +1916,7 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
             "statusID": candidate.statusID ?? "",
             "url": candidate.url.absoluteString
         ])
-        let refererPair = XVideoOfflineProbe.downloadRefererOrigin(
+        let refererPair = PageMediaProbe.downloadRefererOrigin(
             for: candidate.url,
             pageURL: candidate.pageURL ?? webView?.url?.absoluteString
         )
@@ -1977,7 +1925,7 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
             "Origin": refererPair.origin
         ]
         if candidate.isHLS {
-            DownloadManager.shared.startXHLSOffline(
+            DownloadManager.shared.startHLSOffline(
                 masterURL: candidate.url,
                 suggestedName: candidate.suggestedFileName,
                 from: webView
@@ -1996,8 +1944,7 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
             guard let self else { return }
             Toast.show("Downloading \(item.fileName)…", from: self)
         }
-        // `start(from:)` already applies site Referer via media-host defaults; keep pair for logging.
-        XVideoOfflineProbe.log("download.headers", [
+        PageMediaProbe.log("download.headers", [
             "referer": siteHeaders["Referer"] ?? "",
             "origin": siteHeaders["Origin"] ?? ""
         ])
@@ -2185,8 +2132,8 @@ private final class WebViewScriptProxy: NSObject, WKScriptMessageHandler {
             target?.handlePictureInPictureMessage(message)
         case XSiteProbe.handlerName:
             target?.handleXSiteProbeMessage(message)
-        case XVideoOfflineProbe.handlerName:
-            target?.handleXVideoOfflineMessage(message)
+        case PageMediaProbe.handlerName:
+            target?.handlePageMediaMessage(message)
         default:
             break
         }
@@ -2316,11 +2263,8 @@ extension WebViewController: WKNavigationDelegate {
                 return
             }
 
-            if !isIncognito, XVideoOfflineProbe.isLikelyMediaURL(url) {
-                _ = xVideoOfflineProbe.noteMediaURL(url, mimeType: nil)
-                if xVideoOfflineProbe.isArmed {
-                    maybeOfferOfflineVideoSave()
-                }
+            if !isIncognito, PageMediaProbe.isLikelyMediaURL(url) {
+                _ = pageMediaProbe.noteMediaURL(url, mimeType: nil)
             }
 
             let scheme = (url.scheme ?? "").lowercased()
@@ -2366,8 +2310,8 @@ extension WebViewController: WKNavigationDelegate {
                     && !didInstallMediaScript
                     && MediaPlaybackSupport.shouldInstallScript(for: url)
                 let needsOfflineVideoScript = !isIncognito
-                    && !didInstallXVideoOfflineScript
-                    && XVideoOfflineProbe.isSupportedPage(url)
+                    && !didInstallPageMediaScript
+                    && PageMediaProbe.isEligiblePage(url)
                 if needsYouTubeScripts || needsMediaScript || needsOfflineVideoScript {
                     ensureOnDemandScripts(for: url)
                     decisionHandler(.cancel)
@@ -2409,12 +2353,10 @@ extension WebViewController: WKNavigationDelegate {
         let isMain = navigationResponse.isForMainFrame
         if !isIncognito, let url = response.url {
             let mime = response.mimeType
-            if XVideoOfflineProbe.isLikelyMediaURL(url)
-                || (mime?.lowercased().hasPrefix("video/") == true && XVideoOfflineProbe.isMediaHost(url.host)) {
-                _ = xVideoOfflineProbe.noteMediaURL(url, mimeType: mime)
-                if xVideoOfflineProbe.isArmed {
-                    maybeOfferOfflineVideoSave()
-                }
+            if PageMediaProbe.isLikelyMediaURL(url)
+                || mime?.lowercased().hasPrefix("video/") == true
+                || (mime?.lowercased().contains("mpegurl") == true) {
+                _ = pageMediaProbe.noteMediaURL(url, mimeType: mime)
             }
         }
         guard DownloadManager.shouldDownload(response: response, isForMainFrame: isMain),
@@ -2427,8 +2369,10 @@ extension WebViewController: WKNavigationDelegate {
             decisionHandler(.allow)
             return
         }
-        // Never cancel inline X/Twitter video playback to "download" it automatically.
-        if XVideoOfflineProbe.isLikelyMediaURL(url) || XVideoOfflineProbe.isMediaHost(url.host) {
+        // Never cancel inline media playback to download it automatically.
+        if PageMediaProbe.isLikelyMediaURL(url)
+            || response.mimeType?.lowercased().hasPrefix("video/") == true
+            || (response.mimeType?.lowercased().contains("mpegurl") == true) {
             decisionHandler(.allow)
             return
         }
@@ -2442,17 +2386,17 @@ extension WebViewController: WKNavigationDelegate {
             PageCleanerManager.apply(to: webView, url: webView.url)
         }
         // Fresh document — clear armed state / candidates, unless same watch page
-        // (PH fullscreen / ad iframes often commit navigations that would wipe HLS masters).
-        let stayingOnSupported = XVideoOfflineProbe.isSupportedPage(webView.url)
-        let prevVideoID = XVideoOfflineProbe.videoID(fromPageURL: xVideoOfflineProbe.pageURL)
-        let nextVideoID = XVideoOfflineProbe.videoID(fromPageURL: webView.url?.absoluteString)
+        // (embedded players / ad iframes often commit navigations that would wipe HLS masters).
+        let stayingOnPage = PageMediaProbe.isEligiblePage(webView.url)
+        let prevVideoID = PageMediaProbe.videoID(fromPageURL: pageMediaProbe.pageURL)
+        let nextVideoID = PageMediaProbe.videoID(fromPageURL: webView.url?.absoluteString)
         let sameWatchPage = prevVideoID != nil && prevVideoID == nextVideoID
         if sameWatchPage {
-            xVideoOfflineProbe.notePageContext(pageURL: webView.url?.absoluteString, statusID: nextVideoID)
+            pageMediaProbe.notePageContext(pageURL: webView.url?.absoluteString, statusID: nextVideoID)
         } else {
-            xVideoOfflineProbe.reset()
-            if !stayingOnSupported {
-                xVideoOfflineProbe.clearSessionOffers()
+            pageMediaProbe.reset()
+            if !stayingOnPage {
+                pageMediaProbe.clearSessionOffers()
             }
         }
         desktopUAHintGeneration += 1
@@ -2966,7 +2910,7 @@ extension WebViewController: WKUIDelegate {
                             self?.beginDownload(url: linkURL, suggestedName: linkURL.lastPathComponent)
                         })
                     }
-                    actions.append(UIAction(title: "Add to watch later", image: UIImage(systemName: "clock.badge.checkmark")) { [weak self] _ in
+                    actions.append(UIAction(title: "Add to Watch Later", image: UIImage(systemName: "clock.badge.checkmark")) { [weak self] _ in
                         self?.addLinkToWatchLater(linkURL)
                     })
                 }
@@ -3075,7 +3019,14 @@ extension WebViewController: WKUIDelegate {
         let title = url.host ?? "Saved"
         let containerID = browsingContainerID ?? ContainerScope.resolveContainerID(nil)
         if WatchLaterStore.shared.add(title: title, url: url, containerID: containerID) != nil {
-            Toast.show("Added to Watch Later", from: self)
+            if OfflineMediaCopyrightPolicy.restrictsAudioVideo(on: url) {
+                Toast.show(
+                    "Added to Watch Later. \(OfflineMediaCopyrightPolicy.watchLaterNotice)",
+                    from: self
+                )
+            } else {
+                Toast.show("Added to Watch Later", from: self)
+            }
             if webView?.url?.absoluteString == url.absoluteString {
                 cacheCurrentPageForWatchLater(matching: url)
             }
@@ -3091,9 +3042,21 @@ extension WebViewController: WKUIDelegate {
         guard let item = WatchLaterStore.shared.items(containerID: containerID).first(where: { $0.urlString == url.absoluteString }) else {
             return
         }
-        let candidate = xVideoOfflineProbe.bestCandidate
+        let copyrightBlocksAV = OfflineMediaCopyrightPolicy.restrictsAudioVideo(on: url)
+        let candidate = copyrightBlocksAV ? nil : pageMediaProbe.bestCandidate
         WatchLaterStore.shared.markCaching(id: item.id, hasVideo: candidate != nil)
         let itemID = item.id
+        // Video can download in parallel while we warm image subresources for the archive.
+        // YouTube / Vimeo: page text+images only (copyright policy).
+        if let candidate {
+            downloadWatchLaterVideo(candidate, itemID: itemID)
+        }
+        preparePageImagesForOfflineArchive(in: webView) { [weak self] in
+            self?.writeWatchLaterWebArchive(from: webView, itemID: itemID)
+        }
+    }
+
+    private func writeWatchLaterWebArchive(from webView: WKWebView, itemID: UUID) {
         webView.createWebArchiveData { result in
             DispatchQueue.main.async {
                 switch result {
@@ -3111,19 +3074,517 @@ extension WebViewController: WKUIDelegate {
                 }
             }
         }
-        if let candidate {
-            downloadWatchLaterVideo(candidate, itemID: itemID)
+    }
+
+    /// Eager-load lazy images, then inline them as data URIs before archiving.
+    private func preparePageImagesForOfflineArchive(in webView: WKWebView, completion: @escaping () -> Void) {
+        let finish = { DispatchQueue.main.async { completion() } }
+        webView.callAsyncJavaScript(
+            Self.prepareImagesForArchiveScript,
+            arguments: [:],
+            in: nil,
+            in: .page
+        ) { [weak self] result in
+            guard let self else { finish(); return }
+            var urls: [String] = []
+            if case .success(let value) = result {
+                if let dict = value as? [String: Any] {
+                    urls = dict["urls"] as? [String] ?? []
+                    PageMediaProbe.log("archive.images", [
+                        "loaded": dict["loaded"] ?? 0,
+                        "urlCount": urls.count
+                    ])
+                } else {
+                    PageMediaProbe.log("archive.images", ["loaded": "\(value)"])
+                }
+            } else if case .failure(let error) = result {
+                PageMediaProbe.log("archive.images", ["error": error.localizedDescription])
+            }
+            self.inlineRemoteImagesForArchive(urls: urls, in: webView, completion: finish)
         }
     }
 
-    private func downloadWatchLaterVideo(_ candidate: XVideoOfflineCandidate, itemID: UUID) {
+    private func inlineRemoteImagesForArchive(urls: [String], in webView: WKWebView, completion: @escaping () -> Void) {
+        // Prefer first N (JS already ranks); keep payload small enough for JS bridges.
+        let unique = urls
+            .filter { $0.lowercased().hasPrefix("http") }
+            .reduce(into: [String]()) { acc, u in
+                if !acc.contains(u) { acc.append(u) }
+            }
+            .prefix(48)
+        guard !unique.isEmpty else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: completion)
+            return
+        }
+        let pageURL = webView.url?.absoluteString
+        let pageUA = webView.customUserAgent
+            ?? "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+        let store = webView.configuration.websiteDataStore.httpCookieStore
+        store.getAllCookies { [weak self] all in
+            guard let self else { completion(); return }
+            let group = DispatchGroup()
+            let lock = NSLock()
+            var dataURLs: [String: String] = [:]
+            let session = URLSession(configuration: {
+                let c = URLSessionConfiguration.ephemeral
+                c.timeoutIntervalForRequest = 10
+                c.httpMaximumConnectionsPerHost = 6
+                return c
+            }())
+            for raw in unique {
+                guard let url = URL(string: raw) else { continue }
+                group.enter()
+                var request = URLRequest(url: url, timeoutInterval: 10)
+                request.setValue("image/avif,image/webp,image/apng,image/*,*/*;q=0.8", forHTTPHeaderField: "Accept")
+                request.setValue(pageUA, forHTTPHeaderField: "User-Agent")
+                let pair = PageMediaProbe.downloadRefererOrigin(for: url, pageURL: pageURL)
+                if !pair.referer.isEmpty {
+                    request.setValue(pair.referer, forHTTPHeaderField: "Referer")
+                    request.setValue(pair.origin, forHTTPHeaderField: "Origin")
+                }
+                let related = PageMediaProbe.relatedCookieHosts(for: url, pageURL: pageURL)
+                let cookies = all.filter { cookie in
+                    let domain = cookie.domain.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+                    return related.contains { host in
+                        host == domain || host.hasSuffix("." + domain) || domain.hasSuffix(host)
+                    }
+                }
+                if !cookies.isEmpty {
+                    for (k, v) in HTTPCookie.requestHeaderFields(with: cookies) {
+                        request.setValue(v, forHTTPHeaderField: k)
+                    }
+                }
+                session.dataTask(with: request) { data, response, _ in
+                    defer { group.leave() }
+                    guard let data, !data.isEmpty, data.count <= 2_000_000 else { return }
+                    let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                    guard (200..<400).contains(status) || status == 0 else { return }
+                    var mime = (response as? HTTPURLResponse)?.mimeType
+                        ?? response?.mimeType
+                        ?? Self.guessImageMIME(for: url, data: data)
+                    if mime == "application/octet-stream" || mime.isEmpty {
+                        mime = Self.guessImageMIME(for: url, data: data)
+                    }
+                    // Accept image/* and octet-stream that looks like an image.
+                    let looksImage = mime.hasPrefix("image/")
+                        || Self.guessImageMIME(for: url, data: data).hasPrefix("image/")
+                    guard looksImage else { return }
+                    if !mime.hasPrefix("image/") {
+                        mime = Self.guessImageMIME(for: url, data: data)
+                    }
+                    let dataURL = "data:\(mime);base64,\(data.base64EncodedString())"
+                    lock.lock()
+                    dataURLs[raw] = dataURL
+                    lock.unlock()
+                }.resume()
+            }
+            group.notify(queue: .main) {
+                guard !dataURLs.isEmpty else {
+                    PageMediaProbe.log("archive.inline", ["count": 0, "attempted": unique.count])
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: completion)
+                    return
+                }
+                PageMediaProbe.log("archive.inline", ["count": dataURLs.count, "attempted": unique.count])
+                self.applyDataURIReplacements(dataURLs, in: webView, completion: completion)
+            }
+        }
+    }
+
+    /// Apply in small batches — a single huge argument map often fails silently in WK.
+    private func applyDataURIReplacements(
+        _ dataURLs: [String: String],
+        in webView: WKWebView,
+        completion: @escaping () -> Void
+    ) {
+        let pairs = Array(dataURLs)
+        let batchSize = 4
+        var index = 0
+        var totalApplied = 0
+
+        func applyNext() {
+            if index >= pairs.count {
+                PageMediaProbe.log("archive.inlineApplied", ["n": totalApplied])
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: completion)
+                return
+            }
+            let end = min(index + batchSize, pairs.count)
+            var slice: [String: String] = [:]
+            for i in index..<end {
+                slice[pairs[i].key] = pairs[i].value
+            }
+            index = end
+            webView.callAsyncJavaScript(
+                Self.replaceImagesWithDataURIScript,
+                arguments: ["map": slice],
+                in: nil,
+                in: .page
+            ) { result in
+                if case .success(let value) = result {
+                    totalApplied += (value as? Int) ?? (value as? Double).map(Int.init) ?? 0
+                }
+                applyNext()
+            }
+        }
+        applyNext()
+    }
+
+    private static func guessImageMIME(for url: URL, data: Data) -> String {
+        let ext = url.pathExtension.lowercased()
+        switch ext {
+        case "png": return "image/png"
+        case "gif": return "image/gif"
+        case "webp": return "image/webp"
+        case "svg": return "image/svg+xml"
+        case "jpg", "jpeg": return "image/jpeg"
+        case "ico": return "image/x-icon"
+        default: break
+        }
+        if data.count >= 12, data[0] == 0x52, data[1] == 0x49, data[2] == 0x46, data[3] == 0x46,
+           data[8] == 0x57, data[9] == 0x45, data[10] == 0x42, data[11] == 0x50 {
+            return "image/webp"
+        }
+        if data.starts(with: [0x89, 0x50, 0x4E, 0x47]) { return "image/png" }
+        if data.starts(with: [0xFF, 0xD8, 0xFF]) { return "image/jpeg" }
+        if data.starts(with: [0x47, 0x49, 0x46]) { return "image/gif" }
+        if data.starts(with: [0x3C, 0x73, 0x76, 0x67]) || data.starts(with: [0x3C, 0x3F, 0x78, 0x6D]) {
+            return "image/svg+xml"
+        }
+        return "image/jpeg"
+    }
+
+    /// Site-agnostic: promote lazy attrs, harvest performance/DOM URLs, rank for offline keep.
+    private static let prepareImagesForArchiveScript = #"""
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function pickFromSrcset(srcset) {
+  if (!srcset) return null;
+  const parts = String(srcset).split(',').map((s) => s.trim()).filter(Boolean);
+  if (!parts.length) return null;
+  // Prefer the widest candidate when descriptors exist.
+  let best = null, bestW = -1;
+  for (const part of parts) {
+    const bits = part.split(/\s+/);
+    const u = bits[0];
+    const w = parseInt((bits[1] || '').replace(/[^\d]/g, ''), 10) || 0;
+    if (!best || w >= bestW) { best = u; bestW = w; }
+  }
+  return best || parts[parts.length - 1].split(/\s+/)[0] || null;
+}
+
+function isMediaURL(u) {
+  return /\.(mp4|m3u8|webm|m4s|ts|mpd)(\?|$)/i.test(u || '');
+}
+
+function isLikelyImageURL(u) {
+  if (!u || !/^https?:/i.test(u)) return false;
+  if (isMediaURL(u)) return false;
+  if (/^data:/i.test(u)) return false;
+  if (/\.(jpg|jpeg|png|webp|gif|svg|ico|avif|bmp)(\?|$)/i.test(u)) return true;
+  if (/\/(i|img|image|images|imgs|thumb|thumbnail|avatar|icon|icons|static|media|photo|photos|pic|pics)\b/i.test(u)) return true;
+  if (/[?&](format|fm|type)=(jpg|jpeg|png|webp|gif|image)/i.test(u)) return true;
+  // Path tokens that usually mean a raster asset (no host allowlists).
+  if (/\/(?:vi|img|image|images|thumb|thumbs|avatar|avatars|icon|icons|media|photos?)\/[^/]+/i.test(u)) return true;
+  return false;
+}
+
+function upgradeImage(img) {
+  try {
+    const attrs = [
+      'data-src', 'data-lazy-src', 'data-original', 'data-thumb', 'data-thumbnail',
+      'data-url', 'data-image', 'data-bg', 'data-background', 'data-poster',
+      'data-lazy', 'data-src-large', 'data-full-src'
+    ];
+    for (const name of attrs) {
+      const v = img.getAttribute && img.getAttribute(name);
+      if (v && /^https?:/i.test(v)) {
+        if (img.tagName === 'VIDEO') {
+          if (!img.getAttribute('poster')) img.setAttribute('poster', v);
+        } else if (!img.getAttribute('src') || /placeholder|data:image\/svg|1x1|pixel|blur/i.test(img.getAttribute('src') || '')) {
+          img.setAttribute('src', v);
+        }
+      }
+    }
+    const srcset = img.getAttribute('srcset') || img.getAttribute('data-srcset');
+    const best = pickFromSrcset(srcset);
+    if (best && /^https?:/i.test(best)) {
+      img.setAttribute('src', best);
+      img.removeAttribute('srcset');
+      img.removeAttribute('data-srcset');
+    }
+    if (img.tagName === 'IMG' || img.tagName === 'SOURCE' || img.tagName === 'IMAGE') {
+      img.setAttribute('loading', 'eager');
+      img.loading = 'eager';
+      img.setAttribute('decoding', 'sync');
+      try { img.decode && img.decode().catch(() => {}); } catch (e) {}
+    }
+  } catch (e) {}
+}
+
+function upgradeBackground(el) {
+  try {
+    const attrs = ['data-bg', 'data-background', 'data-src', 'data-thumb', 'data-image', 'data-thumbnail'];
+    for (const name of attrs) {
+      const v = el.getAttribute && el.getAttribute(name);
+      if (v && /^https?:/i.test(v)) {
+        const style = el.getAttribute('style') || '';
+        if (!/background(-image)?\s*:/i.test(style)) {
+          el.setAttribute('style', style + ';background-image:url("' + v + '")');
+        }
+        break;
+      }
+    }
+  } catch (e) {}
+}
+
+function walk(root) {
+  if (!root || !root.querySelectorAll) return;
+  root.querySelectorAll('img, source, video, image').forEach(upgradeImage);
+  root.querySelectorAll('[data-bg], [data-background], [data-thumb], [data-image], [data-thumbnail], [data-src]').forEach(upgradeBackground);
+  root.querySelectorAll('*').forEach((el) => {
+    try { if (el.shadowRoot) walk(el.shadowRoot); } catch (e) {}
+  });
+}
+
+function scoreURL(u, el) {
+  let s = 0;
+  if (/thumbnail|thumb|avatar|profile|poster|cover|preview/i.test(u)) s += 50;
+  if (/\.(jpg|jpeg|png|webp)(\?|$)/i.test(u)) s += 15;
+  if (/\.svg(\?|$)/i.test(u)) s += 5;
+  if (/icon|sprite|logo|favicon/i.test(u)) s += 8;
+  try {
+    if (el && el.getBoundingClientRect) {
+      const r = el.getBoundingClientRect();
+      const area = Math.max(0, r.width) * Math.max(0, r.height);
+      if (area > 20000) s += 40;
+      else if (area > 4000) s += 25;
+      else if (area > 400) s += 10;
+      if (r.top < (window.innerHeight || 800) && r.bottom > 0) s += 20;
+    }
+  } catch (e) {}
+  return s;
+}
+
+function collectImageURLs(root) {
+  const scored = [];
+  const seen = {};
+  function push(u, el, bonus) {
+    if (!u) return;
+    u = String(u).trim();
+    if (!isLikelyImageURL(u)) return;
+    if (seen[u]) return;
+    seen[u] = 1;
+    scored.push({ u, s: scoreURL(u, el) + (bonus || 0) });
+  }
+  function urlsInString(s, el, bonus) {
+    if (!s) return;
+    const re = /https?:\/\/[^\s"'\\<>]+/g;
+    let m;
+    while ((m = re.exec(String(s)))) {
+      let u = m[0].replace(/[),.;]+$/, '');
+      push(u, el, bonus);
+    }
+  }
+  function visit(node) {
+    if (!node || !node.querySelectorAll) return;
+    node.querySelectorAll('img, source, image').forEach((el) => {
+      push(el.currentSrc || el.getAttribute('src'), el, 30);
+      push(el.getAttribute('data-src'), el, 20);
+      push(el.getAttribute('data-thumb'), el, 20);
+      push(pickFromSrcset(el.getAttribute('srcset') || el.getAttribute('data-srcset')), el, 25);
+    });
+    node.querySelectorAll('video').forEach((el) => push(el.getAttribute('poster'), el, 35));
+    node.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"], link[rel="icon"], link[rel="apple-touch-icon"]').forEach((el) => {
+      push(el.getAttribute('content') || el.getAttribute('href'), el, 50);
+    });
+    const all = node.querySelectorAll('*');
+    for (let i = 0; i < all.length; i++) {
+      const el = all[i];
+      try {
+        if (el.attributes) {
+          for (let a = 0; a < el.attributes.length; a++) {
+            const v = el.attributes[a].value;
+            if (v && v.indexOf('http') !== -1) urlsInString(v, el, 5);
+          }
+        }
+        const inline = (el.getAttribute && el.getAttribute('style')) || '';
+        urlsInString(inline, el, 10);
+        try {
+          const bg = (window.getComputedStyle && getComputedStyle(el).backgroundImage) || '';
+          urlsInString(bg, el, 15);
+        } catch (e) {}
+        if (el.shadowRoot) visit(el.shadowRoot);
+      } catch (e) {}
+    }
+  }
+  visit(root);
+  try {
+    const entries = performance.getEntriesByType('resource') || [];
+    for (const e of entries) {
+      const name = e.name || '';
+      const init = e.initiatorType || '';
+      if (init === 'img' || init === 'css' || init === 'link' || isLikelyImageURL(name)) {
+        push(name, null, init === 'img' ? 40 : 10);
+      }
+    }
+  } catch (e) {}
+  scored.sort((a, b) => b.s - a.s);
+  return scored.map((x) => x.u).slice(0, 56);
+}
+
+async function waitForImages(root) {
+  const imgs = [];
+  function collect(node) {
+    if (!node || !node.querySelectorAll) return;
+    node.querySelectorAll('img').forEach((img) => imgs.push(img));
+    node.querySelectorAll('*').forEach((el) => {
+      try { if (el.shadowRoot) collect(el.shadowRoot); } catch (e) {}
+    });
+  }
+  collect(root);
+  await Promise.all(imgs.slice(0, 80).map((img) => new Promise((resolve) => {
+    try {
+      if (img.complete && img.naturalWidth > 0) { resolve(); return; }
+      const done = () => resolve();
+      img.addEventListener('load', done, { once: true });
+      img.addEventListener('error', done, { once: true });
+      setTimeout(done, 2800);
+    } catch (e) { resolve(); }
+  })));
+  return imgs.filter((img) => img.naturalWidth > 0).length;
+}
+
+walk(document);
+try {
+  const h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, 0);
+  for (const y of [0, 900, 1800, 2700, Math.min(h, 3600)]) {
+    window.scrollTo(0, y);
+    await sleep(220);
+    walk(document);
+  }
+  window.scrollTo(0, 0);
+  await sleep(160);
+} catch (e) {}
+walk(document);
+const loaded = await waitForImages(document);
+const urls = collectImageURLs(document);
+return { loaded, urls };
+"""#
+
+    private static let replaceImagesWithDataURIScript = #"""
+const replacements = (typeof map === 'object' && map) ? map : {};
+const keys = Object.keys(replacements);
+
+function norm(u) {
+  if (!u) return '';
+  try { return String(u).trim().split('#')[0]; } catch (e) { return String(u); }
+}
+
+function lookup(u) {
+  if (!u) return null;
+  const n = norm(u);
+  if (replacements[u]) return replacements[u];
+  if (replacements[n]) return replacements[n];
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    if (norm(k) === n) return replacements[k];
+    // Match when query params differ but path is identical.
+    try {
+      const a = new URL(k);
+      const b = new URL(n, document.baseURI);
+      if (a.origin === b.origin && a.pathname === b.pathname) return replacements[k];
+    } catch (e) {}
+  }
+  return null;
+}
+
+function setBg(el, dataUrl) {
+  try {
+    const style = el.getAttribute('style') || '';
+    if (/url\(["']?data:/i.test(style)) return false;
+    const cleaned = style.replace(/background-image\s*:\s*[^;]+;?/ig, '');
+    el.setAttribute('style', cleaned + ';background-image:url("' + dataUrl + '");background-size:cover;background-position:center;');
+    return true;
+  } catch (e) { return false; }
+}
+
+function apply(root) {
+  if (!root || !root.querySelectorAll) return 0;
+  let n = 0;
+  root.querySelectorAll('img, source, image').forEach((el) => {
+    try {
+      const candidates = [
+        el.getAttribute('src'), el.currentSrc,
+        el.getAttribute('data-src'), el.getAttribute('data-thumb'),
+        el.getAttribute('data-original'), el.getAttribute('data-lazy-src')
+      ];
+      const srcset = el.getAttribute('srcset') || el.getAttribute('data-srcset');
+      if (srcset) {
+        String(srcset).split(',').forEach((part) => candidates.push(part.trim().split(/\s+/)[0]));
+      }
+      for (const c of candidates) {
+        const data = lookup(c);
+        if (data) {
+          el.setAttribute('src', data);
+          el.removeAttribute('srcset');
+          el.removeAttribute('data-srcset');
+          n += 1;
+          break;
+        }
+      }
+    } catch (e) {}
+  });
+  root.querySelectorAll('video').forEach((el) => {
+    const data = lookup(el.getAttribute('poster'));
+    if (data) { el.setAttribute('poster', data); n += 1; }
+  });
+  root.querySelectorAll('*').forEach((el) => {
+    try {
+      if (el.shadowRoot) n += apply(el.shadowRoot);
+      if (el.attributes) {
+        for (let a = 0; a < el.attributes.length; a++) {
+          const attr = el.attributes[a];
+          const data = lookup(attr.value);
+          if (data && /src|thumb|image|poster|bg|background|url|icon/i.test(attr.name)) {
+            if (attr.name === 'src' || attr.name === 'poster') {
+              el.setAttribute(attr.name, data);
+            } else {
+              setBg(el, data);
+            }
+            n += 1;
+          }
+        }
+      }
+      const style = el.getAttribute('style') || '';
+      const m = style.match(/url\(["']?(https?:[^"')]+)["']?\)/i);
+      if (m) {
+        const data = lookup(m[1]);
+        if (data) {
+          el.setAttribute('style', style.replace(m[0], 'url("' + data + '")'));
+          n += 1;
+        }
+      }
+      try {
+        const bg = (window.getComputedStyle && getComputedStyle(el).backgroundImage) || '';
+        const cm = bg.match(/url\(["']?(https?:[^"')]+)["']?\)/i);
+        if (cm) {
+          const data = lookup(cm[1]);
+          if (data) { if (setBg(el, data)) n += 1; }
+        }
+      } catch (e) {}
+    } catch (e) {}
+  });
+  return n;
+}
+return apply(document);
+"""#
+
+    private func downloadWatchLaterVideo(_ candidate: PageMediaCandidate, itemID: UUID) {
         let fileName = "\(itemID.uuidString).mp4"
         let dest = WatchLaterStore.fileURL(named: fileName)
-        let referer = XVideoOfflineProbe.downloadRefererOrigin(
-            for: candidate.url,
-            pageURL: candidate.pageURL ?? webView?.url?.absoluteString
-        )
-        let begin: ([HTTPCookie]) -> Void = { cookies in
+        let pageURLString = candidate.pageURL ?? webView?.url?.absoluteString
+        let referer = PageMediaProbe.downloadRefererOrigin(for: candidate.url, pageURL: pageURLString)
+        let begin: ([HTTPCookie]) -> Void = { [weak self] cookies in
+            guard let self else { return }
             var headers = [
                 "Referer": referer.referer,
                 "Origin": referer.origin,
@@ -3135,11 +3596,11 @@ extension WebViewController: WKUIDelegate {
                     headers[key] = value
                 }
             }
-            if candidate.isHLS {
+            let packageHLS: (URL) -> Void = { masterURL in
                 DispatchQueue.global(qos: .utility).async {
                     do {
-                        _ = try XVideoHLSOfflinePackager.package(
-                            masterURL: candidate.url,
+                        _ = try MediaHLSOfflinePackager.package(
+                            masterURL: masterURL,
                             destinationURL: dest,
                             headers: headers,
                             progress: nil,
@@ -3154,34 +3615,57 @@ extension WebViewController: WKUIDelegate {
                         }
                     }
                 }
-            } else {
-                var request = URLRequest(url: candidate.url)
-                headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
-                URLSession.shared.downloadTask(with: request) { temp, response, error in
-                    let ok = error == nil
-                        && (response as? HTTPURLResponse).map { (200..<300).contains($0.statusCode) } == true
-                    DispatchQueue.main.async {
-                        guard ok, let temp else {
+            }
+            if candidate.isHLS {
+                packageHLS(candidate.url)
+                return
+            }
+            var request = URLRequest(url: candidate.url)
+            headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
+            URLSession.shared.downloadTask(with: request) { [weak self] temp, response, error in
+                let http = response as? HTTPURLResponse
+                let ok = error == nil && http.map { (200..<300).contains($0.statusCode) } == true
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    guard ok, let temp else {
+                        // Progressive failed — fall back to HLS master when available.
+                        if let hls = self.pageMediaProbe.bestHLSCandidate {
+                            packageHLS(hls.url)
+                        } else {
                             WatchLaterStore.shared.markCacheFailed(id: itemID)
+                        }
+                        return
+                    }
+                    try? FileManager.default.removeItem(at: dest)
+                    do {
+                        try FileManager.default.moveItem(at: temp, to: dest)
+                        let size = ((try? FileManager.default.attributesOfItem(atPath: dest.path))?[.size] as? NSNumber)?.int64Value ?? 0
+                        // Tiny / non-MP4 bodies are almost always previews or CDN error pages.
+                        if size < 64_768 || !Self.fileLooksLikePlayableMP4(dest) {
+                            try? FileManager.default.removeItem(at: dest)
+                            if let hls = self.pageMediaProbe.bestHLSCandidate {
+                                packageHLS(hls.url)
+                            } else {
+                                WatchLaterStore.shared.markCacheFailed(id: itemID)
+                            }
                             return
                         }
-                        try? FileManager.default.removeItem(at: dest)
-                        do {
-                            try FileManager.default.moveItem(at: temp, to: dest)
-                            WatchLaterStore.shared.markVideoSaved(id: itemID, fileName: fileName)
-                        } catch {
-                            WatchLaterStore.shared.markCacheFailed(id: itemID)
-                        }
+                        WatchLaterStore.shared.markVideoSaved(id: itemID, fileName: fileName)
+                    } catch {
+                        WatchLaterStore.shared.markCacheFailed(id: itemID)
                     }
-                }.resume()
-            }
+                }
+            }.resume()
         }
         guard let store = webView?.configuration.websiteDataStore.httpCookieStore else {
             begin([])
             return
         }
         store.getAllCookies { all in
-            let related = XVideoOfflineProbe.relatedCookieHosts(for: candidate.url)
+            let related = PageMediaProbe.relatedCookieHosts(
+                for: candidate.url,
+                pageURL: pageURLString
+            )
             let matched = all.filter { cookie in
                 let domain = cookie.domain.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
                 return related.contains { host in
@@ -3190,6 +3674,15 @@ extension WebViewController: WKUIDelegate {
             }
             DispatchQueue.main.async { begin(matched) }
         }
+    }
+
+    private static func fileLooksLikePlayableMP4(_ url: URL) -> Bool {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return false }
+        defer { try? handle.close() }
+        let prefix = handle.readData(ofLength: 12)
+        guard prefix.count >= 8 else { return false }
+        let ftyp = prefix.subdata(in: 4..<8)
+        return String(data: ftyp, encoding: .ascii) == "ftyp"
     }
 
     private func addLinkToReadingList(_ url: URL) {

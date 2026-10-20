@@ -67,12 +67,18 @@ final class PageRichMenuViewController: UIViewController {
         stack.addArrangedSubview(makeToolsGridCard())
         stack.addArrangedSubview(makeRowsCard([
             row("Add to Bookmarks", symbol: "bookmark", action: .addBookmark, enabled: context.hasLoadablePage && !context.isIncognito),
-            row("Add to watch later", symbol: "clock", action: .addReadingList, enabled: context.hasLoadablePage && !context.isIncognito),
+            row("Add to Watch Later", symbol: "clock", action: .addReadingList, enabled: context.hasLoadablePage && !context.isIncognito),
             row("Add to Favorites", symbol: "star", action: .addToHomepage, enabled: context.hasLoadablePage && !context.isIncognito)
         ]))
         stack.addArrangedSubview(makeRowsCard([
             row("Long screenshot", symbol: "rectangle.bottomthird.inset.filled", action: .longScreenshot, enabled: context.hasLoadablePage),
             row("Save as PDF", symbol: "doc.richtext", action: .sharePDF, enabled: context.hasLoadablePage),
+            row(
+                "Save video for offline",
+                symbol: "arrow.down.circle.fill",
+                action: .saveOfflineVideo,
+                enabled: context.hasLoadablePage && !context.isIncognito && context.canSaveOfflineVideo
+            ),
             row(
                 "Download File",
                 symbol: "arrow.down.circle",

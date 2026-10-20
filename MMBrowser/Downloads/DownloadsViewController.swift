@@ -205,22 +205,22 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
     }
 
     private func previewOrShare(_ item: DownloadItem) {
-        var fields = XVideoOfflineProbe.fileProbeSummary(at: item.fileURL)
+        var fields = PageMediaProbe.fileProbeSummary(at: item.fileURL)
         fields["file"] = item.fileName
         fields["mime"] = item.mimeType ?? ""
         fields["canQL"] = QLPreviewController.canPreview(item.fileURL as QLPreviewItem)
-        XVideoOfflineProbe.log("downloads.open", fields)
+        PageMediaProbe.log("downloads.open", fields)
         if QLPreviewController.canPreview(item.fileURL as QLPreviewItem) {
             preview(item)
         } else {
-            XVideoOfflineProbe.log("downloads.open.fallbackShare", ["file": item.fileName])
+            PageMediaProbe.log("downloads.open.fallbackShare", ["file": item.fileName])
             share(item)
         }
     }
 
     private func preview(_ item: DownloadItem) {
         guard FileManager.default.fileExists(atPath: item.fileURL.path) else {
-            XVideoOfflineProbe.log("downloads.open.fail", ["why": "missing", "file": item.fileName])
+            PageMediaProbe.log("downloads.open.fail", ["why": "missing", "file": item.fileName])
             Toast.show("File missing", from: self)
             return
         }

@@ -37,10 +37,15 @@ struct WatchLaterItem: Codable, Equatable {
 
     /// Page snapshot is stored, and the video file is stored when the page had one.
     var isCacheComplete: Bool {
+        // Prefer explicit state so mid-download file churn never flashes "complete".
+        if cacheState == "saving" || cacheState == "failed" { return false }
+        if cacheState == "ready" { return true }
         guard hasOfflinePage else { return false }
         if hasVideo { return hasVideoFile }
-        return cacheState == "ready"
+        return false
     }
+
+    var isCaching: Bool { cacheState == "saving" }
 
     enum CodingKeys: String, CodingKey {
         case id, containerID, title, urlString, date, hasVideo, pageArchiveName, videoFileName, cacheState

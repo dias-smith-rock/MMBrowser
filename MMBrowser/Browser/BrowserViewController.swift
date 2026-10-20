@@ -117,14 +117,14 @@ final class BrowserViewController: UIViewController {
     private var offlinePlayItem: AVPlayerItem?
 
     private func playDownloadedFile(_ item: DownloadItem) {
-        var probe = XVideoOfflineProbe.fileProbeSummary(at: item.fileURL)
+        var probe = PageMediaProbe.fileProbeSummary(at: item.fileURL)
         probe["file"] = item.fileName
         probe["mime"] = item.mimeType ?? ""
         probe["source"] = item.sourceURL
-        XVideoOfflineProbe.log("play.begin", probe)
+        PageMediaProbe.log("play.begin", probe)
 
         guard FileManager.default.fileExists(atPath: item.fileURL.path) else {
-            XVideoOfflineProbe.log("play.fail", ["why": "missing", "file": item.fileName])
+            PageMediaProbe.log("play.fail", ["why": "missing", "file": item.fileName])
             Toast.show("File missing", from: self)
             return
         }
@@ -134,13 +134,13 @@ final class BrowserViewController: UIViewController {
             let name = (item.asset as? AVURLAsset)?.url.lastPathComponent ?? "?"
             switch item.status {
             case .readyToPlay:
-                XVideoOfflineProbe.log("play.ready", [
+                PageMediaProbe.log("play.ready", [
                     "file": name,
                     "duration": CMTimeGetSeconds(item.duration)
                 ])
             case .failed:
                 let err = item.error as NSError?
-                XVideoOfflineProbe.log("play.fail", [
+                PageMediaProbe.log("play.fail", [
                     "why": "avplayer",
                     "file": name,
                     "domain": err?.domain ?? "",
@@ -148,9 +148,9 @@ final class BrowserViewController: UIViewController {
                     "error": err?.localizedDescription ?? "unknown"
                 ])
             case .unknown:
-                XVideoOfflineProbe.log("play.status", ["status": "unknown", "file": name])
+                PageMediaProbe.log("play.status", ["status": "unknown", "file": name])
             @unknown default:
-                XVideoOfflineProbe.log("play.status", ["status": "other", "file": name])
+                PageMediaProbe.log("play.status", ["status": "other", "file": name])
             }
         }
         let player = AVPlayer(playerItem: playerItem)
@@ -159,7 +159,7 @@ final class BrowserViewController: UIViewController {
         let presentPlayer = { [weak self] in
             guard let self else { return }
             self.present(controller, animated: true) {
-                XVideoOfflineProbe.log("play.presented", ["file": item.fileName])
+                PageMediaProbe.log("play.presented", ["file": item.fileName])
                 player.play()
             }
         }
@@ -1676,7 +1676,14 @@ final class BrowserViewController: UIViewController {
             return
         }
         if WatchLaterStore.shared.add(title: tab.title, url: url, containerID: tab.containerID) != nil {
-            Toast.show("Added to Watch Later", from: self)
+            if OfflineMediaCopyrightPolicy.restrictsAudioVideo(on: url) {
+                Toast.show(
+                    "Added to Watch Later. \(OfflineMediaCopyrightPolicy.watchLaterNotice)",
+                    from: self
+                )
+            } else {
+                Toast.show("Added to Watch Later", from: self)
+            }
             tab.webController?.cacheCurrentPageForWatchLater(matching: url)
         } else {
             Toast.show("Already in Watch Later", from: self)
@@ -2282,12 +2289,15 @@ extension BrowserViewController: WebViewControllerDelegate {
         applyComputerUserAgent(to: tab, reloadWebView: false)
     }
 
-    func webViewController(_ controller: WebViewController, didOfferOfflineVideo candidate: XVideoOfflineCandidate) {
+    func webViewController(_ controller: WebViewController, didOfferOfflineVideo candidate: PageMediaCandidate) {
         guard tabManager.selectedTab?.webController === controller else { return }
         guard tabManager.selectedTab?.isIncognito != true else { return }
+        if OfflineMediaCopyrightPolicy.restrictsAudioVideo(on: tabManager.selectedTab?.url ?? controller.webView?.url) {
+            return
+        }
         // Downloads list may already have this video (or a same-page download just started).
         if DownloadManager.shared.hasActiveOrCompletedOfflineVideo(matching: candidate) {
-            XVideoOfflineProbe.log("offer.skip", [
+            PageMediaProbe.log("offer.skip", [
                 "why": "alreadySavedOrDownloading",
                 "where": "toast",
                 "file": candidate.suggestedFileName
@@ -2520,6 +2530,10 @@ extension BrowserViewController: MenuViewControllerDelegate {
         case .saveOfflineVideo:
             if tabManager.selectedTab?.isIncognito == true {
                 Toast.show("Downloads are disabled in Private Browsing", from: self)
+                return
+            }
+            if OfflineMediaCopyrightPolicy.restrictsAudioVideo(on: tabManager.selectedTab?.url) {
+                Toast.show(OfflineMediaCopyrightPolicy.saveVideoBlockedNotice, from: self)
                 return
             }
             if tabManager.selectedTab?.webController?.startOfflineVideoDownload() != true {
