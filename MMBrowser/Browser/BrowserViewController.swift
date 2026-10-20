@@ -604,6 +604,10 @@ final class BrowserViewController: UIViewController {
             guard !addressBar.isHidden else { return }
             // Don't collapse chrome while the keyboard is up — address field would stay covered.
             guard keyboardOverlap < 1 else { return }
+            // Cleaner mode stays in the capsule chrome — never dismiss it on collapse.
+            if tabManager.selectedTab?.webController?.isPageCleanerActive != true {
+                addressBar.hideCleanerMenu()
+            }
         }
         guard !isBrowserChromeHiddenForHub else { return }
         guard collapsed != isChromeCollapsed else { return }
@@ -649,28 +653,37 @@ final class BrowserViewController: UIViewController {
         let host = Self.compactHostDisplay(
             for: tabManager.selectedTab?.url ?? tabManager.selectedTab?.webController?.webView?.url
         )
-        addressBar.setCompact(compact, host: host)
+        let cleanerOn = tabManager.selectedTab?.webController?.isPageCleanerActive == true
+            || addressBar.cleanerMenuExtraHeight > 0
+        let cleanerExtra = addressBar.cleanerMenuExtraHeight
+        let pillWidth = compactChromeWidth(for: host)
+        // Cleaner mode keeps the capsule pill, with the chip bar above it (full-width host).
+        addressBar.setCompact(compact, host: host, pillWidth: (compact && cleanerOn) ? pillWidth : nil)
         toolbar.isHidden = compact
         toolbar.alpha = compact ? 0 : 1
 
-        chromeHeightConstraint?.update(offset: compact ? BrowserTheme.chromeCompactHeight : BrowserTheme.chromeHeight)
+        chromeHeightConstraint?.update(
+            offset: (compact ? BrowserTheme.chromeCompactHeight : BrowserTheme.chromeHeight) + cleanerExtra
+        )
         addressBar.snp.updateConstraints { make in
-            make.height.equalTo(compact ? BrowserTheme.chromeCompactPillHeight : BrowserTheme.addressBarHeight)
+            make.height.equalTo(
+                (compact ? BrowserTheme.chromeCompactPillHeight : BrowserTheme.addressBarHeight) + cleanerExtra
+            )
         }
 
+        let cleanerCapsule = compact && cleanerOn
         chromeCard.backgroundColor = compact
             ? .clear
             : (tabManager.selectedTab?.isIncognito == true
                 ? BrowserTheme.privateElevated
                 : BrowserTheme.elevated)
         chromeCard.layer.cornerRadius = compact ? 0 : 28
-        // Allow the compact pill shadow to draw outside the card.
+        // Allow the compact pill / cleaner chips to draw outside the card.
         chromeCard.clipsToBounds = !compact
 
-        let pillWidth = compactChromeWidth(for: host)
         chromeCard.snp.remakeConstraints { make in
             make.top.bottom.equalToSuperview()
-            if compact {
+            if compact && !cleanerCapsule {
                 make.centerX.equalToSuperview()
                 make.width.equalTo(pillWidth)
             } else {
@@ -686,6 +699,25 @@ final class BrowserViewController: UIViewController {
         }
         if compact {
             view.bringSubviewToFront(chromeHost)
+        }
+    }
+
+    /// Menu / tools entry: select This site, collapse to capsule, stay until Exit.
+    private func enterWebCleanerMode() {
+        guard let web = tabManager.selectedTab?.webController else {
+            Toast.show("No page to clean", from: self)
+            return
+        }
+        web.enterPageCleaner(urlOnly: false)
+        guard web.isPageCleanerActive else { return }
+        addressBar.enterCleanerMode(urlOnly: false)
+        if isChromeCollapsed {
+            applyCompactChromeLayout(true)
+            updateChromeBottomOffset(animated: false)
+            updateWebChromeContentInset()
+            UIView.animate(withDuration: 0.22) { self.view.layoutIfNeeded() }
+        } else {
+            setChromeCollapsed(true, animated: true)
         }
     }
 
@@ -1800,19 +1832,43 @@ extension BrowserViewController: AddressBarViewDelegate {
     }
 
     func addressBarDidChoosePageCleaner(urlOnly: Bool) {
-        setChromeCollapsed(false, animated: true)
         tabManager.selectedTab?.webController?.enterPageCleaner(urlOnly: urlOnly)
         addressBar.setPageCleanerActive(tabManager.selectedTab?.webController?.isPageCleanerActive == true)
+        // Keep capsule chrome while picking elements.
+        if !isChromeCollapsed {
+            setChromeCollapsed(true, animated: true)
+        } else {
+            applyCompactChromeLayout(true)
+        }
     }
 
     func addressBarDidExitPageCleaner() {
-        setChromeCollapsed(false, animated: true)
         tabManager.selectedTab?.webController?.exitPageCleaner()
         addressBar.setPageCleanerActive(false)
+        setChromeCollapsed(false, animated: true)
     }
 
     func addressBarDidTapCompactExpand() {
+        // Cleaner mode stays on the capsule until Exit.
+        guard tabManager.selectedTab?.webController?.isPageCleanerActive != true else { return }
         setChromeCollapsed(false, animated: true)
+    }
+
+    func addressBarDidChangeCleanerMenuVisible(_ visible: Bool, extraHeight: CGFloat) {
+        let compact = isChromeCollapsed
+            || tabManager.selectedTab?.webController?.isPageCleanerActive == true
+        let baseAddress = compact ? BrowserTheme.chromeCompactPillHeight : BrowserTheme.addressBarHeight
+        let baseChrome = compact ? BrowserTheme.chromeCompactHeight : BrowserTheme.chromeHeight
+        addressBar.snp.updateConstraints { make in
+            make.height.equalTo(baseAddress + extraHeight)
+        }
+        chromeHeightConstraint?.update(offset: baseChrome + extraHeight)
+        if compact {
+            applyCompactChromeLayout(true)
+        }
+        UIView.animate(withDuration: 0.18) {
+            self.view.layoutIfNeeded()
+        }
     }
 
     func addressBarDidTapShield(blockCount: Int) {
@@ -2075,11 +2131,16 @@ extension BrowserViewController: WebViewControllerDelegate {
         let nestedScrollHint = offsetY > 20 && scrollView?.isDragging != true && scrollView?.isDecelerating != true
         guard userScrolling || nestedScrollHint else { return }
 
+        // Cleaner mode locks the capsule chrome; scrolling must not expand or end cleaner.
+        let cleanerLocked = controller.isPageCleanerActive
+
         // Near the true top of the root scroller, scrolling back up restores full chrome.
         // Do not force-expand when nested short-video pages keep offset ≈ 0 while swiping.
         if offsetY <= 20, deltaY < 0 {
             scrollAccumulator = 0
-            setChromeCollapsed(false, animated: true)
+            if !cleanerLocked {
+                setChromeCollapsed(false, animated: true)
+            }
             return
         }
 
@@ -2089,9 +2150,11 @@ extension BrowserViewController: WebViewControllerDelegate {
             scrollAccumulator = 0
             setChromeCollapsed(true, animated: true)
         } else if scrollAccumulator < -chromeScrollThreshold {
-            // Content moving down → restore full chrome
+            // Content moving down → restore full chrome (blocked while cleaner is active).
             scrollAccumulator = 0
-            setChromeCollapsed(false, animated: true)
+            if !cleanerLocked {
+                setChromeCollapsed(false, animated: true)
+            }
         }
     }
 
@@ -2467,7 +2530,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
         case .longScreenshot:
             tabManager.selectedTab?.webController?.longScreenshot()
         case .pageCleaner:
-            addressBar.presentCleanerMenu()
+            enterWebCleanerMode()
         case .copyURL:
             guard let url = tabManager.selectedTab?.url else {
                 Toast.show("No URL to copy", from: self)

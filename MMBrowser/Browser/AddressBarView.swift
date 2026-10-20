@@ -20,6 +20,8 @@ protocol AddressBarViewDelegate: AnyObject {
     func addressBarDidTapShield(blockCount: Int)
     /// Compact bottom pill was tapped — expand the full chrome again.
     func addressBarDidTapCompactExpand()
+    /// Cleaner mode bar visibility changed — host should grow/shrink chrome height.
+    func addressBarDidChangeCleanerMenuVisible(_ visible: Bool, extraHeight: CGFloat)
 }
 
 final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDelegate {
@@ -53,7 +55,11 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private let cleanerPageChip = UIButton(type: .system)
     private let cleanerExitChip = UIButton(type: .system)
     private var cleanerMenuVisible = false
+    /// Extra height the host chrome should add while the cleaner bar is open.
+    private(set) var cleanerMenuExtraHeight: CGFloat = 0
+    private var containerCenterYConstraint: Constraint?
     private var dismissTap: UITapGestureRecognizer?
+    private static let cleanerMenuOccupiedHeight: CGFloat = 58
     private var tabSwipe: UIPanGestureRecognizer?
     private let swipeClip = UIView()
     private let peekLabel = UILabel()
@@ -201,7 +207,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         container.snp.makeConstraints { make in
             containerLeadingConstraint = make.leading.equalToSuperview().offset(4).constraint
             make.trailing.equalToSuperview().offset(-4)
-            make.centerY.equalToSuperview()
+            containerCenterYConstraint = make.centerY.equalToSuperview().constraint
             make.height.equalTo(40)
         }
         hostLabel.snp.makeConstraints { make in
@@ -330,11 +336,11 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         stack.alignment = .center
         cleanerMenuContainer.addSubview(stack)
 
-        // Horizontal bar above the address field, edge-to-edge with the chrome container.
+        // Keep the bar inside AddressBarView bounds so chromeCard.clipsToBounds cannot cover it.
         cleanerMenuContainer.snp.makeConstraints { make in
             make.leading.equalTo(container.snp.leading)
             make.trailing.equalTo(container.snp.trailing)
-            make.bottom.equalTo(container.snp.top).offset(-8)
+            make.top.equalToSuperview()
         }
         stack.snp.makeConstraints { make in
             make.edges.equalToSuperview().inset(UIEdgeInsets(top: 8, left: 10, bottom: 8, right: 10))
@@ -393,20 +399,27 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     /// Shrinks to a domain pill (shield + host). Tap expands via `addressBarDidTapCompactExpand`.
-    func setCompact(_ compact: Bool, host: String? = nil) {
+    func setCompact(_ compact: Bool, host: String? = nil, pillWidth: CGFloat? = nil) {
         if let host {
             hostLabel.text = host
         } else if compact {
             hostLabel.text = Self.compactHost(from: textField.text)
         }
+        let cleanerPinned = isPageCleanerActive
         guard compact != isCompact else {
-            if compact { refreshTextFieldConstraints() }
+            if compact {
+                refreshTextFieldConstraints()
+                applyCleanerMenuLayout(visible: cleanerPinned || cleanerMenuVisible, pillWidth: pillWidth)
+            }
             return
         }
         isCompact = compact
         if compact {
             textField.resignFirstResponder()
-            hideCleanerMenu()
+            // Cleaner mode owns the capsule chrome — keep the chip bar visible.
+            if !cleanerPinned {
+                hideCleanerMenu()
+            }
             // Domain pill always shows a leading shield for the compact look.
             shieldButton.isHidden = false
             shieldBadge.isHidden = true
@@ -419,14 +432,13 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         textField.isUserInteractionEnabled = !compact
         shieldButton.isUserInteractionEnabled = !compact
         tabSwipe?.isEnabled = !compact
-        compactExpandTap?.isEnabled = compact
+        // While cleaner is active, pill tap must not expand chrome / dismiss mode.
+        compactExpandTap?.isEnabled = compact && !cleanerPinned
         container.layer.cornerRadius = compact ? BrowserTheme.chromeCompactPillHeight / 2 : 18
-        container.snp.remakeConstraints { make in
-            containerLeadingConstraint = make.leading.equalToSuperview().offset(compact ? 0 : 4).constraint
-            make.trailing.equalToSuperview().offset(compact ? 0 : -4)
-            make.centerY.equalToSuperview()
-            make.height.equalTo(compact ? BrowserTheme.chromeCompactPillHeight : 40)
-        }
+        applyCleanerMenuLayout(
+            visible: cleanerPinned || (!compact && cleanerMenuVisible),
+            pillWidth: pillWidth
+        )
         applyTheme()
         if !compact {
             updateShieldAppearance()
@@ -448,7 +460,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     @objc private func compactExpandTapped() {
-        guard isCompact else { return }
+        guard isCompact, !isPageCleanerActive else { return }
         delegate?.addressBarDidTapCompactExpand()
     }
 
@@ -573,14 +585,31 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         setCleanerMenuVisible(true)
     }
 
+    /// Enter cleaner mode with a preselected scope (`urlOnly: false` = This site).
+    func enterCleanerMode(urlOnly: Bool) {
+        textField.resignFirstResponder()
+        cleanerURLOnly = urlOnly
+        isPageCleanerActive = true
+        compactExpandTap?.isEnabled = false
+        updateCleanerChipSelection()
+        setCleanerMenuVisible(true)
+        removeDismissTap()
+    }
+
     func setPageCleanerActive(_ active: Bool) {
         isPageCleanerActive = active
         if active {
+            if cleanerURLOnly == nil {
+                cleanerURLOnly = false
+            }
+            compactExpandTap?.isEnabled = false
             updateCleanerChipSelection()
             setCleanerMenuVisible(true)
+            removeDismissTap()
         } else {
             cleanerURLOnly = nil
             updateCleanerChipSelection()
+            compactExpandTap?.isEnabled = isCompact
             // Force-hide even though hideCleanerMenu() no-ops while active.
             if cleanerMenuVisible {
                 setCleanerMenuVisible(false)
@@ -1131,12 +1160,14 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     private func setCleanerMenuVisible(_ visible: Bool) {
+        let wasVisible = cleanerMenuVisible
         cleanerMenuVisible = visible
         cleanerMenuContainer.isHidden = false
         bringSubviewToFront(cleanerMenuContainer)
+        applyCleanerMenuLayout(visible: visible)
 
         if visible {
-            // Outside dismiss only before entering cleaner mode.
+            // Outside dismiss never ends an active cleaner session — only Exit does.
             if isPageCleanerActive {
                 removeDismissTap()
             } else {
@@ -1146,15 +1177,60 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             removeDismissTap()
         }
 
+        let extra = visible ? Self.cleanerMenuOccupiedHeight : 0
+        cleanerMenuExtraHeight = extra
+        if wasVisible != visible {
+            delegate?.addressBarDidChangeCleanerMenuVisible(visible, extraHeight: extra)
+        }
+
         UIView.animate(withDuration: 0.18, animations: {
             self.cleanerMenuContainer.alpha = visible ? 1 : 0
             self.cleanerMenuContainer.transform = visible ? .identity : CGAffineTransform(translationX: 0, y: 6)
+            self.superview?.layoutIfNeeded()
         }, completion: { _ in
             if !visible {
                 self.cleanerMenuContainer.isHidden = true
                 self.cleanerMenuContainer.transform = .identity
             }
         })
+    }
+
+    private func applyCleanerMenuLayout(visible: Bool, pillWidth: CGFloat? = nil) {
+        let fieldHeight: CGFloat = isCompact ? BrowserTheme.chromeCompactPillHeight : 40
+        cleanerMenuContainer.snp.remakeConstraints { make in
+            if isCompact && visible {
+                // Host card is already inset; chips span the address bar width.
+                make.leading.trailing.equalToSuperview()
+            } else {
+                make.leading.equalToSuperview().offset(isCompact ? 0 : 4)
+                make.trailing.equalToSuperview().offset(isCompact ? 0 : -4)
+            }
+            make.top.equalToSuperview()
+        }
+        container.snp.remakeConstraints { make in
+            make.height.equalTo(fieldHeight)
+            if visible {
+                make.top.equalTo(cleanerMenuContainer.snp.bottom).offset(6)
+                containerCenterYConstraint = nil
+                if isCompact {
+                    make.centerX.equalToSuperview()
+                    let width = pillWidth ?? min(max(bounds.width - 72, 148), 280)
+                    make.width.equalTo(width)
+                    containerLeadingConstraint = nil
+                } else {
+                    containerLeadingConstraint = make.leading.equalToSuperview().offset(4).constraint
+                    make.trailing.equalToSuperview().offset(-4)
+                }
+            } else if isCompact {
+                containerLeadingConstraint = make.leading.equalToSuperview().offset(0).constraint
+                make.trailing.equalToSuperview()
+                containerCenterYConstraint = make.centerY.equalToSuperview().constraint
+            } else {
+                containerLeadingConstraint = make.leading.equalToSuperview().offset(4).constraint
+                make.trailing.equalToSuperview().offset(-4)
+                containerCenterYConstraint = make.centerY.equalToSuperview().constraint
+            }
+        }
     }
 
     private func installDismissTap() {
