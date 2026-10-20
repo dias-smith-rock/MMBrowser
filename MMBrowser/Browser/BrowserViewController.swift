@@ -1488,8 +1488,7 @@ final class BrowserViewController: UIViewController {
             isIncognito: tab?.isIncognito ?? false,
             userAgentMode: tab?.userAgentMode ?? .automatic,
             adBlockerEnabled: AppSettings.trackerProtectionEnabled,
-            hasLoadablePage: tab?.isNewTabPage != true && tab?.url != nil,
-            canSaveOfflineVideo: tab?.webController?.offlineVideoCandidate != nil
+            hasLoadablePage: tab?.isNewTabPage != true && tab?.url != nil
         )
         let menu = PageRichMenuViewController(context: context)
         menu.delegate = self
@@ -1511,11 +1510,16 @@ final class BrowserViewController: UIViewController {
             return
         }
         menu.modalPresentationStyle = .pageSheet
-        if #available(iOS 15.0, *) {
-            if let sheet = menu.sheetPresentationController {
-                sheet.detents = [.medium(), .large()]
-                sheet.prefersGrabberVisible = true
+        if let sheet = menu.sheetPresentationController {
+            sheet.prefersGrabberVisible = true
+            // ~68% screen height so the first content cards + Long screenshot sit comfortably in view.
+            let pageMenu = UISheetPresentationController.Detent.custom(
+                identifier: .init("pageRichMenu")
+            ) { context in
+                min(context.maximumDetentValue * 0.68, context.maximumDetentValue)
             }
+            sheet.detents = [pageMenu, .large()]
+            sheet.selectedDetentIdentifier = pageMenu.identifier
         }
     }
 
@@ -2527,18 +2531,6 @@ extension BrowserViewController: MenuViewControllerDelegate {
             tabManager.selectedTab?.webController?.sharePDF()
         case .downloadFile:
             tabManager.selectedTab?.webController?.downloadCurrentIfFile()
-        case .saveOfflineVideo:
-            if tabManager.selectedTab?.isIncognito == true {
-                Toast.show("Downloads are disabled in Private Browsing", from: self)
-                return
-            }
-            if OfflineMediaCopyrightPolicy.restrictsAudioVideo(on: tabManager.selectedTab?.url) {
-                Toast.show(OfflineMediaCopyrightPolicy.saveVideoBlockedNotice, from: self)
-                return
-            }
-            if tabManager.selectedTab?.webController?.startOfflineVideoDownload() != true {
-                Toast.show("No offline video available yet — play the video first", from: self)
-            }
         case .screenshot:
             tabManager.selectedTab?.webController?.screenshot()
         case .longScreenshot:

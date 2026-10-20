@@ -8,7 +8,6 @@ struct PageRichMenuContext {
     let userAgentMode: UserAgentMode
     let adBlockerEnabled: Bool
     let hasLoadablePage: Bool
-    let canSaveOfflineVideo: Bool
 
     var host: String {
         if let host = url?.host, !host.isEmpty { return host }
@@ -64,7 +63,9 @@ final class PageRichMenuViewController: UIViewController {
         }
 
         stack.addArrangedSubview(makeHeaderCard())
-        stack.addArrangedSubview(makeToolsGridCard())
+        // Two matching horizontally scrollable shortcut rows.
+        stack.addArrangedSubview(makeAppScrollRowCard(items: pageToolItems()))
+        stack.addArrangedSubview(makeAppScrollRowCard(items: appLibraryItems()))
         stack.addArrangedSubview(makeRowsCard([
             row("Add to Bookmarks", symbol: "bookmark", action: .addBookmark, enabled: context.hasLoadablePage && !context.isIncognito),
             row("Add to Watch Later", symbol: "clock", action: .addReadingList, enabled: context.hasLoadablePage && !context.isIncognito),
@@ -73,12 +74,6 @@ final class PageRichMenuViewController: UIViewController {
         stack.addArrangedSubview(makeRowsCard([
             row("Long screenshot", symbol: "rectangle.bottomthird.inset.filled", action: .longScreenshot, enabled: context.hasLoadablePage),
             row("Save as PDF", symbol: "doc.richtext", action: .sharePDF, enabled: context.hasLoadablePage),
-            row(
-                "Save video for offline",
-                symbol: "arrow.down.circle.fill",
-                action: .saveOfflineVideo,
-                enabled: context.hasLoadablePage && !context.isIncognito && context.canSaveOfflineVideo
-            ),
             row(
                 "Download File",
                 symbol: "arrow.down.circle",
@@ -101,112 +96,75 @@ final class PageRichMenuViewController: UIViewController {
             row("Enable Reader mode", symbol: "doc.plaintext", action: .readerMode, enabled: context.hasLoadablePage),
             row("Change text size", symbol: "textformat.size", action: .changeTextSize, enabled: context.hasLoadablePage)
         ]))
-        // Former ≡ app menu — library + appearance shortcuts.
-        stack.addArrangedSubview(makeAppGridCard(items: appLibraryItems()))
-        stack.addArrangedSubview(makeAppGridCard(items: appExtrasItems()))
     }
 
-    private func appLibraryItems() -> [(String, String, MenuAction)] {
-        var items: [(String, String, MenuAction)] = [
-            ("Spaces", "person.2", .accounts),
-            ("Settings", "gearshape", .settings),
-            ("Split View", "rectangle.split.1x2", .compareAccounts),
-            ("Passwords", "key", .passwords),
-            ("Downloads (Shared)", "arrow.down.circle", .downloads),
-            ("Bookmarks (Isolated)", "bookmark", .bookmarks),
-            ("History (Isolated)", "clock", .history),
-            ("Watch Later (Isolated)", "clock.badge.checkmark", .watchLater),
-            ("Reading list (Shared)", "text.book.closed", .readingList)
-        ]
-        if context.isIncognito {
-            items.removeAll { $0.2 == .downloads || $0.2 == .accounts }
-        }
-        return items
-    }
-
-    private func appExtrasItems() -> [(String, String, MenuAction)] {
+    private func pageToolItems() -> [(String, String, MenuAction, Bool)] {
         [
-            ("Background gallery", "photo.on.rectangle", .backgroundGallery),
-            ("Theme", "paintpalette", .theme),
-            ("Feedback", "bubble.left", .feedback)
-        ]
-    }
-
-    private func makeAppGridCard(items: [(String, String, MenuAction)]) -> UIView {
-        let card = makeCardContainer()
-        let grid = UIStackView()
-        grid.axis = .vertical
-        grid.spacing = 10
-        grid.isLayoutMarginsRelativeArrangement = true
-        grid.layoutMargins = UIEdgeInsets(top: 14, left: 12, bottom: 14, right: 12)
-
-        let columns = 4
-        var row = UIStackView()
-        row.axis = .horizontal
-        row.spacing = 8
-        row.distribution = .fillEqually
-        row.alignment = .top
-
-        for (index, item) in items.enumerated() {
-            if index > 0, index % columns == 0 {
-                grid.addArrangedSubview(row)
-                row = UIStackView()
-                row.axis = .horizontal
-                row.spacing = 8
-                row.distribution = .fillEqually
-                row.alignment = .top
-            }
-            row.addArrangedSubview(makeGridItem(title: item.0, symbol: item.1, action: item.2, enabled: true))
-        }
-        let remainder = items.count % columns
-        if remainder != 0 {
-            for _ in remainder..<columns {
-                row.addArrangedSubview(UIView())
-            }
-        }
-        grid.addArrangedSubview(row)
-        card.addSubview(grid)
-        grid.snp.makeConstraints { make in make.edges.equalToSuperview() }
-        return card
-    }
-
-    // MARK: - Cards
-
-    private func makeToolsGridCard() -> UIView {
-        let card = makeCardContainer()
-        let items: [(String, String, MenuAction, Bool)] = [
             ("PiP", "pip.enter", .pictureInPicture, context.hasLoadablePage && AppSettings.pictureInPictureEnabled),
             ("Web Cleaner", "wand.and.stars", .pageCleaner, context.hasLoadablePage),
             ("Screenshot", "camera", .screenshot, context.hasLoadablePage),
+            ("Split View", "rectangle.split.1x2", .compareAccounts, true),
             (
                 context.adBlockerEnabled ? "Ad block On" : "Ad block Off",
                 "hand.raised",
                 .adBlocker,
                 true
-            ),
-            ("Watch Later", "clock.badge.checkmark", .watchLater, !context.isIncognito)
+            )
         ]
+    }
+
+    private func appLibraryItems() -> [(String, String, MenuAction, Bool)] {
+        [
+            ("Settings", "gearshape", .settings, true),
+            ("Watch Later (Isolated)", "clock.badge.checkmark", .watchLater, !context.isIncognito),
+            ("Bookmarks (Isolated)", "bookmark", .bookmarks, !context.isIncognito),
+            ("History (Isolated)", "clock", .history, !context.isIncognito),
+            ("Passwords", "key", .passwords, true),
+            ("Background gallery", "photo.on.rectangle", .backgroundGallery, true),
+            ("Theme", "paintpalette", .theme, true),
+            ("Feedback", "bubble.left", .feedback, true)
+        ]
+    }
+
+    /// Shared horizontal shortcut row — same size/spacing for tools and library; side-scrolls when needed.
+    private func makeAppScrollRowCard(items: [(String, String, MenuAction, Bool)]) -> UIView {
+        let card = makeCardContainer()
+        let scroll = UIScrollView()
+        scroll.showsHorizontalScrollIndicator = false
+        scroll.alwaysBounceHorizontal = true
+        scroll.isDirectionalLockEnabled = true
+        scroll.clipsToBounds = true
 
         let row = UIStackView()
         row.axis = .horizontal
         row.spacing = 8
-        row.distribution = .fillEqually
         row.alignment = .top
-        row.isLayoutMarginsRelativeArrangement = true
-        row.layoutMargins = UIEdgeInsets(top: 14, left: 12, bottom: 14, right: 12)
 
+        let itemWidth: CGFloat = 72
         for item in items {
-            row.addArrangedSubview(
-                makeGridItem(title: item.0, symbol: item.1, action: item.2, enabled: item.3)
-            )
+            let cell = makeGridItem(title: item.0, symbol: item.1, action: item.2, enabled: item.3)
+            row.addArrangedSubview(cell)
+            cell.snp.makeConstraints { make in
+                make.width.equalTo(itemWidth)
+            }
         }
 
-        card.addSubview(row)
-        row.snp.makeConstraints { make in
+        card.addSubview(scroll)
+        scroll.addSubview(row)
+        // Fixed row height: icon box 52 + label gap + two lines ≈ 118 with insets.
+        scroll.snp.makeConstraints { make in
             make.edges.equalToSuperview()
+            make.height.equalTo(118)
+        }
+        row.snp.makeConstraints { make in
+            make.top.bottom.equalTo(scroll.contentLayoutGuide).inset(14)
+            make.leading.trailing.equalTo(scroll.contentLayoutGuide).inset(12)
+            make.height.equalTo(scroll.frameLayoutGuide).offset(-28)
         }
         return card
     }
+
+    // MARK: - Cards
 
     private func makeGridItem(title: String, symbol: String, action: MenuAction, enabled: Bool) -> UIView {
         let container = UIView()
