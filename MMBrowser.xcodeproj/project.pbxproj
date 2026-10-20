@@ -98,6 +98,8 @@
 		C58A1413B374481F93E6D824 /* URLInputResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72957411D4864AC0B8541064 /* URLInputResolver.swift */; };
 		C5CC3025D67544A09B52DB05 /* OnboardingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D201F70CA9F44BF2B13F17C2 /* OnboardingViewController.swift */; };
 		C6FE3A5ACA2542BD8010DE3F /* HistoryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A238E7FC51408BA0111F44 /* HistoryViewController.swift */; };
+		A7C1E4B29D1046F8A3B1C001 /* WatchLaterStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1E4B29D1046F8A3B1C002 /* WatchLaterStore.swift */; };
+		A7C1E4B29D1046F8A3B1C003 /* WatchLaterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1E4B29D1046F8A3B1C004 /* WatchLaterViewController.swift */; };
 		C718289B0C194FE69766C497 /* YouTubeAdShield.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */; };
 		C8E41A2B7F6D4A1E9B3C5D70 /* ScreenshotEditorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7D30F1A6E5C492D8A2B4C61 /* ScreenshotEditorViewController.swift */; };
 		D3661C4AA0D146418D7F93D4 /* ContainerIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35D2C88512564D378DA73926 /* ContainerIdentity.swift */; };
@@ -139,20 +141,20 @@
 		PWD000C2F36FB601D0BB0 /* PasswordsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00045F172A9EFBE8F4 /* PasswordsViewController.swift */; };
 		PWD000C4D4F482494D0C9 /* AutofillSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD0001F365462803B334 /* AutofillSettingsViewController.swift */; };
 		PWD000D2DE12EF3CF5CC9 /* VaultKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000C6D05B5242BACB5 /* VaultKeychain.swift */; };
-		SPMBFCL01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFFA01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFGMA010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFRC01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFUMP010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFCL01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFFA01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFGMA010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFRC01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFUMP010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
 		TIP0SWIPEA1B2C3D4E5F60001 /* AddressBarSwipeTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIP0SWIPEA1B2C3D4E5F60002 /* AddressBarSwipeTipView.swift */; };
 		TSS0000101010101010171 /* TabSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020271 /* TabSnapshotStore.swift */; };
 		TSS0000101010101010172 /* TabSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020272 /* TabSessionStore.swift */; };
 		TSS0000101010101010173 /* BrowserContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020273 /* BrowserContainer.swift */; };
 		TSS0000101010101010174 /* ContainerManageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020274 /* ContainerManageViewController.swift */; };
 		TSS0000101010101010175 /* ContainerEditViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020275 /* ContainerEditViewController.swift */; };
+		XHL0000101010101010101 /* MediaHLSOfflinePackager.swift in Sources */ = {isa = PBXBuildFile; fileRef = XHL0000202020202020202 /* MediaHLSOfflinePackager.swift */; };
 		XSP0000101010101010101 /* XSiteProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = XSP0000202020202020202 /* XSiteProbe.swift */; };
-		XVO0000101010101010101 /* XVideoOfflineProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = XVO0000202020202020202 /* XVideoOfflineProbe.swift */; };
-		XHL0000101010101010101 /* XVideoHLSOfflinePackager.swift in Sources */ = {isa = PBXBuildFile; fileRef = XHL0000202020202020202 /* XVideoHLSOfflinePackager.swift */; };
+		XVO0000101010101010101 /* PageMediaProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = XVO0000202020202020202 /* PageMediaProbe.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -181,6 +183,8 @@
 
 /* Begin PBXFileReference section */
 		00A238E7FC51408BA0111F44 /* HistoryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewController.swift; sourceTree = "<group>"; };
+		A7C1E4B29D1046F8A3B1C002 /* WatchLaterStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLaterStore.swift; sourceTree = "<group>"; };
+		A7C1E4B29D1046F8A3B1C004 /* WatchLaterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLaterViewController.swift; sourceTree = "<group>"; };
 		021143DE7C6A427AB58BAFF7 /* AccountHealthViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountHealthViewController.swift; sourceTree = "<group>"; };
 		06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeAdShield.swift; sourceTree = "<group>"; };
 		0783DF19A0FE4061AF8CB2FF /* FilterUpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterUpdateManager.swift; sourceTree = "<group>"; };
@@ -323,9 +327,9 @@
 		TSS0000202020202020273 /* BrowserContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserContainer.swift; sourceTree = "<group>"; };
 		TSS0000202020202020274 /* ContainerManageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerManageViewController.swift; sourceTree = "<group>"; };
 		TSS0000202020202020275 /* ContainerEditViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerEditViewController.swift; sourceTree = "<group>"; };
+		XHL0000202020202020202 /* MediaHLSOfflinePackager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaHLSOfflinePackager.swift; sourceTree = "<group>"; };
 		XSP0000202020202020202 /* XSiteProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XSiteProbe.swift; sourceTree = "<group>"; };
-		XVO0000202020202020202 /* XVideoOfflineProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XVideoOfflineProbe.swift; sourceTree = "<group>"; };
-		XHL0000202020202020202 /* XVideoHLSOfflinePackager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XVideoHLSOfflinePackager.swift; sourceTree = "<group>"; };
+		XVO0000202020202020202 /* PageMediaProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageMediaProbe.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -333,11 +337,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				SPMBFFA01010101010101 /* (null) in Frameworks */,
-				SPMBFRC01010101010101 /* (null) in Frameworks */,
-				SPMBFCL01010101010101 /* (null) in Frameworks */,
-				SPMBFGMA010101010101 /* (null) in Frameworks */,
-				SPMBFUMP010101010101 /* (null) in Frameworks */,
+				SPMBFFA01010101010101 /* BuildFile in Frameworks */,
+				SPMBFRC01010101010101 /* BuildFile in Frameworks */,
+				SPMBFCL01010101010101 /* BuildFile in Frameworks */,
+				SPMBFGMA010101010101 /* BuildFile in Frameworks */,
+				SPMBFUMP010101010101 /* BuildFile in Frameworks */,
 				F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -433,6 +437,8 @@
 				FE55FD77142842FAB1482D62 /* BookmarksViewController.swift */,
 				1BEF9DC2EA4A4FECB9B302B7 /* HistoryStore.swift */,
 				00A238E7FC51408BA0111F44 /* HistoryViewController.swift */,
+				A7C1E4B29D1046F8A3B1C002 /* WatchLaterStore.swift */,
+				A7C1E4B29D1046F8A3B1C004 /* WatchLaterViewController.swift */,
 				A1B2C3D4E5F6090909090970 /* LibrarySheetViewController.swift */,
 				66D0F5E3C1654B9BAEB7C43B /* ShortcutStore.swift */,
 			);
@@ -563,8 +569,8 @@
 				2F17FA7E6B9649618EC381DB /* MediaPlaybackSupport.swift */,
 				PIP0000202020202020202 /* PipProbe.swift */,
 				XSP0000202020202020202 /* XSiteProbe.swift */,
-				XVO0000202020202020202 /* XVideoOfflineProbe.swift */,
-				XHL0000202020202020202 /* XVideoHLSOfflinePackager.swift */,
+				XVO0000202020202020202 /* PageMediaProbe.swift */,
+				XHL0000202020202020202 /* MediaHLSOfflinePackager.swift */,
 				06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */,
 				80B4B9A76DFE4E32A1FD3ADD /* YouTubeShortsFocus.swift */,
 			);
@@ -806,13 +812,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -827,13 +829,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -922,8 +920,8 @@
 				09FB7CC9808A4DD0A7C8E3AC /* MediaPlaybackSupport.swift in Sources */,
 				PIP0000101010101010101 /* PipProbe.swift in Sources */,
 				XSP0000101010101010101 /* XSiteProbe.swift in Sources */,
-				XVO0000101010101010101 /* XVideoOfflineProbe.swift in Sources */,
-				XHL0000101010101010101 /* XVideoHLSOfflinePackager.swift in Sources */,
+				XVO0000101010101010101 /* PageMediaProbe.swift in Sources */,
+				XHL0000101010101010101 /* MediaHLSOfflinePackager.swift in Sources */,
 				7327DB1D31CC49F6AF6A888E /* FilterUpdateManager.swift in Sources */,
 				E465FC0279854A2096A2DF80 /* AdBlockManager.swift in Sources */,
 				82A1B2C3D4E54678A9B0C1D2 /* ImageBlockManager.swift in Sources */,
@@ -968,6 +966,8 @@
 				7037106A32B340B980EF47E4 /* BookmarksViewController.swift in Sources */,
 				8AFBF11FF64E4A1DB67FB6B5 /* HistoryStore.swift in Sources */,
 				C6FE3A5ACA2542BD8010DE3F /* HistoryViewController.swift in Sources */,
+				A7C1E4B29D1046F8A3B1C001 /* WatchLaterStore.swift in Sources */,
+				A7C1E4B29D1046F8A3B1C003 /* WatchLaterViewController.swift in Sources */,
 				A1B2C3D4E5F6090909090971 /* LibrarySheetViewController.swift in Sources */,
 				6B4C522E50E446F0926CDF34 /* ShortcutStore.swift in Sources */,
 				813C7A167C0B42138866E92D /* MenuViewController.swift in Sources */,
