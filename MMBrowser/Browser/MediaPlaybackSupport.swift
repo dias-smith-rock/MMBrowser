@@ -284,7 +284,7 @@ enum MediaPlaybackSupport {
     /// Completion reports whether a reinject was performed.
     static func ensureBridgeReady(in webView: WKWebView, completion: ((Bool) -> Void)? = nil) {
         // Bump when PiP bridge behavior changes so open tabs pick up the fix.
-        let expectedScriptVersion = 4
+        let expectedScriptVersion = 6
         let probe = """
         (function(){
           try {
@@ -663,7 +663,7 @@ enum MediaPlaybackSupport {
           }
 
           window.__mmMediaKeepAlive = true;
-          window.__mmMediaScriptVersion = 4;
+          window.__mmMediaScriptVersion = 6;
           window.__mmBackgroundAudio = \(bgFlag);
 
           // Subframes: light probe only on media hosts — full PiP stack runs in the top frame.
@@ -800,29 +800,17 @@ enum MediaPlaybackSupport {
               abortZombiePip('leaveUnsupported', leaveV);
               return;
             }
-            // X / SPA players often force inline right after a successful enter while the
-            // page stays foreground and the clip keeps playing. Treat that as a site kick
-            // (not a Springboard close) and reclaim PiP.
-            if (
-              window.__mmPreferPip
-              && stillPlaying
-              && document.visibilityState === 'visible'
-              && enterAge < 20000
-            ) {
-              postDiag('presentation.leave.reclaim', {
-                enterAge: enterAge,
-                video: videoProbe(leaveV)
-              });
-              postPip(false);
-              // Do not set __mmPipSuppressReenterUntil here — that flag both allows
-              // site setPresentationMode('inline') and aborts schedulePipReenter.
-              schedulePipReenter(leaveV, { kick: true });
-              return;
-            }
-            // User closed the PiP window (app or Springboard). Block reenter immediately so
-            // scan / background reinforce / early reenter ticks cannot pop PiP open again.
-            // Natural `ended` can arrive a tick after leave — revive sticky only in that case.
-            window.__mmPipSuppressReenterUntil = Date.now() + 500;
+            // Site kicks are blocked via setPresentationMode / exitPictureInPicture hooks.
+            // Any remaining leave while the clip still plays is a user close (PiP X button
+            // or Springboard). Honor it — do not reclaim.
+            postDiag('presentation.leave.userDismiss', {
+              enterAge: enterAge,
+              stillPlaying: stillPlaying,
+              visible: document.visibilityState,
+              video: videoProbe(leaveV)
+            });
+            // Suppress long enough that scan / play / keepPipPlaying cannot pop PiP again.
+            window.__mmPipSuppressReenterUntil = Date.now() + 2500;
             clearPreferPip();
             setTimeout(function() {
               var cur = pickVideo() || leaveV;
@@ -840,11 +828,6 @@ enum MediaPlaybackSupport {
           /// Same continuous clip still playing inline shortly after leave → user closed PiP.
           function looksLikeUserDismiss() {
             if (!pipLeftAt) return false;
-            // During the post-enter reclaim window, site kicks look identical to a user
-            // dismiss (same clip keeps playing). Prefer reclaim over clearing sticky.
-            if (window.__mmPipEnteredAt && (Date.now() - window.__mmPipEnteredAt) < 20000) {
-              return false;
-            }
             var age = Date.now() - pipLeftAt;
             // Ignore only tiny WebKit glitches; 200ms was too wide and let the first
             // reenter tick (120ms) reclaim PiP after a manual close.
@@ -1017,11 +1000,28 @@ enum MediaPlaybackSupport {
             } catch (e) { return false; }
           }
 
+          // System PiP scrubber pauses while dragging; forcing play() cancels the seek.
+          if (typeof window.__mmPipUserSeekUntil === 'undefined') window.__mmPipUserSeekUntil = 0;
+
+          function notePipSeeking(v) {
+            if (!v || !isInPiP(v)) return;
+            window.__mmPipUserSeekUntil = Date.now() + 2500;
+          }
+
+          function isPipSeeking(v) {
+            try {
+              if (v && v.seeking) return true;
+            } catch (e) {}
+            return !!(window.__mmPipUserSeekUntil && Date.now() < window.__mmPipUserSeekUntil);
+          }
+
           /// Skip forced play while the element is still buffering — otherwise pause
           /// handlers fight WebKit/YouTube stalls and audio stutters (play↔pause loop).
           function canForcePlay(v) {
             try {
               if (!v || v.ended) return false;
+              // PiP chrome owns seek/pause — never fight an in-progress scrub.
+              if (isPipSeeking(v)) return false;
               // HAVE_CURRENT_DATA (2): enough to decode a frame; below that play() often fails/stalls.
               if ((v.readyState || 0) < 2) return false;
             } catch (e) { return false; }
@@ -1058,6 +1058,8 @@ enum MediaPlaybackSupport {
               document.querySelectorAll('video').forEach(function(v) {
                 if (v.ended) return;
                 if (isInPiP(v) && !v.paused) return;
+                // Leave PiP transport alone while the user scrubs / pauses from PiP chrome.
+                if (isInPiP(v) && isPipSeeking(v)) return;
                 if (v.dataset.mmWantPlay !== '1' && v.paused && v.currentTime < 0.05) return;
                 v.dataset.mmWantPlay = '1';
                 if (v.paused && canForcePlay(v)) {
@@ -1091,12 +1093,11 @@ enum MediaPlaybackSupport {
                 return 'advance';
               }
               if (anyInPiP() && v && v.paused && !v.ended) {
-                // Only nudge a stuck pause while foreground; background PiP owns transport.
+                // System PiP chrome owns play/pause/seek — do not fight scrubbing.
+                if (isPipSeeking(v)) return 'pip-seeking';
                 if (document.visibilityState === 'hidden') return 'pip-paused-bg';
-                v.dataset.mmWantPlay = '1';
-                var p = v.play();
-                if (p && p.catch) p.catch(function(){});
-                return 'resume';
+                // Foreground + paused in PiP: user likely hit pause or is scrubbing.
+                return 'pip-paused-fg';
               }
               if (!anyInPiP() && window.__mmPreferPip) {
                 if (v && v.ended) tryAdvanceYouTubeNext();
@@ -1211,19 +1212,18 @@ enum MediaPlaybackSupport {
           }
 
           /// After PiP drops (next video / element swap), re-enter with a single exponential scheduler.
-          function schedulePipReenter(previousVideo, opts) {
+          function schedulePipReenter(previousVideo) {
             if (!window.__mmPreferPip || isYouTubeMusic()) return;
             if (window.__mmPipSuppressReenterUntil && Date.now() < window.__mmPipSuppressReenterUntil) return;
-            var kick = !!(opts && opts.kick);
             var token = ++reenterToken;
             if (reenterTimer) { try { clearTimeout(reenterTimer); } catch (e) {} reenterTimer = null; }
             var prevSrc = videoSrc(previousVideo);
             var prevEnded = false;
             try { prevEnded = !!(previousVideo && previousVideo.ended); } catch (e) {}
             var advancing = !!(window.__mmPipAdvanceUntil && Date.now() < window.__mmPipAdvanceUntil);
-            var maxAttempts = kick ? 6 : ((prevEnded || advancing) ? 4 : 3);
+            var maxAttempts = (prevEnded || advancing) ? 4 : 3;
             var attempt = 0;
-            var delay = kick ? 80 : ((prevEnded || advancing) ? 280 : 160);
+            var delay = (prevEnded || advancing) ? 280 : 160;
 
             function tick() {
               reenterTimer = null;
@@ -1255,23 +1255,18 @@ enum MediaPlaybackSupport {
                   && src
                   && src === prevSrc
                   && !v.ended;
-                var inEnterGrace = !!(window.__mmPipEnteredAt
-                  && (Date.now() - window.__mmPipEnteredAt) < 20000);
-                if (sameClip && !prevEnded && !inEnterGrace && !kick) {
-                  // Outside the enter-grace window, repeated same-clip failures usually
-                  // mean the user closed PiP — stop fighting.
-                  if (attempt >= 1) {
-                    clearPreferPip();
-                    return;
-                  }
-                } else {
-                  enterPiP(prevEnded ? 'ended.next:' + attempt : (kick ? 'reclaim:' + attempt : 'reenter:' + attempt));
-                  if (anyInPiP()) return;
+                // Same clip still playing after leave → user closed PiP; never reclaim it.
+                if (sameClip && !prevEnded) {
+                  postDiag('prefer.userDismiss', { reason: 'sameClip', idx: attempt });
+                  clearPreferPip();
+                  return;
                 }
+                enterPiP(prevEnded ? 'ended.next:' + attempt : 'reenter:' + attempt);
+                if (anyInPiP()) return;
               }
               attempt += 1;
               if (attempt >= maxAttempts) return;
-              delay = Math.min(Math.round(delay * (kick ? 1.45 : 1.9)), kick ? 1200 : 4000);
+              delay = Math.min(Math.round(delay * 1.9), 4000);
               reenterTimer = setTimeout(tick, delay);
             }
             reenterTimer = setTimeout(tick, delay);
@@ -1405,6 +1400,9 @@ enum MediaPlaybackSupport {
                 return;
               }
               if (anyInPiP() && candidate && candidate.paused && !candidate.ended) {
+                // Do not auto-play over PiP scrubber / pause controls.
+                if (isPipSeeking(candidate)) return;
+                if (document.visibilityState === 'visible') return;
                 candidate.dataset.mmWantPlay = '1';
                 if (canForcePlay(candidate)) {
                   var rp = candidate.play();
@@ -1429,6 +1427,8 @@ enum MediaPlaybackSupport {
               document.querySelectorAll('video').forEach(function(v) {
                 if (!window.__mmPreferPip && v.dataset.mmWantPip !== '1' && !isInPiP(v)) return;
                 if (isInPiP(v) && !v.paused) return;
+                // PiP chrome owns pause/seek while the floating window is up.
+                if (isInPiP(v) && (isPipSeeking(v) || document.visibilityState === 'visible')) return;
                 if (window.__mmPreferPip || isInPiP(v)) v.dataset.mmWantPip = '1';
                 if (v.paused && !v.ended && canForcePlay(v) && !isLikelyBufferingPause(v)) {
                   var p = v.play();
@@ -2174,7 +2174,18 @@ enum MediaPlaybackSupport {
             setTimeout(function() { tryReenterOrClear('yt-navigate-finish'); }, 350);
           }, true);
 
-          var pipPauseResumeToken = 0;
+          document.addEventListener('seeking', function(e) {
+            var v = e.target;
+            if (!v || v.tagName !== 'VIDEO') return;
+            notePipSeeking(v);
+          }, true);
+          document.addEventListener('seeked', function(e) {
+            var v = e.target;
+            if (!v || v.tagName !== 'VIDEO') return;
+            // Keep a short grace so play() does not fire mid-scrub release.
+            if (isInPiP(v)) window.__mmPipUserSeekUntil = Date.now() + 800;
+          }, true);
+
           document.addEventListener('pause', function(e) {
             var v = e.target;
             if (!v || v.tagName !== 'VIDEO') return;
@@ -2183,20 +2194,11 @@ enum MediaPlaybackSupport {
             // here (especially with sticky PiP prefer) causes audible play↔pause thrashing.
             if (isLikelyBufferingPause(v)) return;
             if (isInPiP(v)) {
-              // Background + system PiP: leave transport to PiP chrome. Fighting YouTube's
-              // visibility pause with play() causes continuous play↔pause switching.
-              if (document.visibilityState === 'hidden') return;
-              var token = ++pipPauseResumeToken;
-              setTimeout(function() {
-                if (token !== pipPauseResumeToken) return;
-                if (!isInPiP(v) || !v.paused || v.ended) return;
-                if (pipPlaybackHealthy()) return;
-                v.dataset.mmWantPlay = '1';
-                if (canForcePlay(v)) {
-                  var p = v.play();
-                  if (p && p.catch) p.catch(function(){});
-                }
-              }, 700);
+              // System PiP chrome owns transport (scrub / pause / play). Never force play()
+              // here — that cancels progress-bar dragging and pause taps.
+              if (isPipSeeking(v) || v.seeking) {
+                notePipSeeking(v);
+              }
               return;
             }
             if (v.dataset.mmWantPip === '1' || wantsPip()) {

@@ -58,17 +58,20 @@ final class PatternLockView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let inset: CGFloat = 12
-        let usable = bounds.insetBy(dx: inset, dy: inset)
-        let stepX = usable.width / 2
-        let stepY = usable.height / 2
+        // Place centers by node size + gap (not edge-to-edge of the view).
+        // Edge anchoring made columns 1 and 3 feel too far from the middle.
+        let gap: CGFloat = 36
+        let step = nodeSize + gap
+        let gridSpan = step * 2
+        let startX = bounds.midX - gridSpan / 2
+        let startY = bounds.midY - gridSpan / 2
         for (i, node) in nodes.enumerated() {
             let col = i % 3
             let row = i / 3
             node.bounds = CGRect(x: 0, y: 0, width: nodeSize, height: nodeSize)
             node.center = CGPoint(
-                x: usable.minX + CGFloat(col) * stepX,
-                y: usable.minY + CGFloat(row) * stepY
+                x: startX + CGFloat(col) * step,
+                y: startY + CGFloat(row) * step
             )
         }
         redrawPath()
