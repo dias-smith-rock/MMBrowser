@@ -3046,6 +3046,17 @@ extension WebViewController: WKUIDelegate {
         let candidate = copyrightBlocksAV ? nil : pageMediaProbe.bestCandidate
         WatchLaterStore.shared.markCaching(id: item.id, hasVideo: candidate != nil)
         let itemID = item.id
+        // Capture a grid thumbnail while the live page is still on-screen.
+        captureSnapshot { image in
+            guard let image,
+                  let data = image.jpegData(compressionQuality: 0.72) else { return }
+            let name = "\(itemID.uuidString).jpg"
+            let dest = WatchLaterStore.fileURL(named: name)
+            do {
+                try data.write(to: dest, options: .atomic)
+                WatchLaterStore.shared.markPreviewSaved(id: itemID, fileName: name)
+            } catch {}
+        }
         // Video can download in parallel while we warm image subresources for the archive.
         // YouTube / Vimeo: page text+images only (copyright policy).
         if let candidate {

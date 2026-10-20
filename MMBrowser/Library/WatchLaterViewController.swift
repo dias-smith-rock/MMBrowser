@@ -1,16 +1,18 @@
 import AVKit
+import SnapKit
 import UIKit
 import WebKit
 
-/// Watch Later list for one space: add, edit, delete, and clear.
-final class WatchLaterViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
+/// Watch Later list for one space: two-column preview cards (like the tab switcher).
+final class WatchLaterViewController: UIViewController, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     var onSelectURL: ((URL) -> Void)?
     var containerID: UUID = ContainerScope.resolveContainerID(nil)
     var currentPageTitle: String?
     var currentPageURL: URL?
 
-    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private var collectionView: UICollectionView!
     private var sections: [(day: Date, items: [WatchLaterItem])] = []
+    private let clearAllButton = UIBarButtonItem(title: "Clear All", style: .plain, target: nil, action: nil)
 
     private lazy var dayFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -24,27 +26,55 @@ final class WatchLaterViewController: UIViewController, UITableViewDataSource, U
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Watch Later"
         view.backgroundColor = BrowserTheme.background
         overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
-        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Close", style: .plain, target: self, action: #selector(close))
-        navigationItem.rightBarButtonItems = [
-            UIBarButtonItem(image: UIImage(systemName: "plus"), style: .plain, target: self, action: #selector(addTapped)),
-            UIBarButtonItem(title: "Clear All", style: .plain, target: self, action: #selector(clearAll))
-        ]
+
+        let titleLabel = UILabel()
+        titleLabel.text = "Watch Later"
+        titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+        titleLabel.textColor = BrowserTheme.textPrimary
+        titleLabel.textAlignment = .center
+        navigationItem.titleView = titleLabel
+
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            title: "Close",
+            style: .plain,
+            target: self,
+            action: #selector(close)
+        )
+        clearAllButton.target = self
+        clearAllButton.action = #selector(clearAll)
+        navigationItem.rightBarButtonItem = clearAllButton
         if let navigationBar = navigationController?.navigationBar {
             BrowserTheme.applyNavigationBar(to: navigationBar)
         }
 
-        reloadSections()
-        tableView.backgroundColor = BrowserTheme.background
-        tableView.separatorColor = BrowserTheme.textSecondary.withAlphaComponent(0.25)
-        tableView.tintColor = BrowserTheme.chromeBlue
-        tableView.dataSource = self
-        tableView.delegate = self
-        view.addSubview(tableView)
-        tableView.frame = view.bounds
-        tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        let layout = UICollectionViewFlowLayout()
+        layout.minimumLineSpacing = TabGridMetrics.spacing
+        layout.minimumInteritemSpacing = TabGridMetrics.spacing
+        layout.sectionInset = UIEdgeInsets(top: 4, left: 12, bottom: 16, right: 12)
+        layout.headerReferenceSize = CGSize(width: 0, height: 44)
+
+        collectionView = UICollectionView(frame: .zero, collectionViewLayout: layout)
+        collectionView.backgroundColor = BrowserTheme.background
+        collectionView.alwaysBounceVertical = true
+        collectionView.dataSource = self
+        collectionView.delegate = self
+        collectionView.register(WatchLaterGridCell.self, forCellWithReuseIdentifier: WatchLaterGridCell.reuseID)
+        collectionView.register(
+            WatchLaterDayHeaderView.self,
+            forSupplementaryViewOfKind: UICollectionView.elementKindSectionHeader,
+            withReuseIdentifier: WatchLaterDayHeaderView.reuseID
+        )
+        view.addSubview(collectionView)
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            collectionView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+
         changeObserver = NotificationCenter.default.addObserver(
             forName: WatchLaterStore.didChangeNotification,
             object: nil,
@@ -52,7 +82,7 @@ final class WatchLaterViewController: UIViewController, UITableViewDataSource, U
         ) { [weak self] _ in
             self?.reloadAfterMutation()
         }
-        updateClearButton()
+        reloadAfterMutation()
     }
 
     deinit {
@@ -63,9 +93,12 @@ final class WatchLaterViewController: UIViewController, UITableViewDataSource, U
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        reloadSections()
-        tableView.reloadData()
-        updateClearButton()
+        reloadAfterMutation()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        collectionView.collectionViewLayout.invalidateLayout()
     }
 
     private func reloadSections() {
@@ -73,104 +106,74 @@ final class WatchLaterViewController: UIViewController, UITableViewDataSource, U
     }
 
     private func updateClearButton() {
-        navigationItem.rightBarButtonItems?.last?.isEnabled = !sections.isEmpty
+        clearAllButton.isEnabled = !sections.isEmpty
     }
 
     private func title(for day: Date) -> String {
         dayFormatter.string(from: day)
     }
 
-    func numberOfSections(in tableView: UITableView) -> Int { sections.count }
+    func numberOfSections(in collectionView: UICollectionView) -> Int { sections.count }
 
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         sections[section].items.count
     }
 
-    func tableView(_ tableView: UITableView, viewForHeaderInSection section: Int) -> UIView? {
-        makeDayHeader(
-            title: title(for: sections[section].day),
-            count: sections[section].items.count,
-            section: section
-        )
-    }
-
-    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat { 44 }
-
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "cell")
-            ?? UITableViewCell(style: .subtitle, reuseIdentifier: "cell")
+    func collectionView(
+        _ collectionView: UICollectionView,
+        cellForItemAt indexPath: IndexPath
+    ) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(
+            withReuseIdentifier: WatchLaterGridCell.reuseID,
+            for: indexPath
+        ) as! WatchLaterGridCell
         let item = sections[indexPath.section].items[indexPath.row]
-        cell.textLabel?.text = item.title
-        cell.textLabel?.numberOfLines = 1
-        cell.detailTextLabel?.numberOfLines = 2
-        cell.detailTextLabel?.text = statusLine(for: item)
-        cell.textLabel?.textColor = BrowserTheme.textPrimary
-        cell.detailTextLabel?.textColor = BrowserTheme.textSecondary
-        cell.backgroundColor = BrowserTheme.card
-        cell.selectionStyle = .default
-        applyStatusIcon(for: item, to: cell)
+        cell.configure(item: item)
+        cell.onClose = { [weak self] in
+            WatchLaterStore.shared.remove(id: item.id)
+            self?.reloadAfterMutation()
+        }
         return cell
     }
 
-    private func statusLine(for item: WatchLaterItem) -> String {
-        let video = item.hasVideoFile ? "Video saved" : (item.hasVideo ? "Video" : "No video")
-        let cache: String
-        if item.isCaching {
-            cache = "Caching…"
-        } else if item.isCacheComplete {
-            cache = "Cached"
-        } else if item.cacheState == "failed" {
-            cache = "Cache failed"
-        } else {
-            cache = "Not cached"
+    func collectionView(
+        _ collectionView: UICollectionView,
+        viewForSupplementaryElementOfKind kind: String,
+        at indexPath: IndexPath
+    ) -> UICollectionReusableView {
+        let header = collectionView.dequeueReusableSupplementaryView(
+            ofKind: kind,
+            withReuseIdentifier: WatchLaterDayHeaderView.reuseID,
+            for: indexPath
+        ) as! WatchLaterDayHeaderView
+        let section = indexPath.section
+        header.configure(
+            title: title(for: sections[section].day),
+            count: sections[section].items.count
+        )
+        header.onClear = { [weak self] in
+            self?.confirmClearDay(at: section)
         }
-        return "\(item.urlString)\n\(video) · \(cache)"
+        return header
     }
 
-    private func applyStatusIcon(for item: WatchLaterItem, to cell: UITableViewCell) {
-        let image = statusIcon(for: item)?.withRenderingMode(.alwaysTemplate)
-        cell.imageView?.image = image
-        if #available(iOS 17.0, *) {
-            cell.imageView?.removeAllSymbolEffects()
-        }
-        let tint: UIColor
-        if item.isCaching {
-            tint = BrowserTheme.chromeBlue
-            if #available(iOS 17.0, *) {
-                cell.imageView?.addSymbolEffect(.pulse, options: .repeating, animated: true)
-            }
-        } else if item.cacheState == "failed" {
-            tint = .systemOrange
-        } else if item.isCacheComplete {
-            tint = BrowserTheme.chromeBlue
-        } else {
-            tint = BrowserTheme.textSecondary
-        }
-        // Keep cell.tintColor in sync — UITableViewCell often resets imageView tint from it.
-        cell.tintColor = tint
-        cell.imageView?.tintColor = tint
+    func collectionView(
+        _ collectionView: UICollectionView,
+        layout collectionViewLayout: UICollectionViewLayout,
+        sizeForItemAt indexPath: IndexPath
+    ) -> CGSize {
+        TabGridMetrics.layout(forContainerWidth: collectionView.bounds.width).itemSize
     }
 
-    private func statusIcon(for item: WatchLaterItem) -> UIImage? {
-        let name: String
-        if item.isCaching {
-            name = "arrow.down.circle"
-        } else if item.hasVideoFile && item.isCacheComplete {
-            name = "play.rectangle.fill"
-        } else if item.hasVideo {
-            name = "play.rectangle"
-        } else if item.isCacheComplete {
-            name = "checkmark.circle.fill"
-        } else if item.cacheState == "failed" {
-            name = "exclamationmark.circle"
-        } else {
-            name = "arrow.down.circle"
-        }
-        return UIImage(systemName: name)
+    func collectionView(
+        _ collectionView: UICollectionView,
+        layout collectionViewLayout: UICollectionViewLayout,
+        referenceSizeForHeaderInSection section: Int
+    ) -> CGSize {
+        CGSize(width: collectionView.bounds.width, height: 44)
     }
 
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        tableView.deselectRow(at: indexPath, animated: true)
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         let item = sections[indexPath.section].items[indexPath.row]
         if item.hasOfflinePage || item.hasVideoFile {
             let reader = WatchLaterOfflineViewController(item: item)
@@ -182,65 +185,29 @@ final class WatchLaterViewController: UIViewController, UITableViewDataSource, U
         }
     }
 
-    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let delete = UIContextualAction(style: .destructive, title: "Delete") { [weak self] _, _, done in
-            guard let self else { done(false); return }
-            let item = self.sections[indexPath.section].items[indexPath.row]
-            WatchLaterStore.shared.remove(id: item.id)
-            self.reloadAfterMutation()
-            done(true)
+    func collectionView(
+        _ collectionView: UICollectionView,
+        contextMenuConfigurationForItemAt indexPath: IndexPath,
+        point: CGPoint
+    ) -> UIContextMenuConfiguration? {
+        let item = sections[indexPath.section].items[indexPath.row]
+        return UIContextMenuConfiguration(identifier: item.id.uuidString as NSString, previewProvider: nil) { [weak self] _ in
+            let edit = UIAction(title: "Edit", image: UIImage(systemName: "pencil")) { [weak self] _ in
+                self?.presentEditor(item: item)
+            }
+            let delete = UIAction(
+                title: "Delete",
+                image: UIImage(systemName: "trash"),
+                attributes: .destructive
+            ) { [weak self] _ in
+                WatchLaterStore.shared.remove(id: item.id)
+                self?.reloadAfterMutation()
+            }
+            return UIMenu(children: [edit, delete])
         }
-        let edit = UIContextualAction(style: .normal, title: "Edit") { [weak self] _, _, done in
-            guard let self else { done(false); return }
-            let item = self.sections[indexPath.section].items[indexPath.row]
-            self.presentEditor(item: item)
-            done(true)
-        }
-        edit.backgroundColor = BrowserTheme.chromeBlue
-        return UISwipeActionsConfiguration(actions: [delete, edit])
-    }
-
-    private func makeDayHeader(title: String, count: Int, section: Int) -> UIView {
-        let container = UIView()
-        container.backgroundColor = .clear
-
-        let titleLabel = UILabel()
-        titleLabel.text = "\(title)  ·  \(count)"
-        titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
-        titleLabel.textColor = BrowserTheme.textPrimary
-
-        let clearButton = UIButton(type: .system)
-        clearButton.setTitle("Clear", for: .normal)
-        clearButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
-        clearButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
-        clearButton.tag = section
-        clearButton.addTarget(self, action: #selector(clearDayButtonTapped(_:)), for: .touchUpInside)
-        clearButton.setContentHuggingPriority(.required, for: .horizontal)
-
-        let stack = UIStackView(arrangedSubviews: [titleLabel, clearButton])
-        stack.axis = .horizontal
-        stack.alignment = .center
-        stack.spacing = 12
-        container.addSubview(stack)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 4),
-            stack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -4),
-            stack.topAnchor.constraint(equalTo: container.topAnchor, constant: 8),
-            stack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -4)
-        ])
-        return container
-    }
-
-    @objc private func clearDayButtonTapped(_ sender: UIButton) {
-        confirmClearDay(at: sender.tag)
     }
 
     @objc private func close() { dismiss(animated: true) }
-
-    @objc private func addTapped() {
-        presentEditor(item: nil)
-    }
 
     @objc private func clearAll() {
         let alert = UIAlertController(
@@ -255,7 +222,7 @@ final class WatchLaterViewController: UIViewController, UITableViewDataSource, U
         })
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         if let pop = alert.popoverPresentationController {
-            pop.barButtonItem = navigationItem.rightBarButtonItems?.last
+            pop.barButtonItem = clearAllButton
         }
         present(alert, animated: true)
     }
@@ -278,8 +245,12 @@ final class WatchLaterViewController: UIViewController, UITableViewDataSource, U
         })
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         if let pop = alert.popoverPresentationController {
-            pop.sourceView = tableView
-            pop.sourceRect = tableView.rectForHeader(inSection: section)
+            pop.sourceView = collectionView
+            let attrs = collectionView.layoutAttributesForSupplementaryElement(
+                ofKind: UICollectionView.elementKindSectionHeader,
+                at: IndexPath(item: 0, section: section)
+            )
+            pop.sourceRect = attrs?.frame ?? CGRect(x: 0, y: 0, width: 44, height: 44)
         }
         present(alert, animated: true)
     }
@@ -340,9 +311,178 @@ final class WatchLaterViewController: UIViewController, UITableViewDataSource, U
 
     private func reloadAfterMutation() {
         reloadSections()
-        tableView.reloadData()
+        collectionView?.reloadData()
         updateClearButton()
     }
+}
+
+// MARK: - Day header
+
+private final class WatchLaterDayHeaderView: UICollectionReusableView {
+    static let reuseID = "WatchLaterDayHeader"
+    var onClear: (() -> Void)?
+
+    private let titleLabel = UILabel()
+    private let clearButton = UIButton(type: .system)
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        titleLabel.textColor = BrowserTheme.textPrimary
+        clearButton.setTitle("Clear", for: .normal)
+        clearButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+        clearButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
+        clearButton.addTarget(self, action: #selector(clearTapped), for: .touchUpInside)
+        clearButton.setContentHuggingPriority(.required, for: .horizontal)
+
+        let stack = UIStackView(arrangedSubviews: [titleLabel, clearButton])
+        stack.axis = .horizontal
+        stack.alignment = .center
+        stack.spacing = 12
+        addSubview(stack)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 4),
+            stack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+            stack.topAnchor.constraint(equalTo: topAnchor, constant: 8),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4)
+        ])
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func configure(title: String, count: Int) {
+        titleLabel.text = "\(title)  ·  \(count)"
+    }
+
+    @objc private func clearTapped() { onClear?() }
+}
+
+// MARK: - Grid cell
+
+private final class WatchLaterGridCell: UICollectionViewCell {
+    static let reuseID = "WatchLaterGridCell"
+    var onClose: (() -> Void)?
+
+    private let card = UIView()
+    private let headerBar = UIView()
+    private let titleLabel = UILabel()
+    private let closeButton = UIButton(type: .system)
+    private let preview = UIImageView()
+    private let placeholder = UILabel()
+    private let statusBadge = UIImageView()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        card.backgroundColor = BrowserTheme.card
+        card.layer.cornerRadius = 16
+        card.clipsToBounds = true
+        card.layer.borderWidth = 1.5
+        card.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.35).cgColor
+        contentView.addSubview(card)
+
+        headerBar.backgroundColor = BrowserTheme.card
+        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        titleLabel.textColor = BrowserTheme.textPrimary
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.numberOfLines = 1
+
+        closeButton.setImage(
+            UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)),
+            for: .normal
+        )
+        closeButton.tintColor = BrowserTheme.textSecondary
+        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+
+        preview.contentMode = .scaleAspectFill
+        preview.clipsToBounds = true
+        preview.backgroundColor = BrowserTheme.secondaryCard
+
+        placeholder.text = "Page"
+        placeholder.textAlignment = .center
+        placeholder.textColor = BrowserTheme.textSecondary
+        placeholder.font = .systemFont(ofSize: 15)
+
+        statusBadge.contentMode = .center
+        statusBadge.tintColor = .white
+        statusBadge.backgroundColor = BrowserTheme.chromeBlue.withAlphaComponent(0.9)
+        statusBadge.layer.cornerRadius = 12
+        statusBadge.clipsToBounds = true
+        statusBadge.isHidden = true
+
+        card.addSubview(preview)
+        card.addSubview(placeholder)
+        card.addSubview(headerBar)
+        card.addSubview(statusBadge)
+        headerBar.addSubview(titleLabel)
+        headerBar.addSubview(closeButton)
+
+        card.snp.makeConstraints { $0.edges.equalToSuperview() }
+        headerBar.snp.makeConstraints { make in
+            make.top.leading.trailing.equalToSuperview()
+            make.height.equalTo(40)
+        }
+        closeButton.snp.makeConstraints { make in
+            make.centerY.equalToSuperview()
+            make.trailing.equalToSuperview().offset(-8)
+            make.size.equalTo(22)
+        }
+        titleLabel.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(10)
+            make.trailing.equalTo(closeButton.snp.leading).offset(-6)
+            make.centerY.equalToSuperview()
+        }
+        preview.snp.makeConstraints { make in
+            make.top.equalTo(headerBar.snp.bottom)
+            make.leading.trailing.bottom.equalToSuperview()
+        }
+        placeholder.snp.makeConstraints { make in
+            make.center.equalTo(preview)
+        }
+        statusBadge.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(8)
+            make.bottom.equalToSuperview().offset(-8)
+            make.size.equalTo(24)
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func configure(item: WatchLaterItem) {
+        titleLabel.text = item.title
+        if let image = item.previewImage {
+            preview.image = image
+            placeholder.isHidden = true
+        } else {
+            preview.image = nil
+            placeholder.isHidden = false
+            placeholder.text = item.url?.host ?? "Page"
+        }
+
+        let iconConfig = UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+        if item.isCaching {
+            statusBadge.isHidden = false
+            statusBadge.image = UIImage(systemName: "arrow.down.circle.fill", withConfiguration: iconConfig)
+            statusBadge.backgroundColor = BrowserTheme.chromeBlue.withAlphaComponent(0.9)
+        } else if item.cacheState == "failed" {
+            statusBadge.isHidden = false
+            statusBadge.image = UIImage(systemName: "exclamationmark.circle.fill", withConfiguration: iconConfig)
+            statusBadge.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.9)
+        } else if item.hasVideoFile {
+            statusBadge.isHidden = false
+            statusBadge.image = UIImage(systemName: "play.fill", withConfiguration: iconConfig)
+            statusBadge.backgroundColor = BrowserTheme.chromeBlue.withAlphaComponent(0.9)
+        } else if item.isCacheComplete {
+            statusBadge.isHidden = false
+            statusBadge.image = UIImage(systemName: "checkmark.circle.fill", withConfiguration: iconConfig)
+            statusBadge.backgroundColor = BrowserTheme.chromeBlue.withAlphaComponent(0.9)
+        } else {
+            statusBadge.isHidden = true
+            statusBadge.image = nil
+        }
+    }
+
+    @objc private func closeTapped() { onClose?() }
 }
 
 /// Opens a saved page without the network, and plays a saved video when one exists.

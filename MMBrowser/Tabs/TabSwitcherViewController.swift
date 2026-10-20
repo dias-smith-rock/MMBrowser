@@ -1421,7 +1421,10 @@ final class TabGridCell: UICollectionViewCell {
         groupButton.accessibilityHint = "Choose a space for this tab"
         groupButton.addTarget(self, action: #selector(groupTapped), for: .touchUpInside)
 
-        closeButton.setImage(UIImage(systemName: "xmark"), for: .normal)
+        closeButton.setImage(
+            UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)),
+            for: .normal
+        )
         closeButton.tintColor = BrowserTheme.textSecondary
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
 
@@ -1452,9 +1455,9 @@ final class TabGridCell: UICollectionViewCell {
             make.height.equalTo(Self.headerHeight)
         }
         closeButton.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(4)
-            make.trailing.equalToSuperview().offset(-6)
-            make.size.equalTo(28)
+            make.top.equalToSuperview().offset(6)
+            make.trailing.equalToSuperview().offset(-8)
+            make.size.equalTo(22)
         }
         avatarView.snp.makeConstraints { make in
             make.centerY.equalTo(titleLabel)

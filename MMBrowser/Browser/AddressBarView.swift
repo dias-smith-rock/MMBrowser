@@ -484,7 +484,9 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         // In compact mode the field *is* the floating pill.
         backgroundColor = .clear
         if isCompact {
-            container.backgroundColor = isPrivateMode ? BrowserTheme.privateElevated : BrowserTheme.elevated
+            container.backgroundColor = isPrivateMode
+                ? BrowserTheme.privateElevated
+                : BrowserTheme.spaceElevatedColor(spaceColor: spaceTintColor)
             container.layer.borderWidth = 1
             container.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.28).cgColor
             container.layer.shadowColor = UIColor.black.cgColor
@@ -502,9 +504,10 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             if isPrivateMode {
                 container.backgroundColor = BrowserTheme.privateBackground
             } else if ThemeManager.shared.current.isLight {
-                container.backgroundColor = BrowserTheme.secondaryCard
+                container.backgroundColor = BrowserTheme.spaceSurfaceColor(spaceColor: spaceTintColor)
             } else {
-                container.backgroundColor = BrowserTheme.background
+                // Recessed field inside the Space-tinted chrome card.
+                container.backgroundColor = BrowserTheme.spaceSurfaceColor(spaceColor: spaceTintColor)
             }
         }
         hostLabel.textColor = BrowserTheme.textPrimary

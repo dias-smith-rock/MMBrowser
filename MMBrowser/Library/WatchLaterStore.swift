@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 struct WatchLaterItem: Codable, Equatable {
     let id: UUID
@@ -10,6 +11,8 @@ struct WatchLaterItem: Codable, Equatable {
     var hasVideo: Bool
     var pageArchiveName: String?
     var videoFileName: String?
+    /// JPEG thumbnail captured from the page when saved.
+    var previewFileName: String?
     /// `saving`, `ready`, or `failed`. Empty on older records.
     var cacheState: String
 
@@ -23,6 +26,18 @@ struct WatchLaterItem: Codable, Equatable {
     var videoFileURL: URL? {
         guard let videoFileName else { return nil }
         return WatchLaterStore.fileURL(named: videoFileName)
+    }
+
+    var previewFileURL: URL? {
+        guard let previewFileName else { return nil }
+        return WatchLaterStore.fileURL(named: previewFileName)
+    }
+
+    var previewImage: UIImage? {
+        guard let url = previewFileURL,
+              FileManager.default.fileExists(atPath: url.path),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return UIImage(data: data)
     }
 
     var hasVideoFile: Bool {
@@ -48,7 +63,7 @@ struct WatchLaterItem: Codable, Equatable {
     var isCaching: Bool { cacheState == "saving" }
 
     enum CodingKeys: String, CodingKey {
-        case id, containerID, title, urlString, date, hasVideo, pageArchiveName, videoFileName, cacheState
+        case id, containerID, title, urlString, date, hasVideo, pageArchiveName, videoFileName, previewFileName, cacheState
     }
 
     init(
@@ -60,6 +75,7 @@ struct WatchLaterItem: Codable, Equatable {
         hasVideo: Bool = false,
         pageArchiveName: String? = nil,
         videoFileName: String? = nil,
+        previewFileName: String? = nil,
         cacheState: String = "idle"
     ) {
         self.id = id
@@ -70,6 +86,7 @@ struct WatchLaterItem: Codable, Equatable {
         self.hasVideo = hasVideo
         self.pageArchiveName = pageArchiveName
         self.videoFileName = videoFileName
+        self.previewFileName = previewFileName
         self.cacheState = cacheState
     }
 
@@ -84,6 +101,7 @@ struct WatchLaterItem: Codable, Equatable {
         hasVideo = try c.decodeIfPresent(Bool.self, forKey: .hasVideo) ?? false
         pageArchiveName = try c.decodeIfPresent(String.self, forKey: .pageArchiveName)
         videoFileName = try c.decodeIfPresent(String.self, forKey: .videoFileName)
+        previewFileName = try c.decodeIfPresent(String.self, forKey: .previewFileName)
         cacheState = try c.decodeIfPresent(String.self, forKey: .cacheState) ?? "idle"
     }
 }
@@ -139,6 +157,12 @@ final class WatchLaterStore {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         items[index].pageArchiveName = fileName
         refreshCacheState(at: index)
+        saveNow()
+    }
+
+    func markPreviewSaved(id: UUID, fileName: String) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        items[index].previewFileName = fileName
         saveNow()
     }
 
@@ -252,6 +276,7 @@ final class WatchLaterStore {
     private func deleteFiles(_ item: WatchLaterItem) {
         if let url = item.pageArchiveURL { try? FileManager.default.removeItem(at: url) }
         if let url = item.videoFileURL { try? FileManager.default.removeItem(at: url) }
+        if let url = item.previewFileURL { try? FileManager.default.removeItem(at: url) }
     }
 
     private func load() {

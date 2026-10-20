@@ -531,7 +531,7 @@ final class BrowserViewController: UIViewController {
         chromeStack.addArrangedSubview(addressBar)
         chromeStack.addArrangedSubview(toolbar)
 
-        chromeCard.backgroundColor = BrowserTheme.elevated
+        chromeCard.backgroundColor = BrowserTheme.spaceElevatedColor(spaceColor: nil)
         chromeCard.layer.cornerRadius = 28
         chromeCard.layer.cornerCurve = .continuous
         chromeCard.clipsToBounds = true
@@ -674,9 +674,7 @@ final class BrowserViewController: UIViewController {
         let cleanerCapsule = compact && cleanerOn
         chromeCard.backgroundColor = compact
             ? .clear
-            : (tabManager.selectedTab?.isIncognito == true
-                ? BrowserTheme.privateElevated
-                : BrowserTheme.elevated)
+            : chromeCardFillColor()
         chromeCard.layer.cornerRadius = compact ? 0 : 28
         // Allow the compact pill / cleaner chips to draw outside the card.
         chromeCard.clipsToBounds = !compact
@@ -1154,7 +1152,7 @@ final class BrowserViewController: UIViewController {
         chromeHost.backgroundColor = .clear
         // Shared floating card (same on home and web). Home-indicator band stays clear of this fill.
         if !isChromeCollapsed {
-            chromeCard.backgroundColor = isPrivate ? BrowserTheme.privateElevated : BrowserTheme.elevated
+            chromeCard.backgroundColor = chromeCardFillColor(isPrivate: isPrivate, spaceColor: spaceColor)
         }
         addressBar.setPrivateMode(isPrivate)
         toolbar.setPrivateMode(isPrivate)
@@ -1168,6 +1166,21 @@ final class BrowserViewController: UIViewController {
             collapsedProgressView.progressTintColor = spaceColor ?? BrowserTheme.chromeBlue
         }
         accountHubController?.applySpaceChrome(spaceColor: spaceColor)
+    }
+
+    /// Floating address+toolbar card fill — Space accent when not Private.
+    private func chromeCardFillColor(
+        isPrivate: Bool? = nil,
+        spaceColor: UIColor? = nil
+    ) -> UIColor {
+        let priv = isPrivate ?? (tabManager.selectedTab?.isIncognito == true)
+        if priv { return BrowserTheme.privateElevated }
+        let tint = spaceColor ?? {
+            guard let tab = tabManager.selectedTab, !tab.isIncognito else { return nil }
+            let container = tabManager.container(id: tab.containerID) ?? tabManager.defaultContainer
+            return AccountColor.color(for: container)
+        }()
+        return BrowserTheme.spaceElevatedColor(spaceColor: tint)
     }
 
     private func showNewTab(for tab: BrowserTab) {
