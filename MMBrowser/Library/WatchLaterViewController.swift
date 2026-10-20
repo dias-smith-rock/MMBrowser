@@ -468,7 +468,7 @@ private final class WatchLaterGridCell: UICollectionViewCell {
             statusBadge.isHidden = false
             statusBadge.image = UIImage(systemName: "exclamationmark.circle.fill", withConfiguration: iconConfig)
             statusBadge.backgroundColor = UIColor.systemOrange.withAlphaComponent(0.9)
-        } else if item.hasVideoFile {
+        } else if item.hasVideoFile, WatchLaterMediaPolicy.allowsOfflineMedia(on: item.url) {
             statusBadge.isHidden = false
             statusBadge.image = UIImage(systemName: "play.fill", withConfiguration: iconConfig)
             statusBadge.backgroundColor = BrowserTheme.chromeBlue.withAlphaComponent(0.9)
@@ -533,7 +533,8 @@ final class WatchLaterOfflineViewController: UIViewController, WKNavigationDeleg
             action: #selector(openLivePage)
         )
 
-        showsPlayer = item.hasVideoFile
+        // Blacklisted / copyright-restricted hosts must play media online (Open Live).
+        showsPlayer = item.hasVideoFile && WatchLaterMediaPolicy.allowsOfflineMedia(on: item.url)
         if showsPlayer, let url = item.videoFileURL {
             playerController.player = AVPlayer(url: url)
             addChild(playerController)
@@ -578,6 +579,8 @@ final class WatchLaterOfflineViewController: UIViewController, WKNavigationDeleg
         super.viewDidAppear(animated)
         if showsPlayer {
             playerController.player?.play()
+        } else if item.hasVideoFile, !WatchLaterMediaPolicy.allowsOfflineMedia(on: item.url) {
+            Toast.show(WatchLaterMediaPolicy.onlineMediaRequiredNotice, from: self)
         }
     }
 

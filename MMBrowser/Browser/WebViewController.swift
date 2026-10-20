@@ -1894,6 +1894,11 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
             Toast.show(OfflineMediaCopyrightPolicy.saveVideoBlockedNotice, from: self)
             return false
         }
+        if RemoteConfigManager.shared.watchLaterRequiresOnlineMedia(for: webView?.url) {
+            PageMediaProbe.log("download.abort", ["why": "watchLaterBlacklist"])
+            Toast.show(WatchLaterMediaPolicy.onlineMediaRequiredNotice, from: self)
+            return false
+        }
         let candidate = pageMediaProbe.bestCandidate
         guard let candidate else {
             PageMediaProbe.log("download.abort", [
@@ -3042,8 +3047,10 @@ extension WebViewController: WKUIDelegate {
         guard let item = WatchLaterStore.shared.items(containerID: containerID).first(where: { $0.urlString == url.absoluteString }) else {
             return
         }
-        let copyrightBlocksAV = OfflineMediaCopyrightPolicy.restrictsAudioVideo(on: url)
-        let candidate = copyrightBlocksAV ? nil : pageMediaProbe.bestCandidate
+        // Offline media only when Remote Config blacklist + copyright policy both allow it.
+        let candidate = WatchLaterMediaPolicy.allowsOfflineMedia(on: url)
+            ? pageMediaProbe.bestCandidate
+            : nil
         WatchLaterStore.shared.markCaching(id: item.id, hasVideo: candidate != nil)
         let itemID = item.id
         // Capture a grid thumbnail while the live page is still on-screen.
@@ -3057,8 +3064,7 @@ extension WebViewController: WKUIDelegate {
                 WatchLaterStore.shared.markPreviewSaved(id: itemID, fileName: name)
             } catch {}
         }
-        // Video can download in parallel while we warm image subresources for the archive.
-        // YouTube / Vimeo: page text+images only (copyright policy).
+        // Media download runs in parallel with page-image warming when policy allows.
         if let candidate {
             downloadWatchLaterVideo(candidate, itemID: itemID)
         }
