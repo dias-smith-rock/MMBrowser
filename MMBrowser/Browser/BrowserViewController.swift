@@ -2307,29 +2307,9 @@ extension BrowserViewController: WebViewControllerDelegate {
     }
 
     func webViewController(_ controller: WebViewController, didOfferOfflineVideo candidate: PageMediaCandidate) {
-        guard tabManager.selectedTab?.webController === controller else { return }
-        guard tabManager.selectedTab?.isIncognito != true else { return }
-        if OfflineMediaCopyrightPolicy.restrictsAudioVideo(on: tabManager.selectedTab?.url ?? controller.webView?.url) {
-            return
-        }
-        // Downloads list may already have this video (or a same-page download just started).
-        if DownloadManager.shared.hasActiveOrCompletedOfflineVideo(matching: candidate) {
-            PageMediaProbe.log("offer.skip", [
-                "why": "alreadySavedOrDownloading",
-                "where": "toast",
-                "file": candidate.suggestedFileName
-            ])
-            return
-        }
-        Toast.show(
-            "Save this video offline?",
-            from: self,
-            actionTitle: "Save",
-            action: { [weak controller] in
-                _ = controller?.startOfflineVideoDownload()
-            },
-            duration: 5.0
-        )
+        // Intentionally unused: offline media is user-triggered via Watch Later (no auto “save video” prompts).
+        _ = controller
+        _ = candidate
     }
 
     private func applyComputerUserAgent(to tab: BrowserTab, reloadWebView: Bool = true) {

@@ -3035,7 +3035,7 @@ extension WebViewController: WKUIDelegate {
         }
     }
 
-    /// Saves a web archive of the open page, and the playing video, outside the Downloads list.
+    /// Saves a page snapshot for Watch Later (text/images). May also keep playable media when policy allows.
     func cacheCurrentPageForWatchLater(matching url: URL) {
         guard let webView else { return }
         let containerID = browsingContainerID ?? ContainerScope.resolveContainerID(nil)

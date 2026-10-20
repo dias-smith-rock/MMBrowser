@@ -547,7 +547,7 @@ final class WatchLaterOfflineViewController: UIViewController, WKNavigationDeleg
         webView.scrollView.backgroundColor = BrowserTheme.background
         view.addSubview(webView)
 
-        emptyLabel.text = "Loading offline page…"
+        emptyLabel.text = "Loading page snapshot…"
         emptyLabel.textAlignment = .center
         emptyLabel.textColor = BrowserTheme.textSecondary
         emptyLabel.font = .systemFont(ofSize: 15, weight: .medium)
@@ -611,9 +611,9 @@ final class WatchLaterOfflineViewController: UIViewController, WKNavigationDeleg
         }
         // Stay offline — never auto-fetch the live page (that surfaces site “You’re offline” toasts).
         if item.hasVideoFile {
-            showEmptyState("No offline page snapshot.\nYour saved video is available above.")
+            showEmptyState("No page snapshot was saved.\nYour saved media is available above.")
         } else {
-            showEmptyState("No offline page was saved for this entry.\nUse Open Live when you have a connection.")
+            showEmptyState("No page snapshot was saved for this entry.\nUse Open Live when you have a connection.")
         }
     }
 
@@ -646,9 +646,9 @@ final class WatchLaterOfflineViewController: UIViewController, WKNavigationDeleg
             let isErrorShell = (info?["errorShell"] as? Bool) == true
             if richness == 0 || isErrorShell {
                 if self.item.hasVideoFile {
-                    self.showEmptyState("This offline page couldn’t be displayed.\nYour saved video is available above.")
+                    self.showEmptyState("This page snapshot couldn’t be displayed.\nYour saved media is available above.")
                 } else {
-                    self.showEmptyState("This offline page couldn’t be displayed.\nUse Open Live when you have a connection.")
+                    self.showEmptyState("This page snapshot couldn’t be displayed.\nUse Open Live when you have a connection.")
                 }
             } else {
                 self.showWebContent()
@@ -677,9 +677,9 @@ final class WatchLaterOfflineViewController: UIViewController, WKNavigationDeleg
             return
         }
         if item.hasVideoFile {
-            showEmptyState("This offline page couldn’t be displayed.\nYour saved video is available above.")
+            showEmptyState("This page snapshot couldn’t be displayed.\nYour saved media is available above.")
         } else {
-            showEmptyState("This offline page couldn’t be displayed.\nUse Open Live when you have a connection.")
+            showEmptyState("This page snapshot couldn’t be displayed.\nUse Open Live when you have a connection.")
         }
     }
 

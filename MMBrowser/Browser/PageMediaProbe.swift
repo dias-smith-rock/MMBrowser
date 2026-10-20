@@ -1,7 +1,7 @@
 import Foundation
 import WebKit
 
-/// Copyright-sensitive hosts where offline A/V must not be saved; page text/images may still be archived.
+/// Platforms where offline audio/video saving is unavailable; Watch Later may still save a page snapshot.
 enum OfflineMediaCopyrightPolicy {
     static func restrictsAudioVideo(on url: URL?) -> Bool {
         guard let host = url?.host?.lowercased() else { return false }
@@ -10,11 +10,13 @@ enum OfflineMediaCopyrightPolicy {
         return false
     }
 
+    /// Shown after adding Watch Later on copyright-restricted hosts.
     static let watchLaterNotice =
-        "Due to copyright restrictions, only text and images can be cached — audio and video can’t be saved."
+        "Due to copyright restrictions, only a page snapshot (text and images) can be saved — audio and video aren’t available offline."
 
+    /// Shown when a user tries to save offline audio/video on those hosts.
     static let saveVideoBlockedNotice =
-        "Due to copyright restrictions, audio and video can’t be cached on this site."
+        "Due to copyright restrictions, audio and video can’t be saved for offline use on this site."
 }
 
 struct PageMediaCandidate: Equatable {
@@ -386,7 +388,7 @@ final class PageMediaProbe {
         let href = url.absoluteString
         if let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
            let items = comps.queryItems {
-            let idKeys: Set<String> = ["v", "id", "vid", "video_id", "videoId", "viewkey", "watch"]
+            let idKeys: Set<String> = ["v", "id", "vid", "video_id", "videoId", "watch"]
             if let match = items.first(where: { idKeys.contains($0.name) }),
                let value = match.value, !value.isEmpty, value.count >= 3 {
                 return value
@@ -668,7 +670,7 @@ final class PageMediaProbe {
   function videoIDFromHref(href) {
     try {
       var s = String(href || '');
-      var q = s.match(/[?&](?:v|id|vid|video_id|videoId|viewkey|watch)=([a-zA-Z0-9_-]{3,})/i);
+      var q = s.match(/[?&](?:v|id|vid|video_id|videoId|watch)=([a-zA-Z0-9_-]{3,})/i);
       if (q) return q[1];
       var patterns = [
         /\/status\/(\d+)/,
@@ -691,7 +693,7 @@ final class PageMediaProbe {
     var node = video;
     for (var i = 0; i < 12 && node; i++) {
       try {
-        var a = node.querySelector && node.querySelector('a[href*="/status/"], a[href*="/video"], a[href*="/watch"], a[href*="/embed/"], a[href*="/v/"], a[href*="?v="], a[href*="viewkey="]');
+        var a = node.querySelector && node.querySelector('a[href*="/status/"], a[href*="/video"], a[href*="/watch"], a[href*="/embed/"], a[href*="/v/"], a[href*="?v="]');
         if (a && a.href) {
           var id = videoIDFromHref(a.href);
           if (id) return id;

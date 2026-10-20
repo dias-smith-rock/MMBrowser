@@ -79,9 +79,6 @@ enum MediaPlaybackSupport {
         "msn.com", "yahoo.com", "aol.com", "people.com", "weather.com",
         "nbcnews.com", "abcnews.go.com", "cbsnews.com", "usatoday.com",
         "washingtonpost.com", "theguardian.com",
-        // Adult video (US Top 100)
-        "pornhub.com", "xvideos.com", "xhamster.com", "xnxx.com",
-        "onlyfans.com", "chaturbate.com", "stripchat.com",
         // Commerce with frequent product / Prime video
         "amazon.com",
         // China / regional video (kept for multi-market users)
