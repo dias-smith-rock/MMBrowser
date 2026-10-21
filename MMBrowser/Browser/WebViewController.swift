@@ -1366,6 +1366,55 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         return false
     }
 
+    /// Tabs UI speaker badge: PiP or an actively playing `<video>` / `<audio>`.
+    var indicatesPlayingMedia: Bool {
+        if isPictureInPictureActive || PipSession.isOwner(self) { return true }
+        return pageHasPlayingVideo
+    }
+
+    /// Refresh `pageHasPlayingVideo` for the tab-switcher speaker badge (includes `<audio>`).
+    func refreshPlayingMediaState(completion: ((Bool) -> Void)? = nil) {
+        if isPictureInPictureActive || PipSession.isOwner(self) {
+            pageHasPlayingVideo = true
+            lastMediaPlayingAt = Date()
+            completion?(true)
+            return
+        }
+        guard let webView else {
+            pageHasPlayingVideo = false
+            completion?(false)
+            return
+        }
+        let js = """
+        (function(){
+          try {
+            if (typeof window.__mmAnyInPiP === 'function' && window.__mmAnyInPiP()) return true;
+            if (window.__mmTabInactive === true) return false;
+            var els = document.querySelectorAll('video,audio');
+            for (var i = 0; i < els.length; i++) {
+              var m = els[i];
+              if (m.paused || m.ended) continue;
+              if ((m.currentTime || 0) > 0.05) return true;
+              if (m.dataset && m.dataset.mmWantPlay === '1') return true;
+            }
+          } catch (e) {}
+          return false;
+        })();
+        """
+        webView.evaluateJavaScript(js) { [weak self] result, _ in
+            let playing = (result as? Bool) ?? false
+            DispatchQueue.main.async {
+                guard let self else {
+                    completion?(playing)
+                    return
+                }
+                self.pageHasPlayingVideo = playing
+                if playing { self.lastMediaPlayingAt = Date() }
+                completion?(playing)
+            }
+        }
+    }
+
     private func pollPlayableVideoForPiP() {
         guard AppSettings.pictureInPictureEnabled,
               !YouTubeDarkMode.isYouTubeMusic(webView?.url) else {

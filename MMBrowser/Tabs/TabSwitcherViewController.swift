@@ -105,6 +105,27 @@ final class TabSwitcherViewController: UIViewController {
         reload()
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        refreshMediaPlayingIndicators()
+    }
+
+    /// Probe live WebViews so speaker badges match current playback (incl. `<audio>` / PiP).
+    private func refreshMediaPlayingIndicators() {
+        let targets = displayedTabs.compactMap(\.webController)
+        guard !targets.isEmpty else { return }
+        let group = DispatchGroup()
+        for web in targets {
+            group.enter()
+            web.refreshPlayingMediaState { _ in group.leave() }
+        }
+        group.notify(queue: .main) { [weak self] in
+            guard let self, self.isViewLoaded else { return }
+            self.collectionView.reloadData()
+            self.presentedAccountPopup?.reloadPreviews()
+        }
+    }
+
     private func applyChrome() {
         let spaceColor = showingIncognito ? nil : tabManager.accountColor(forContainer: focusedSpaceID)
         view.backgroundColor = showingIncognito
@@ -805,7 +826,8 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
             tab: tab,
             containerName: tabManager.containerName(for: tab),
             accountColor: tabManager.accountColor(for: tab),
-            selected: selected
+            selected: selected,
+            isMediaPlaying: tab.webController?.indicatesPlayingMedia == true
         )
         cell.onClose = { [weak self] in
             guard let self else { return }
@@ -1293,7 +1315,8 @@ private final class AccountSectionView: UIView, UICollectionViewDataSource, UICo
             tab: tab,
             containerName: containerNameProvider?(tab) ?? "",
             accountColor: accountColorProvider?(tab) ?? accountColor,
-            selected: tab.id == selectedTabID
+            selected: tab.id == selectedTabID,
+            isMediaPlaying: tab.webController?.indicatesPlayingMedia == true
         )
         cell.onClose = { [weak self] in
             self?.onCloseTab?(tab.id)
@@ -1376,6 +1399,7 @@ final class TabGridCell: UICollectionViewCell {
     private let titleLabel = UILabel()
     private let avatarView = UIImageView()
     private let groupButton = UIButton(type: .system)
+    private let speakingIndicator = UIImageView()
     private let closeButton = UIButton(type: .system)
     private let preview = UIImageView()
     private let placeholder = UILabel()
@@ -1421,6 +1445,16 @@ final class TabGridCell: UICollectionViewCell {
         groupButton.accessibilityHint = "Choose a space for this tab"
         groupButton.addTarget(self, action: #selector(groupTapped), for: .touchUpInside)
 
+        speakingIndicator.contentMode = .scaleAspectFit
+        speakingIndicator.image = UIImage(
+            systemName: "speaker.wave.2.fill",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+        )
+        speakingIndicator.tintColor = BrowserTheme.chromeBlue
+        speakingIndicator.isHidden = true
+        speakingIndicator.accessibilityLabel = "Playing media"
+        speakingIndicator.isAccessibilityElement = true
+
         closeButton.setImage(
             UIImage(systemName: "xmark", withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)),
             for: .normal
@@ -1443,6 +1477,7 @@ final class TabGridCell: UICollectionViewCell {
         headerBar.addSubview(titleLabel)
         headerBar.addSubview(avatarView)
         headerBar.addSubview(groupButton)
+        headerBar.addSubview(speakingIndicator)
         headerBar.addSubview(closeButton)
 
         card.snp.makeConstraints { $0.edges.equalToSuperview() }
@@ -1470,10 +1505,15 @@ final class TabGridCell: UICollectionViewCell {
             make.trailing.equalTo(avatarView.snp.leading).offset(-6)
             make.height.equalTo(18)
         }
+        speakingIndicator.snp.makeConstraints { make in
+            make.centerY.equalTo(groupButton)
+            make.trailing.equalToSuperview().offset(-10)
+            make.size.equalTo(16)
+        }
         groupButton.snp.makeConstraints { make in
             make.top.equalTo(titleLabel.snp.bottom).offset(2)
             make.leading.equalToSuperview().offset(8)
-            make.trailing.lessThanOrEqualTo(closeButton.snp.leading).offset(-6)
+            make.trailing.lessThanOrEqualTo(speakingIndicator.snp.leading).offset(-6)
             make.height.equalTo(22)
             make.bottom.lessThanOrEqualToSuperview().offset(-4)
         }
@@ -1486,7 +1526,13 @@ final class TabGridCell: UICollectionViewCell {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(tab: BrowserTab, containerName: String, accountColor: UIColor, selected: Bool) {
+    func configure(
+        tab: BrowserTab,
+        containerName: String,
+        accountColor: UIColor,
+        selected: Bool,
+        isMediaPlaying: Bool = false
+    ) {
         configuredTabID = tab.id
         titleLabel.text = tab.title
         groupButton.isHidden = false
@@ -1497,6 +1543,11 @@ final class TabGridCell: UICollectionViewCell {
         groupButton.setTitleColor(accountColor, for: .normal)
         groupButton.tintColor = accountColor
         colorBar.backgroundColor = accountColor
+        speakingIndicator.isHidden = !isMediaPlaying
+        speakingIndicator.tintColor = accountColor
+        speakingIndicator.snp.updateConstraints { make in
+            make.size.equalTo(isMediaPlaying ? 16 : 0)
+        }
         if let avatar = tab.sessionAvatar {
             avatarView.image = avatar
             avatarView.isHidden = false
@@ -1530,6 +1581,7 @@ final class TabGridCell: UICollectionViewCell {
         closeButton.isHidden = true
         colorBar.isHidden = true
         avatarView.isHidden = true
+        speakingIndicator.isHidden = true
         placeholder.isHidden = true
         preview.contentMode = .center
         preview.tintColor = accent

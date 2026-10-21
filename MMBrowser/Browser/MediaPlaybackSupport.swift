@@ -142,6 +142,25 @@ enum MediaPlaybackSupport {
         webView.evaluateJavaScript(resumeJS, completionHandler: nil)
     }
 
+    /// Pause inline HTML5 media when a tab is no longer selected.
+    /// Skips active PiP. Background Audio keep-alive is for *app* background (same tab),
+    /// not for tab switches — except continuous music hosts (YouTube Music).
+    static func pauseMediaIfNeeded(in webView: WKWebView?, owner: WebViewController? = nil) {
+        guard let webView else { return }
+        if let owner {
+            if owner.isPictureInPictureActive || PipSession.isOwner(owner) { return }
+            // Short-form / feed video must stop on tab leave; only music hosts keep playing.
+            if AppSettings.backgroundAudioEnabled, YouTubeDarkMode.isYouTubeMusic(webView.url) { return }
+        }
+        webView.evaluateJavaScript(pauseInactiveTabJS, completionHandler: nil)
+    }
+
+    /// Clear the tab-deselected suppress flag when this web page is shown again.
+    static func noteTabBecameActive(in webView: WKWebView?) {
+        guard let webView else { return }
+        webView.evaluateJavaScript("try { window.__mmTabInactive = false; } catch (e) {}", completionHandler: nil)
+    }
+
     /// Reinforce PiP after the host app becomes active (YouTube otherwise reclaiming inline).
     static func reinforcePictureInPictureIfNeeded(in webView: WKWebView?) {
         guard let webView, AppSettings.pictureInPictureEnabled else { return }
@@ -585,6 +604,8 @@ enum MediaPlaybackSupport {
     private static let resumeJS = """
     (function() {
       try {
+        // Deselected tab — never revive after an explicit tab-leave pause.
+        if (window.__mmTabInactive === true) return;
         if (typeof window.__mmAnyInPiP === 'function' && window.__mmAnyInPiP()) return;
         if (typeof window.__mmResumeMedia === 'function') { window.__mmResumeMedia(); return; }
         document.querySelectorAll('video').forEach(function(v) {
@@ -599,9 +620,43 @@ enum MediaPlaybackSupport {
     })();
     """
 
+    /// Pause non-PiP media when the hosting tab is deselected (not App background).
+    /// Sets `__mmTabInactive` so visibility/pause keep-alive handlers do not force-resume.
+    private static let pauseInactiveTabJS = """
+    (function() {
+      try {
+        if (typeof window.__mmAnyInPiP === 'function' && window.__mmAnyInPiP()) return 'pip';
+        if (typeof window.__mmPipPlaybackHealthy === 'function' && window.__mmPipPlaybackHealthy()) return 'pip-healthy';
+        // Continuous music may keep playing across tabs when Background Audio is on.
+        try {
+          var h = (location.hostname || '').toLowerCase();
+          if (window.__mmBackgroundAudio === true
+              && (h === 'music.youtube.com' || h.indexOf('music.youtube.com') !== -1)) {
+            return 'music';
+          }
+        } catch (e) {}
+        window.__mmTabInactive = true;
+        var n = 0;
+        document.querySelectorAll('video, audio').forEach(function(v) {
+          try {
+            if (v.webkitPresentationMode === 'picture-in-picture') return;
+            if (document.pictureInPictureElement === v) return;
+            try { v.dataset.mmWantPlay = '0'; } catch (e2) {}
+            if (v.paused || v.ended) return;
+            v.pause();
+            n += 1;
+          } catch (e) {}
+        });
+        return 'paused:' + n;
+      } catch (e) { return 'err'; }
+    })();
+    """
+
     private static let keepBackgroundAliveJS = """
     (function() {
       try {
+        // Deselected tab — do not revive after an explicit tab-leave pause.
+        if (window.__mmTabInactive === true) return 'inactive';
         window.__mmBackgroundAudio = true;
         // Already in system PiP and playing — leave the AV pipeline alone.
         if (typeof window.__mmPipPlaybackHealthy === 'function' && window.__mmPipPlaybackHealthy()) {
@@ -660,8 +715,9 @@ enum MediaPlaybackSupport {
           }
 
           window.__mmMediaKeepAlive = true;
-          window.__mmMediaScriptVersion = 6;
+          window.__mmMediaScriptVersion = 7;
           window.__mmBackgroundAudio = \(bgFlag);
+          if (typeof window.__mmTabInactive === 'undefined') window.__mmTabInactive = false;
 
           // Subframes: light probe only on media hosts — full PiP stack runs in the top frame.
           try {
@@ -996,6 +1052,7 @@ enum MediaPlaybackSupport {
               return !!document.querySelector('video[data-mm-want-play="1"]');
             } catch (e) { return false; }
           }
+          window.__mmWantsKeepAlive = wantsKeepAlive;
 
           // System PiP scrubber pauses while dragging; forcing play() cancels the seek.
           if (typeof window.__mmPipUserSeekUntil === 'undefined') window.__mmPipUserSeekUntil = 0;
@@ -1050,6 +1107,8 @@ enum MediaPlaybackSupport {
 
           function forceResumePlaying() {
             try {
+              // Inactive (deselected) tab — never revive short-form / feed video.
+              if (window.__mmTabInactive) return;
               // Never fight a healthy PiP session — repeated play() causes audible thrash.
               if (pipPlaybackHealthy()) return;
               document.querySelectorAll('video').forEach(function(v) {
@@ -1363,6 +1422,7 @@ enum MediaPlaybackSupport {
           }
 
           function resumeVideos() {
+            if (window.__mmTabInactive) return;
             if (wantsPip()) {
               keepPipPlaying();
               return;
@@ -1436,6 +1496,7 @@ enum MediaPlaybackSupport {
           }
 
           window.__mmResumeMedia = function() {
+            if (window.__mmTabInactive) return;
             if (wantsPip()) {
               keepPipPlaying();
               return;
@@ -2204,8 +2265,11 @@ enum MediaPlaybackSupport {
             }
             // Only auto-resume when the page is already hidden (app background / lock).
             // While visible, allow the user to pause normally.
+            // Tab deselected: do not fight our explicit pause.
+            if (window.__mmTabInactive) return;
             if (document.visibilityState === 'hidden' && (wantsKeepAlive() || v.dataset.mmWantPlay === '1')) {
               setTimeout(function() {
+                if (window.__mmTabInactive) return;
                 if (!pipPlaybackHealthy()) forceResumePlaying();
               }, 400);
               return;
@@ -2216,6 +2280,8 @@ enum MediaPlaybackSupport {
           }, true);
 
           document.addEventListener('visibilitychange', function(e) {
+            // Inactive tab: never force-resume (app-background keep-alive is for the selected tab).
+            if (window.__mmTabInactive) return;
             var keep = wantsPip() || wantsKeepAlive();
             if (document.visibilityState === 'visible') {
               // Returning to the app (from background or by tapping the PiP window).
@@ -2237,6 +2303,7 @@ enum MediaPlaybackSupport {
               markPlayingState();
               forceResumePlaying();
               setTimeout(function() {
+                if (window.__mmTabInactive) return;
                 if (!anyInPiP()) forceResumePlaying();
               }, 400);
               return;
@@ -2249,6 +2316,7 @@ enum MediaPlaybackSupport {
 
           // pagehide / pageshow are also used by some players when the app backgrounds.
           window.addEventListener('pagehide', function(e) {
+            if (window.__mmTabInactive) return;
             if (!wantsPip() && !wantsKeepAlive()) return;
             if (anyInPiP()) return;
             try { e.stopImmediatePropagation(); } catch (err) {}
@@ -2256,6 +2324,7 @@ enum MediaPlaybackSupport {
             forceResumePlaying();
           }, true);
           window.addEventListener('pageshow', function(e) {
+            if (window.__mmTabInactive) return;
             if (!wantsPip() && !wantsKeepAlive()) return;
             // Never block page lifecycle while the user is looking at the page.
             if (document.visibilityState === 'visible') {
@@ -2273,6 +2342,7 @@ enum MediaPlaybackSupport {
           }, true);
 
           document.addEventListener('freeze', function() {
+            if (window.__mmTabInactive) return;
             if (!wantsKeepAlive() && !wantsPip()) return;
             if (anyInPiP()) return;
             forceResumePlaying();

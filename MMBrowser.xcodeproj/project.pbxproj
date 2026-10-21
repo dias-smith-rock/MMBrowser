@@ -84,6 +84,8 @@
 		A4153472FE2745C1842E61D9 /* FindInPageBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84CA640C99484A4C865E5912 /* FindInPageBar.swift */; };
 		A72010760AE142E88DC802F8 /* LongScreenshotCapturer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 857CEEC48A6442E486F25CB1 /* LongScreenshotCapturer.swift */; };
 		A7C1E2D3B4A5466788990012 /* AccountTabsPopupViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1E2D3B4A5466788990011 /* AccountTabsPopupViewController.swift */; };
+		A7C1E4B29D1046F8A3B1C001 /* WatchLaterStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1E4B29D1046F8A3B1C002 /* WatchLaterStore.swift */; };
+		A7C1E4B29D1046F8A3B1C003 /* WatchLaterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1E4B29D1046F8A3B1C004 /* WatchLaterViewController.swift */; };
 		ADS00BF01010101010101 /* AdMobConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADS00FR01010101010101 /* AdMobConfig.swift */; };
 		ADS00BF01010101010102 /* AdConsentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADS00FR01010101010102 /* AdConsentManager.swift */; };
 		ADS00BF01010101010103 /* AppOpenAdManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADS00FR01010101010103 /* AppOpenAdManager.swift */; };
@@ -98,8 +100,6 @@
 		C58A1413B374481F93E6D824 /* URLInputResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72957411D4864AC0B8541064 /* URLInputResolver.swift */; };
 		C5CC3025D67544A09B52DB05 /* OnboardingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D201F70CA9F44BF2B13F17C2 /* OnboardingViewController.swift */; };
 		C6FE3A5ACA2542BD8010DE3F /* HistoryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A238E7FC51408BA0111F44 /* HistoryViewController.swift */; };
-		A7C1E4B29D1046F8A3B1C001 /* WatchLaterStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1E4B29D1046F8A3B1C002 /* WatchLaterStore.swift */; };
-		A7C1E4B29D1046F8A3B1C003 /* WatchLaterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1E4B29D1046F8A3B1C004 /* WatchLaterViewController.swift */; };
 		C718289B0C194FE69766C497 /* YouTubeAdShield.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */; };
 		C8E41A2B7F6D4A1E9B3C5D70 /* ScreenshotEditorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7D30F1A6E5C492D8A2B4C61 /* ScreenshotEditorViewController.swift */; };
 		D3661C4AA0D146418D7F93D4 /* ContainerIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35D2C88512564D378DA73926 /* ContainerIdentity.swift */; };
@@ -141,11 +141,11 @@
 		PWD000C2F36FB601D0BB0 /* PasswordsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00045F172A9EFBE8F4 /* PasswordsViewController.swift */; };
 		PWD000C4D4F482494D0C9 /* AutofillSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD0001F365462803B334 /* AutofillSettingsViewController.swift */; };
 		PWD000D2DE12EF3CF5CC9 /* VaultKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000C6D05B5242BACB5 /* VaultKeychain.swift */; };
-		SPMBFCL01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFFA01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFGMA010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFRC01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFUMP010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFCL01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFFA01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFGMA010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFRC01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFUMP010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		TIP0SWIPEA1B2C3D4E5F60001 /* AddressBarSwipeTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIP0SWIPEA1B2C3D4E5F60002 /* AddressBarSwipeTipView.swift */; };
 		TSS0000101010101010171 /* TabSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020271 /* TabSnapshotStore.swift */; };
 		TSS0000101010101010172 /* TabSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020272 /* TabSessionStore.swift */; };
@@ -183,8 +183,6 @@
 
 /* Begin PBXFileReference section */
 		00A238E7FC51408BA0111F44 /* HistoryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewController.swift; sourceTree = "<group>"; };
-		A7C1E4B29D1046F8A3B1C002 /* WatchLaterStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLaterStore.swift; sourceTree = "<group>"; };
-		A7C1E4B29D1046F8A3B1C004 /* WatchLaterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLaterViewController.swift; sourceTree = "<group>"; };
 		021143DE7C6A427AB58BAFF7 /* AccountHealthViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountHealthViewController.swift; sourceTree = "<group>"; };
 		06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeAdShield.swift; sourceTree = "<group>"; };
 		0783DF19A0FE4061AF8CB2FF /* FilterUpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterUpdateManager.swift; sourceTree = "<group>"; };
@@ -264,6 +262,8 @@
 		A3A9332F6F8349D1B899F2EF /* AddressBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressBarView.swift; sourceTree = "<group>"; };
 		A3FDC13DE80C4373B1FAB0A5 /* URLTrackingCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLTrackingCleaner.swift; sourceTree = "<group>"; };
 		A7C1E2D3B4A5466788990011 /* AccountTabsPopupViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountTabsPopupViewController.swift; sourceTree = "<group>"; };
+		A7C1E4B29D1046F8A3B1C002 /* WatchLaterStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLaterStore.swift; sourceTree = "<group>"; };
+		A7C1E4B29D1046F8A3B1C004 /* WatchLaterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLaterViewController.swift; sourceTree = "<group>"; };
 		A8F39F6791D34673BFA63E0B /* ReadingListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingListViewController.swift; sourceTree = "<group>"; };
 		ADS00FR01010101010101 /* AdMobConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdMobConfig.swift; sourceTree = "<group>"; };
 		ADS00FR01010101010102 /* AdConsentManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdConsentManager.swift; sourceTree = "<group>"; };
@@ -337,11 +337,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				SPMBFFA01010101010101 /* BuildFile in Frameworks */,
-				SPMBFRC01010101010101 /* BuildFile in Frameworks */,
-				SPMBFCL01010101010101 /* BuildFile in Frameworks */,
-				SPMBFGMA010101010101 /* BuildFile in Frameworks */,
-				SPMBFUMP010101010101 /* BuildFile in Frameworks */,
+				SPMBFFA01010101010101 /* (null) in Frameworks */,
+				SPMBFRC01010101010101 /* (null) in Frameworks */,
+				SPMBFCL01010101010101 /* (null) in Frameworks */,
+				SPMBFGMA010101010101 /* (null) in Frameworks */,
+				SPMBFUMP010101010101 /* (null) in Frameworks */,
 				F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -812,9 +812,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -829,9 +833,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1196,7 +1204,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2.0;
+				MARKETING_VERSION = 1.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -1232,7 +1240,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.2.0;
+				MARKETING_VERSION = 1.3.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

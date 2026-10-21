@@ -229,11 +229,10 @@ final class BrowserViewController: UIViewController {
             return
         }
 
-        let tabsNeedingKeepAlive = tabManager.tabs.filter { $0.webController?.needsBackgroundMediaKeepAlive == true }
-        if !tabsNeedingKeepAlive.isEmpty {
-            for tab in tabsNeedingKeepAlive {
-                MediaPlaybackSupport.keepBackgroundMediaAlive(in: tab.webController?.webView)
-            }
+        // Only the selected tab may keep playing in app background (inactive tabs stay paused).
+        if let selected = tabManager.selectedTab,
+           selected.webController?.needsBackgroundMediaKeepAlive == true {
+            MediaPlaybackSupport.keepBackgroundMediaAlive(in: selected.webController?.webView)
         }
 
         // Refresh previews for live tabs so thumbnails survive relaunch.
@@ -933,6 +932,17 @@ final class BrowserViewController: UIViewController {
 
     private func showSelectedTab() {
         guard let tab = tabManager.selectedTab else { return }
+        // Pause inline media on the tab we're leaving (PiP / YouTube Music keep-alive are skipped).
+        if let currentWeb = currentContent as? WebViewController,
+           let outgoing = tabManager.tabs.first(where: { $0.webController === currentWeb }),
+           outgoing.id != tab.id {
+            let outgoingWeb = currentWeb
+            MediaPlaybackSupport.pauseMediaIfNeeded(in: outgoingWeb.webView, owner: outgoingWeb)
+            // Beat visibility keep-alive that may race when the WKWebView is detached.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                MediaPlaybackSupport.pauseMediaIfNeeded(in: outgoingWeb.webView, owner: outgoingWeb)
+            }
+        }
         // Keep a preview of the tab we're leaving so the switcher isn't blank.
         if AppSettings.showTabsPreviewImages,
            let currentWeb = currentContent as? WebViewController,
@@ -1449,6 +1459,7 @@ final class BrowserViewController: UIViewController {
         }
         tab.lastAccessed = Date()
         embed(web)
+        MediaPlaybackSupport.noteTabBecameActive(in: web.webView)
         web.applyPageCleanerIfNeeded()
         addressBar.setURLText(Self.addressBarDisplayText(for: tab.url ?? web.webView?.url))
         tabManager.evictExcessWebViews(protecting: tab)
@@ -1571,8 +1582,12 @@ final class BrowserViewController: UIViewController {
                         TabSnapshotStore.save(image, for: id)
                     }
                 }
-                if tab?.webController?.isPictureInPictureActive != true {
-                    MediaPlaybackSupport.resumeMediaIfNeeded(in: tab?.webController?.webView)
+                // Snapshot pauses some players — only resume the *selected* tab.
+                // Background tabs stay paused (opening Tabs must not revive them).
+                if let tab,
+                   tab.id == self.tabManager.selectedTab?.id,
+                   tab.webController?.isPictureInPictureActive != true {
+                    MediaPlaybackSupport.resumeMediaIfNeeded(in: tab.webController?.webView)
                 }
                 // Completion at most once — late snapshots after the timeout still update the image.
                 guard !finished else { return }
