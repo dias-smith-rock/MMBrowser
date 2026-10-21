@@ -113,15 +113,8 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         pagingScrollView.delaysContentTouches = false
         pagingScrollView.decelerationRate = .fast
 
-        spacePageControl.hidesForSinglePage = false
-        spacePageControl.currentPageIndicatorTintColor = BrowserTheme.textPrimary
-        spacePageControl.pageIndicatorTintColor = BrowserTheme.textSecondary.withAlphaComponent(0.35)
-        spacePageControl.addTarget(self, action: #selector(pageControlChanged), for: .valueChanged)
-        spacePageControl.accessibilityLabel = "Spaces"
-
         view.addSubview(pagingScrollView)
         pagingScrollView.addSubview(pagesContainer)
-        view.addSubview(spacePageControl)
 
         pagingScrollView.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide)
@@ -131,12 +124,6 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         pagesContainer.snp.makeConstraints { make in
             make.edges.equalTo(pagingScrollView.contentLayoutGuide)
             make.height.equalTo(pagingScrollView.frameLayoutGuide)
-        }
-
-        // Fixed under the Space title (title top inset 20 + ~40pt type + 6pt gap).
-        spacePageControl.snp.makeConstraints { make in
-            make.centerX.equalToSuperview()
-            make.top.equalTo(view.safeAreaLayoutGuide).offset(66)
         }
 
         if isOverlay {
@@ -209,13 +196,20 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
                 guard let self else { return }
                 self.delegate?.accountHub(self, didRequestMenuAction: .setDefaultBrowser)
             }
+            page.onSelectPageIndex = { [weak self] index in
+                guard let self else { return }
+                self.scrollToPage(index, animated: true, commit: true)
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
             pagesContainer.addSubview(page)
             pageViews.append(page)
             page.reloadFavorites(editing: isEditingFavorites)
         }
 
-        spacePageControl.numberOfPages = max(list.count, 1)
-        spacePageControl.isHidden = list.count <= 1
+        let pageCount = max(list.count, 1)
+        for (index, page) in pageViews.enumerated() {
+            page.configurePager(pageCount: pageCount, currentPage: index)
+        }
 
         let accent: UIColor = {
             if let c = tabManager?.container(id: resolvedPreviewID()) {
@@ -233,7 +227,6 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         if scrollToCurrent {
             let idx = list.firstIndex(where: { $0.id == resolvedPreviewID() }) ?? 0
             lastCommittedPageIndex = idx
-            spacePageControl.currentPage = idx
             scrollToPage(idx, animated: animated, commit: false)
         }
     }
@@ -272,7 +265,6 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         guard width > 0 else { return }
         isProgrammaticPageScroll = true
         pagingScrollView.setContentOffset(CGPoint(x: CGFloat(index) * width, y: 0), animated: animated)
-        spacePageControl.currentPage = index
         if !animated {
             isProgrammaticPageScroll = false
             if commit { commitPageIfNeeded(index) }
@@ -297,7 +289,6 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         guard container.id != previewAccountID || index != lastCommittedPageIndex else { return }
         previewAccountID = container.id
         lastCommittedPageIndex = index
-        spacePageControl.currentPage = index
         applySpaceChrome(spaceColor: AccountColor.color(for: container))
         closeButton.backgroundColor = AccountColor.color(for: container)
         delegate?.accountHub(self, didSwitchToAccount: container.id)
@@ -310,10 +301,6 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         let width = scrollView.bounds.width
         guard width > 0 else { return }
         let progress = scrollView.contentOffset.x / width
-        let page = min(max(Int(round(progress)), 0), pageViews.count - 1)
-        if spacePageControl.currentPage != page {
-            spacePageControl.currentPage = page
-        }
         // Blend background while dragging for a continuous feel.
         let left = min(max(Int(floor(progress)), 0), pageViews.count - 1)
         let right = min(left + 1, pageViews.count - 1)
@@ -322,7 +309,7 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         let c1 = AccountColor.color(for: pageViews[right].container)
         let blended = blend(c0, c1, t: t)
         view.backgroundColor = BrowserTheme.spaceHomeColor(spaceColor: blended)
-        spacePageControl.currentPageIndicatorTintColor = blended
+        pageViews.forEach { $0.applyAccent(blended) }
     }
 
     func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
@@ -368,12 +355,6 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
     }
 
     // MARK: - Actions
-
-    @objc private func pageControlChanged() {
-        let index = spacePageControl.currentPage
-        scrollToPage(index, animated: true, commit: true)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-    }
 
     @objc private func closeTapped() {
         delegate?.accountHubDidRequestClose(self)
@@ -424,10 +405,13 @@ private final class SpaceHomePageView: UIView {
     var onBeginEditing: (() -> Void)?
     var onEndEditing: (() -> Void)?
     var onDefaultBrowser: (() -> Void)?
+    var onSelectPageIndex: ((Int) -> Void)?
 
     private let scrollView = UIScrollView()
     private let contentView = UIView()
+    private let titleHeader = UIStackView()
     private let nameLabel = UILabel()
+    private let pageControl = UIPageControl()
     private let favoritesStack = UIStackView()
     private let favoritesHeader = UIView()
     private let favoritesTitle = UILabel()
@@ -437,6 +421,8 @@ private final class SpaceHomePageView: UIView {
     private var promoView: UIView?
     private let showsDefaultBrowserPromo: Bool
     private var isEditing = false
+    private var isUpdatingPager = false
+    private var pageIndex = 0
 
     private static let favoriteColumns = 5
     private static let favoriteIconSize: CGFloat = 56
@@ -455,6 +441,16 @@ private final class SpaceHomePageView: UIView {
 
     func applyAccent(_ accent: UIColor) {
         favoritesDoneButton.setTitleColor(accent, for: .normal)
+        pageControl.currentPageIndicatorTintColor = accent
+    }
+
+    func configurePager(pageCount: Int, currentPage: Int) {
+        pageIndex = min(max(currentPage, 0), max(pageCount - 1, 0))
+        isUpdatingPager = true
+        pageControl.numberOfPages = max(pageCount, 1)
+        pageControl.currentPage = pageIndex
+        pageControl.isHidden = pageCount <= 1
+        isUpdatingPager = false
     }
 
     private func setup() {
@@ -475,6 +471,21 @@ private final class SpaceHomePageView: UIView {
         nameLabel.adjustsFontSizeToFitWidth = true
         nameLabel.minimumScaleFactor = 0.7
         nameLabel.accessibilityTraits = .header
+
+        pageControl.hidesForSinglePage = true
+        pageControl.pageIndicatorTintColor = BrowserTheme.textSecondary.withAlphaComponent(0.35)
+        pageControl.currentPageIndicatorTintColor = BrowserTheme.textPrimary
+        pageControl.accessibilityLabel = "Spaces"
+        pageControl.addTarget(self, action: #selector(pageControlChanged), for: .valueChanged)
+
+        titleHeader.axis = .vertical
+        titleHeader.alignment = .center
+        titleHeader.spacing = 6
+        titleHeader.addArrangedSubview(nameLabel)
+        titleHeader.addArrangedSubview(pageControl)
+        nameLabel.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview()
+        }
 
         favoritesStack.axis = .vertical
         favoritesStack.spacing = 16
@@ -512,7 +523,7 @@ private final class SpaceHomePageView: UIView {
 
         addSubview(scrollView)
         scrollView.addSubview(contentView)
-        contentView.addSubview(nameLabel)
+        contentView.addSubview(titleHeader)
         contentView.addSubview(favoritesStack)
         contentView.addLayoutGuide(titleBandGuide)
 
@@ -533,11 +544,12 @@ private final class SpaceHomePageView: UIView {
             make.bottom.equalTo(favoritesStack.snp.top)
             make.leading.trailing.equalToSuperview()
         }
-        // Title above the fixed page-control dots (dots sit at safeArea + 66).
-        nameLabel.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(20)
+        // Title + dots as a group, centered in the upper band (same vertical place as before).
+        titleHeader.snp.makeConstraints { make in
+            make.centerY.equalTo(titleBandGuide)
             make.leading.trailing.equalToSuperview().inset(24)
-            make.bottom.lessThanOrEqualTo(titleBandGuide.snp.bottom).offset(-36)
+            make.top.greaterThanOrEqualTo(titleBandGuide.snp.top).offset(4)
+            make.bottom.lessThanOrEqualTo(titleBandGuide.snp.bottom).offset(-4)
         }
 
         if showsDefaultBrowserPromo {
@@ -552,6 +564,16 @@ private final class SpaceHomePageView: UIView {
                 make.bottom.equalToSuperview().inset(24)
             }
         }
+    }
+
+    @objc private func pageControlChanged() {
+        guard !isUpdatingPager else { return }
+        let selected = pageControl.currentPage
+        isUpdatingPager = true
+        pageControl.currentPage = pageIndex
+        isUpdatingPager = false
+        guard selected != pageIndex else { return }
+        onSelectPageIndex?(selected)
     }
 
     func reloadFavorites(editing: Bool) {

@@ -73,6 +73,22 @@ final class TabManager {
         return addTab(incognito: false, select: true, containerID: id)
     }
 
+    /// Home swipe: keep the current New Tab page selected, only change its Space.
+    @discardableResult
+    func adoptContainerOnCurrentNewTab(_ id: UUID) -> Bool {
+        guard container(id: id) != nil else { return false }
+        guard let tab = selectedTab, tab.isNewTabPage, !tab.isIncognito else { return false }
+        let current = lastActiveContainerID ?? tab.containerID
+        if current != id {
+            previousContainerID = current
+        }
+        lastActiveContainerID = id
+        defaults.set(id.uuidString, forKey: lastContainerKey)
+        tab.containerID = id
+        notifyUpdated()
+        return true
+    }
+
     /// Account to jump to from a chip long-press (previous, else another space).
     func quickSwitchTargetAccountID() -> UUID? {
         if let previous = previousContainerID, container(id: previous) != nil,
@@ -195,6 +211,11 @@ final class TabManager {
             delegate?.tabManager(self, didSelect: tab)
         }
         notifyUpdated()
+        AppAnalytics.logTabOpen(
+            source: incognito ? "new_incognito" : "new_tab",
+            incognito: incognito,
+            tabCount: tabs.count
+        )
         return tab
     }
 
@@ -289,6 +310,11 @@ final class TabManager {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
         let closing = tabs[index]
         let wasIncognito = closing.isIncognito
+        AppAnalytics.logTabClose(
+            source: "single",
+            incognito: wasIncognito,
+            tabCount: max(tabs.count - 1, 0)
+        )
         closing.clearNavigationHistory()
         closing.webController?.cleanup()
         closing.webController = nil
