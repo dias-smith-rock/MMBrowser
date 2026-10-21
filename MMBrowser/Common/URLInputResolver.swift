@@ -1,14 +1,31 @@
 import Foundation
 
 enum URLInputResolver {
+    enum Kind {
+        case emptyHome
+        case url
+        case search
+    }
+
+    struct Resolved {
+        let url: URL
+        let kind: Kind
+    }
+
     static func resolve(_ raw: String) -> URL {
+        classify(raw).url
+    }
+
+    static func classify(_ raw: String) -> Resolved {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            return URL(string: SearchEngineManager.current.homeURL)!
+            let home = URL(string: SearchEngineManager.current.homeURL)
+                ?? URL(string: "https://www.google.com")!
+            return Resolved(url: home, kind: .emptyHome)
         }
 
         if let url = URL(string: trimmed), let scheme = url.scheme, (scheme == "http" || scheme == "https"), url.host != nil {
-            return url
+            return Resolved(url: url, kind: .url)
         }
 
         let looksLikeURL = trimmed.contains(".")
@@ -17,13 +34,14 @@ enum URLInputResolver {
 
         if looksLikeURL {
             let hostPart = trimmed.hasPrefix("//") ? String(trimmed.dropFirst(2)) : trimmed
-            let https = URL(string: "https://\(hostPart)")!
-            if AppSettings.httpsOnly {
-                return https
-            }
-            return https
+            let https = URL(string: "https://\(hostPart)")
+                ?? URL(string: "https://www.google.com")!
+            return Resolved(url: https, kind: .url)
         }
 
-        return SearchEngineManager.current.searchURL(for: trimmed)
+        return Resolved(
+            url: SearchEngineManager.current.searchURL(for: trimmed),
+            kind: .search
+        )
     }
 }

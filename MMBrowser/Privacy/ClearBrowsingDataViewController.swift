@@ -65,10 +65,15 @@ final class ClearBrowsingDataViewController: UIViewController {
     }
 
     @objc private func clearTapped() {
-        if historySwitch.isOn { HistoryStore.shared.clear() }
+        var kinds: [String] = []
+        if historySwitch.isOn {
+            HistoryStore.shared.clear()
+            kinds.append("history")
+        }
         var types = Set<String>()
         if cookiesSwitch.isOn {
             types.insert(WKWebsiteDataTypeCookies)
+            kinds.append("cookies")
         }
         if localStorageSwitch.isOn {
             types.formUnion([
@@ -77,9 +82,14 @@ final class ClearBrowsingDataViewController: UIViewController {
                 WKWebsiteDataTypeIndexedDBDatabases,
                 WKWebsiteDataTypeWebSQLDatabases
             ])
+            kinds.append("storage")
         }
         if cacheSwitch.isOn {
             types.formUnion([WKWebsiteDataTypeDiskCache, WKWebsiteDataTypeMemoryCache])
+            kinds.append("cache")
+        }
+        if !kinds.isEmpty {
+            AppAnalytics.logClearData(kinds: kinds)
         }
         let finish = { [weak self] in
             guard let self = self else { return }

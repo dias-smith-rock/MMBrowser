@@ -220,6 +220,15 @@ final class DownloadManager: NSObject {
         notify()
 
         let offlineName = unique.lowercased()
+        let mediaKind: String = {
+            if offlineName.hasSuffix(".m3u8") { return "hls" }
+            if offlineName.hasSuffix(".mp4") || offlineName.hasPrefix("video-") { return "video" }
+            if offlineName.hasSuffix(".mp3") || offlineName.hasSuffix(".m4a") { return "audio" }
+            if Self.needsMediaHeaders(for: url) { return "media" }
+            return "file"
+        }()
+        AppAnalytics.logDownloadStart(mediaKind: mediaKind, host: AppAnalytics.privacyHost(url))
+
         if Self.needsMediaHeaders(for: url)
             || offlineName.hasPrefix("video-")
             || offlineName.hasSuffix(".mp4")

@@ -217,6 +217,7 @@ final class OnboardingViewController: UIViewController {
 
     @objc private func startTapped() {
         AppSettings.didShowOnboarding = true
+        AppAnalytics.logOnboardingComplete()
         stopAutoCycle()
         onFinished?()
     }

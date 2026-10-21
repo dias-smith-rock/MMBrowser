@@ -343,6 +343,7 @@ final class BrowserViewController: UIViewController {
     func handleIncomingURL(_ url: URL) {
         let scheme = url.scheme?.lowercased() ?? ""
         guard scheme == "http" || scheme == "https" else { return }
+        AppAnalytics.logExternalOpen(url: url)
         // Dismiss lightweight chrome that would block the new page.
         if presentedViewController is MenuViewController
             || presentedViewController is UIAlertController {
@@ -1000,7 +1001,7 @@ final class BrowserViewController: UIViewController {
         showSelectedTab()
         refreshAccountChip()
         toolbar.pulseAccountChip()
-        AppAnalytics.logAccountSwitch(accountName: container.name)
+        AppAnalytics.logSpaceSwitch(spaceName: container.name, source: "chip")
         let color = AccountColor.color(for: container)
         let detail = subtitle
             ?? "Cookies, history, bookmarks & home stay with this space"
@@ -1414,7 +1415,7 @@ final class BrowserViewController: UIViewController {
             self.addressBarSwipeTip = AddressBarSwipeTipView.present(in: self.view, anchoring: self.addressBar) { [weak self] in
                 self?.markAddressBarSwipeTipSeen()
             }
-            AppAnalytics.logEvent("tip_address_bar_swipe_shown")
+            AppAnalytics.logTipShown(tipID: "address_bar_swipe")
         }
     }
 
@@ -1737,7 +1738,14 @@ extension BrowserViewController: TabManagerDelegate {
 extension BrowserViewController: AddressBarViewDelegate {
     func addressBarDidSubmit(_ text: String) {
         setChromeCollapsed(false, animated: true)
-        navigate(to: URLInputResolver.resolve(text))
+        let resolved = URLInputResolver.classify(text)
+        switch resolved.kind {
+        case .search:
+            AppAnalytics.logSearch(engineID: SearchEngineManager.current.id, source: "address_bar")
+        case .url, .emptyHome:
+            break
+        }
+        navigate(to: resolved.url)
     }
 
     func addressBarDidBeginEditing() {
@@ -2102,6 +2110,25 @@ extension BrowserViewController: AccountHubViewControllerDelegate {
         }
     }
 
+    func accountHub(_ hub: AccountHubViewController, didSwitchToAccount accountID: UUID) {
+        guard let container = tabManager.container(id: accountID) else { return }
+        if hub.isOverlay {
+            // Overlay only previews; keep main browser selection until the hub closes.
+            hub.applySpaceChrome(spaceColor: AccountColor.color(for: container))
+            return
+        }
+        if tabManager.adoptContainerOnCurrentNewTab(accountID) {
+            AppAnalytics.logSpaceSwitch(spaceName: container.name, source: "hub_swipe")
+            applyPrivateChrome(false)
+            refreshAccountChip()
+            return
+        }
+        _ = tabManager.switchToAccount(accountID)
+        AppAnalytics.logSpaceSwitch(spaceName: container.name, source: "hub")
+        showSelectedTab()
+        refreshAccountChip()
+    }
+
     private func leaveAccountHubIfNeeded(_ hub: AccountHubViewController, then: @escaping () -> Void) {
         guard hub.isOverlay else {
             then()
@@ -2452,6 +2479,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
             presentDualAccountCompare()
         case .setDefaultBrowser:
             guard DefaultBrowserFeature.isEnabled else { return }
+            AppAnalytics.logDefaultBrowserTap(source: "menu")
             openDefaultBrowserSettings()
         case .passwords:
             openPasswords()
@@ -2482,6 +2510,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 return
             }
             if BookmarkStore.shared.add(title: tab.title, url: url, containerID: tab.containerID) {
+                AppAnalytics.logBookmarkAdd(host: AppAnalytics.privacyHost(url))
                 Toast.show("Bookmark added", from: self)
             } else {
                 Toast.show("Already bookmarked", from: self)

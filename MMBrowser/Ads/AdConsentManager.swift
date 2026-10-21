@@ -46,7 +46,9 @@ enum AdConsentManager {
         }
 
         await requestTrackingAuthorizationIfNeeded(from: viewController)
-        return canRequestAds
+        let allowed = canRequestAds
+        AppAnalytics.logConsentResult(canRequestAds: allowed)
+        return allowed
     }
 
     /// Apple ATT: required before using the advertising identifier for ads.
@@ -67,6 +69,7 @@ enum AdConsentManager {
                 DispatchQueue.main.async { cont.resume() }
             }
         }
+        AppAnalytics.logATTResult(status: trackingAuthorizationAnalyticsValue)
     }
 
     static var trackingAuthorizationSummary: String {
@@ -76,6 +79,16 @@ enum AdConsentManager {
         case .denied: return "Not allowed"
         case .authorized: return "Allowed"
         @unknown default: return "Unknown"
+        }
+    }
+
+    private static var trackingAuthorizationAnalyticsValue: String {
+        switch ATTrackingManager.trackingAuthorizationStatus {
+        case .notDetermined: return "not_determined"
+        case .restricted: return "restricted"
+        case .denied: return "denied"
+        case .authorized: return "authorized"
+        @unknown default: return "unknown"
         }
     }
 

@@ -105,7 +105,11 @@ enum SearchEngineManager {
     }
 
     static func setCurrent(_ engine: SearchEngine) {
+        let previous = AppSettings.searchEngineID
         AppSettings.searchEngineID = engine.id
         NotificationCenter.default.post(name: .searchEngineChanged, object: nil)
+        if previous != engine.id {
+            AppAnalytics.logSettingsChange(setting: "search_engine", value: engine.id)
+        }
     }
 }

@@ -109,7 +109,7 @@ final class AdLifecycleCoordinator {
         guard !hasPresentedSinceForeground, let pending else { return }
         self.pending = nil
         hasPresentedSinceForeground = true
-        AppAnalytics.logEvent("ad_trigger", parameters: ["source": source, "kind": "\(pending)"])
+        AppAnalytics.logAdTrigger(source: source, kind: "\(pending)")
 
         switch pending {
         case .cold:

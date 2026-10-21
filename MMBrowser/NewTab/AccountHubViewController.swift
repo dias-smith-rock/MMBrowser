@@ -9,10 +9,13 @@ protocol AccountHubViewControllerDelegate: AnyObject {
     func accountHub(_ hub: AccountHubViewController, didRequestNewTabInAccount accountID: UUID)
     func accountHub(_ hub: AccountHubViewController, didRequestOpenURL url: URL, accountID: UUID)
     func accountHub(_ hub: AccountHubViewController, didRequestMenuAction action: MenuAction)
+    /// User swiped / tapped dots to another Space on the home hub.
+    func accountHub(_ hub: AccountHubViewController, didSwitchToAccount accountID: UUID)
 }
 
 /// Simple home: Favorites grid. Also used as a fullscreen overlay from Tabs / Space.
-final class AccountHubViewController: UIViewController {
+/// Horizontal paging follows the finger to switch Spaces.
+final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
     weak var delegate: AccountHubViewControllerDelegate?
 
     private(set) var isOverlay = false
@@ -20,24 +23,15 @@ final class AccountHubViewController: UIViewController {
     private weak var tabManager: TabManager?
     private(set) var previewAccountID: UUID?
 
-    private let spaceNameLabel = UILabel()
-    private let scrollView = UIScrollView()
-    private let scrollContentView = UIView()
-    private let favoritesStack = UIStackView()
-    private let titleBandGuide = UILayoutGuide()
+    private let pagingScrollView = UIScrollView()
+    private let pagesContainer = UIView()
     private let closeButton = UIButton(type: .system)
-    private let favoritesHeader = UIView()
-    private let favoritesTitle = UILabel()
-    private let favoritesDoneButton = UIButton(type: .system)
-    private let shortcutsGrid = UIStackView()
-    private var defaultBrowserPromo: UIView?
 
+    private var pageViews: [SpaceHomePageView] = []
     private var isEditingFavorites = false
-
-    private struct FavoriteEntry {
-        let site: NavigationSite
-        let categoryID: UUID
-    }
+    private var isProgrammaticPageScroll = false
+    private var lastCommittedPageIndex: Int = 0
+    private var spaceTintColor: UIColor?
 
     convenience init(tabManager: TabManager, previewAccountID: UUID?, isOverlay: Bool) {
         self.init(nibName: nil, bundle: nil)
@@ -46,13 +40,11 @@ final class AccountHubViewController: UIViewController {
         self.isOverlay = isOverlay
     }
 
-    private var spaceTintColor: UIColor?
-
     override func viewDidLoad() {
         super.viewDidLoad()
         overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         setupChrome()
-        reloadAll()
+        rebuildPages(scrollToCurrent: true, animated: false)
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeDidChange, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(directoryChanged), name: .navigationDirectoryChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(homeSettingsChanged), name: .homeSettingsChanged, object: nil)
@@ -60,32 +52,41 @@ final class AccountHubViewController: UIViewController {
 
     deinit { NotificationCenter.default.removeObserver(self) }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        layoutPagesIfNeeded()
+    }
+
     func updatePreviewAccount(_ id: UUID) {
         previewAccountID = id
         isEditingFavorites = false
-        reloadAll()
+        rebuildPages(scrollToCurrent: true, animated: false)
     }
 
     func reloadFromExternalChange() {
         guard isViewLoaded else { return }
-        reloadAll()
+        rebuildPages(scrollToCurrent: true, animated: false)
     }
 
     func applySpaceChrome(spaceColor: UIColor?) {
         spaceTintColor = spaceColor
         guard isViewLoaded else { return }
         view.backgroundColor = BrowserTheme.spaceHomeColor(spaceColor: spaceColor)
+        pageViews.forEach { $0.applyAccent(spaceColor ?? BrowserTheme.chromeBlue) }
     }
 
     @objc private func themeChanged() {
         applyResolvedSpaceChrome()
-        reloadAll()
+        rebuildPages(scrollToCurrent: true, animated: false)
     }
 
-    @objc private func directoryChanged() { reloadShortcuts() }
+    @objc private func directoryChanged() {
+        pageViews.forEach { $0.reloadFavorites(editing: isEditingFavorites) }
+    }
+
     @objc private func homeSettingsChanged() {
         applyResolvedSpaceChrome()
-        reloadAll()
+        rebuildPages(scrollToCurrent: true, animated: false)
     }
 
     private func applyResolvedSpaceChrome() {
@@ -94,35 +95,49 @@ final class AccountHubViewController: UIViewController {
             guard let container = tabManager?.container(id: id) else { return nil as UIColor? }
             return AccountColor.color(for: container)
         }()
-        spaceTintColor = color
-        view.backgroundColor = BrowserTheme.spaceHomeColor(spaceColor: color)
+        applySpaceChrome(spaceColor: color)
     }
 
     // MARK: - Layout
 
     private func setupChrome() {
-        spaceNameLabel.font = .systemFont(ofSize: 34, weight: .bold)
-        spaceNameLabel.textColor = BrowserTheme.textPrimary
-        spaceNameLabel.textAlignment = .center
-        spaceNameLabel.numberOfLines = 2
-        spaceNameLabel.adjustsFontSizeToFitWidth = true
-        spaceNameLabel.minimumScaleFactor = 0.7
-        spaceNameLabel.accessibilityTraits = .header
+        pagingScrollView.isPagingEnabled = true
+        pagingScrollView.isDirectionalLockEnabled = true
+        pagingScrollView.showsHorizontalScrollIndicator = false
+        pagingScrollView.showsVerticalScrollIndicator = false
+        pagingScrollView.alwaysBounceHorizontal = true
+        pagingScrollView.alwaysBounceVertical = false
+        pagingScrollView.bounces = true
+        pagingScrollView.delegate = self
+        pagingScrollView.contentInsetAdjustmentBehavior = .never
+        pagingScrollView.delaysContentTouches = false
+        pagingScrollView.decelerationRate = .fast
 
-        scrollView.alwaysBounceVertical = true
-        scrollView.keyboardDismissMode = .onDrag
-        scrollView.showsVerticalScrollIndicator = false
-        scrollView.delaysContentTouches = false
+        spacePageControl.hidesForSinglePage = false
+        spacePageControl.currentPageIndicatorTintColor = BrowserTheme.textPrimary
+        spacePageControl.pageIndicatorTintColor = BrowserTheme.textSecondary.withAlphaComponent(0.35)
+        spacePageControl.addTarget(self, action: #selector(pageControlChanged), for: .valueChanged)
+        spacePageControl.accessibilityLabel = "Spaces"
 
-        favoritesStack.axis = .vertical
-        favoritesStack.spacing = 16
-        favoritesStack.alignment = .fill
+        view.addSubview(pagingScrollView)
+        pagingScrollView.addSubview(pagesContainer)
+        view.addSubview(spacePageControl)
 
-        view.addSubview(scrollView)
-        scrollView.addSubview(scrollContentView)
-        scrollContentView.addSubview(spaceNameLabel)
-        scrollContentView.addSubview(favoritesStack)
-        scrollContentView.addLayoutGuide(titleBandGuide)
+        pagingScrollView.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide)
+            make.leading.trailing.equalToSuperview()
+            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+        }
+        pagesContainer.snp.makeConstraints { make in
+            make.edges.equalTo(pagingScrollView.contentLayoutGuide)
+            make.height.equalTo(pagingScrollView.frameLayoutGuide)
+        }
+
+        // Fixed under the Space title (title top inset 20 + ~40pt type + 6pt gap).
+        spacePageControl.snp.makeConstraints { make in
+            make.centerX.equalToSuperview()
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(66)
+        }
 
         if isOverlay {
             configureCloseButton()
@@ -130,83 +145,6 @@ final class AccountHubViewController: UIViewController {
             closeButton.snp.makeConstraints { make in
                 make.top.equalTo(view.safeAreaLayoutGuide).offset(8)
                 make.trailing.equalTo(view.safeAreaLayoutGuide).inset(16)
-            }
-        }
-
-        scrollView.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide)
-            make.leading.trailing.equalToSuperview()
-            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
-        }
-
-        // Center favorites when short; allow scrolling when the grid grows.
-        scrollContentView.snp.makeConstraints { make in
-            make.edges.equalTo(scrollView.contentLayoutGuide)
-            make.width.equalTo(scrollView.frameLayoutGuide)
-            make.height.greaterThanOrEqualTo(scrollView.frameLayoutGuide)
-        }
-        favoritesStack.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(16)
-            make.centerY.equalToSuperview()
-            make.top.greaterThanOrEqualToSuperview().offset(8)
-            make.bottom.lessThanOrEqualToSuperview().offset(-8)
-        }
-
-        // Space title sits midway between the top and Favorites (equal gaps).
-        titleBandGuide.snp.makeConstraints { make in
-            make.top.equalToSuperview()
-            make.bottom.equalTo(favoritesStack.snp.top)
-            make.leading.trailing.equalToSuperview()
-        }
-        spaceNameLabel.snp.makeConstraints { make in
-            make.centerY.equalTo(titleBandGuide)
-            make.leading.trailing.equalToSuperview().inset(24)
-            make.top.greaterThanOrEqualTo(titleBandGuide.snp.top).offset(4)
-            make.bottom.lessThanOrEqualTo(titleBandGuide.snp.bottom).offset(-4)
-        }
-
-        favoritesTitle.text = "FAVORITES"
-        favoritesTitle.font = .systemFont(ofSize: 13, weight: .semibold)
-        favoritesTitle.textColor = BrowserTheme.textSecondary
-
-        favoritesDoneButton.setTitle("Done", for: .normal)
-        favoritesDoneButton.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
-        favoritesDoneButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
-        favoritesDoneButton.addTarget(self, action: #selector(doneEditingFavorites), for: .touchUpInside)
-        favoritesDoneButton.isHidden = true
-
-        favoritesHeader.addSubview(favoritesTitle)
-        favoritesHeader.addSubview(favoritesDoneButton)
-        favoritesTitle.snp.makeConstraints { make in
-            make.leading.top.bottom.equalToSuperview()
-        }
-        favoritesDoneButton.snp.makeConstraints { make in
-            make.trailing.centerY.equalToSuperview()
-            make.leading.greaterThanOrEqualTo(favoritesTitle.snp.trailing).offset(8)
-        }
-        favoritesHeader.snp.makeConstraints { $0.height.equalTo(28) }
-        let headerLongPress = UILongPressGestureRecognizer(target: self, action: #selector(favoriteLongPressed(_:)))
-        headerLongPress.minimumPressDuration = 0.35
-        favoritesHeader.addGestureRecognizer(headerLongPress)
-
-        shortcutsGrid.axis = .vertical
-        shortcutsGrid.spacing = Self.favoriteRowSpacing
-        shortcutsGrid.alignment = .fill
-
-        favoritesStack.addArrangedSubview(favoritesHeader)
-        favoritesStack.addArrangedSubview(shortcutsGrid)
-
-        if DefaultBrowserFeature.isEnabled {
-            let promo = DefaultBrowserPromoUI.makeBanner { [weak self] in
-                guard let self else { return }
-                self.delegate?.accountHub(self, didRequestMenuAction: .setDefaultBrowser)
-            }
-            defaultBrowserPromo = promo
-            scrollContentView.addSubview(promo)
-            promo.snp.makeConstraints { make in
-                make.leading.trailing.equalToSuperview().inset(20)
-                make.top.greaterThanOrEqualTo(favoritesStack.snp.bottom).offset(28)
-                make.bottom.equalToSuperview().inset(24)
             }
         }
     }
@@ -224,26 +162,10 @@ final class AccountHubViewController: UIViewController {
         closeButton.snp.makeConstraints { $0.size.equalTo(32) }
     }
 
-    // MARK: - Reload
+    // MARK: - Pages
 
-    private func reloadAll() {
-        applyResolvedSpaceChrome()
-        let accent = spaceTintColor ?? BrowserTheme.chromeBlue
-        spaceNameLabel.text = currentSpaceName()
-        spaceNameLabel.textColor = BrowserTheme.textPrimary
-        favoritesTitle.textColor = BrowserTheme.textSecondary
-        favoritesDoneButton.setTitleColor(accent, for: .normal)
-        closeButton.backgroundColor = accent
-        reloadShortcuts()
-    }
-
-    private func currentSpaceName() -> String {
-        let id = resolvedPreviewID()
-        if let name = tabManager?.container(id: id)?.name.trimmingCharacters(in: .whitespacesAndNewlines),
-           !name.isEmpty {
-            return name
-        }
-        return "Space"
+    private func spaces() -> [BrowserContainer] {
+        tabManager?.sortedContainers ?? []
     }
 
     private func resolvedPreviewID() -> UUID {
@@ -255,19 +177,266 @@ final class AccountHubViewController: UIViewController {
             ?? UUID()
     }
 
-    private func favoriteEntries() -> [FavoriteEntry] {
-        let accountID = resolvedPreviewID()
-        var entries: [FavoriteEntry] = []
-        var seen = Set<String>()
-        for category in NavigationStore.shared.categories(for: accountID) {
-            for site in category.sites {
-                let key = site.urlString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                guard seen.insert(key).inserted else { continue }
-                entries.append(FavoriteEntry(site: site, categoryID: category.id))
+    private func rebuildPages(scrollToCurrent: Bool, animated: Bool) {
+        let list = spaces()
+        pageViews.forEach { $0.removeFromSuperview() }
+        pageViews.removeAll()
+
+        for container in list {
+            let page = SpaceHomePageView(
+                container: container,
+                showsDefaultBrowserPromo: DefaultBrowserFeature.isEnabled
+            )
+            page.onOpenURL = { [weak self] url, accountID in
+                guard let self else { return }
+                self.delegate?.accountHub(self, didRequestOpenURL: url, accountID: accountID)
+            }
+            page.onAddFavorite = { [weak self] accountID in
+                self?.presentAddFavorite(for: accountID)
+            }
+            page.onBeginEditing = { [weak self] in
+                guard let self, !self.isEditingFavorites else { return }
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                self.isEditingFavorites = true
+                self.pageViews.forEach { $0.reloadFavorites(editing: true) }
+            }
+            page.onEndEditing = { [weak self] in
+                guard let self else { return }
+                self.isEditingFavorites = false
+                self.pageViews.forEach { $0.reloadFavorites(editing: false) }
+            }
+            page.onDefaultBrowser = { [weak self] in
+                guard let self else { return }
+                self.delegate?.accountHub(self, didRequestMenuAction: .setDefaultBrowser)
+            }
+            pagesContainer.addSubview(page)
+            pageViews.append(page)
+            page.reloadFavorites(editing: isEditingFavorites)
+        }
+
+        spacePageControl.numberOfPages = max(list.count, 1)
+        spacePageControl.isHidden = list.count <= 1
+
+        let accent: UIColor = {
+            if let c = tabManager?.container(id: resolvedPreviewID()) {
+                return AccountColor.color(for: c)
+            }
+            return BrowserTheme.chromeBlue
+        }()
+        applySpaceChrome(spaceColor: accent)
+        closeButton.backgroundColor = accent
+
+        view.setNeedsLayout()
+        view.layoutIfNeeded()
+        layoutPagesIfNeeded()
+
+        if scrollToCurrent {
+            let idx = list.firstIndex(where: { $0.id == resolvedPreviewID() }) ?? 0
+            lastCommittedPageIndex = idx
+            spacePageControl.currentPage = idx
+            scrollToPage(idx, animated: animated, commit: false)
+        }
+    }
+
+    private func layoutPagesIfNeeded() {
+        let width = pagingScrollView.bounds.width
+        let height = pagingScrollView.bounds.height
+        guard width > 0, height > 0, !pageViews.isEmpty else { return }
+
+        pagesContainer.snp.remakeConstraints { make in
+            make.edges.equalTo(pagingScrollView.contentLayoutGuide)
+            make.height.equalTo(pagingScrollView.frameLayoutGuide)
+            make.width.equalTo(pagingScrollView.frameLayoutGuide).multipliedBy(pageViews.count)
+        }
+
+        for (index, page) in pageViews.enumerated() {
+            page.snp.remakeConstraints { make in
+                make.top.bottom.equalToSuperview()
+                make.width.equalTo(pagingScrollView.frameLayoutGuide)
+                make.height.equalTo(pagingScrollView.frameLayoutGuide)
+                if index == 0 {
+                    make.leading.equalToSuperview()
+                } else {
+                    make.leading.equalTo(pageViews[index - 1].snp.trailing)
+                }
+                if index == pageViews.count - 1 {
+                    make.trailing.equalToSuperview()
+                }
             }
         }
-        return entries
     }
+
+    private func scrollToPage(_ index: Int, animated: Bool, commit: Bool) {
+        guard pageViews.indices.contains(index) else { return }
+        let width = pagingScrollView.bounds.width
+        guard width > 0 else { return }
+        isProgrammaticPageScroll = true
+        pagingScrollView.setContentOffset(CGPoint(x: CGFloat(index) * width, y: 0), animated: animated)
+        spacePageControl.currentPage = index
+        if !animated {
+            isProgrammaticPageScroll = false
+            if commit { commitPageIfNeeded(index) }
+        } else if commit {
+            // commit after animation ends via scrollViewDidEndScrollingAnimation
+            pendingCommitAfterAnimation = true
+        }
+    }
+
+    private var pendingCommitAfterAnimation = false
+
+    private func currentPageIndex() -> Int {
+        let width = pagingScrollView.bounds.width
+        guard width > 0 else { return 0 }
+        let raw = Int(round(pagingScrollView.contentOffset.x / width))
+        return min(max(raw, 0), max(pageViews.count - 1, 0))
+    }
+
+    private func commitPageIfNeeded(_ index: Int) {
+        guard pageViews.indices.contains(index) else { return }
+        let container = pageViews[index].container
+        guard container.id != previewAccountID || index != lastCommittedPageIndex else { return }
+        previewAccountID = container.id
+        lastCommittedPageIndex = index
+        spacePageControl.currentPage = index
+        applySpaceChrome(spaceColor: AccountColor.color(for: container))
+        closeButton.backgroundColor = AccountColor.color(for: container)
+        delegate?.accountHub(self, didSwitchToAccount: container.id)
+    }
+
+    // MARK: - UIScrollViewDelegate
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        guard scrollView === pagingScrollView, !pageViews.isEmpty else { return }
+        let width = scrollView.bounds.width
+        guard width > 0 else { return }
+        let progress = scrollView.contentOffset.x / width
+        let page = min(max(Int(round(progress)), 0), pageViews.count - 1)
+        if spacePageControl.currentPage != page {
+            spacePageControl.currentPage = page
+        }
+        // Blend background while dragging for a continuous feel.
+        let left = min(max(Int(floor(progress)), 0), pageViews.count - 1)
+        let right = min(left + 1, pageViews.count - 1)
+        let t = progress - CGFloat(left)
+        let c0 = AccountColor.color(for: pageViews[left].container)
+        let c1 = AccountColor.color(for: pageViews[right].container)
+        let blended = blend(c0, c1, t: t)
+        view.backgroundColor = BrowserTheme.spaceHomeColor(spaceColor: blended)
+        spacePageControl.currentPageIndicatorTintColor = blended
+    }
+
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        guard scrollView === pagingScrollView else { return }
+        isProgrammaticPageScroll = false
+        if isEditingFavorites {
+            isEditingFavorites = false
+            pageViews.forEach { $0.reloadFavorites(editing: false) }
+        }
+    }
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        guard scrollView === pagingScrollView else { return }
+        commitPageIfNeeded(currentPageIndex())
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        guard scrollView === pagingScrollView, !decelerate else { return }
+        commitPageIfNeeded(currentPageIndex())
+    }
+
+    func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+        guard scrollView === pagingScrollView else { return }
+        isProgrammaticPageScroll = false
+        if pendingCommitAfterAnimation {
+            pendingCommitAfterAnimation = false
+            commitPageIfNeeded(currentPageIndex())
+        }
+    }
+
+    private func blend(_ a: UIColor, _ b: UIColor, t: CGFloat) -> UIColor {
+        var ar: CGFloat = 0, ag: CGFloat = 0, ab: CGFloat = 0, aa: CGFloat = 0
+        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
+        a.getRed(&ar, green: &ag, blue: &ab, alpha: &aa)
+        b.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+        let u = min(max(t, 0), 1)
+        return UIColor(
+            red: ar + (br - ar) * u,
+            green: ag + (bg - ag) * u,
+            blue: ab + (bb - ab) * u,
+            alpha: aa + (ba - aa) * u
+        )
+    }
+
+    // MARK: - Actions
+
+    @objc private func pageControlChanged() {
+        let index = spacePageControl.currentPage
+        scrollToPage(index, animated: true, commit: true)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    @objc private func closeTapped() {
+        delegate?.accountHubDidRequestClose(self)
+    }
+
+    private func presentAddFavorite(for accountID: UUID) {
+        let alert = UIAlertController(title: "Add Favorite", message: nil, preferredStyle: .alert)
+        alert.addTextField { field in
+            field.placeholder = "Title"
+            field.autocapitalizationType = .words
+        }
+        alert.addTextField { field in
+            field.placeholder = "URL"
+            field.keyboardType = .URL
+            field.autocapitalizationType = .none
+            field.autocorrectionType = .no
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Add", style: .default) { [weak self] _ in
+            guard let self else { return }
+            let title = alert.textFields?[0].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let raw = alert.textFields?[1].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !raw.isEmpty else { return }
+            let url = URLInputResolver.resolve(raw)
+            let displayTitle = title.isEmpty ? (url.host ?? "Site") : title
+            let ok = NavigationStore.shared.addToHome(
+                title: displayTitle,
+                url: url,
+                containerID: accountID
+            )
+            if !ok {
+                Toast.show("Already in Favorites", from: self)
+            }
+            self.pageViews.first(where: { $0.container.id == accountID })?
+                .reloadFavorites(editing: self.isEditingFavorites)
+        })
+        present(alert, animated: true)
+    }
+}
+
+// MARK: - Per-space page
+
+private final class SpaceHomePageView: UIView {
+    let container: BrowserContainer
+
+    var onOpenURL: ((URL, UUID) -> Void)?
+    var onAddFavorite: ((UUID) -> Void)?
+    var onBeginEditing: (() -> Void)?
+    var onEndEditing: (() -> Void)?
+    var onDefaultBrowser: (() -> Void)?
+
+    private let scrollView = UIScrollView()
+    private let contentView = UIView()
+    private let nameLabel = UILabel()
+    private let favoritesStack = UIStackView()
+    private let favoritesHeader = UIView()
+    private let favoritesTitle = UILabel()
+    private let favoritesDoneButton = UIButton(type: .system)
+    private let shortcutsGrid = UIStackView()
+    private let titleBandGuide = UILayoutGuide()
+    private var promoView: UIView?
+    private let showsDefaultBrowserPromo: Bool
+    private var isEditing = false
 
     private static let favoriteColumns = 5
     private static let favoriteIconSize: CGFloat = 56
@@ -275,17 +444,128 @@ final class AccountHubViewController: UIViewController {
     private static let favoriteRowSpacing: CGFloat = 12
     private static let favoriteColumnSpacing: CGFloat = 8
 
-    private func reloadShortcuts() {
+    init(container: BrowserContainer, showsDefaultBrowserPromo: Bool) {
+        self.container = container
+        self.showsDefaultBrowserPromo = showsDefaultBrowserPromo
+        super.init(frame: .zero)
+        setup()
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func applyAccent(_ accent: UIColor) {
+        favoritesDoneButton.setTitleColor(accent, for: .normal)
+    }
+
+    private func setup() {
+        scrollView.alwaysBounceVertical = true
+        scrollView.isDirectionalLockEnabled = true
+        scrollView.showsVerticalScrollIndicator = false
+        scrollView.keyboardDismissMode = .onDrag
+        scrollView.delaysContentTouches = false
+
+        nameLabel.text = {
+            let n = container.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            return n.isEmpty ? "Space" : n
+        }()
+        nameLabel.font = .systemFont(ofSize: 34, weight: .bold)
+        nameLabel.textColor = BrowserTheme.textPrimary
+        nameLabel.textAlignment = .center
+        nameLabel.numberOfLines = 2
+        nameLabel.adjustsFontSizeToFitWidth = true
+        nameLabel.minimumScaleFactor = 0.7
+        nameLabel.accessibilityTraits = .header
+
+        favoritesStack.axis = .vertical
+        favoritesStack.spacing = 16
+        favoritesStack.alignment = .fill
+
+        favoritesTitle.text = "FAVORITES"
+        favoritesTitle.font = .systemFont(ofSize: 13, weight: .semibold)
+        favoritesTitle.textColor = BrowserTheme.textSecondary
+
+        favoritesDoneButton.setTitle("Done", for: .normal)
+        favoritesDoneButton.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
+        favoritesDoneButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
+        favoritesDoneButton.addTarget(self, action: #selector(doneEditing), for: .touchUpInside)
+        favoritesDoneButton.isHidden = true
+
+        favoritesHeader.addSubview(favoritesTitle)
+        favoritesHeader.addSubview(favoritesDoneButton)
+        favoritesTitle.snp.makeConstraints { make in
+            make.leading.top.bottom.equalToSuperview()
+        }
+        favoritesDoneButton.snp.makeConstraints { make in
+            make.trailing.centerY.equalToSuperview()
+            make.leading.greaterThanOrEqualTo(favoritesTitle.snp.trailing).offset(8)
+        }
+        favoritesHeader.snp.makeConstraints { $0.height.equalTo(28) }
+        let headerLongPress = UILongPressGestureRecognizer(target: self, action: #selector(headerLongPressed(_:)))
+        headerLongPress.minimumPressDuration = 0.35
+        favoritesHeader.addGestureRecognizer(headerLongPress)
+
+        shortcutsGrid.axis = .vertical
+        shortcutsGrid.spacing = Self.favoriteRowSpacing
+        shortcutsGrid.alignment = .fill
+        favoritesStack.addArrangedSubview(favoritesHeader)
+        favoritesStack.addArrangedSubview(shortcutsGrid)
+
+        addSubview(scrollView)
+        scrollView.addSubview(contentView)
+        contentView.addSubview(nameLabel)
+        contentView.addSubview(favoritesStack)
+        contentView.addLayoutGuide(titleBandGuide)
+
+        scrollView.snp.makeConstraints { $0.edges.equalToSuperview() }
+        contentView.snp.makeConstraints { make in
+            make.edges.equalTo(scrollView.contentLayoutGuide)
+            make.width.equalTo(scrollView.frameLayoutGuide)
+            make.height.greaterThanOrEqualTo(scrollView.frameLayoutGuide)
+        }
+        favoritesStack.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview().inset(16)
+            make.centerY.equalToSuperview()
+            make.top.greaterThanOrEqualToSuperview().offset(8)
+            make.bottom.lessThanOrEqualToSuperview().offset(-8)
+        }
+        titleBandGuide.snp.makeConstraints { make in
+            make.top.equalToSuperview()
+            make.bottom.equalTo(favoritesStack.snp.top)
+            make.leading.trailing.equalToSuperview()
+        }
+        // Title above the fixed page-control dots (dots sit at safeArea + 66).
+        nameLabel.snp.makeConstraints { make in
+            make.top.equalToSuperview().offset(20)
+            make.leading.trailing.equalToSuperview().inset(24)
+            make.bottom.lessThanOrEqualTo(titleBandGuide.snp.bottom).offset(-36)
+        }
+
+        if showsDefaultBrowserPromo {
+            let promo = DefaultBrowserPromoUI.makeBanner { [weak self] in
+                self?.onDefaultBrowser?()
+            }
+            promoView = promo
+            contentView.addSubview(promo)
+            promo.snp.makeConstraints { make in
+                make.leading.trailing.equalToSuperview().inset(20)
+                make.top.greaterThanOrEqualTo(favoritesStack.snp.bottom).offset(28)
+                make.bottom.equalToSuperview().inset(24)
+            }
+        }
+    }
+
+    func reloadFavorites(editing: Bool) {
+        isEditing = editing
+        favoritesDoneButton.isHidden = !editing
         shortcutsGrid.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        favoritesDoneButton.isHidden = !isEditingFavorites
 
         var entries = favoriteEntries()
-        if !isEditingFavorites {
+        if !editing {
             entries = Array(entries.prefix(24))
         }
 
         let columns = Self.favoriteColumns
-        var tiles: [UIView] = entries.map { makeFavoriteTile($0) }
+        var tiles: [UIView] = entries.map { makeFavoriteTile($0, editing: editing) }
         tiles.append(makeAddFavoriteTile())
 
         var row = UIStackView()
@@ -312,12 +592,29 @@ final class AccountHubViewController: UIViewController {
         }
     }
 
-    private func makeFavoriteTile(_ entry: FavoriteEntry) -> UIView {
+    private struct FavoriteEntry {
+        let site: NavigationSite
+        let categoryID: UUID
+    }
+
+    private func favoriteEntries() -> [FavoriteEntry] {
+        var entries: [FavoriteEntry] = []
+        var seen = Set<String>()
+        for category in NavigationStore.shared.categories(for: container.id) {
+            for site in category.sites {
+                let key = site.urlString.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                guard seen.insert(key).inserted else { continue }
+                entries.append(FavoriteEntry(site: site, categoryID: category.id))
+            }
+        }
+        return entries
+    }
+
+    private func makeFavoriteTile(_ entry: FavoriteEntry, editing: Bool) -> UIView {
         let site = entry.site
         let wrap = UIView()
         let size = Self.favoriteIconSize
 
-        // Complete circular badge (same language as Facebook’s bundled mark).
         let icon = UIImageView(image: FavoriteBrandStyle.badgeImage(
             urlString: site.urlString,
             assetName: site.logoAssetName,
@@ -337,14 +634,15 @@ final class AccountHubViewController: UIViewController {
 
         let button = UIButton(type: .system)
         button.accessibilityLabel = site.title
+        let accountID = container.id
         button.addAction(UIAction { [weak self] _ in
             guard let self else { return }
-            if self.isEditingFavorites { return }
+            if self.isEditing { return }
             guard let url = site.url else { return }
-            self.delegate?.accountHub(self, didRequestOpenURL: url, accountID: self.resolvedPreviewID())
+            self.onOpenURL?(url, accountID)
         }, for: .touchUpInside)
 
-        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(favoriteLongPressed(_:)))
+        let longPress = UILongPressGestureRecognizer(target: self, action: #selector(tileLongPressed(_:)))
         longPress.minimumPressDuration = 0.35
         button.addGestureRecognizer(longPress)
 
@@ -364,7 +662,7 @@ final class AccountHubViewController: UIViewController {
         button.snp.makeConstraints { $0.edges.equalToSuperview() }
         wrap.snp.makeConstraints { $0.height.equalTo(Self.favoriteTileHeight) }
 
-        if isEditingFavorites {
+        if editing {
             let delete = UIButton(type: .system)
             delete.setImage(
                 UIImage(systemName: "minus.circle.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)),
@@ -381,9 +679,9 @@ final class AccountHubViewController: UIViewController {
                 NavigationStore.shared.removeSite(
                     categoryID: categoryID,
                     siteID: siteID,
-                    containerID: self.resolvedPreviewID()
+                    containerID: self.container.id
                 )
-                self.reloadShortcuts()
+                self.reloadFavorites(editing: true)
             }, for: .touchUpInside)
             wrap.addSubview(delete)
             delete.snp.makeConstraints { make in
@@ -392,14 +690,12 @@ final class AccountHubViewController: UIViewController {
                 make.size.equalTo(18)
             }
         }
-
         return wrap
     }
 
     private func makeAddFavoriteTile() -> UIView {
         let wrap = UIView()
         let size = Self.favoriteIconSize
-
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: 128, height: 128))
         let badge = renderer.image { _ in
             let bounds = CGRect(x: 0, y: 0, width: 128, height: 128)
@@ -412,7 +708,6 @@ final class AccountHubViewController: UIViewController {
                 plus.draw(in: CGRect(x: (128 - side) / 2, y: (128 - side) / 2, width: side, height: side))
             }
         }
-
         let icon = UIImageView(image: badge)
         icon.contentMode = .scaleAspectFill
         icon.clipsToBounds = true
@@ -426,8 +721,9 @@ final class AccountHubViewController: UIViewController {
 
         let button = UIButton(type: .system)
         button.accessibilityLabel = "Add Favorite"
+        let accountID = container.id
         button.addAction(UIAction { [weak self] _ in
-            self?.presentAddFavorite()
+            self?.onAddFavorite?(accountID)
         }, for: .touchUpInside)
 
         wrap.addSubview(icon)
@@ -448,54 +744,17 @@ final class AccountHubViewController: UIViewController {
         return wrap
     }
 
-    private func presentAddFavorite() {
-        let alert = UIAlertController(title: "Add Favorite", message: nil, preferredStyle: .alert)
-        alert.addTextField { field in
-            field.placeholder = "Title"
-            field.autocapitalizationType = .words
-        }
-        alert.addTextField { field in
-            field.placeholder = "URL"
-            field.keyboardType = .URL
-            field.autocapitalizationType = .none
-            field.autocorrectionType = .no
-        }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Add", style: .default) { [weak self] _ in
-            guard let self else { return }
-            let title = alert.textFields?[0].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            let raw = alert.textFields?[1].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            guard !raw.isEmpty else { return }
-            let url = URLInputResolver.resolve(raw)
-            let displayTitle = title.isEmpty ? (url.host ?? "Site") : title
-            let ok = NavigationStore.shared.addToHome(
-                title: displayTitle,
-                url: url,
-                containerID: self.resolvedPreviewID()
-            )
-            if !ok {
-                Toast.show("Already in Favorites", from: self)
-            }
-            self.reloadShortcuts()
-        })
-        present(alert, animated: true)
+    @objc private func headerLongPressed(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began, !isEditing else { return }
+        onBeginEditing?()
     }
 
-    // MARK: - Actions
-
-    @objc private func closeTapped() {
-        delegate?.accountHubDidRequestClose(self)
+    @objc private func tileLongPressed(_ gesture: UILongPressGestureRecognizer) {
+        guard gesture.state == .began, !isEditing else { return }
+        onBeginEditing?()
     }
 
-    @objc private func favoriteLongPressed(_ gesture: UILongPressGestureRecognizer) {
-        guard gesture.state == .began, !isEditingFavorites else { return }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        isEditingFavorites = true
-        reloadShortcuts()
-    }
-
-    @objc private func doneEditingFavorites() {
-        isEditingFavorites = false
-        reloadShortcuts()
+    @objc private func doneEditing() {
+        onEndEditing?()
     }
 }

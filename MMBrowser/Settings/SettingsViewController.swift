@@ -367,6 +367,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
 
     @objc private func tpChanged(_ sw: UISwitch) {
         AppSettings.trackerProtectionEnabled = sw.isOn
+        AppAnalytics.logSettingsToggle(setting: "tracker_protection", enabled: sw.isOn)
         if !sw.isOn, AppSettings.accurateBlockCountEnabled {
             AppSettings.accurateBlockCountEnabled = false
         }
@@ -375,34 +376,44 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     }
     @objc private func accurateBlockCountChanged(_ sw: UISwitch) {
         AppSettings.accurateBlockCountEnabled = sw.isOn
+        AppAnalytics.logSettingsToggle(setting: "accurate_block_count", enabled: sw.isOn)
         Toast.show(sw.isOn ? "Accurate block count on" : "Accurate block count off", from: self)
     }
     @objc private func shortsChanged(_ sw: UISwitch) {
         AppSettings.hideShortsEnabled = sw.isOn
+        AppAnalytics.logSettingsToggle(setting: "hide_shorts", enabled: sw.isOn)
         Toast.show(sw.isOn ? "Shorts Focus on" : "Shorts Focus off", from: self)
     }
     @objc private func ytShieldChanged(_ sw: UISwitch) {
         AppSettings.youtubeAdShieldEnabled = sw.isOn
+        AppAnalytics.logSettingsToggle(setting: "youtube_ad_shield", enabled: sw.isOn)
         Toast.show(sw.isOn ? "YouTube video filter on" : "YouTube video filter off", from: self)
     }
     @objc private func bgAudioChanged(_ sw: UISwitch) {
         AppSettings.backgroundAudioEnabled = sw.isOn
+        AppAnalytics.logSettingsToggle(setting: "background_audio", enabled: sw.isOn)
         Toast.show(sw.isOn ? "Background audio on" : "Background audio off", from: self)
     }
     @objc private func pipChanged(_ sw: UISwitch) {
         AppSettings.pictureInPictureEnabled = sw.isOn
+        AppAnalytics.logSettingsToggle(setting: "picture_in_picture", enabled: sw.isOn)
         Toast.show(sw.isOn ? "Picture in Picture on" : "Picture in Picture off", from: self)
     }
     @objc private func noImagesChanged(_ sw: UISwitch) {
         AppSettings.noImagesEnabled = sw.isOn
+        AppAnalytics.logSettingsToggle(setting: "no_images", enabled: sw.isOn)
         tableView.reloadSections(IndexSet(integer: Section.privacy.rawValue), with: .none)
         Toast.show(sw.isOn ? "Block images on" : "Block images off", from: self)
     }
     @objc private func aggressiveNoImagesChanged(_ sw: UISwitch) {
         AppSettings.aggressiveNoImagesEnabled = sw.isOn
+        AppAnalytics.logSettingsToggle(setting: "aggressive_no_images", enabled: sw.isOn)
         Toast.show(sw.isOn ? "Aggressive image block on" : "Aggressive image block off", from: self)
     }
-    @objc private func httpsChanged(_ sw: UISwitch) { AppSettings.httpsOnly = sw.isOn }
+    @objc private func httpsChanged(_ sw: UISwitch) {
+        AppSettings.httpsOnly = sw.isOn
+        AppAnalytics.logSettingsToggle(setting: "https_only", enabled: sw.isOn)
+    }
 
     private func presentAdTrackingOptions() {
         if AdConsentManager.isPrivacyOptionsRequired {

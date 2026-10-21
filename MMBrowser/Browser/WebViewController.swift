@@ -1815,13 +1815,17 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         ])
         // Explicit user intent — allow PiP again after a prior yield suppress window.
         suppressPipClaimUntil = nil
+        let pipSource = showFailureToast ? "menu" : "chip"
+        AppAnalytics.logPipEnter(source: pipSource, host: AppAnalytics.privacyHost(webView?.url))
         guard !YouTubeDarkMode.isYouTubeMusic(webView?.url) else {
             PipProbe.log("enter.userAction.skip", ["why": "youtubeMusic", "host": host])
+            AppAnalytics.logPipResult(source: pipSource, success: false, host: AppAnalytics.privacyHost(webView?.url), reason: "youtube_music")
             completion?(false)
             return
         }
         guard AppSettings.pictureInPictureEnabled else {
             PipProbe.log("enter.userAction.skip", ["why": "settingOff", "host": host])
+            AppAnalytics.logPipResult(source: pipSource, success: false, host: AppAnalytics.privacyHost(webView?.url), reason: "setting_off")
             completion?(false)
             return
         }
@@ -1844,6 +1848,12 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
                     "detail": detail,
                     "nativeActive": self.isPictureInPictureActive
                 ])
+                AppAnalytics.logPipResult(
+                    source: pipSource,
+                    success: ok,
+                    host: AppAnalytics.privacyHost(self.webView?.url),
+                    reason: ok ? nil : detail
+                )
                 if ok {
                     self.setPictureInPictureActive(true)
                 } else if showFailureToast {
@@ -2508,6 +2518,7 @@ extension WebViewController: WKNavigationDelegate {
         if !isIncognito, let url = webView.url, let containerID = browsingContainerID {
             HistoryStore.shared.add(title: webView.title ?? "", url: url, containerID: containerID)
         }
+        AppAnalytics.logPageLoad(url: webView.url, incognito: isIncognito)
         AppLockCoordinator.shared.noteWebpageFinished(url: webView.url)
         if AppSettings.stickyPictureInPicture, PipSession.isOwner(self) {
             PipProbe.log("nav.finish", [
@@ -2784,6 +2795,7 @@ extension WebViewController: WKNavigationDelegate {
                 $0.delegate?.webViewController($0, didUpdateURL: failedURL)
             }
         }
+        AppAnalytics.logNavigationError(url: failedURL, domain: nsError.domain, code: nsError.code)
         errorLabel.text = "Couldn't load page.\n\(error.localizedDescription)"
         errorContainer.isHidden = false
         delegate?.webViewControllerDidFail(self, error: error)
