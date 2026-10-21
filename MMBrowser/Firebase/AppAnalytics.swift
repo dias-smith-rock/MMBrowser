@@ -32,6 +32,12 @@ enum AppAnalytics {
         static let adTrigger = "ad_trigger"
         static let adImpression = "ad_impression_custom"
         static let adClick = "ad_click_custom"
+
+        static let paywallShow = "paywall_show"
+        static let purchaseStart = "purchase_start"
+        static let purchaseSuccess = "purchase_success"
+        static let purchaseFail = "purchase_fail"
+        static let restore = "restore"
     }
 
     // MARK: - Parameter keys
@@ -58,6 +64,7 @@ enum AppAnalytics {
         static let status = "status"
         static let tabCount = "tab_count"
         static let mediaKind = "media_kind"
+        static let productID = "product_id"
     }
 
     // MARK: - Core helpers
@@ -249,6 +256,41 @@ enum AppAnalytics {
     static func logAdClick(format: String) {
         log(Event.adClick, parameters: [
             Param.format: sanitize(format)
+        ])
+    }
+
+    static func logPaywallShow(source: String) {
+        log(Event.paywallShow, parameters: [
+            Param.source: sanitize(source)
+        ])
+    }
+
+    static func logPurchaseStart(productID: String, source: String) {
+        log(Event.purchaseStart, parameters: [
+            Param.productID: sanitize(productID),
+            Param.source: sanitize(source)
+        ])
+    }
+
+    static func logPurchaseSuccess(productID: String, source: String) {
+        log(Event.purchaseSuccess, parameters: [
+            Param.productID: sanitize(productID),
+            Param.source: sanitize(source)
+        ])
+    }
+
+    static func logPurchaseFail(productID: String, source: String, reason: String) {
+        log(Event.purchaseFail, parameters: [
+            Param.productID: sanitize(productID),
+            Param.source: sanitize(source),
+            Param.reason: sanitize(reason)
+        ])
+    }
+
+    static func logRestore(success: Bool, source: String) {
+        log(Event.restore, parameters: [
+            Param.success: success,
+            Param.source: sanitize(source)
         ])
     }
 

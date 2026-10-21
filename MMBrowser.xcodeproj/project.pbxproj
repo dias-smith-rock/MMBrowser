@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		PREM00BF01010101010101 /* PremiumStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010101 /* PremiumStore.swift */; };
+		PREM00BF01010101010102 /* PremiumCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010102 /* PremiumCoordinator.swift */; };
+		PREM00BF01010101010103 /* PremiumPaywallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010103 /* PremiumPaywallViewController.swift */; };
 		05EE9C9F5639484BA9BA6FF2 /* TabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFE04E67D090450B987F05FB /* TabManager.swift */; };
 		0696A518DA3C4EAF95A48D06 /* DualAccountCompareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BEB93FF23E74A24BDBB00DA /* DualAccountCompareViewController.swift */; };
 		08452A36D3F74BD49D37C472 /* ContainerSiteDataViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FFAC9E4AEF4A79BC9F8B18 /* ContainerSiteDataViewController.swift */; };
@@ -183,6 +186,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		PREM00FR01010101010101 /* PremiumStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumStore.swift; sourceTree = "<group>"; };
+		PREM00FR01010101010102 /* PremiumCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumCoordinator.swift; sourceTree = "<group>"; };
+		PREM00FR01010101010103 /* PremiumPaywallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumPaywallViewController.swift; sourceTree = "<group>"; };
 		00A238E7FC51408BA0111F44 /* HistoryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewController.swift; sourceTree = "<group>"; };
 		021143DE7C6A427AB58BAFF7 /* AccountHealthViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountHealthViewController.swift; sourceTree = "<group>"; };
 		06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeAdShield.swift; sourceTree = "<group>"; };
@@ -488,6 +494,7 @@
 				PWD000494098C24F4B935 /* MMBrowser.entitlements */,
 				D1A5510B1493499DB371F870 /* Common */,
 				FBASEGRP01010101010101 /* Firebase */,
+				PREM00GRP01010101010101 /* Premium */,
 				ADS00GRP01010101010101 /* Ads */,
 				A1B2C3D4E5F6030303030310 /* Theme */,
 				01E11A63E266468B846C126C /* Downloads */,
@@ -600,6 +607,16 @@
 				A8F39F6791D34673BFA63E0B /* ReadingListViewController.swift */,
 			);
 			path = ReadingList;
+			sourceTree = "<group>";
+		};
+		PREM00GRP01010101010101 /* Premium */ = {
+			isa = PBXGroup;
+			children = (
+				PREM00FR01010101010101 /* PremiumStore.swift */,
+				PREM00FR01010101010102 /* PremiumCoordinator.swift */,
+				PREM00FR01010101010103 /* PremiumPaywallViewController.swift */,
+			);
+			path = Premium;
 			sourceTree = "<group>";
 		};
 		ADS00GRP01010101010101 /* Ads */ = {
@@ -909,6 +926,9 @@
 				ECAB86D81CA54BE5A278C28B /* URLTrackingCleaner.swift in Sources */,
 				8C33B4FF479948CE8FC063A6 /* IdentitySpoof.swift in Sources */,
 				8EC5967C66A941389E277E88 /* ContainerScope.swift in Sources */,
+				PREM00BF01010101010101 /* PremiumStore.swift in Sources */,
+				PREM00BF01010101010102 /* PremiumCoordinator.swift in Sources */,
+				PREM00BF01010101010103 /* PremiumPaywallViewController.swift in Sources */,
 				FBASEBF01010101010101 /* FirebaseBootstrap.swift in Sources */,
 				FBASEBF01010101010102 /* AppAnalytics.swift in Sources */,
 				FBASEBF01010101010103 /* RemoteConfigManager.swift in Sources */,
@@ -1191,7 +1211,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
@@ -1227,7 +1247,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;

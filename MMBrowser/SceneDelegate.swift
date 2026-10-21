@@ -17,6 +17,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         AppLockCoordinator.shared.attach(to: windowScene)
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeDidChange, object: nil)
         AdLifecycleCoordinator.shared.startBootstrapIfNeeded(from: window.rootViewController)
+        Task { await PremiumStore.shared.refresh() }
 
         let launchURLs = connectionOptions.urlContexts.map(\.url)
         if !launchURLs.isEmpty {

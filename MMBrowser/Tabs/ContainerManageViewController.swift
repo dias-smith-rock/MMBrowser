@@ -67,13 +67,19 @@ final class ContainerManageViewController: UIViewController {
     }
 
     @objc private func addTapped() {
-        let edit = ContainerEditViewController(
-            container: nil,
-            tabManager: tabManager,
-            suggestedPresetIndex: tabManager.containers.count
-        )
-        edit.delegate = self
-        navigationController?.pushViewController(edit, animated: true)
+        PremiumCoordinator.ensureCanCreateSpace(
+            from: self,
+            currentCount: tabManager.containers.count
+        ) { [weak self] in
+            guard let self else { return }
+            let edit = ContainerEditViewController(
+                container: nil,
+                tabManager: self.tabManager,
+                suggestedPresetIndex: self.tabManager.containers.count
+            )
+            edit.delegate = self
+            self.navigationController?.pushViewController(edit, animated: true)
+        }
     }
 
     private func openEditor(for container: BrowserContainer) {
@@ -114,6 +120,10 @@ extension ContainerManageViewController: ContainerEditViewControllerDelegate {
     func containerEditDidSave(_ container: BrowserContainer, isNew: Bool) {
         let ok: Bool
         if isNew {
+            if !PremiumStore.canCreateSpaceSync(currentCount: tabManager.containers.count) {
+                PremiumCoordinator.presentPaywall(from: self, source: "space_limit")
+                return
+            }
             ok = tabManager.addContainer(container) != nil
         } else {
             ok = tabManager.updateContainer(container)

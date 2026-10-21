@@ -4,7 +4,7 @@ import SafariServices
 
 final class SettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
-    private enum Section: Int, CaseIterable { case privacy, accounts, clearOption, tools, youtube, media, search, home, about }
+    private enum Section: Int, CaseIterable { case premium, privacy, accounts, clearOption, tools, youtube, media, search, home, about }
 
     private enum AboutLinks {
         static let privacy = URL(string: "https://xxxxxbrowser.cc/privacy.html")!
@@ -63,6 +63,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
+        case .premium: return 1
         case .privacy: return 9
         case .accounts: return 2
         case .clearOption: return 1
@@ -77,6 +78,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
 
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
+        case .premium: return "Premium"
         case .privacy: return "Privacy & Security"
         case .accounts: return "Spaces"
         case .clearOption: return "Clear Option"
@@ -91,6 +93,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
 
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
+        case .premium:
+            return "Free includes \(PremiumStore.freeSpaceLimit) Spaces. Premium unlocks unlimited Spaces."
         case .privacy:
             return "Location Deny/Spoof only affects GPS-like browser APIs—not your network IP."
         case .accounts:
@@ -128,6 +132,10 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         cell.selectionStyle = .default
 
         switch Section(rawValue: indexPath.section)! {
+        case .premium:
+            cell.textLabel?.text = "XBrowser Premium"
+            cell.detailTextLabel?.text = PremiumStore.shared.isPremiumActive ? "Active" : "Unlock unlimited Spaces"
+            cell.accessoryType = .disclosureIndicator
         case .privacy:
             switch indexPath.row {
             case 0:
@@ -280,6 +288,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         switch Section(rawValue: indexPath.section)! {
+        case .premium:
+            PremiumCoordinator.presentPaywall(from: self, source: "settings")
         case .privacy:
             if indexPath.row == 5 {
                 let location = LocationSettingsViewController()

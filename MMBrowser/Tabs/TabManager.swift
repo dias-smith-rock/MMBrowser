@@ -390,6 +390,7 @@ final class TabManager {
     func addContainer(_ draft: BrowserContainer) -> BrowserContainer? {
         let trimmed = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
+        guard PremiumStore.canCreateSpaceSync(currentCount: containers.count) else { return nil }
         if containers.contains(where: { $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }) {
             return nil
         }

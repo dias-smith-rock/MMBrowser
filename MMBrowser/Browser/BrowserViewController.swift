@@ -330,6 +330,7 @@ final class BrowserViewController: UIViewController {
             presentOnboarding()
         } else {
             AdLifecycleCoordinator.shared.noteHostReadyForConsent(from: self)
+            PremiumCoordinator.presentColdStartIfNeeded(from: self)
         }
         #endif
     }
@@ -440,6 +441,7 @@ final class BrowserViewController: UIViewController {
                 self?.maybeShowAddressBarSwipeTip()
                 if self?.maybeShowAccountWow() != true {
                     AdLifecycleCoordinator.shared.noteHostReadyForConsent(from: self)
+                    PremiumCoordinator.presentColdStartIfNeeded(from: self)
                 }
             }
             self?.accountHubController?.reloadFromExternalChange()
@@ -457,6 +459,7 @@ final class BrowserViewController: UIViewController {
         wow.onFinished = { [weak self, weak wow] in
             wow?.dismiss(animated: true) {
                 self?.maybeShowAccountChipTip()
+                PremiumCoordinator.presentColdStartIfNeeded(from: self)
             }
             AdLifecycleCoordinator.shared.noteHostReadyForConsent(from: self)
         }
@@ -465,6 +468,7 @@ final class BrowserViewController: UIViewController {
             UserDefaults.standard.set(false, forKey: ContainerScope.needsAccountChipTipKey)
             self?.refreshAccountChip()
             AdLifecycleCoordinator.shared.noteHostReadyForConsent(from: self)
+            PremiumCoordinator.presentColdStartIfNeeded(from: self)
         }
         present(wow, animated: true)
         return true
@@ -1130,16 +1134,22 @@ final class BrowserViewController: UIViewController {
     }
 
     private func presentAddAccount() {
-        let edit = ContainerEditViewController(
-            container: nil,
-            tabManager: tabManager,
-            suggestedPresetIndex: tabManager.containers.count
-        )
-        edit.delegate = self
-        let nav = UINavigationController(rootViewController: edit)
-        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
-        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
-        present(nav, animated: true)
+        PremiumCoordinator.ensureCanCreateSpace(
+            from: self,
+            currentCount: tabManager.containers.count
+        ) { [weak self] in
+            guard let self else { return }
+            let edit = ContainerEditViewController(
+                container: nil,
+                tabManager: self.tabManager,
+                suggestedPresetIndex: self.tabManager.containers.count
+            )
+            edit.delegate = self
+            let nav = UINavigationController(rootViewController: edit)
+            nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+            BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+            self.present(nav, animated: true)
+        }
     }
 
     private func applyPrivateChrome(_ isPrivate: Bool) {
@@ -2070,6 +2080,10 @@ extension BrowserViewController: AccountHubViewControllerDelegate {
         }
     }
 
+    func accountHubDidRequestPremium(_ hub: AccountHubViewController) {
+        PremiumCoordinator.presentPaywall(from: hub, source: "home")
+    }
+
     func accountHubDidRequestManageAccounts(_ hub: AccountHubViewController) {
         presentAccountManager(from: hub)
     }
@@ -2864,28 +2878,33 @@ extension BrowserViewController: AccountSwitcherViewControllerDelegate {
     }
 
     func accountSwitcher(_ controller: AccountSwitcherViewController, didRequestAddTemplate template: ContainerTemplate) {
-        let name = tabManager.uniqueAccountName(base: template.suggestedName)
-        let draft = template.makeContainer(
-            name: name,
-            sortIndex: tabManager.containers.count,
-            colorIndex: tabManager.containers.count % AccountColor.palette.count
-        )
-        guard let created = tabManager.addContainer(draft) else {
-            Toast.show("Could not create space", from: controller)
-            return
-        }
-        let homeURL = template.homeURL
-        controller.dismiss(animated: true) { [weak self] in
-            guard let self else { return }
-            self.switchToAccountWithFeedback(
-                created.id,
-                subtitle: homeURL == nil
-                    ? "\(template.displayName) space ready"
-                    : "Opening \(template.displayName) Web…"
+        PremiumCoordinator.ensureCanCreateSpace(
+            from: controller,
+            currentCount: tabManager.containers.count
+        ) { [weak self, weak controller] in
+            guard let self, let controller else { return }
+            let name = self.tabManager.uniqueAccountName(base: template.suggestedName)
+            let draft = template.makeContainer(
+                name: name,
+                sortIndex: self.tabManager.containers.count,
+                colorIndex: self.tabManager.containers.count % AccountColor.palette.count
             )
-            if let homeURL {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                    self.navigate(to: homeURL)
+            guard let created = self.tabManager.addContainer(draft) else {
+                Toast.show("Could not create space", from: controller)
+                return
+            }
+            let homeURL = template.homeURL
+            controller.dismiss(animated: true) {
+                self.switchToAccountWithFeedback(
+                    created.id,
+                    subtitle: homeURL == nil
+                        ? "\(template.displayName) space ready"
+                        : "Opening \(template.displayName) Web…"
+                )
+                if let homeURL {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        self.navigate(to: homeURL)
+                    }
                 }
             }
         }

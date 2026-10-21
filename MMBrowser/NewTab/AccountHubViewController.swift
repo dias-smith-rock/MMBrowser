@@ -5,6 +5,7 @@ protocol AccountHubViewControllerDelegate: AnyObject {
     func accountHubDidRequestClose(_ hub: AccountHubViewController)
     func accountHubDidRequestSettings(_ hub: AccountHubViewController)
     func accountHubDidRequestManageAccounts(_ hub: AccountHubViewController)
+    func accountHubDidRequestPremium(_ hub: AccountHubViewController)
     func accountHub(_ hub: AccountHubViewController, didSelectTabID tabID: UUID, accountID: UUID)
     func accountHub(_ hub: AccountHubViewController, didRequestNewTabInAccount accountID: UUID)
     func accountHub(_ hub: AccountHubViewController, didRequestOpenURL url: URL, accountID: UUID)
@@ -25,6 +26,7 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
 
     private let pagingScrollView = UIScrollView()
     private let pagesContainer = UIView()
+    private let premiumButton = UIButton(type: .system)
     private let closeButton = UIButton(type: .system)
 
     private var pageViews: [SpaceHomePageView] = []
@@ -126,6 +128,14 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
             make.height.equalTo(pagingScrollView.frameLayoutGuide)
         }
 
+        configurePremiumButton()
+        view.addSubview(premiumButton)
+        premiumButton.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(8)
+            make.trailing.equalTo(view.safeAreaLayoutGuide).inset(isOverlay ? 56 : 16)
+            make.size.equalTo(32)
+        }
+
         if isOverlay {
             configureCloseButton()
             view.addSubview(closeButton)
@@ -134,6 +144,18 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
                 make.trailing.equalTo(view.safeAreaLayoutGuide).inset(16)
             }
         }
+    }
+
+    private func configurePremiumButton() {
+        premiumButton.setImage(
+            UIImage(systemName: "crown.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .bold)),
+            for: .normal
+        )
+        premiumButton.tintColor = UIColor(red: 1.0, green: 0.84, blue: 0.35, alpha: 1)
+        premiumButton.backgroundColor = UIColor.black.withAlphaComponent(0.28)
+        premiumButton.layer.cornerRadius = 16
+        premiumButton.accessibilityLabel = "XBrowser Premium"
+        premiumButton.addTarget(self, action: #selector(premiumTapped), for: .touchUpInside)
     }
 
     private func configureCloseButton() {
@@ -358,6 +380,10 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
 
     @objc private func closeTapped() {
         delegate?.accountHubDidRequestClose(self)
+    }
+
+    @objc private func premiumTapped() {
+        delegate?.accountHubDidRequestPremium(self)
     }
 
     private func presentAddFavorite(for accountID: UUID) {

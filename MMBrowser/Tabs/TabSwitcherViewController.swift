@@ -722,16 +722,22 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func presentNewAccount() {
-        let edit = ContainerEditViewController(
-            container: nil,
-            tabManager: tabManager,
-            suggestedPresetIndex: tabManager.containers.count
-        )
-        edit.delegate = self
-        let nav = UINavigationController(rootViewController: edit)
-        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
-        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
-        present(nav, animated: true)
+        PremiumCoordinator.ensureCanCreateSpace(
+            from: self,
+            currentCount: tabManager.containers.count
+        ) { [weak self] in
+            guard let self else { return }
+            let edit = ContainerEditViewController(
+                container: nil,
+                tabManager: self.tabManager,
+                suggestedPresetIndex: self.tabManager.containers.count
+            )
+            edit.delegate = self
+            let nav = UINavigationController(rootViewController: edit)
+            BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+            nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+            self.present(nav, animated: true)
+        }
     }
 
     @objc private func doneTapped() {
