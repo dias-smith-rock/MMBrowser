@@ -94,81 +94,12 @@ final class MenuViewController: UIViewController {
     // MARK: - Card 1: Default browser
 
     private func makeDefaultBrowserCard() -> UIView {
-        let card = makeCard()
-        let defaultBanner = makeDefaultBrowserBanner()
-        let column = UIStackView(arrangedSubviews: [defaultBanner])
-        column.axis = .vertical
-        column.spacing = 10
-        column.isLayoutMarginsRelativeArrangement = true
-        column.layoutMargins = UIEdgeInsets(top: 12, left: 0, bottom: 12, right: 0)
-        card.addSubview(column)
-        column.snp.makeConstraints { make in
-            make.edges.equalToSuperview()
+        DefaultBrowserPromoUI.makeCard(
+            cardColor: isIncognito ? BrowserTheme.privateElevated : BrowserTheme.elevated
+        ) { [weak self] in
+            guard let self else { return }
+            self.delegate?.menuDidSelect(.setDefaultBrowser)
         }
-        return card
-    }
-
-    private func makeDefaultBrowserBanner() -> UIView {
-        let wrap = UIView()
-        let button = MenuActionButton(action: .setDefaultBrowser)
-        button.addTarget(self, action: #selector(actionTapped(_:)), for: .touchUpInside)
-        button.layer.cornerRadius = 14
-        button.clipsToBounds = true
-        button.accessibilityLabel = "Make XBrowser the default browser"
-
-        let gradient = CAGradientLayer()
-        gradient.colors = [
-            ThemeHex.color("7B5CFF").cgColor,
-            ThemeHex.color("FF7A45").cgColor
-        ]
-        gradient.startPoint = CGPoint(x: 0, y: 0.5)
-        gradient.endPoint = CGPoint(x: 1, y: 0.5)
-        button.layer.insertSublayer(gradient, at: 0)
-        button.layoutSubviewsHook = { [weak button] in
-            guard let button else { return }
-            button.layer.sublayers?.first(where: { $0 is CAGradientLayer })?.frame = button.bounds
-        }
-
-        let icon = UIImageView(image: UIImage(systemName: "safari"))
-        icon.tintColor = .white
-        icon.contentMode = .scaleAspectFit
-
-        let label = UILabel()
-        label.text = "Make XBrowser the default browser"
-        label.textColor = .white
-        label.font = .systemFont(ofSize: 14, weight: .semibold)
-        label.numberOfLines = 2
-
-        let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
-        chevron.tintColor = UIColor.white.withAlphaComponent(0.85)
-        chevron.contentMode = .scaleAspectFit
-
-        wrap.addSubview(button)
-        button.addSubview(icon)
-        button.addSubview(label)
-        button.addSubview(chevron)
-
-        button.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(12)
-            make.top.bottom.equalToSuperview()
-            make.height.equalTo(52)
-        }
-        icon.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(14)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(22)
-        }
-        label.snp.makeConstraints { make in
-            make.leading.equalTo(icon.snp.trailing).offset(10)
-            make.trailing.equalTo(chevron.snp.leading).offset(-8)
-            make.centerY.equalToSuperview()
-        }
-        chevron.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().offset(-12)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(14)
-        }
-        return wrap
     }
 
     // MARK: - Grid cards
@@ -285,5 +216,98 @@ final class MenuActionButton: UIButton {
     override func layoutSubviews() {
         super.layoutSubviews()
         layoutSubviewsHook?()
+    }
+}
+
+/// Shared “set as default browser” promo used on NTP, page menu, and app menu.
+enum DefaultBrowserPromoUI {
+    static func makeBanner(onTap: @escaping () -> Void) -> UIView {
+        let wrap = UIView()
+        let button = GradientActionButton()
+        button.addAction(UIAction { _ in onTap() }, for: .touchUpInside)
+        button.layer.cornerRadius = 14
+        button.clipsToBounds = true
+        button.accessibilityLabel = "Make XBrowser the default browser"
+
+        let icon = UIImageView(image: UIImage(systemName: "safari"))
+        icon.tintColor = .white
+        icon.contentMode = .scaleAspectFit
+        icon.isUserInteractionEnabled = false
+
+        let label = UILabel()
+        label.text = "Make XBrowser the default browser"
+        label.textColor = .white
+        label.font = .systemFont(ofSize: 14, weight: .semibold)
+        label.numberOfLines = 2
+        label.isUserInteractionEnabled = false
+
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
+        chevron.tintColor = UIColor.white.withAlphaComponent(0.85)
+        chevron.contentMode = .scaleAspectFit
+        chevron.isUserInteractionEnabled = false
+
+        wrap.addSubview(button)
+        button.addSubview(icon)
+        button.addSubview(label)
+        button.addSubview(chevron)
+
+        button.snp.makeConstraints { make in
+            make.edges.equalToSuperview()
+            make.height.equalTo(52)
+        }
+        icon.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(14)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(22)
+        }
+        label.snp.makeConstraints { make in
+            make.leading.equalTo(icon.snp.trailing).offset(10)
+            make.trailing.equalTo(chevron.snp.leading).offset(-8)
+            make.centerY.equalToSuperview()
+        }
+        chevron.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().offset(-12)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(14)
+        }
+        return wrap
+    }
+
+    static func makeCard(
+        cardColor: UIColor = BrowserTheme.elevated,
+        onTap: @escaping () -> Void
+    ) -> UIView {
+        let card = UIView()
+        card.backgroundColor = cardColor
+        card.layer.cornerRadius = 16
+        card.clipsToBounds = true
+        let banner = makeBanner(onTap: onTap)
+        card.addSubview(banner)
+        banner.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(UIEdgeInsets(top: 12, left: 12, bottom: 12, right: 12))
+        }
+        return card
+    }
+
+    private final class GradientActionButton: UIButton {
+        private let gradient = CAGradientLayer()
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            gradient.colors = [
+                ThemeHex.color("7B5CFF").cgColor,
+                ThemeHex.color("FF7A45").cgColor
+            ]
+            gradient.startPoint = CGPoint(x: 0, y: 0.5)
+            gradient.endPoint = CGPoint(x: 1, y: 0.5)
+            layer.insertSublayer(gradient, at: 0)
+        }
+
+        required init?(coder: NSCoder) { fatalError() }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            gradient.frame = bounds
+        }
     }
 }

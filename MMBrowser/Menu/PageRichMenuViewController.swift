@@ -63,6 +63,12 @@ final class PageRichMenuViewController: UIViewController {
         }
 
         stack.addArrangedSubview(makeHeaderCard())
+        if DefaultBrowserFeature.isEnabled {
+            let cardColor = context.isIncognito ? BrowserTheme.privateElevated : BrowserTheme.elevated
+            stack.addArrangedSubview(DefaultBrowserPromoUI.makeCard(cardColor: cardColor) { [weak self] in
+                self?.delegate?.pageRichMenuDidSelect(.setDefaultBrowser)
+            })
+        }
         // Two matching horizontally scrollable shortcut rows.
         stack.addArrangedSubview(makeAppScrollRowCard(items: pageToolItems()))
         stack.addArrangedSubview(makeAppScrollRowCard(items: appLibraryItems()))

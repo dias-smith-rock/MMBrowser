@@ -17,7 +17,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
     private let colorSwatches = AccountColorSwatchView()
 
     private enum Section: Int, CaseIterable {
-        case template, name, color, identity, mode, spoofPreset, spoofCustom, management
+        case name, color, identity, mode, spoofPreset, spoofCustom, management
     }
 
     init(container: BrowserContainer?, tabManager: TabManager? = nil, suggestedPresetIndex: Int = 0, template: ContainerTemplate = .custom) {
@@ -195,7 +195,6 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         guard let kind = sectionKind(section) else { return 0 }
         switch kind {
-        case .template: return isNew ? ContainerTemplate.allCases.count : 0
         case .name: return 1
         case .color: return 1
         case .identity: return UserAgentMode.allCases.count + 1
@@ -209,7 +208,6 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         guard let kind = sectionKind(section) else { return nil }
         switch kind {
-        case .template: return isNew ? "Template" : nil
         case .name: return "Name"
         case .color: return "Color"
         case .identity: return "How new tabs look"
@@ -261,12 +259,6 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
         cell.detailTextLabel?.text = nil
 
         switch sectionKind(indexPath.section)! {
-        case .template:
-            let template = ContainerTemplate.allCases[indexPath.row]
-            cell.textLabel?.text = template.displayName
-            cell.detailTextLabel?.text = template.detail
-            cell.accessoryType = draft.templateID == template.rawValue ? .checkmark : .none
-            cell.tintColor = BrowserTheme.chromeBlue
         case .name:
             cell.selectionStyle = .none
             if nameField.superview != cell.contentView {
@@ -350,30 +342,6 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         switch sectionKind(indexPath.section)! {
-        case .template:
-            let template = ContainerTemplate.allCases[indexPath.row]
-            let preservedID = draft.id
-            let preservedSession = draft.sessionID
-            let built = template.makeContainer(name: draft.name, sortIndex: draft.sortIndex, colorIndex: draft.colorIndex)
-            draft = BrowserContainer(
-                id: preservedID,
-                name: built.name,
-                sessionID: preservedSession,
-                sortIndex: built.sortIndex,
-                colorIndex: built.colorIndex,
-                customColorHex: built.customColorHex,
-                locationMode: built.locationMode,
-                latitude: built.latitude,
-                longitude: built.longitude,
-                timeZoneIdentifier: built.timeZoneIdentifier,
-                locationPresetID: built.locationPresetID,
-                pinnedSites: built.pinnedSites,
-                persistence: .persistent,
-                identity: built.identity,
-                templateID: template.rawValue
-            )
-            nameField.text = draft.name
-            tableView.reloadData()
         case .name:
             nameField.becomeFirstResponder()
         case .color:

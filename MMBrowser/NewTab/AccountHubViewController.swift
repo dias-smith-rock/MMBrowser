@@ -30,6 +30,7 @@ final class AccountHubViewController: UIViewController {
     private let favoritesTitle = UILabel()
     private let favoritesDoneButton = UIButton(type: .system)
     private let shortcutsGrid = UIStackView()
+    private var defaultBrowserPromo: UIView?
 
     private var isEditingFavorites = false
 
@@ -194,6 +195,20 @@ final class AccountHubViewController: UIViewController {
 
         favoritesStack.addArrangedSubview(favoritesHeader)
         favoritesStack.addArrangedSubview(shortcutsGrid)
+
+        if DefaultBrowserFeature.isEnabled {
+            let promo = DefaultBrowserPromoUI.makeBanner { [weak self] in
+                guard let self else { return }
+                self.delegate?.accountHub(self, didRequestMenuAction: .setDefaultBrowser)
+            }
+            defaultBrowserPromo = promo
+            scrollContentView.addSubview(promo)
+            promo.snp.makeConstraints { make in
+                make.leading.trailing.equalToSuperview().inset(20)
+                make.top.greaterThanOrEqualTo(favoritesStack.snp.bottom).offset(28)
+                make.bottom.equalToSuperview().inset(24)
+            }
+        }
     }
 
     private func configureCloseButton() {
