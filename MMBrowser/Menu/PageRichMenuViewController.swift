@@ -125,7 +125,7 @@ final class PageRichMenuViewController: UIViewController {
             ("Watch Later (Isolated)", "clock.badge.checkmark", .watchLater, !context.isIncognito),
             ("Bookmarks (Isolated)", "bookmark", .bookmarks, !context.isIncognito),
             ("History (Isolated)", "clock", .history, !context.isIncognito),
-            ("Passwords", "key", .passwords, true),
+            ("Passwords (Isolated)", "key", .passwords, true),
             ("Background gallery", "photo.on.rectangle", .backgroundGallery, true),
             ("Theme", "paintpalette", .theme, true),
             ("Feedback", "bubble.left", .feedback, true)

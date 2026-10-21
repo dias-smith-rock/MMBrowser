@@ -1,16 +1,11 @@
 import Foundation
 import FirebaseRemoteConfig
 
-/// Fetches and caches Remote Config used by ads and feature flags.
+/// Fetches and caches Remote Config feature flags.
 final class RemoteConfigManager {
     static let shared = RemoteConfigManager()
 
     enum Key: String {
-        case adsEnabled = "ads_enabled"
-        case appOpenAdUnitID = "admob_app_open_unit_id"
-        case interstitialAdUnitID = "admob_interstitial_unit_id"
-        case coldStartAdsEnabled = "cold_start_ads_enabled"
-        case hotStartAdsEnabled = "hot_start_ads_enabled"
         /// JSON: `{"domains":["*"]}` — hosts whose Watch Later media must play online.
         case watchLaterBlacklist = "watch_later_blacklist"
     }
@@ -37,11 +32,6 @@ final class RemoteConfigManager {
         remoteConfig.configSettings = settings
 
         remoteConfig.setDefaults([
-            Key.adsEnabled.rawValue: NSNumber(value: true),
-            Key.appOpenAdUnitID.rawValue: NSString(string: ""),
-            Key.interstitialAdUnitID.rawValue: NSString(string: ""),
-            Key.coldStartAdsEnabled.rawValue: NSNumber(value: true),
-            Key.hotStartAdsEnabled.rawValue: NSNumber(value: true),
             Key.watchLaterBlacklist.rawValue: NSString(string: Self.watchLaterBlacklistDefaultJSON)
         ] as [String: NSObject])
 
@@ -60,18 +50,6 @@ final class RemoteConfigManager {
             #endif
             NotificationCenter.default.post(name: .remoteConfigDidUpdate, object: nil)
         }
-    }
-
-    var isAdsEnabled: Bool {
-        boolValue(for: .adsEnabled, default: true)
-    }
-
-    var isColdStartAdsEnabled: Bool {
-        boolValue(for: .coldStartAdsEnabled, default: true)
-    }
-
-    var isHotStartAdsEnabled: Bool {
-        boolValue(for: .hotStartAdsEnabled, default: true)
     }
 
     func stringValue(for key: Key, default defaultValue: String = "") -> String {

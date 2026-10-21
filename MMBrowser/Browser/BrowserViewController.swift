@@ -329,7 +329,6 @@ final class BrowserViewController: UIViewController {
         if !AppSettings.didShowOnboarding {
             presentOnboarding()
         } else {
-            AdLifecycleCoordinator.shared.noteHostReadyForConsent(from: self)
             PremiumCoordinator.presentColdStartIfNeeded(from: self)
         }
         #endif
@@ -440,7 +439,6 @@ final class BrowserViewController: UIViewController {
             onboarding?.dismiss(animated: true) {
                 self?.maybeShowAddressBarSwipeTip()
                 if self?.maybeShowAccountWow() != true {
-                    AdLifecycleCoordinator.shared.noteHostReadyForConsent(from: self)
                     PremiumCoordinator.presentColdStartIfNeeded(from: self)
                 }
             }
@@ -461,13 +459,11 @@ final class BrowserViewController: UIViewController {
                 self?.maybeShowAccountChipTip()
                 PremiumCoordinator.presentColdStartIfNeeded(from: self)
             }
-            AdLifecycleCoordinator.shared.noteHostReadyForConsent(from: self)
         }
         wow.onStartedSplitDemo = { [weak self] in
             // Split View dismisses the modal chain; tip not needed after a live demo.
             UserDefaults.standard.set(false, forKey: ContainerScope.needsAccountChipTipKey)
             self?.refreshAccountChip()
-            AdLifecycleCoordinator.shared.noteHostReadyForConsent(from: self)
             PremiumCoordinator.presentColdStartIfNeeded(from: self)
         }
         present(wow, animated: true)
@@ -1775,12 +1771,10 @@ extension BrowserViewController: AddressBarViewDelegate {
     }
 
     func addressBarDidTapBack() {
-        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "address_back")
         tabManager.selectedTab?.webController?.goBack()
     }
 
     func addressBarDidTapForward() {
-        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "address_forward")
         tabManager.selectedTab?.webController?.goForward()
     }
 
@@ -1965,12 +1959,10 @@ extension BrowserViewController: AddressBarViewDelegate {
 
 extension BrowserViewController: BottomToolbarViewDelegate {
     func toolbarDidTapAccount() {
-        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_account")
         presentTabSwitcher()
     }
 
     func toolbarDidLongPressAccount() {
-        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_account_longpress")
         guard let targetID = tabManager.quickSwitchTargetAccountID() else {
             presentAccountSwitcher()
             return
@@ -1979,7 +1971,6 @@ extension BrowserViewController: BottomToolbarViewDelegate {
     }
 
     func toolbarDidTapBack() {
-        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_back")
         let tab = tabManager.selectedTab
         let web = tab?.webController
         if web?.canGoBack == true {
@@ -1993,7 +1984,6 @@ extension BrowserViewController: BottomToolbarViewDelegate {
     }
 
     func toolbarDidTapForward() {
-        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_forward")
         let web = tabManager.selectedTab?.webController
         if web?.canGoForward == true {
             chromeReturnTabID = nil
@@ -2011,13 +2001,11 @@ extension BrowserViewController: BottomToolbarViewDelegate {
     }
 
     func toolbarDidTapHome() {
-        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_home")
         chromeReturnTabID = nil
         openHomeTabPreservingReturn()
     }
 
     func toolbarDidTapNewTab() {
-        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_new_tab")
         chromeReturnTabID = nil
         let containerID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
         _ = tabManager.addTab(incognito: false, select: true, containerID: containerID)
@@ -2025,17 +2013,14 @@ extension BrowserViewController: BottomToolbarViewDelegate {
     }
 
     func toolbarDidTapTabs() {
-        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_tabs")
         presentTabSwitcher()
     }
 
     func toolbarDidTapMenu() {
-        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_menu")
         presentMenu()
     }
 
     func toolbarDidTapDownloads() {
-        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "toolbar_downloads")
         openDownloads()
     }
 }
@@ -2180,12 +2165,10 @@ extension BrowserViewController: NewTabViewControllerDelegate {
     }
 
     func newTabDidRequestAccountSwitch() {
-        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "ntp_account_switch")
         presentAccountSwitcher()
     }
 
     func newTabDidRequestAddAccount() {
-        AdLifecycleCoordinator.shared.recordFirstInteraction(source: "ntp_account_add")
         presentAddAccount()
     }
 }
@@ -2762,7 +2745,9 @@ extension BrowserViewController: MenuViewControllerDelegate {
     }
 
     private func openReadingList() {
-        let list = ReadingListViewController()
+        let spaceID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
+            ?? tabManager.resolvedLastActiveContainerID
+        let list = ReadingListViewController(containerID: spaceID)
         list.onOpenURL = { [weak self] url in self?.navigate(to: url) }
         let nav = UINavigationController(rootViewController: list)
         nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
@@ -2781,7 +2766,9 @@ extension BrowserViewController: MenuViewControllerDelegate {
     private func openPasswords() {
         PasswordVaultGate.unlockIfNeeded(from: self) { [weak self] ok in
             guard let self, ok else { return }
-            let list = PasswordsViewController()
+            let spaceID = self.tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
+                ?? self.tabManager.resolvedLastActiveContainerID
+            let list = PasswordsViewController(containerID: spaceID)
             let nav = UINavigationController(rootViewController: list)
             nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
             BrowserTheme.applyNavigationBar(to: nav.navigationBar)

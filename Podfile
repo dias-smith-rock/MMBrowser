@@ -18,9 +18,6 @@ target 'MMBrowser' do
   pod 'FirebaseAnalytics', '~> 11.15.0'
   pod 'FirebaseRemoteConfig', '~> 11.15.0'
   pod 'FirebaseCrashlytics', '~> 11.15.0'
-
-  # AdMob (+ UMP)
-  pod 'Google-Mobile-Ads-SDK', '~> 12.2.0'
 end
 
 post_install do |installer|

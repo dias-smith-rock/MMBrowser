@@ -70,12 +70,12 @@ final class MenuViewController: UIViewController {
             ("Spaces", "person.2", .accounts),
             ("Settings", "gearshape", .settings),
             ("Split View", "rectangle.split.1x2", .compareAccounts),
-            ("Passwords", "key", .passwords),
+            ("Passwords (Isolated)", "key", .passwords),
             ("Downloads (Shared)", "arrow.down.circle", .downloads),
             ("Bookmarks (Isolated)", "bookmark", .bookmarks),
             ("History (Isolated)", "clock", .history),
             ("Watch Later (Isolated)", "clock.badge.checkmark", .watchLater),
-            ("Reading list (Shared)", "text.book.closed", .readingList)
+            ("Reading list (Isolated)", "text.book.closed", .readingList)
         ]
         if isIncognito {
             items.removeAll { $0.2 == .downloads || $0.2 == .accounts }

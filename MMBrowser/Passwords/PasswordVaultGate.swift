@@ -87,6 +87,7 @@ enum PasswordVaultGate {
             if let key = VaultCrypto.unlockMasterPassword(text) {
                 VaultCrypto.setSessionMasterKey(key)
                 PasswordStore.shared.reload()
+                PasswordStore.shared.migrateSharedPasswordsIfNeeded()
                 BankCardStore.shared.reload()
                 FormProfileStore.shared.reload()
                 completion(true)

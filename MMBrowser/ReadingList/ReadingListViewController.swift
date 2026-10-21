@@ -5,18 +5,30 @@ final class ReadingListViewController: UIViewController, UITableViewDataSource, 
     var onOpenURL: ((URL) -> Void)?
     private let tableView = UITableView(frame: .zero, style: .plain)
     private var items: [ReadingListItem] = []
+    private let containerID: UUID
+
+    init(containerID: UUID) {
+        self.containerID = ContainerScope.resolveContainerID(containerID)
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Reading List"
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Close", style: .plain, target: self, action: #selector(close))
-        items = ReadingListStore.shared.items
+        reload()
         tableView.dataSource = self
         tableView.delegate = self
         view.addSubview(tableView)
         tableView.frame = view.bounds
         tableView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    }
+
+    private func reload() {
+        items = ReadingListStore.shared.items(containerID: containerID)
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { items.count }
@@ -50,7 +62,7 @@ final class ReadingListViewController: UIViewController, UITableViewDataSource, 
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         guard editingStyle == .delete else { return }
         ReadingListStore.shared.remove(id: items[indexPath.row].id)
-        items = ReadingListStore.shared.items
+        reload()
         tableView.deleteRows(at: [indexPath], with: .automatic)
     }
 

@@ -6,6 +6,14 @@ final class PasswordsViewController: UIViewController, UITableViewDataSource, UI
     private let searchController = UISearchController(searchResultsController: nil)
     private var items: [PasswordItem] = []
     private var query = ""
+    private let containerID: UUID
+
+    init(containerID: UUID = ContainerScope.resolveContainerID(nil)) {
+        self.containerID = ContainerScope.resolveContainerID(containerID)
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -36,6 +44,7 @@ final class PasswordsViewController: UIViewController, UITableViewDataSource, UI
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         PasswordStore.shared.reload()
+        PasswordStore.shared.migrateSharedPasswordsIfNeeded()
         reload()
     }
 
@@ -54,7 +63,7 @@ final class PasswordsViewController: UIViewController, UITableViewDataSource, UI
     }
 
     private func reload() {
-        items = PasswordStore.shared.items(matching: query)
+        items = PasswordStore.shared.items(matching: query, containerID: containerID)
         tableView.reloadData()
     }
 
@@ -65,7 +74,7 @@ final class PasswordsViewController: UIViewController, UITableViewDataSource, UI
     @objc private func addTapped() {
         let edit = PasswordEditViewController(
             mode: .create,
-            defaultContainerID: ContainerScope.defaultContainerID()
+            defaultContainerID: containerID
         )
         edit.onSaved = { [weak self] in self?.reload() }
         let nav = UINavigationController(rootViewController: edit)

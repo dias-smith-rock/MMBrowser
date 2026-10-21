@@ -9,14 +9,14 @@ struct PasswordItem: Codable, Equatable {
     var password: String
     var comments: String
     var updatedAt: Date
-    /// When set, this entry is preferred for the matching account only. Nil = all accounts.
-    var containerID: UUID?
+    /// Required for Zero-trust-inspired isolation — passwords never span Spaces.
+    var containerID: UUID
 
     var dto: PasswordItemDTO {
         PasswordItemDTO(
             id: id, host: host, url: url, username: username,
             password: password, comments: comments, updatedAt: updatedAt,
-            containerID: containerID?.uuidString
+            containerID: containerID.uuidString
         )
     }
 
@@ -25,6 +25,7 @@ struct PasswordItem: Codable, Equatable {
             id: dto.id, host: dto.host, url: dto.url, username: dto.username,
             password: dto.password, comments: dto.comments, updatedAt: dto.updatedAt,
             containerID: dto.containerID.flatMap(UUID.init(uuidString:))
+                ?? ContainerScope.resolveContainerID(nil)
         )
     }
 }
@@ -34,12 +35,15 @@ final class PasswordStore {
     private init() {}
 
     private var cache: [PasswordItem]?
+    private let migratedSharedKey = "mmbrowser.passwords.migratedShared.v1"
 
     var all: [PasswordItem] { load() }
 
-    func items(matching query: String) -> [PasswordItem] {
+    func items(matching query: String, containerID: UUID) -> [PasswordItem] {
+        let resolved = ContainerScope.resolveContainerID(containerID)
+        let scoped = all.filter { $0.containerID == resolved }
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let sorted = all.sorted { $0.host.localizedCaseInsensitiveCompare($1.host) == .orderedAscending }
+        let sorted = scoped.sorted { $0.host.localizedCaseInsensitiveCompare($1.host) == .orderedAscending }
         guard !q.isEmpty else { return sorted }
         return sorted.filter {
             $0.host.lowercased().contains(q)
@@ -49,42 +53,30 @@ final class PasswordStore {
         }
     }
 
-    /// Matches by exact host first, then by registrable domain so a saved
-    /// `google.com` entry also covers `accounts.google.com`.
-    /// When `preferredContainerID` is set, scoped entries win over global (nil) entries.
-    func items(forHost host: String, preferredContainerID: UUID? = nil) -> [PasswordItem] {
+    /// Exact Space only — no shared / cross-Space fallback.
+    func items(forHost host: String, containerID: UUID) -> [PasswordItem] {
         let key = Self.normalizeHost(host)
         guard !key.isEmpty else { return [] }
+        let resolved = ContainerScope.resolveContainerID(containerID)
 
         func hosts(of item: PasswordItem) -> [String] {
             [Self.normalizeHost(item.host), Self.normalizeHost(URL(string: item.url)?.host ?? "")]
                 .filter { !$0.isEmpty }
         }
 
-        func scoped(_ list: [PasswordItem]) -> [PasswordItem] {
-            guard let preferredContainerID else { return list }
-            let exactScope = list.filter { $0.containerID == preferredContainerID }
-            let shared = list.filter { $0.containerID == nil }
-            // Prefer this space’s entries, then shared (nil) entries not already covered.
-            var combined = exactScope
-            for item in shared where !combined.contains(where: { $0.username == item.username }) {
-                combined.append(item)
-            }
-            return combined
-        }
-
-        let exact = scoped(all.filter { hosts(of: $0).contains(key) })
+        let scoped = all.filter { $0.containerID == resolved }
+        let exact = scoped.filter { hosts(of: $0).contains(key) }
         if !exact.isEmpty { return exact }
 
         let domain = Self.registrableDomain(key)
         guard !domain.isEmpty else { return [] }
-        return scoped(all.filter { item in
+        return scoped.filter { item in
             hosts(of: item).contains { Self.registrableDomain($0) == domain }
-        })
+        }
     }
 
     @discardableResult
-    func add(site: String, username: String, password: String, comments: String = "", containerID: UUID? = nil) -> PasswordItem? {
+    func add(site: String, username: String, password: String, comments: String = "", containerID: UUID) -> PasswordItem? {
         var items = load()
         let item = PasswordItem(
             id: UUID().uuidString,
@@ -94,7 +86,7 @@ final class PasswordStore {
             password: password,
             comments: comments,
             updatedAt: Date(),
-            containerID: containerID
+            containerID: ContainerScope.resolveContainerID(containerID)
         )
         items.append(item)
         guard persist(items) else { return nil }
@@ -109,6 +101,7 @@ final class PasswordStore {
         let site = item.url.isEmpty ? item.host : item.url
         next.host = Self.host(from: site)
         next.url = Self.normalizedURLString(from: site)
+        next.containerID = ContainerScope.resolveContainerID(item.containerID)
         next.updatedAt = Date()
         items[idx] = next
         return persist(items)
@@ -126,15 +119,39 @@ final class PasswordStore {
         persist([])
     }
 
+    func clear(containerID: UUID) {
+        var items = load()
+        items.removeAll { $0.containerID == containerID }
+        _ = persist(items)
+    }
+
     func reload() {
         cache = nil
         _ = load()
     }
 
+    /// Assigns legacy shared (`nil` container) passwords to the default Space once.
+    func migrateSharedPasswordsIfNeeded() {
+        guard !UserDefaults.standard.bool(forKey: migratedSharedKey) else { return }
+        guard VaultCrypto.activeKey() != nil else { return }
+        var items = load()
+        // `from` already maps missing IDs to default; rewrite blob so storage is consistent.
+        let fallback = ContainerScope.resolveContainerID(nil)
+        var changed = false
+        for index in items.indices where items[index].containerID != fallback
+            && !ContainerScope.loadContainers().contains(where: { $0.id == items[index].containerID }) {
+            items[index].containerID = fallback
+            changed = true
+        }
+        // Force rewrite after DTO round-trip so previously-nil IDs are persisted.
+        if persist(items) || !changed {
+            UserDefaults.standard.set(true, forKey: migratedSharedKey)
+        }
+    }
+
     private func load() -> [PasswordItem] {
         if let cache { return cache }
         guard let key = VaultCrypto.activeKey() else {
-            // Locked / mid-migration — never cache an empty vault.
             return []
         }
         guard let data = VaultKeychain.load(service: VaultKeychain.passwordsService, account: VaultKeychain.blobAccount) else {
@@ -145,11 +162,10 @@ final class PasswordStore {
             cache = items
             return items
         }
-        // Recovery: blob may still be sealed with the device key after a failed master migration.
         if VaultCrypto.hasMasterPassword {
             let device = VaultCrypto.deviceKey()
             if let items = try? VaultCrypto.decrypt(data, as: [PasswordItemDTO].self, with: device).map(PasswordItem.from) {
-                _ = persist(items) // rewrite under the active master key
+                _ = persist(items)
                 return items
             }
         }
@@ -196,12 +212,10 @@ final class PasswordStore {
         return value
     }
 
-    /// Second-level public suffixes where the registrable domain needs three labels.
     private static let compoundSuffixes: Set<String> = [
         "co", "com", "net", "org", "gov", "edu", "ac", "or", "ne", "go", "in", "id"
     ]
 
-    /// Approximate eTLD+1 (no Public Suffix List dependency).
     static func registrableDomain(_ host: String) -> String {
         let labels = normalizeHost(host).split(separator: ".").map(String.init)
         guard labels.count > 2 else { return labels.joined(separator: ".") }

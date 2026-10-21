@@ -16,7 +16,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         KeyboardDismissCoordinator.shared.attach(to: window)
         AppLockCoordinator.shared.attach(to: windowScene)
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeDidChange, object: nil)
-        AdLifecycleCoordinator.shared.startBootstrapIfNeeded(from: window.rootViewController)
         Task { await PremiumStore.shared.refresh() }
 
         let launchURLs = connectionOptions.urlContexts.map(\.url)
@@ -66,7 +65,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneDidDisconnect(_ scene: UIScene) {}
 
     func sceneDidBecomeActive(_ scene: UIScene) {
-        AdLifecycleCoordinator.shared.handleBecomeActive(root: window?.rootViewController)
         if !pendingIncomingURLs.isEmpty,
            let browser = window?.rootViewController as? BrowserViewController {
             let pending = pendingIncomingURLs
@@ -84,7 +82,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
-        AdLifecycleCoordinator.shared.handleEnterBackground()
         AppLockCoordinator.shared.applicationDidEnterBackground()
         PasswordVaultGate.invalidate()
         // Persist tabs/containers before any exit cleanup so force-quit after

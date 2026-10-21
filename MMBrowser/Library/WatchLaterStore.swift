@@ -20,17 +20,17 @@ struct WatchLaterItem: Codable, Equatable {
 
     var pageArchiveURL: URL? {
         guard let pageArchiveName else { return nil }
-        return WatchLaterStore.fileURL(named: pageArchiveName)
+        return WatchLaterStore.fileURL(named: pageArchiveName, containerID: containerID)
     }
 
     var videoFileURL: URL? {
         guard let videoFileName else { return nil }
-        return WatchLaterStore.fileURL(named: videoFileName)
+        return WatchLaterStore.fileURL(named: videoFileName, containerID: containerID)
     }
 
     var previewFileURL: URL? {
         guard let previewFileName else { return nil }
-        return WatchLaterStore.fileURL(named: previewFileName)
+        return WatchLaterStore.fileURL(named: previewFileName, containerID: containerID)
     }
 
     var previewImage: UIImage? {
@@ -118,6 +118,7 @@ final class WatchLaterStore {
 
     private init() {
         load()
+        migrateFilesIntoSpaceFoldersIfNeeded()
     }
 
     func items(containerID: UUID) -> [WatchLaterItem] {
@@ -211,6 +212,7 @@ final class WatchLaterStore {
         items.removeAll { $0.containerID == containerID }
         removed.forEach(deleteFiles)
         saveNow()
+        try? FileManager.default.removeItem(at: Self.directory(for: containerID))
     }
 
     func remove(id: UUID) {
@@ -242,15 +244,38 @@ final class WatchLaterStore {
         }
     }
 
-    static func fileURL(named name: String) -> URL {
-        directory.appendingPathComponent(name)
+    static func fileURL(named name: String, containerID: UUID) -> URL {
+        directory(for: containerID).appendingPathComponent(name)
     }
 
+    /// Legacy flat root (pre per-Space folders). Kept for migration lookups.
     static var directory: URL {
         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("WatchLater", isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
+    }
+
+    static func directory(for containerID: UUID) -> URL {
+        let url = directory.appendingPathComponent(containerID.uuidString, isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    private func migrateFilesIntoSpaceFoldersIfNeeded() {
+        let key = "mmbrowser.watchLater.filesPerSpace.v1"
+        guard !defaults.bool(forKey: key) else { return }
+        for item in items {
+            for name in [item.pageArchiveName, item.videoFileName, item.previewFileName].compactMap({ $0 }) {
+                let legacy = Self.directory.appendingPathComponent(name)
+                let dest = Self.fileURL(named: name, containerID: item.containerID)
+                if FileManager.default.fileExists(atPath: legacy.path),
+                   !FileManager.default.fileExists(atPath: dest.path) {
+                    try? FileManager.default.moveItem(at: legacy, to: dest)
+                }
+            }
+        }
+        defaults.set(true, forKey: key)
     }
 
     private func trim(containerID: UUID) {

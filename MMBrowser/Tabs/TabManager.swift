@@ -543,6 +543,9 @@ final class TabManager {
         HistoryStore.shared.clear(containerID: containerID)
         BookmarkStore.shared.clear(containerID: containerID)
         NavigationStore.shared.remove(containerID: containerID)
+        WatchLaterStore.shared.clear(containerID: containerID)
+        ReadingListStore.shared.clear(containerID: containerID)
+        PasswordStore.shared.clear(containerID: containerID)
     }
 
     func moveTab(_ id: UUID, toContainer containerID: UUID) {

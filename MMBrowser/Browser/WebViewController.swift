@@ -1021,15 +1021,17 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
             return
         }
         let title = webView.title ?? url.host ?? "Saved"
+        let containerID = browsingContainerID ?? ContainerScope.resolveContainerID(nil)
         if #available(iOS 14.0, *) {
             let config = WKPDFConfiguration()
-            webView.createPDF(configuration: config) { result in
+            webView.createPDF(configuration: config) { [weak self] result in
+                guard let self else { return }
                 let data = try? result.get()
-                ReadingListStore.shared.add(title: title, url: url, pdfData: data)
+                ReadingListStore.shared.add(title: title, url: url, pdfData: data, containerID: containerID)
                 Toast.show("Saved to Reading List", from: self)
             }
         } else {
-            ReadingListStore.shared.add(title: title, url: url, pdfData: nil)
+            ReadingListStore.shared.add(title: title, url: url, pdfData: nil, containerID: containerID)
             Toast.show("Saved to Reading List", from: self)
         }
     }
@@ -3119,7 +3121,7 @@ extension WebViewController: WKUIDelegate {
             guard let image,
                   let data = image.jpegData(compressionQuality: 0.72) else { return }
             let name = "\(itemID.uuidString).jpg"
-            let dest = WatchLaterStore.fileURL(named: name)
+            let dest = WatchLaterStore.fileURL(named: name, containerID: containerID)
             do {
                 try data.write(to: dest, options: .atomic)
                 WatchLaterStore.shared.markPreviewSaved(id: itemID, fileName: name)
@@ -3127,20 +3129,20 @@ extension WebViewController: WKUIDelegate {
         }
         // Media download runs in parallel with page-image warming when policy allows.
         if let candidate {
-            downloadWatchLaterVideo(candidate, itemID: itemID)
+            downloadWatchLaterVideo(candidate, itemID: itemID, containerID: containerID)
         }
         preparePageImagesForOfflineArchive(in: webView) { [weak self] in
-            self?.writeWatchLaterWebArchive(from: webView, itemID: itemID)
+            self?.writeWatchLaterWebArchive(from: webView, itemID: itemID, containerID: containerID)
         }
     }
 
-    private func writeWatchLaterWebArchive(from webView: WKWebView, itemID: UUID) {
+    private func writeWatchLaterWebArchive(from webView: WKWebView, itemID: UUID, containerID: UUID) {
         webView.createWebArchiveData { result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let data):
                     let name = "\(itemID.uuidString).webarchive"
-                    let dest = WatchLaterStore.fileURL(named: name)
+                    let dest = WatchLaterStore.fileURL(named: name, containerID: containerID)
                     do {
                         try data.write(to: dest, options: .atomic)
                         WatchLaterStore.shared.markPageArchived(id: itemID, fileName: name)
@@ -3656,9 +3658,9 @@ function apply(root) {
 return apply(document);
 """#
 
-    private func downloadWatchLaterVideo(_ candidate: PageMediaCandidate, itemID: UUID) {
+    private func downloadWatchLaterVideo(_ candidate: PageMediaCandidate, itemID: UUID, containerID: UUID) {
         let fileName = "\(itemID.uuidString).mp4"
-        let dest = WatchLaterStore.fileURL(named: fileName)
+        let dest = WatchLaterStore.fileURL(named: fileName, containerID: containerID)
         let pageURLString = candidate.pageURL ?? webView?.url?.absoluteString
         let referer = PageMediaProbe.downloadRefererOrigin(for: candidate.url, pageURL: pageURLString)
         let begin: ([HTTPCookie]) -> Void = { [weak self] cookies in
@@ -3769,7 +3771,8 @@ return apply(document);
             return
         }
         let title = url.host ?? "Saved"
-        ReadingListStore.shared.add(title: title, url: url, pdfData: nil)
+        let containerID = browsingContainerID ?? ContainerScope.resolveContainerID(nil)
+        ReadingListStore.shared.add(title: title, url: url, pdfData: nil, containerID: containerID)
         Toast.show("Saved to Reading List", from: self)
     }
 }

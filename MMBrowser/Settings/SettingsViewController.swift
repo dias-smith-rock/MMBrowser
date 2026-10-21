@@ -64,7 +64,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
         case .premium: return 1
-        case .privacy: return 9
+        case .privacy: return 8
         case .accounts: return 2
         case .clearOption: return 1
         case .tools: return 1
@@ -98,7 +98,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .privacy:
             return "Location Deny/Spoof only affects GPS-like browser APIs—not your network IP."
         case .accounts:
-            return "Spaces keep separate cookies, history, bookmarks, home shortcuts, and passwords. Downloads and Reading List are Shared."
+            return "Spaces keep separate cookies, history, bookmarks, Watch Later, Reading List, home shortcuts, and passwords. Downloaded files are Shared across Spaces."
         case .clearOption:
             return "Auto-clear when you leave can wipe site data for every space. To remove one identity only, delete that space under Manage Spaces. History listed here is still recorded during the session unless History auto-clear is on."
         case .tools:
@@ -186,10 +186,6 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             case 6:
                 cell.textLabel?.text = "App Lock"
                 cell.detailTextLabel?.text = AppLockSettings.isEnabled ? "On" : "Off"
-                cell.accessoryType = .disclosureIndicator
-            case 7:
-                cell.textLabel?.text = "Ad Tracking"
-                cell.detailTextLabel?.text = AdConsentManager.trackingAuthorizationSummary
                 cell.accessoryType = .disclosureIndicator
             default:
                 cell.textLabel?.text = "Privacy Explained"
@@ -301,8 +297,6 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             } else if indexPath.row == 6 {
                 navigationController?.pushViewController(AppLockSettingsViewController(), animated: true)
             } else if indexPath.row == 7 {
-                presentAdTrackingOptions()
-            } else if indexPath.row == 8 {
                 navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
             }
         case .accounts:
@@ -423,32 +417,6 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     @objc private func httpsChanged(_ sw: UISwitch) {
         AppSettings.httpsOnly = sw.isOn
         AppAnalytics.logSettingsToggle(setting: "https_only", enabled: sw.isOn)
-    }
-
-    private func presentAdTrackingOptions() {
-        if AdConsentManager.isPrivacyOptionsRequired {
-            Task { @MainActor in
-                do {
-                    try await AdConsentManager.presentPrivacyOptions(from: self)
-                    tableView.reloadData()
-                } catch {
-                    Toast.show("Couldn’t open ad privacy options", from: self)
-                }
-            }
-            return
-        }
-
-        let alert = UIAlertController(
-            title: "Ad Tracking",
-            message: "XBrowser shows ads and may track your activity across other companies’ apps and websites to personalize and measure ads.\n\nCurrent status: \(AdConsentManager.trackingAuthorizationSummary).\n\nYou can change this in iOS Settings → Privacy & Security → Tracking.",
-            preferredStyle: .alert
-        )
-        alert.addAction(UIAlertAction(title: "Open iOS Settings", style: .default) { _ in
-            guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
-            UIApplication.shared.open(url)
-        })
-        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
-        present(alert, animated: true)
     }
 
     @objc private func close() { dismiss(animated: true) }

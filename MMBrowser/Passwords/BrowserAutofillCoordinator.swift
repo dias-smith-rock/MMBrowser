@@ -79,7 +79,8 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
               let host = webView?.url?.host
         else { return }
 
-        let matches = PasswordStore.shared.items(forHost: host, preferredContainerID: containerID)
+        guard let containerID else { return }
+        let matches = PasswordStore.shared.items(forHost: host, containerID: containerID)
         guard !matches.isEmpty else { return }
 
         let key = "\(host)|\(kind)"
@@ -176,26 +177,24 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
         if lastSavePromptKey == key { return }
         lastSavePromptKey = key
 
-        let scoped = PasswordStore.shared.items(forHost: host, preferredContainerID: containerID)
+        guard let containerID else { return }
+        let scoped = PasswordStore.shared.items(forHost: host, containerID: containerID)
         if scoped.contains(where: { $0.username == username && $0.password == password }) {
             return
         }
 
-        if let existing = scoped.first(where: { $0.username == username && $0.containerID == containerID })
-            ?? scoped.first(where: { $0.username == username && $0.containerID == nil }) {
+        if let existing = scoped.first(where: { $0.username == username }) {
             let alert = UIAlertController(
                 title: "Update Password?",
                 message: "Update saved password for \(existing.host)?",
                 preferredStyle: .alert
             )
             alert.addAction(UIAlertAction(title: "Not Now", style: .cancel))
-            alert.addAction(UIAlertAction(title: "Update", style: .default) { [weak self] _ in
+            alert.addAction(UIAlertAction(title: "Update", style: .default) { _ in
                 var item = existing
                 item.password = password
                 item.url = url
-                if item.containerID == nil {
-                    item.containerID = self?.containerID
-                }
+                item.containerID = containerID
                 _ = PasswordStore.shared.update(item)
                 Toast.show("Password updated", from: hostVC)
             })
@@ -203,24 +202,20 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
             return
         }
 
-        let accountNote: String = {
-            guard let id = containerID,
-                  let name = ContainerScope.loadContainers().first(where: { $0.id == id })?.name
-            else { return "" }
-            return "\nSaved for space “\(name)”."
-        }()
+        let spaceName = ContainerScope.loadContainers().first(where: { $0.id == containerID })?.name
+        let accountNote = spaceName.map { "\nSaved for space “\($0)”." } ?? ""
         let alert = UIAlertController(
             title: "Save Password?",
             message: (host.isEmpty ? url : host) + accountNote,
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Not Now", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Save", style: .default) { _ in
             _ = PasswordStore.shared.add(
                 site: url,
                 username: username,
                 password: password,
-                containerID: self?.containerID
+                containerID: containerID
             )
             Toast.show("Password saved", from: hostVC)
         })

@@ -63,8 +63,9 @@ enum AppSettings {
         set { d.set(newValue, forKey: "media.pip.sticky") }
     }
 
+    /// Default on — Zero-trust-inspired isolation prefers HTTPS-only navigation.
     static var httpsOnly: Bool {
-        get { d.bool(forKey: "https.only") }
+        get { d.object(forKey: "https.only") == nil ? true : d.bool(forKey: "https.only") }
         set { d.set(newValue, forKey: "https.only") }
     }
 

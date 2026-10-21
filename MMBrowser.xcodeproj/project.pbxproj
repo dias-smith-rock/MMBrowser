@@ -7,9 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		PREM00BF01010101010101 /* PremiumStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010101 /* PremiumStore.swift */; };
-		PREM00BF01010101010102 /* PremiumCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010102 /* PremiumCoordinator.swift */; };
-		PREM00BF01010101010103 /* PremiumPaywallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010103 /* PremiumPaywallViewController.swift */; };
 		05EE9C9F5639484BA9BA6FF2 /* TabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFE04E67D090450B987F05FB /* TabManager.swift */; };
 		0696A518DA3C4EAF95A48D06 /* DualAccountCompareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BEB93FF23E74A24BDBB00DA /* DualAccountCompareViewController.swift */; };
 		08452A36D3F74BD49D37C472 /* ContainerSiteDataViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FFAC9E4AEF4A79BC9F8B18 /* ContainerSiteDataViewController.swift */; };
@@ -90,12 +87,6 @@
 		A7C1E2D3B4A5466788990012 /* AccountTabsPopupViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1E2D3B4A5466788990011 /* AccountTabsPopupViewController.swift */; };
 		A7C1E4B29D1046F8A3B1C001 /* WatchLaterStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1E4B29D1046F8A3B1C002 /* WatchLaterStore.swift */; };
 		A7C1E4B29D1046F8A3B1C003 /* WatchLaterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1E4B29D1046F8A3B1C004 /* WatchLaterViewController.swift */; };
-		ADS00BF01010101010101 /* AdMobConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADS00FR01010101010101 /* AdMobConfig.swift */; };
-		ADS00BF01010101010102 /* AdConsentManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADS00FR01010101010102 /* AdConsentManager.swift */; };
-		ADS00BF01010101010103 /* AppOpenAdManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADS00FR01010101010103 /* AppOpenAdManager.swift */; };
-		ADS00BF01010101010104 /* HotStartAdManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADS00FR01010101010104 /* HotStartAdManager.swift */; };
-		ADS00BF01010101010105 /* AdLifecycleCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADS00FR01010101010105 /* AdLifecycleCoordinator.swift */; };
-		ADS00BF01010101010106 /* UIApplicationTopViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADS00FR01010101010106 /* UIApplicationTopViewController.swift */; };
 		AFEE84C5C4BE4F95BAF48813 /* TabNavigationHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC9060F5CC154E999671AEF7 /* TabNavigationHistory.swift */; };
 		B1C2D3E4F5A64789B0C1D2E4 /* PageCleanerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A64789B0C1D2E3 /* PageCleanerStore.swift */; };
 		B1C2D3E4F5A64789B0C1D2E6 /* PageCleanerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A64789B0C1D2E5 /* PageCleanerManager.swift */; };
@@ -126,6 +117,9 @@
 		FBASEBF01010101010102 /* AppAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBASEFR01010101010102 /* AppAnalytics.swift */; };
 		FBASEBF01010101010103 /* RemoteConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBASEFR01010101010103 /* RemoteConfigManager.swift */; };
 		PIP0000101010101010101 /* PipProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = PIP0000202020202020202 /* PipProbe.swift */; };
+		PREM00BF01010101010101 /* PremiumStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010101 /* PremiumStore.swift */; };
+		PREM00BF01010101010102 /* PremiumCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010102 /* PremiumCoordinator.swift */; };
+		PREM00BF01010101010103 /* PremiumPaywallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010103 /* PremiumPaywallViewController.swift */; };
 		PWD0000077F415072B01A /* PasswordVaultGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000425FA6C14C5A95C /* PasswordVaultGate.swift */; };
 		PWD0000985731419635E3 /* MasterPasswordSetupViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00066762D6E1CB6128 /* MasterPasswordSetupViewController.swift */; };
 		PWD00014B8688591864B8 /* BankCardStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00047B4C58A4C8E24E /* BankCardStore.swift */; };
@@ -145,11 +139,11 @@
 		PWD000C2F36FB601D0BB0 /* PasswordsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00045F172A9EFBE8F4 /* PasswordsViewController.swift */; };
 		PWD000C4D4F482494D0C9 /* AutofillSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD0001F365462803B334 /* AutofillSettingsViewController.swift */; };
 		PWD000D2DE12EF3CF5CC9 /* VaultKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000C6D05B5242BACB5 /* VaultKeychain.swift */; };
-		SPMBFCL01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFFA01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFGMA010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFRC01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFUMP010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFCL01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFFA01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFGMA010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFRC01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFUMP010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
 		TIP0SWIPEA1B2C3D4E5F60001 /* AddressBarSwipeTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIP0SWIPEA1B2C3D4E5F60002 /* AddressBarSwipeTipView.swift */; };
 		TSS0000101010101010171 /* TabSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020271 /* TabSnapshotStore.swift */; };
 		TSS0000101010101010172 /* TabSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020272 /* TabSessionStore.swift */; };
@@ -186,9 +180,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		PREM00FR01010101010101 /* PremiumStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumStore.swift; sourceTree = "<group>"; };
-		PREM00FR01010101010102 /* PremiumCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumCoordinator.swift; sourceTree = "<group>"; };
-		PREM00FR01010101010103 /* PremiumPaywallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumPaywallViewController.swift; sourceTree = "<group>"; };
 		00A238E7FC51408BA0111F44 /* HistoryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewController.swift; sourceTree = "<group>"; };
 		021143DE7C6A427AB58BAFF7 /* AccountHealthViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountHealthViewController.swift; sourceTree = "<group>"; };
 		06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeAdShield.swift; sourceTree = "<group>"; };
@@ -273,12 +264,6 @@
 		A7C1E4B29D1046F8A3B1C002 /* WatchLaterStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLaterStore.swift; sourceTree = "<group>"; };
 		A7C1E4B29D1046F8A3B1C004 /* WatchLaterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLaterViewController.swift; sourceTree = "<group>"; };
 		A8F39F6791D34673BFA63E0B /* ReadingListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingListViewController.swift; sourceTree = "<group>"; };
-		ADS00FR01010101010101 /* AdMobConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdMobConfig.swift; sourceTree = "<group>"; };
-		ADS00FR01010101010102 /* AdConsentManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdConsentManager.swift; sourceTree = "<group>"; };
-		ADS00FR01010101010103 /* AppOpenAdManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppOpenAdManager.swift; sourceTree = "<group>"; };
-		ADS00FR01010101010104 /* HotStartAdManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotStartAdManager.swift; sourceTree = "<group>"; };
-		ADS00FR01010101010105 /* AdLifecycleCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdLifecycleCoordinator.swift; sourceTree = "<group>"; };
-		ADS00FR01010101010106 /* UIApplicationTopViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UIApplicationTopViewController.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5A64789B0C1D2E3 /* PageCleanerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageCleanerStore.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5A64789B0C1D2E5 /* PageCleanerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageCleanerManager.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5A64789B0C1D2E9 /* PageCleanerRulesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageCleanerRulesViewController.swift; sourceTree = "<group>"; };
@@ -309,6 +294,9 @@
 		FD4948D0B6E24B56857954CC /* ContainerSiteDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerSiteDataService.swift; sourceTree = "<group>"; };
 		FE55FD77142842FAB1482D62 /* BookmarksViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarksViewController.swift; sourceTree = "<group>"; };
 		PIP0000202020202020202 /* PipProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PipProbe.swift; sourceTree = "<group>"; };
+		PREM00FR01010101010101 /* PremiumStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumStore.swift; sourceTree = "<group>"; };
+		PREM00FR01010101010102 /* PremiumCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumCoordinator.swift; sourceTree = "<group>"; };
+		PREM00FR01010101010103 /* PremiumPaywallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumPaywallViewController.swift; sourceTree = "<group>"; };
 		PWD0000177186C24076BD /* MMBrowserCredentialProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MMBrowserCredentialProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		PWD00009064676E784F66 /* VaultCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultCrypto.swift; sourceTree = "<group>"; };
 		PWD000107214DC0A060D3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -345,11 +333,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				SPMBFFA01010101010101 /* (null) in Frameworks */,
-				SPMBFRC01010101010101 /* (null) in Frameworks */,
-				SPMBFCL01010101010101 /* (null) in Frameworks */,
-				SPMBFGMA010101010101 /* (null) in Frameworks */,
-				SPMBFUMP010101010101 /* (null) in Frameworks */,
+				SPMBFFA01010101010101 /* BuildFile in Frameworks */,
+				SPMBFRC01010101010101 /* BuildFile in Frameworks */,
+				SPMBFCL01010101010101 /* BuildFile in Frameworks */,
+				SPMBFGMA010101010101 /* BuildFile in Frameworks */,
+				SPMBFUMP010101010101 /* BuildFile in Frameworks */,
 				F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -495,7 +483,6 @@
 				D1A5510B1493499DB371F870 /* Common */,
 				FBASEGRP01010101010101 /* Firebase */,
 				PREM00GRP01010101010101 /* Premium */,
-				ADS00GRP01010101010101 /* Ads */,
 				A1B2C3D4E5F6030303030310 /* Theme */,
 				01E11A63E266468B846C126C /* Downloads */,
 				6373D704B4A94440ABBCB90E /* Library */,
@@ -609,29 +596,6 @@
 			path = ReadingList;
 			sourceTree = "<group>";
 		};
-		PREM00GRP01010101010101 /* Premium */ = {
-			isa = PBXGroup;
-			children = (
-				PREM00FR01010101010101 /* PremiumStore.swift */,
-				PREM00FR01010101010102 /* PremiumCoordinator.swift */,
-				PREM00FR01010101010103 /* PremiumPaywallViewController.swift */,
-			);
-			path = Premium;
-			sourceTree = "<group>";
-		};
-		ADS00GRP01010101010101 /* Ads */ = {
-			isa = PBXGroup;
-			children = (
-				ADS00FR01010101010101 /* AdMobConfig.swift */,
-				ADS00FR01010101010102 /* AdConsentManager.swift */,
-				ADS00FR01010101010103 /* AppOpenAdManager.swift */,
-				ADS00FR01010101010104 /* HotStartAdManager.swift */,
-				ADS00FR01010101010105 /* AdLifecycleCoordinator.swift */,
-				ADS00FR01010101010106 /* UIApplicationTopViewController.swift */,
-			);
-			path = Ads;
-			sourceTree = "<group>";
-		};
 		C0DD147D9D614DF3869C04E7 /* Onboarding */ = {
 			isa = PBXGroup;
 			children = (
@@ -690,6 +654,16 @@
 			path = Firebase;
 			sourceTree = "<group>";
 		};
+		PREM00GRP01010101010101 /* Premium */ = {
+			isa = PBXGroup;
+			children = (
+				PREM00FR01010101010101 /* PremiumStore.swift */,
+				PREM00FR01010101010102 /* PremiumCoordinator.swift */,
+				PREM00FR01010101010103 /* PremiumPaywallViewController.swift */,
+			);
+			path = Premium;
+			sourceTree = "<group>";
+		};
 		PWD000076ED096ADCEB32 /* Passwords */ = {
 			isa = PBXGroup;
 			children = (
@@ -736,7 +710,6 @@
 				PWD0007D49CD5C2F814C4 /* Embed Foundation Extensions */,
 				24F45F471C0BFCBFDE17C8F0 /* [CP] Embed Pods Frameworks */,
 				FBASECRASHPHASE010101 /* [Firebase] Crashlytics */,
-				5F04C2DCBB486C7351D55A72 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -832,38 +805,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-output-files.xcfilelist",
 			);
-			outputPaths = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		5F04C2DCBB486C7351D55A72 /* [CP] Copy Pods Resources */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-resources-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			inputPaths = (
-			);
-			name = "[CP] Copy Pods Resources";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-resources-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		73036A37A4EA493EACF73FFC /* [CP] Check Pods Manifest.lock */ = {
@@ -932,12 +880,6 @@
 				FBASEBF01010101010101 /* FirebaseBootstrap.swift in Sources */,
 				FBASEBF01010101010102 /* AppAnalytics.swift in Sources */,
 				FBASEBF01010101010103 /* RemoteConfigManager.swift in Sources */,
-				ADS00BF01010101010101 /* AdMobConfig.swift in Sources */,
-				ADS00BF01010101010102 /* AdConsentManager.swift in Sources */,
-				ADS00BF01010101010103 /* AppOpenAdManager.swift in Sources */,
-				ADS00BF01010101010104 /* HotStartAdManager.swift in Sources */,
-				ADS00BF01010101010105 /* AdLifecycleCoordinator.swift in Sources */,
-				ADS00BF01010101010106 /* UIApplicationTopViewController.swift in Sources */,
 				DBB117AB06114DC1B248B14A /* AppDelegate.swift in Sources */,
 				954C5137A7144B8C9E795785 /* AddressBarView.swift in Sources */,
 				DAC6847DF1C5402ABCCBABC5 /* BottomToolbarView.swift in Sources */,

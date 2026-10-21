@@ -27,12 +27,6 @@ enum AppAnalytics {
         static let clearData = "clear_data"
         static let pipEnter = "pip_enter"
         static let pipResult = "pip_result"
-        static let consentResult = "consent_result"
-        static let attResult = "att_result"
-        static let adTrigger = "ad_trigger"
-        static let adImpression = "ad_impression_custom"
-        static let adClick = "ad_click_custom"
-
         static let paywallShow = "paywall_show"
         static let purchaseStart = "purchase_start"
         static let purchaseSuccess = "purchase_success"
@@ -60,7 +54,6 @@ enum AppAnalytics {
         static let reason = "reason"
         static let errorDomain = "error_domain"
         static let errorCode = "error_code"
-        static let canRequestAds = "can_request_ads"
         static let status = "status"
         static let tabCount = "tab_count"
         static let mediaKind = "media_kind"
@@ -226,37 +219,6 @@ enum AppAnalytics {
             params[Param.reason] = sanitize(reason)
         }
         log(Event.pipResult, parameters: params)
-    }
-
-    static func logConsentResult(canRequestAds: Bool) {
-        log(Event.consentResult, parameters: [
-            Param.canRequestAds: canRequestAds
-        ])
-    }
-
-    static func logATTResult(status: String) {
-        log(Event.attResult, parameters: [
-            Param.status: sanitize(status)
-        ])
-    }
-
-    static func logAdTrigger(source: String, kind: String) {
-        log(Event.adTrigger, parameters: [
-            Param.source: sanitize(source),
-            Param.kind: sanitize(kind)
-        ])
-    }
-
-    static func logAdImpression(format: String) {
-        log(Event.adImpression, parameters: [
-            Param.format: sanitize(format)
-        ])
-    }
-
-    static func logAdClick(format: String) {
-        log(Event.adClick, parameters: [
-            Param.format: sanitize(format)
-        ])
     }
 
     static func logPaywallShow(source: String) {
