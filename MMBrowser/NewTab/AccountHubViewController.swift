@@ -271,7 +271,6 @@ final class AccountHubViewController: UIViewController {
 
     private static let favoriteColumns = 5
     private static let favoriteIconSize: CGFloat = 56
-    private static let favoriteCornerRadius: CGFloat = 14
     private static let favoriteTileHeight: CGFloat = 82
     private static let favoriteRowSpacing: CGFloat = 12
     private static let favoriteColumnSpacing: CGFloat = 8
@@ -316,19 +315,18 @@ final class AccountHubViewController: UIViewController {
     private func makeFavoriteTile(_ entry: FavoriteEntry) -> UIView {
         let site = entry.site
         let wrap = UIView()
+        let size = Self.favoriteIconSize
 
-        let iconWell = UIView()
-        // White well so transparent logo corners don't read as a dark frame.
-        iconWell.backgroundColor = .white
-        iconWell.layer.cornerRadius = Self.favoriteCornerRadius
-        iconWell.layer.cornerCurve = .continuous
-        iconWell.clipsToBounds = true
-
-        let icon = FaviconImageView()
+        // Complete circular badge (same language as Facebook’s bundled mark).
+        let icon = UIImageView(image: FavoriteBrandStyle.badgeImage(
+            urlString: site.urlString,
+            assetName: site.logoAssetName,
+            fallbackTitle: site.title
+        ))
         icon.contentMode = .scaleAspectFill
         icon.clipsToBounds = true
-        icon.backgroundColor = .white
-        icon.setLogo(assetName: site.logoAssetName, urlString: site.urlString, fallbackTitle: site.title)
+        icon.layer.cornerRadius = size / 2
+        icon.backgroundColor = .clear
 
         let label = UILabel()
         label.text = site.title
@@ -350,18 +348,16 @@ final class AccountHubViewController: UIViewController {
         longPress.minimumPressDuration = 0.35
         button.addGestureRecognizer(longPress)
 
-        wrap.addSubview(iconWell)
-        iconWell.addSubview(icon)
+        wrap.addSubview(icon)
         wrap.addSubview(label)
         wrap.addSubview(button)
-        iconWell.snp.makeConstraints { make in
+        icon.snp.makeConstraints { make in
             make.top.equalToSuperview()
             make.centerX.equalToSuperview()
-            make.size.equalTo(Self.favoriteIconSize)
+            make.size.equalTo(size)
         }
-        icon.snp.makeConstraints { $0.edges.equalToSuperview() }
         label.snp.makeConstraints { make in
-            make.top.equalTo(iconWell.snp.bottom).offset(6)
+            make.top.equalTo(icon.snp.bottom).offset(6)
             make.leading.trailing.equalToSuperview()
             make.bottom.lessThanOrEqualToSuperview()
         }
@@ -391,8 +387,8 @@ final class AccountHubViewController: UIViewController {
             }, for: .touchUpInside)
             wrap.addSubview(delete)
             delete.snp.makeConstraints { make in
-                make.top.equalTo(iconWell).offset(-4)
-                make.trailing.equalTo(iconWell).offset(4)
+                make.top.equalTo(icon).offset(-4)
+                make.trailing.equalTo(icon).offset(4)
                 make.size.equalTo(18)
             }
         }
@@ -402,18 +398,25 @@ final class AccountHubViewController: UIViewController {
 
     private func makeAddFavoriteTile() -> UIView {
         let wrap = UIView()
+        let size = Self.favoriteIconSize
 
-        let iconWell = UIView()
-        iconWell.backgroundColor = BrowserTheme.elevated
-        iconWell.layer.cornerRadius = Self.favoriteCornerRadius
-        iconWell.layer.cornerCurve = .continuous
-        iconWell.clipsToBounds = true
-        iconWell.layer.borderWidth = 1
-        iconWell.layer.borderColor = BrowserTheme.textSecondary.withAlphaComponent(0.28).cgColor
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 128, height: 128))
+        let badge = renderer.image { _ in
+            let bounds = CGRect(x: 0, y: 0, width: 128, height: 128)
+            UIColor(white: 0.18, alpha: 1).setFill()
+            UIBezierPath(ovalIn: bounds).fill()
+            let config = UIImage.SymbolConfiguration(pointSize: 44, weight: .medium)
+            if let plus = UIImage(systemName: "plus", withConfiguration: config)?
+                .withTintColor(.white, renderingMode: .alwaysOriginal) {
+                let side: CGFloat = 52
+                plus.draw(in: CGRect(x: (128 - side) / 2, y: (128 - side) / 2, width: side, height: side))
+            }
+        }
 
-        let plus = UIImageView(image: UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)))
-        plus.tintColor = BrowserTheme.textSecondary
-        plus.contentMode = .scaleAspectFit
+        let icon = UIImageView(image: badge)
+        icon.contentMode = .scaleAspectFill
+        icon.clipsToBounds = true
+        icon.layer.cornerRadius = size / 2
 
         let label = UILabel()
         label.text = "Add"
@@ -427,21 +430,16 @@ final class AccountHubViewController: UIViewController {
             self?.presentAddFavorite()
         }, for: .touchUpInside)
 
-        wrap.addSubview(iconWell)
-        iconWell.addSubview(plus)
+        wrap.addSubview(icon)
         wrap.addSubview(label)
         wrap.addSubview(button)
-        iconWell.snp.makeConstraints { make in
+        icon.snp.makeConstraints { make in
             make.top.equalToSuperview()
             make.centerX.equalToSuperview()
-            make.size.equalTo(Self.favoriteIconSize)
-        }
-        plus.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-            make.size.equalTo(18)
+            make.size.equalTo(size)
         }
         label.snp.makeConstraints { make in
-            make.top.equalTo(iconWell.snp.bottom).offset(6)
+            make.top.equalTo(icon.snp.bottom).offset(6)
             make.leading.trailing.equalToSuperview()
             make.bottom.lessThanOrEqualToSuperview()
         }

@@ -169,7 +169,12 @@ enum ContainerTemplate: String, CaseIterable {
         }
     }
 
-    var suggestedName: String { displayName }
+    var suggestedName: String {
+        switch self {
+        case .custom: return "New Space"
+        default: return displayName
+        }
+    }
 
     /// Site to open after a one-tap create (web version).
     var homeURL: URL? {

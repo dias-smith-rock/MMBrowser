@@ -25,18 +25,24 @@ final class FaviconImageView: UIImageView {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func setLogo(assetName: String?, urlString: String? = nil, fallbackTitle: String) {
+    func setLogo(
+        assetName: String?,
+        urlString: String? = nil,
+        fallbackTitle: String,
+        asWhiteTemplate: Bool = false
+    ) {
         let token = UUID()
         loadToken = token
+        tintColor = asWhiteTemplate ? .white : nil
 
         if let assetName, let image = UIImage(named: assetName) {
-            self.image = image
+            self.image = Self.displayImage(image, asWhiteTemplate: asWhiteTemplate)
             return
         }
 
         if let urlString, let mapped = Self.bundledAssetName(forURLString: urlString),
            let image = UIImage(named: mapped) {
-            self.image = image
+            self.image = Self.displayImage(image, asWhiteTemplate: asWhiteTemplate)
             return
         }
 
@@ -57,6 +63,11 @@ final class FaviconImageView: UIImageView {
             Self.memoryCache.setObject(image, forKey: cacheKey)
             self.image = image
         }
+    }
+
+    private static func displayImage(_ image: UIImage, asWhiteTemplate: Bool) -> UIImage {
+        guard asWhiteTemplate else { return image }
+        return image.withRenderingMode(.alwaysTemplate)
     }
 
     // MARK: - Remote
@@ -118,8 +129,8 @@ final class FaviconImageView: UIImageView {
         let renderer = UIGraphicsImageRenderer(size: size)
         return renderer.image { _ in
             let bounds = CGRect(origin: .zero, size: size)
-            UIColor.systemGray3.setFill()
-            UIBezierPath(roundedRect: bounds, cornerRadius: 14).fill()
+            UIColor(white: 0.55, alpha: 1).setFill()
+            UIBezierPath(ovalIn: bounds).fill()
             let letter = String(title.prefix(1)).uppercased()
             let paragraph = NSMutableParagraphStyle()
             paragraph.alignment = .center
