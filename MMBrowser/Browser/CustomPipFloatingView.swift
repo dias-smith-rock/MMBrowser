@@ -11,6 +11,7 @@ final class CustomPipFloatingView: UIView {
     var onSeekBy: ((TimeInterval) -> Void)?
     var onSeekToFraction: ((Double) -> Void)?
     var onFullscreen: (() -> Void)?
+    var onPlaybackRate: ((Float) -> Void)?
     var onDockChanged: ((Bool) -> Void)?
 
     private let playerContainer = PlayerContainerView()
@@ -30,6 +31,7 @@ final class CustomPipFloatingView: UIView {
     private let rewindButton = GlassCircleButton(symbol: "gobackward.10", pointSize: 16)
     private let playButton = GlassCircleButton(symbol: "pause.fill", pointSize: 20, diameter: 56)
     private let forwardButton = GlassCircleButton(symbol: "goforward.10", pointSize: 16)
+    private let speedButton = GlassSpeedButton()
 
     private let progressPill = GlassPillView()
     private let progressFill = UIView()
@@ -147,6 +149,7 @@ final class CustomPipFloatingView: UIView {
         rewindButton.accessibilityLabel = "Back 10 seconds"
         forwardButton.accessibilityLabel = "Forward 10 seconds"
         playButton.accessibilityLabel = "Play or pause"
+        speedButton.accessibilityLabel = "Playback speed"
         fullscreenButton.accessibilityLabel = "Full screen"
 
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
@@ -155,6 +158,10 @@ final class CustomPipFloatingView: UIView {
         forwardButton.addTarget(self, action: #selector(forwardTapped), for: .touchUpInside)
         playButton.addTarget(self, action: #selector(playTapped), for: .touchUpInside)
         fullscreenButton.addTarget(self, action: #selector(fullscreenTapped), for: .touchUpInside)
+        speedButton.onRateSelected = { [weak self] rate in
+            self?.bumpControls()
+            self?.onPlaybackRate?(rate)
+        }
 
         volumeFill.backgroundColor = UIColor.white.withAlphaComponent(0.92)
         volumeFill.layer.cornerRadius = 3
@@ -211,6 +218,7 @@ final class CustomPipFloatingView: UIView {
         overlay.addSubview(rewindButton)
         overlay.addSubview(playButton)
         overlay.addSubview(forwardButton)
+        overlay.addSubview(speedButton)
 
         overlay.addSubview(progressPill)
         progressPill.addSubview(elapsedLabel)
@@ -264,6 +272,10 @@ final class CustomPipFloatingView: UIView {
             make.leading.equalTo(playButton.snp.trailing).offset(18)
         }
 
+        speedButton.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().inset(10)
+            make.centerY.equalToSuperview()
+        }
         fullscreenButton.snp.makeConstraints { make in
             make.trailing.bottom.equalToSuperview().inset(10)
         }
@@ -914,6 +926,58 @@ private final class GlassPillView: UIView {
     }
 
     required init?(coder: NSCoder) { fatalError() }
+}
+
+/// Circular speed control — tap opens rate menu.
+private final class GlassSpeedButton: UIButton {
+    static let rates: [Float] = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0]
+
+    var onRateSelected: ((Float) -> Void)?
+    private var currentRate: Float = 1.0
+
+    init(diameter: CGFloat = 32) {
+        super.init(frame: .zero)
+        isOpaque = false
+        backgroundColor = PipChromeStyle.fill
+        clipsToBounds = true
+        layer.cornerRadius = diameter / 2
+        titleLabel?.font = .systemFont(ofSize: 11, weight: .bold)
+        setTitleColor(.white, for: .normal)
+        snp.makeConstraints { $0.size.equalTo(diameter) }
+        showsMenuAsPrimaryAction = true
+        setRate(1.0, notify: false)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func setRate(_ rate: Float, notify: Bool) {
+        currentRate = rate
+        setTitle(Self.label(for: rate), for: .normal)
+        menu = makeMenu()
+        if notify { onRateSelected?(rate) }
+    }
+
+    private func makeMenu() -> UIMenu {
+        let actions = Self.rates.map { rate -> UIAction in
+            let selected = abs(rate - currentRate) < 0.01
+            return UIAction(
+                title: Self.label(for: rate),
+                state: selected ? .on : .off
+            ) { [weak self] _ in
+                self?.setRate(rate, notify: true)
+            }
+        }
+        return UIMenu(title: "Playback Speed", options: .singleSelection, children: actions)
+    }
+
+    static func label(for rate: Float) -> String {
+        // 1.0x / 2.0x style for one-decimal rates; keep 0.75x / 1.25x at two decimals.
+        let tenths = Double(rate) * 10
+        if abs(tenths - tenths.rounded()) < 0.01 {
+            return String(format: "%.1fx", rate)
+        }
+        return String(format: "%.2fx", rate)
+    }
 }
 
 /// Circular translucent control (no blur).

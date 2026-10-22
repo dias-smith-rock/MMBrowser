@@ -28,6 +28,7 @@ final class CustomPipController: NSObject {
     private var endObserver: NSObjectProtocol?
     /// width / height; default landscape 16:9 until the item reports a real size.
     private var videoAspect: CGFloat = 16.0 / 9.0
+    private var playbackRate: Float = 1.0
     private var timeObserver: Any?
     private var isHandoffInProgress = false
     private var suppressForegroundRestore = false
@@ -147,6 +148,7 @@ final class CustomPipController: NSObject {
         rateObservation = nil
         presentationSizeObservation = nil
         videoAspect = 16.0 / 9.0
+        playbackRate = 1.0
         if pipController?.isPictureInPictureActive == true {
             pipController?.stopPictureInPicture()
         }
@@ -202,6 +204,9 @@ final class CustomPipController: NSObject {
         floating.onFullscreen = { [weak self] in
             self?.presentFullscreen()
         }
+        floating.onPlaybackRate = { [weak self] rate in
+            self?.setPlaybackRate(rate)
+        }
         hostView.addSubview(floating)
         floating.frame = Self.preferredFloatingFrame(aspect: videoAspect, in: hostView)
         floating.videoAspect = videoAspect
@@ -212,7 +217,7 @@ final class CustomPipController: NSObject {
         observePlayer(player)
         observePresentationSize(item)
         addTimeObserver()
-        player.play()
+        playAtCurrentRate()
         mode = .custom
         updateNowPlaying(isPlaying: true)
         remoteCommandsEnabled(true)
@@ -364,7 +369,30 @@ final class CustomPipController: NSObject {
         if player.rate > 0.01 {
             player.pause()
         } else {
-            player.play()
+            playAtCurrentRate()
+        }
+    }
+
+    private func setPlaybackRate(_ rate: Float) {
+        playbackRate = rate
+        guard let player else { return }
+        if #available(iOS 16.0, *) {
+            player.defaultRate = rate
+        }
+        if player.rate > 0.01 {
+            player.rate = rate
+        }
+        updateNowPlaying(isPlaying: player.rate > 0.01)
+    }
+
+    private func playAtCurrentRate() {
+        guard let player else { return }
+        if #available(iOS 16.0, *) {
+            player.defaultRate = playbackRate
+        }
+        player.play()
+        if abs(player.rate - playbackRate) > 0.01 {
+            player.rate = playbackRate
         }
     }
 
@@ -379,7 +407,7 @@ final class CustomPipController: NSObject {
         let duration = player?.currentItem?.duration.seconds ?? .infinity
         let clamped = duration.isFinite ? min(next, max(duration - 0.05, 0)) : next
         seek(to: clamped) { [weak self] in
-            self?.player?.play()
+            self?.playAtCurrentRate()
         }
     }
 
@@ -387,7 +415,7 @@ final class CustomPipController: NSObject {
         let duration = player?.currentItem?.duration.seconds ?? 0
         guard duration.isFinite, duration > 0 else { return }
         seek(to: duration * min(max(fraction, 0), 1)) { [weak self] in
-            self?.player?.play()
+            self?.playAtCurrentRate()
         }
     }
 
@@ -519,7 +547,7 @@ final class CustomPipController: NSObject {
             hostView.bringSubviewToFront(floatingView)
         }
         seek(to: seconds) { [weak self] in
-            self?.player?.play()
+            self?.playAtCurrentRate()
             self?.mode = .custom
             self?.floatingView?.setPlaying(true)
             self?.updateNowPlaying(isPlaying: true)
@@ -581,7 +609,7 @@ final class CustomPipController: NSObject {
     private func updateNowPlaying(isPlaying: Bool) {
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: nowPlayingTitle,
-            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? 1.0 : 0.0
+            MPNowPlayingInfoPropertyPlaybackRate: isPlaying ? Double(playbackRate) : 0.0
         ]
         if let item = player?.currentItem {
             let duration = item.duration
