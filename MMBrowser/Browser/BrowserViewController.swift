@@ -2534,24 +2534,18 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 Toast.show("No playable video for PiP", from: self)
                 return
             }
-            web.enterPictureInPictureFromUserAction(showFailureToast: true) { [weak self] ok in
-                guard let self else { return }
-                PipProbe.log("menu.pip.completion", [
-                    "ok": ok,
-                    "detail": web.lastPipEnterDetail
-                ])
-                guard !ok else { return }
-                let detail = web.lastPipEnterDetail
-                if detail.contains("unsupported") {
-                    Toast.show("PiP isn't available for this video", from: self)
-                } else {
-                    #if DEBUG
-                    Toast.show("PiP failed: \(detail)", from: self)
-                    #else
-                    Toast.show("No playable video for PiP", from: self)
-                    #endif
+            // Prefer custom floating player when a stream URL is available; otherwise legacy WK PiP.
+            if web.pipStreamCandidate != nil {
+                _ = CustomPipController.shared.startFromUserAction(
+                    web: web,
+                    hostView: self.view
+                ) { [weak self] usedCustom in
+                    guard let self, !usedCustom else { return }
+                    self.startLegacyPictureInPicture(from: web)
                 }
+                return
             }
+            startLegacyPictureInPicture(from: web)
         case .share:
             guard let url = tabManager.selectedTab?.url else {
                 Toast.show("No page to share", from: self)
@@ -2620,6 +2614,28 @@ extension BrowserViewController: MenuViewControllerDelegate {
             Toast.show(on ? "Ad blocker on" : "Ad blocker off", from: self)
         case .placeholder(let name):
             Toast.show("\(name) coming soon", from: self)
+        }
+    }
+
+    private func startLegacyPictureInPicture(from web: WebViewController) {
+        web.enterPictureInPictureFromUserAction(showFailureToast: true) { [weak self] ok in
+            guard let self else { return }
+            PipProbe.log("menu.pip.completion", [
+                "ok": ok,
+                "detail": web.lastPipEnterDetail,
+                "path": "legacy"
+            ])
+            guard !ok else { return }
+            let detail = web.lastPipEnterDetail
+            if detail.contains("unsupported") {
+                Toast.show("PiP isn't available for this video", from: self)
+            } else {
+                #if DEBUG
+                Toast.show("PiP failed: \(detail)", from: self)
+                #else
+                Toast.show("No playable video for PiP", from: self)
+                #endif
+            }
         }
     }
 

@@ -475,7 +475,7 @@ final class DownloadManager: NSObject {
         PageMediaProbe.isLikelyMediaURL(url)
     }
 
-    private static func defaultExtraHeaders(for url: URL, pageURL: String? = nil) -> [String: String] {
+    static func defaultExtraHeaders(for url: URL, pageURL: String? = nil) -> [String: String] {
         guard needsMediaHeaders(for: url) else { return [:] }
         let pair = PageMediaProbe.downloadRefererOrigin(for: url, pageURL: pageURL)
         guard !pair.referer.isEmpty else { return [:] }
@@ -486,7 +486,7 @@ final class DownloadManager: NSObject {
     }
 
     /// Match cookies for the download host plus related page session cookies.
-    private static func cookies(for url: URL, from all: [HTTPCookie], pageURL: String? = nil) -> [HTTPCookie] {
+    static func cookies(for url: URL, from all: [HTTPCookie], pageURL: String? = nil) -> [HTTPCookie] {
         let related: [String] = {
             if needsMediaHeaders(for: url) {
                 return PageMediaProbe.relatedCookieHosts(for: url, pageURL: pageURL)

@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		CPIP00BF01010101010103 /* CustomPipFullscreenViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CPIP00FR01010101010103 /* CustomPipFullscreenViewController.swift */; };
+		CPIP00BF01010101010101 /* CustomPipController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CPIP00FR01010101010101 /* CustomPipController.swift */; };
+		CPIP00BF01010101010102 /* CustomPipFloatingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CPIP00FR01010101010102 /* CustomPipFloatingView.swift */; };
 		05EE9C9F5639484BA9BA6FF2 /* TabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFE04E67D090450B987F05FB /* TabManager.swift */; };
 		0696A518DA3C4EAF95A48D06 /* DualAccountCompareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BEB93FF23E74A24BDBB00DA /* DualAccountCompareViewController.swift */; };
 		08452A36D3F74BD49D37C472 /* ContainerSiteDataViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FFAC9E4AEF4A79BC9F8B18 /* ContainerSiteDataViewController.swift */; };
@@ -180,6 +183,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		CPIP00FR01010101010103 /* CustomPipFullscreenViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPipFullscreenViewController.swift; sourceTree = "<group>"; };
+		CPIP00FR01010101010101 /* CustomPipController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPipController.swift; sourceTree = "<group>"; };
+		CPIP00FR01010101010102 /* CustomPipFloatingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPipFloatingView.swift; sourceTree = "<group>"; };
 		00A238E7FC51408BA0111F44 /* HistoryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewController.swift; sourceTree = "<group>"; };
 		021143DE7C6A427AB58BAFF7 /* AccountHealthViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountHealthViewController.swift; sourceTree = "<group>"; };
 		06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeAdShield.swift; sourceTree = "<group>"; };
@@ -563,6 +569,9 @@
 				857CEEC48A6442E486F25CB1 /* LongScreenshotCapturer.swift */,
 				B7D30F1A6E5C492D8A2B4C61 /* ScreenshotEditorViewController.swift */,
 				F1EE201BBF964C068F934786 /* YouTubeDarkMode.swift */,
+				CPIP00FR01010101010101 /* CustomPipController.swift */,
+				CPIP00FR01010101010103 /* CustomPipFullscreenViewController.swift */,
+				CPIP00FR01010101010102 /* CustomPipFloatingView.swift */,
 				2F17FA7E6B9649618EC381DB /* MediaPlaybackSupport.swift */,
 				PIP0000202020202020202 /* PipProbe.swift */,
 				XSP0000202020202020202 /* XSiteProbe.swift */,
@@ -890,6 +899,9 @@
 				E926465A783245B4904A71AD /* YouTubeDarkMode.swift in Sources */,
 				2407C85515E24617A4EF10BA /* YouTubeShortsFocus.swift in Sources */,
 				C718289B0C194FE69766C497 /* YouTubeAdShield.swift in Sources */,
+				CPIP00BF01010101010101 /* CustomPipController.swift in Sources */,
+				CPIP00BF01010101010103 /* CustomPipFullscreenViewController.swift in Sources */,
+				CPIP00BF01010101010102 /* CustomPipFloatingView.swift in Sources */,
 				09FB7CC9808A4DD0A7C8E3AC /* MediaPlaybackSupport.swift in Sources */,
 				PIP0000101010101010101 /* PipProbe.swift in Sources */,
 				XSP0000101010101010101 /* XSiteProbe.swift in Sources */,

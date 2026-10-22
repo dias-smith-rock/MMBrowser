@@ -280,6 +280,11 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         if pageMediaProbe.isAlreadySavedOrDownloading(candidate) { return nil }
         return candidate
     }
+
+    /// Stream candidate for custom PiP (allows hosts blocked for offline save when a URL was discovered).
+    var pipStreamCandidate: PageMediaCandidate? {
+        pageMediaProbe.bestCandidate
+    }
     private var httpsFallbackAttempted = false
     private var tabUserAgentSettings = TabUserAgentSettings(userAgentMode: .automatic, customUserAgent: nil)
 
@@ -1796,6 +1801,17 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
     }
 
     @objc private func pipEntryTapped() {
+        if pipStreamCandidate != nil,
+           let hostView = parent?.view ?? view.window {
+            let started = CustomPipController.shared.startFromUserAction(
+                web: self,
+                hostView: hostView
+            ) { [weak self] usedCustom in
+                guard let self, !usedCustom else { return }
+                self.enterPictureInPictureFromUserAction(showFailureToast: false, completion: nil)
+            }
+            if started { return }
+        }
         enterPictureInPictureFromUserAction(showFailureToast: false, completion: nil)
     }
 
@@ -2028,6 +2044,8 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     MediaPlaybackSupport.configureAudioSessionIfNeeded()
+                    // Trusted page play exits custom float so inline video can take over.
+                    CustomPipController.shared.dismissForPageUserPlay(from: self)
                     PipSession.handleTrustedUserPlay(from: self)
                 }
             }
