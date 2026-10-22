@@ -2535,15 +2535,16 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 return
             }
             // Prefer custom floating player when a stream URL is available; otherwise legacy WK PiP.
+            // YouTube / unloadable streams return false synchronously → fall through to system PiP.
             if web.pipStreamCandidate != nil {
-                _ = CustomPipController.shared.startFromUserAction(
+                let started = CustomPipController.shared.startFromUserAction(
                     web: web,
                     hostView: self.view
                 ) { [weak self] usedCustom in
                     guard let self, !usedCustom else { return }
                     self.startLegacyPictureInPicture(from: web)
                 }
-                return
+                if started { return }
             }
             startLegacyPictureInPicture(from: web)
         case .share:

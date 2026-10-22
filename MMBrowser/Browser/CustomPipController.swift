@@ -36,6 +36,10 @@ final class CustomPipController: NSObject {
     private var streamURL: URL?
     private var didUserCloseSystemPip = false
     private weak var fullscreenController: CustomPipFullscreenViewController?
+    /// Completes with `true` only after the item is ready; `false` triggers legacy WK PiP.
+    private var pendingStartCompletion: ((Bool) -> Void)?
+    private var didReportStartResult = false
+    private var readyTimeoutWorkItem: DispatchWorkItem?
 
     private override init() {
         super.init()
@@ -59,19 +63,24 @@ final class CustomPipController: NSObject {
         )
     }
 
-    /// Returns `true` when custom player started; `false` means caller should use legacy WK PiP.
+    /// Returns `true` when a custom-player attempt is in progress (result via `completion`).
+    /// Returns `false` immediately when custom PiP is not applicable — caller should use legacy WK PiP.
     @discardableResult
     func startFromUserAction(
         web: WebViewController,
         hostView: UIView,
         completion: ((Bool) -> Void)? = nil
     ) -> Bool {
-        guard AppSettings.pictureInPictureEnabled else {
-            completion?(false)
-            return false
-        }
-        guard let candidate = web.pipStreamCandidate else {
-            completion?(false)
+        // Synchronous rejects: return false and do not invoke `completion` (callers fall back).
+        guard AppSettings.pictureInPictureEnabled else { return false }
+        guard let candidate = web.pipStreamCandidate else { return false }
+        // YouTube / googlevideo streams are not reliably playable in AVPlayer — use system PiP.
+        guard Self.canUseCustomPlayer(pageURL: web.webView?.url, streamURL: candidate.url) else {
+            PipProbe.log("customPip.skip", [
+                "why": "unsupportedHost",
+                "page": web.webView?.url?.host ?? "?",
+                "stream": candidate.url.host ?? "?"
+            ])
             return false
         }
 
@@ -84,6 +93,8 @@ final class CustomPipController: NSObject {
             ?? "Video"
         self.streamURL = candidate.url
         self.didUserCloseSystemPip = false
+        self.pendingStartCompletion = completion
+        self.didReportStartResult = false
 
         MediaPlaybackSupport.configureAudioSessionIfNeeded(forceReactivate: true)
         MediaPlaybackSupport.pauseMediaIfNeeded(in: web.webView, owner: web)
@@ -94,7 +105,7 @@ final class CustomPipController: NSObject {
 
         let begin: ([HTTPCookie]) -> Void = { [weak self] cookies in
             guard let self else {
-                completion?(false)
+                completion?(false) // async attempt already returned true to caller
                 return
             }
             var allHeaders = headers
@@ -105,8 +116,7 @@ final class CustomPipController: NSObject {
             }
             self.startPlayer(url: candidate.url, headers: allHeaders, hostView: hostView)
             PipSession.claim(web)
-            AppAnalytics.logPipEnter(source: "custom", host: AppAnalytics.privacyHost(candidate.url))
-            completion?(true)
+            self.scheduleReadyTimeout()
         }
 
         if let store {
@@ -121,6 +131,16 @@ final class CustomPipController: NSObject {
         } else {
             begin([])
         }
+        return true
+    }
+
+    /// Custom AVPlayer PiP cannot play YouTube's protected / DASH googlevideo URLs.
+    private static func canUseCustomPlayer(pageURL: URL?, streamURL: URL) -> Bool {
+        if YouTubeDarkMode.isYouTube(pageURL) { return false }
+        let host = streamURL.host?.lowercased() ?? ""
+        if host.contains("googlevideo.com") { return false }
+        if host.contains("youtube.com") || host.contains("youtube-nocookie.com") { return false }
+        if host == "youtu.be" { return false }
         return true
     }
 
@@ -140,6 +160,13 @@ final class CustomPipController: NSObject {
 
     func stop(reason: String) {
         PipProbe.log("customPip.stop", ["reason": reason, "mode": "\(mode)"])
+        readyTimeoutWorkItem?.cancel()
+        readyTimeoutWorkItem = nil
+        // If still waiting on start, treat as failure so callers can fall back to legacy PiP.
+        if pendingStartCompletion != nil, !didReportStartResult, reason != "restart" {
+            reportStartResult(false, reason: reason)
+        }
+        pendingStartCompletion = nil
         clearNowPlaying()
         removeTimeObserver()
         endObserver.map { NotificationCenter.default.removeObserver($0) }
@@ -215,6 +242,7 @@ final class CustomPipController: NSObject {
 
         configureSystemPip(playerLayer: floating.playerLayer)
         observePlayer(player)
+        observeItemStatus(item)
         observePresentationSize(item)
         addTimeObserver()
         playAtCurrentRate()
@@ -225,6 +253,69 @@ final class CustomPipController: NSObject {
             "host": url.host ?? "?",
             "hls": url.pathExtension.lowercased() == "m3u8"
         ])
+    }
+
+    private func observeItemStatus(_ item: AVPlayerItem) {
+        statusObservation = item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
+            Task { @MainActor in
+                self?.handleItemStatus(item.status, error: item.error)
+            }
+        }
+    }
+
+    private func handleItemStatus(_ status: AVPlayerItem.Status, error: Error?) {
+        switch status {
+        case .readyToPlay:
+            reportStartResult(true, reason: "ready")
+        case .failed:
+            PipProbe.log("customPip.itemFailed", [
+                "error": error?.localizedDescription ?? "unknown",
+                "host": streamURL?.host ?? "?"
+            ])
+            failCustomAndFallback(reason: "itemFailed")
+        case .unknown:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    private func scheduleReadyTimeout() {
+        readyTimeoutWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, !self.didReportStartResult else { return }
+            let rate = self.player?.rate ?? 0
+            if rate > 0.01 {
+                self.reportStartResult(true, reason: "timeoutPlaying")
+                return
+            }
+            PipProbe.log("customPip.readyTimeout", ["host": self.streamURL?.host ?? "?"])
+            self.failCustomAndFallback(reason: "readyTimeout")
+        }
+        readyTimeoutWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0, execute: work)
+    }
+
+    private func failCustomAndFallback(reason: String) {
+        reportStartResult(false, reason: reason)
+        // Tear down the broken custom session; completion already handed off to legacy.
+        if mode != .idle {
+            stop(reason: reason)
+        }
+    }
+
+    private func reportStartResult(_ ok: Bool, reason: String) {
+        guard !didReportStartResult else { return }
+        didReportStartResult = true
+        readyTimeoutWorkItem?.cancel()
+        readyTimeoutWorkItem = nil
+        let cb = pendingStartCompletion
+        pendingStartCompletion = nil
+        PipProbe.log("customPip.startResult", ["ok": ok, "reason": reason])
+        if ok {
+            AppAnalytics.logPipEnter(source: "custom", host: AppAnalytics.privacyHost(streamURL))
+        }
+        cb?(ok)
     }
 
     private func observePresentationSize(_ item: AVPlayerItem) {
