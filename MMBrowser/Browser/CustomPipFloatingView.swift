@@ -15,6 +15,8 @@ final class CustomPipFloatingView: UIView {
 
     private let playerContainer = PlayerContainerView()
     var playerLayer: AVPlayerLayer { playerContainer.playerLayer }
+    /// Frosted rim behind the video — separates the float from the page underneath.
+    private let edgeFrost = EdgeFrostView()
     private let dimView = UIView()
     private let overlay = UIView()
 
@@ -57,12 +59,17 @@ final class CustomPipFloatingView: UIView {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        // Must stay unclipped so `edgeFrost` (UIVisualEffectView) can sample the page.
         backgroundColor = .clear
         isOpaque = false
+        layer.shadowColor = UIColor.black.cgColor
+        layer.shadowOpacity = 0.18
+        layer.shadowRadius = 10
+        layer.shadowOffset = CGSize(width: 0, height: 4)
 
         mediaClip.backgroundColor = .black
         mediaClip.clipsToBounds = true
-        mediaClip.layer.cornerRadius = 18
+        mediaClip.layer.cornerRadius = 16
         mediaClip.isUserInteractionEnabled = false
 
         playerContainer.backgroundColor = .black
@@ -92,6 +99,16 @@ final class CustomPipFloatingView: UIView {
         super.layoutSubviews()
         if !isDocked {
             restoredFrame = frame
+            layer.shadowPath = UIBezierPath(
+                roundedRect: bounds,
+                cornerRadius: EdgeFrostView.outerRadius
+            ).cgPath
+        } else {
+            layer.shadowPath = nil
+            layer.shadowOpacity = 0
+        }
+        if !isDocked, layer.shadowOpacity < 0.01 {
+            layer.shadowOpacity = 0.18
         }
     }
 
@@ -174,6 +191,8 @@ final class CustomPipFloatingView: UIView {
     }
 
     private func layoutChrome() {
+        // Frost sits behind the video; a small inset lets the blurred rim show.
+        addSubview(edgeFrost)
         addSubview(mediaClip)
         mediaClip.addSubview(playerContainer)
         mediaClip.addSubview(dimView)
@@ -197,10 +216,11 @@ final class CustomPipFloatingView: UIView {
         progressPill.addSubview(remainingLabel)
         overlay.addSubview(fullscreenButton)
 
-        mediaClip.snp.makeConstraints { $0.edges.equalToSuperview() }
+        edgeFrost.snp.makeConstraints { $0.edges.equalToSuperview() }
+        mediaClip.snp.makeConstraints { $0.edges.equalToSuperview().inset(EdgeFrostView.rimWidth) }
         playerContainer.snp.makeConstraints { $0.edges.equalToSuperview() }
         dimView.snp.makeConstraints { $0.edges.equalToSuperview() }
-        overlay.snp.makeConstraints { $0.edges.equalToSuperview() }
+        overlay.snp.makeConstraints { $0.edges.equalTo(mediaClip) }
         hiddenVolumeView.snp.makeConstraints { make in
             make.leading.equalToSuperview().offset(-1000)
             make.size.equalTo(CGSize(width: 1, height: 1))
@@ -552,9 +572,11 @@ final class CustomPipFloatingView: UIView {
         edgeTab.snp.remakeConstraints { $0.edges.equalToSuperview() }
         edgeTab.isHidden = false
         mediaClip.isHidden = true
+        edgeFrost.isHidden = true
         overlay.isHidden = true
         dimView.isHidden = true
         dimView.alpha = 0
+        layer.shadowOpacity = 0
 
         UIView.animate(withDuration: 0.28, delay: 0, options: .curveEaseInOut) {
             self.frame = docked
@@ -568,6 +590,8 @@ final class CustomPipFloatingView: UIView {
         isDocked = false
         edgeTab.isHidden = true
         mediaClip.isHidden = false
+        edgeFrost.isHidden = false
+        layer.shadowOpacity = 0.18
         var target = restoredFrame
         if target.width < 10 || target.height < 10 {
             target = CustomPipController.preferredFloatingFrame(aspect: videoAspect, in: superview)
@@ -732,6 +756,32 @@ private enum DockTabStyle {
     static let height: CGFloat = 56
     static let cornerRadius: CGFloat = 11
     static let fill = UIColor(white: 0.22, alpha: 1)
+}
+
+// MARK: - Edge frost rim
+
+/// Rounded frosted plate behind the video. Video is inset so a thin blurred rim
+/// samples the webpage and separates the float from page content.
+private final class EdgeFrostView: UIView {
+    static let rimWidth: CGFloat = 1.5
+    static let outerRadius: CGFloat = 18
+
+    private let blurView = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        isOpaque = false
+        backgroundColor = .clear
+        // Round only the effect view — never mask this wrapper (breaks blur).
+        blurView.layer.cornerRadius = Self.outerRadius
+        blurView.clipsToBounds = true
+        blurView.contentView.backgroundColor = UIColor.white.withAlphaComponent(0.04)
+        addSubview(blurView)
+        blurView.snp.makeConstraints { $0.edges.equalToSuperview() }
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
 }
 
 // MARK: - Player layer host
