@@ -1,5 +1,6 @@
 import UIKit
 import AVFoundation
+import MediaPlayer
 import SnapKit
 
 /// In-app fullscreen player sharing the same `AVPlayer` as the floating window.
@@ -8,24 +9,43 @@ final class CustomPipFullscreenViewController: UIViewController {
     var onTogglePlay: (() -> Void)?
     var onSeekBy: ((TimeInterval) -> Void)?
     var onSeekToFraction: ((Double) -> Void)?
+    var onPlaybackRate: ((Float) -> Void)?
     var onCloseSession: (() -> Void)?
 
     private let player: AVPlayer
+    /// Landscape source video → lock UI to landscape while fullscreen.
+    private let prefersLandscape: Bool
+    private var playbackRate: Float
+    private var isExiting = false
     private let playerLayer = AVPlayerLayer()
     private let overlay = UIView()
     private let closeButton = UIButton(type: .system)
+    private let speedButton = UIButton(type: .system)
     private let playButton = UIButton(type: .system)
     private let rewindButton = UIButton(type: .system)
     private let forwardButton = UIButton(type: .system)
     private let progress = UISlider()
     private let elapsedLabel = UILabel()
     private let remainingLabel = UILabel()
+    private let gestureHint = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterialDark))
+    private let gestureIcon = UIImageView()
+    private let gestureLabel = UILabel()
+    private let hiddenVolumeView = MPVolumeView(frame: .zero)
     private var hideWorkItem: DispatchWorkItem?
+    private var hintWorkItem: DispatchWorkItem?
     private var timeObserver: Any?
     private var isScrubbing = false
+    private var verticalGestureMode: VerticalGestureMode?
+    private var gestureStartValue: CGFloat = 0
 
-    init(player: AVPlayer) {
+    private enum VerticalGestureMode { case brightness, volume }
+
+    private static let rates: [Float] = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 3.0]
+
+    init(player: AVPlayer, prefersLandscape: Bool, playbackRate: Float = 1.0) {
         self.player = player
+        self.prefersLandscape = prefersLandscape
+        self.playbackRate = playbackRate
         super.init(nibName: nil, bundle: nil)
         modalPresentationStyle = .fullScreen
         modalTransitionStyle = .crossDissolve
@@ -33,29 +53,158 @@ final class CustomPipFullscreenViewController: UIViewController {
 
     required init?(coder: NSCoder) { fatalError() }
 
+    override var prefersHomeIndicatorAutoHidden: Bool { true }
+    override var prefersStatusBarHidden: Bool { true }
+    override var shouldAutorotate: Bool { true }
+
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        if isExiting { return .portrait }
+        return prefersLandscape ? .landscape : .portrait
+    }
+
+    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation {
+        prefersLandscape ? .landscapeRight : .portrait
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
         playerLayer.player = player
-        playerLayer.videoGravity = .resizeAspect
+        // Fill the screen — crop edges instead of letterboxing.
+        playerLayer.videoGravity = .resizeAspectFill
         view.layer.addSublayer(playerLayer)
 
-        overlay.backgroundColor = UIColor.black.withAlphaComponent(0.25)
+        overlay.backgroundColor = UIColor.black.withAlphaComponent(0.22)
         view.addSubview(overlay)
 
-        configureButtons()
+        configureChrome()
+        layoutChrome()
+        setupGestures()
+        scheduleHide()
+        addTimeObserver()
+        refreshPlayIcon()
+        applySpeedTitle()
+    }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        if prefersLandscape {
+            requestOrientation(.landscape)
+        }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        playerLayer.frame = view.bounds
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        if let timeObserver {
+            player.removeTimeObserver(timeObserver)
+            self.timeObserver = nil
+        }
+        playerLayer.player = nil
+        onDismiss?()
+    }
+
+    private func requestOrientation(_ mask: UIInterfaceOrientationMask) {
+        setNeedsUpdateOfSupportedInterfaceOrientations()
+        guard let scene = view.window?.windowScene
+            ?? UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first
+        else { return }
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in }
+    }
+
+    private func exitFullscreen() {
+        isExiting = true
+        if prefersLandscape {
+            requestOrientation(.portrait)
+        } else {
+            setNeedsUpdateOfSupportedInterfaceOrientations()
+        }
+        dismiss(animated: true)
+    }
+
+    // MARK: - Chrome
+
+    private func configureChrome() {
+        func style(_ button: UIButton, symbol: String?, size: CGFloat, diameter: CGFloat) {
+            button.tintColor = .white
+            if let symbol {
+                button.setImage(
+                    UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: size, weight: .bold)),
+                    for: .normal
+                )
+            }
+            button.backgroundColor = UIColor.white.withAlphaComponent(0.2)
+            button.layer.cornerRadius = diameter / 2
+        }
+        style(closeButton, symbol: "xmark", size: 14, diameter: 36)
+        style(rewindButton, symbol: "gobackward.10", size: 18, diameter: 44)
+        style(playButton, symbol: "pause.fill", size: 22, diameter: 64)
+        style(forwardButton, symbol: "goforward.10", size: 18, diameter: 44)
+        style(speedButton, symbol: nil, size: 12, diameter: 36)
+        speedButton.titleLabel?.font = .systemFont(ofSize: 12, weight: .bold)
+        speedButton.setTitleColor(.white, for: .normal)
+        speedButton.showsMenuAsPrimaryAction = true
+        speedButton.menu = makeSpeedMenu()
+        speedButton.accessibilityLabel = "Playback speed"
+
+        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
+        rewindButton.addTarget(self, action: #selector(rewindTapped), for: .touchUpInside)
+        playButton.addTarget(self, action: #selector(playTapped), for: .touchUpInside)
+        forwardButton.addTarget(self, action: #selector(forwardTapped), for: .touchUpInside)
+
+        progress.minimumTrackTintColor = .white
+        progress.maximumTrackTintColor = UIColor.white.withAlphaComponent(0.3)
+        progress.addTarget(self, action: #selector(scrubBegan), for: .touchDown)
+        progress.addTarget(self, action: #selector(scrubEnded), for: [.touchUpInside, .touchUpOutside, .touchCancel])
+        progress.addTarget(self, action: #selector(scrubChanged), for: .valueChanged)
+
+        elapsedLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .semibold)
+        remainingLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .semibold)
+        elapsedLabel.textColor = .white
+        remainingLabel.textColor = .white
+
+        gestureHint.layer.cornerRadius = 14
+        gestureHint.clipsToBounds = true
+        gestureHint.alpha = 0
+        gestureHint.isUserInteractionEnabled = false
+        gestureIcon.tintColor = .white
+        gestureIcon.contentMode = .scaleAspectFit
+        gestureLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        gestureLabel.textColor = .white
+        gestureLabel.textAlignment = .center
+
+        hiddenVolumeView.isHidden = true
+        hiddenVolumeView.alpha = 0.01
+        hiddenVolumeView.showsRouteButton = false
+    }
+
+    private func layoutChrome() {
         overlay.addSubview(closeButton)
+        overlay.addSubview(speedButton)
         overlay.addSubview(rewindButton)
         overlay.addSubview(playButton)
         overlay.addSubview(forwardButton)
         overlay.addSubview(progress)
         overlay.addSubview(elapsedLabel)
         overlay.addSubview(remainingLabel)
+        view.addSubview(gestureHint)
+        gestureHint.contentView.addSubview(gestureIcon)
+        gestureHint.contentView.addSubview(gestureLabel)
+        view.addSubview(hiddenVolumeView)
 
         overlay.snp.makeConstraints { $0.edges.equalToSuperview() }
         closeButton.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide).offset(12)
             make.leading.equalTo(view.safeAreaLayoutGuide).offset(16)
+            make.size.equalTo(36)
+        }
+        speedButton.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(12)
+            make.trailing.equalTo(view.safeAreaLayoutGuide).inset(16)
             make.size.equalTo(36)
         }
         playButton.snp.makeConstraints { make in
@@ -85,61 +234,72 @@ final class CustomPipFullscreenViewController: UIViewController {
             make.trailing.equalTo(view.safeAreaLayoutGuide).inset(16)
             make.centerY.equalTo(progress)
         }
+        gestureHint.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+            make.width.greaterThanOrEqualTo(120)
+            make.height.equalTo(56)
+        }
+        gestureIcon.snp.makeConstraints { make in
+            make.leading.equalToSuperview().inset(16)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(22)
+        }
+        gestureLabel.snp.makeConstraints { make in
+            make.leading.equalTo(gestureIcon.snp.trailing).offset(10)
+            make.trailing.equalToSuperview().inset(16)
+            make.centerY.equalToSuperview()
+        }
+        hiddenVolumeView.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(-1000)
+            make.size.equalTo(CGSize(width: 1, height: 1))
+        }
+    }
 
+    private func setupGestures() {
         let tap = UITapGestureRecognizer(target: self, action: #selector(toggleOverlay))
+        tap.cancelsTouchesInView = false
         view.addGestureRecognizer(tap)
+
+        let pan = UIPanGestureRecognizer(target: self, action: #selector(verticalPanned(_:)))
+        pan.delegate = self
+        view.addGestureRecognizer(pan)
+    }
+
+    // MARK: - Speed
+
+    private func makeSpeedMenu() -> UIMenu {
+        let actions = Self.rates.map { rate -> UIAction in
+            UIAction(
+                title: Self.speedLabel(for: rate),
+                state: abs(rate - playbackRate) < 0.01 ? .on : .off
+            ) { [weak self] _ in
+                self?.selectRate(rate)
+            }
+        }
+        return UIMenu(title: "Playback Speed", options: .singleSelection, children: actions)
+    }
+
+    private func selectRate(_ rate: Float) {
+        playbackRate = rate
+        applySpeedTitle()
+        speedButton.menu = makeSpeedMenu()
+        onPlaybackRate?(rate)
         scheduleHide()
-        addTimeObserver()
-        refreshPlayIcon()
     }
 
-    override func viewDidLayoutSubviews() {
-        super.viewDidLayoutSubviews()
-        playerLayer.frame = view.bounds
+    private func applySpeedTitle() {
+        speedButton.setTitle(Self.speedLabel(for: playbackRate), for: .normal)
     }
 
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        if let timeObserver {
-            player.removeTimeObserver(timeObserver)
-            self.timeObserver = nil
+    private static func speedLabel(for rate: Float) -> String {
+        let tenths = Double(rate) * 10
+        if abs(tenths - tenths.rounded()) < 0.01 {
+            return String(format: "%.1fx", rate)
         }
-        // Detach layer so floating view can own the player again.
-        playerLayer.player = nil
-        onDismiss?()
+        return String(format: "%.2fx", rate)
     }
 
-    private func configureButtons() {
-        func style(_ button: UIButton, symbol: String, size: CGFloat) {
-            button.tintColor = .white
-            button.setImage(
-                UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: size, weight: .bold)),
-                for: .normal
-            )
-            button.backgroundColor = UIColor.white.withAlphaComponent(0.2)
-            button.layer.cornerRadius = button == playButton ? 32 : (button == closeButton ? 18 : 22)
-        }
-        style(closeButton, symbol: "xmark", size: 14)
-        style(rewindButton, symbol: "gobackward.10", size: 18)
-        style(playButton, symbol: "pause.fill", size: 22)
-        style(forwardButton, symbol: "goforward.10", size: 18)
-
-        closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
-        rewindButton.addTarget(self, action: #selector(rewindTapped), for: .touchUpInside)
-        playButton.addTarget(self, action: #selector(playTapped), for: .touchUpInside)
-        forwardButton.addTarget(self, action: #selector(forwardTapped), for: .touchUpInside)
-
-        progress.minimumTrackTintColor = .white
-        progress.maximumTrackTintColor = UIColor.white.withAlphaComponent(0.3)
-        progress.addTarget(self, action: #selector(scrubBegan), for: .touchDown)
-        progress.addTarget(self, action: #selector(scrubEnded), for: [.touchUpInside, .touchUpOutside, .touchCancel])
-        progress.addTarget(self, action: #selector(scrubChanged), for: .valueChanged)
-
-        elapsedLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .semibold)
-        remainingLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .semibold)
-        elapsedLabel.textColor = .white
-        remainingLabel.textColor = .white
-    }
+    // MARK: - Playback UI
 
     private func addTimeObserver() {
         let interval = CMTime(seconds: 0.25, preferredTimescale: 600)
@@ -175,6 +335,92 @@ final class CustomPipFullscreenViewController: UIViewController {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: work)
     }
 
+    // MARK: - Brightness / volume
+
+    @objc private func verticalPanned(_ gesture: UIPanGestureRecognizer) {
+        let location = gesture.location(in: view)
+        let translation = gesture.translation(in: view)
+        switch gesture.state {
+        case .began:
+            let third = view.bounds.width / 3
+            if location.x < third {
+                verticalGestureMode = .brightness
+                gestureStartValue = UIScreen.main.brightness
+            } else if location.x > view.bounds.width - third {
+                verticalGestureMode = .volume
+                gestureStartValue = CGFloat(currentSystemVolume())
+            } else {
+                verticalGestureMode = nil
+            }
+        case .changed:
+            guard let mode = verticalGestureMode else { return }
+            // Up = increase. ~full height drag ≈ full range.
+            let delta = -translation.y / max(view.bounds.height * 0.55, 1)
+            let next = min(max(gestureStartValue + delta, 0), 1)
+            switch mode {
+            case .brightness:
+                UIScreen.main.brightness = next
+                showGestureHint(symbol: brightnessSymbol(for: next), text: "\(Int((next * 100).rounded()))%")
+            case .volume:
+                setSystemVolume(Float(next))
+                showGestureHint(symbol: volumeSymbol(for: next), text: "\(Int((next * 100).rounded()))%")
+            }
+        case .ended, .cancelled:
+            verticalGestureMode = nil
+            hideGestureHintSoon()
+        default:
+            break
+        }
+    }
+
+    private func currentSystemVolume() -> Float {
+        for view in hiddenVolumeView.subviews {
+            if let slider = view as? UISlider { return slider.value }
+        }
+        return AVAudioSession.sharedInstance().outputVolume
+    }
+
+    private func setSystemVolume(_ value: Float) {
+        for view in hiddenVolumeView.subviews {
+            if let slider = view as? UISlider {
+                slider.value = value
+                return
+            }
+        }
+    }
+
+    private func brightnessSymbol(for value: CGFloat) -> String {
+        value < 0.15 ? "sun.min.fill" : "sun.max.fill"
+    }
+
+    private func volumeSymbol(for value: CGFloat) -> String {
+        if value < 0.01 { return "speaker.slash.fill" }
+        if value < 0.4 { return "speaker.wave.1.fill" }
+        if value < 0.7 { return "speaker.wave.2.fill" }
+        return "speaker.wave.3.fill"
+    }
+
+    private func showGestureHint(symbol: String, text: String) {
+        gestureIcon.image = UIImage(
+            systemName: symbol,
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
+        )
+        gestureLabel.text = text
+        hintWorkItem?.cancel()
+        UIView.animate(withDuration: 0.12) { self.gestureHint.alpha = 1 }
+    }
+
+    private func hideGestureHintSoon() {
+        hintWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            UIView.animate(withDuration: 0.2) { self?.gestureHint.alpha = 0 }
+        }
+        hintWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: work)
+    }
+
+    // MARK: - Actions
+
     @objc private func toggleOverlay() {
         if overlay.alpha < 0.5 {
             UIView.animate(withDuration: 0.2) { self.overlay.alpha = 1 }
@@ -185,8 +431,7 @@ final class CustomPipFullscreenViewController: UIViewController {
     }
 
     @objc private func closeTapped() {
-        // Exit fullscreen back to floating (keep playing).
-        dismiss(animated: true)
+        exitFullscreen()
     }
 
     @objc private func playTapped() {
@@ -216,5 +461,25 @@ final class CustomPipFullscreenViewController: UIViewController {
     private static func format(_ seconds: Double) -> String {
         let total = max(Int(seconds.rounded(.down)), 0)
         return String(format: "%d:%02d", total / 60, total % 60)
+    }
+}
+
+extension CustomPipFullscreenViewController: UIGestureRecognizerDelegate {
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldReceive touch: UITouch
+    ) -> Bool {
+        if touch.view is UIControl { return false }
+        let point = touch.location(in: view)
+        // Progress scrubber owns horizontal interaction.
+        if progress.frame.insetBy(dx: -8, dy: -16).contains(point) { return false }
+        return true
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        false
     }
 }

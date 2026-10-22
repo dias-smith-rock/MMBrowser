@@ -141,6 +141,10 @@ final class CustomPipFloatingView: UIView {
         expandFromDock(animated: true)
     }
 
+    func setDisplayedPlaybackRate(_ rate: Float) {
+        speedButton.setRate(rate, notify: false)
+    }
+
     // MARK: - Setup
 
     private func configureChrome() {

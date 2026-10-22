@@ -425,10 +425,18 @@ final class CustomPipController: NSObject {
         floatingView?.isHidden = true
         // Temporarily detach floating layer so fullscreen can attach.
         floatingView?.playerLayer.player = nil
-        let full = CustomPipFullscreenViewController(player: player)
+        let full = CustomPipFullscreenViewController(
+            player: player,
+            prefersLandscape: videoAspect >= 1,
+            playbackRate: playbackRate
+        )
         full.onTogglePlay = { [weak self] in self?.togglePlay() }
         full.onSeekBy = { [weak self] d in self?.seekBy(d) }
         full.onSeekToFraction = { [weak self] f in self?.seekToFraction(f) }
+        full.onPlaybackRate = { [weak self] rate in
+            self?.setPlaybackRate(rate)
+            self?.floatingView?.setDisplayedPlaybackRate(rate)
+        }
         full.onDismiss = { [weak self] in
             guard let self else { return }
             self.floatingView?.playerLayer.player = self.player
@@ -441,6 +449,10 @@ final class CustomPipController: NSObject {
             if let layer = self.floatingView?.playerLayer {
                 self.configureSystemPip(playerLayer: layer)
             }
+            // Ensure browser returns to portrait after landscape fullscreen.
+            if self.videoAspect >= 1 {
+                self.requestPortraitOrientation()
+            }
         }
         fullscreenController = full
         var presenter: UIViewController = host
@@ -448,6 +460,14 @@ final class CustomPipController: NSObject {
             presenter = presented
         }
         presenter.present(full, animated: true)
+    }
+
+    private func requestPortraitOrientation() {
+        guard let scene = hostView?.window?.windowScene
+            ?? UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first
+        else { return }
+        hostView?.window?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait)) { _ in }
     }
 
     private func currentSeconds() -> Double {

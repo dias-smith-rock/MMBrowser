@@ -55,4 +55,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didDiscardSceneSessions sceneSessions: Set<UISceneSession>) {
     }
+
+    /// Honor the topmost view controller (e.g. landscape custom PiP fullscreen).
+    func application(
+        _ application: UIApplication,
+        supportedInterfaceOrientationsFor window: UIWindow?
+    ) -> UIInterfaceOrientationMask {
+        guard let window else { return .portrait }
+        var top = window.rootViewController
+        while let presented = top?.presentedViewController {
+            top = presented
+        }
+        return top?.supportedInterfaceOrientations ?? .portrait
+    }
 }
