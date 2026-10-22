@@ -52,6 +52,8 @@ final class CustomPipFloatingView: UIView {
     private var restoredFrame: CGRect = .zero
     /// width / height from the current video (updated by controller).
     var videoAspect: CGFloat = 16.0 / 9.0
+    /// Compact vs full-width float. Portrait video is always `.small`.
+    private(set) var windowSize: CustomPipController.FloatingWindowSize = .small
 
     private enum DockSide { case leading, trailing }
 
@@ -303,6 +305,13 @@ final class CustomPipFloatingView: UIView {
         tap.delegate = self
         addGestureRecognizer(tap)
 
+        let doubleTap = UITapGestureRecognizer(target: self, action: #selector(contentDoubleTapped))
+        doubleTap.numberOfTapsRequired = 2
+        doubleTap.delegate = self
+        addGestureRecognizer(doubleTap)
+        // Single-tap chrome toggle waits so double-tap can win.
+        tap.require(toFail: doubleTap)
+
         let pan = UIPanGestureRecognizer(target: self, action: #selector(panned(_:)))
         pan.delegate = self
         addGestureRecognizer(pan)
@@ -392,6 +401,50 @@ final class CustomPipFloatingView: UIView {
             return
         }
         setControlsVisible(!controlsVisible, animated: true)
+    }
+
+    @objc private func contentDoubleTapped() {
+        guard !isDocked else { return }
+        // Portrait video has no large window.
+        guard videoAspect >= 1 else { return }
+        let next: CustomPipController.FloatingWindowSize = windowSize == .small ? .large : .small
+        setWindowSize(next, animated: true)
+    }
+
+    func setWindowSize(_ size: CustomPipController.FloatingWindowSize, animated: Bool) {
+        let resolved: CustomPipController.FloatingWindowSize = videoAspect < 1 ? .small : size
+        let sizeChanged = resolved != windowSize
+        windowSize = resolved
+        guard sizeChanged || animated else { return }
+        applyWindowSize(animated: animated && (sizeChanged || videoAspect >= 1))
+    }
+
+    func applyWindowSize(animated: Bool) {
+        guard let superview, !isDocked else { return }
+        if videoAspect < 1 { windowSize = .small }
+        let next = CustomPipController.preferredFloatingFrame(
+            aspect: videoAspect,
+            in: superview,
+            size: windowSize,
+            preservingCenter: center
+        )
+        let apply = {
+            self.frame = next
+            self.layoutIfNeeded()
+        }
+        if animated {
+            UIView.animate(
+                withDuration: 0.42,
+                delay: 0,
+                usingSpringWithDamping: 0.86,
+                initialSpringVelocity: 0.4,
+                options: [.beginFromCurrentState, .allowUserInteraction],
+                animations: apply
+            )
+        } else {
+            apply()
+        }
+        bumpControls()
     }
 
     @objc private func closeTapped() {
@@ -548,7 +601,7 @@ final class CustomPipFloatingView: UIView {
         restoredFrame = frame
         dockSide = side
         isDocked = true
-        setControlsVisible(false, animated: false)
+        setControlsVisible(false, animated: true)
 
         // Fixed dock handle — never inherits player width/height.
         let tab = CGSize(width: DockTabStyle.width, height: DockTabStyle.height)
@@ -570,17 +623,33 @@ final class CustomPipFloatingView: UIView {
         edgeTab.backgroundColor = DockTabStyle.fill
         edgeTab.layer.cornerRadius = DockTabStyle.cornerRadius
         edgeTab.snp.remakeConstraints { $0.edges.equalToSuperview() }
+        // Morph: keep video visible, fade it out while the tab fades in.
         edgeTab.isHidden = false
-        mediaClip.isHidden = true
+        edgeTab.alpha = 0
+        mediaClip.isHidden = false
+        mediaClip.alpha = 1
+        // Don't fade UIVisualEffectView — hide rim without alpha.
         edgeFrost.isHidden = true
         overlay.isHidden = true
-        dimView.isHidden = true
-        dimView.alpha = 0
-        layer.shadowOpacity = 0
 
-        UIView.animate(withDuration: 0.28, delay: 0, options: .curveEaseInOut) {
+        UIView.animate(
+            withDuration: 0.48,
+            delay: 0,
+            usingSpringWithDamping: 0.84,
+            initialSpringVelocity: 0.35,
+            options: [.allowUserInteraction, .beginFromCurrentState]
+        ) {
             self.frame = docked
-        } completion: { _ in
+            self.layoutIfNeeded()
+            self.mediaClip.alpha = 0
+            self.dimView.alpha = 0
+            self.edgeTab.alpha = 1
+            self.layer.shadowOpacity = 0
+        } completion: { finished in
+            guard finished || self.isDocked else { return }
+            self.mediaClip.isHidden = true
+            self.mediaClip.alpha = 1
+            self.dimView.isHidden = true
             self.onDockChanged?(true)
         }
     }
@@ -588,37 +657,65 @@ final class CustomPipFloatingView: UIView {
     private func expandFromDock(animated: Bool) {
         guard isDocked, let superview else { return }
         isDocked = false
-        edgeTab.isHidden = true
-        mediaClip.isHidden = false
-        edgeFrost.isHidden = false
-        layer.shadowOpacity = 0.18
-        var target = restoredFrame
-        if target.width < 10 || target.height < 10 {
-            target = CustomPipController.preferredFloatingFrame(aspect: videoAspect, in: superview)
-        }
-        // Keep vertical position near the dock tab when restoring.
-        let preferY = frame.midY - target.height / 2
-        let inset: CGFloat = 8
-        target.origin.x = min(max(target.origin.x, inset), superview.bounds.width - target.width - inset)
-        target.origin.y = min(
-            max(preferY, superview.safeAreaInsets.top + inset),
-            superview.bounds.height - target.height - superview.safeAreaInsets.bottom - inset
+        // Restore using current small/large mode; keep Y near the dock tab.
+        var target = CustomPipController.preferredFloatingFrame(
+            aspect: videoAspect,
+            in: superview,
+            size: windowSize,
+            preservingCenter: CGPoint(x: superview.bounds.midX, y: frame.midY)
         )
+        if restoredFrame.width > 10, restoredFrame.height > 10, windowSize == .small {
+            // Prefer last small-window position when returning from dock.
+            target = restoredFrame
+            let preferY = frame.midY - target.height / 2
+            let inset: CGFloat = 8
+            target.origin.x = min(max(target.origin.x, inset), superview.bounds.width - target.width - inset)
+            target.origin.y = min(
+                max(preferY, superview.safeAreaInsets.top + inset),
+                superview.bounds.height - target.height - superview.safeAreaInsets.bottom - inset
+            )
+        }
+
+        // Reveal video under the tab, then grow out from the edge.
+        mediaClip.isHidden = false
+        mediaClip.alpha = 0
+        edgeFrost.isHidden = false
         dimView.isHidden = false
+        dimView.alpha = 0
         overlay.isHidden = false
-        overlay.alpha = 1
+        overlay.alpha = 0
+        edgeTab.isHidden = false
+        edgeTab.alpha = 1
+
         let apply = {
             self.frame = target
+            self.layoutIfNeeded()
+            self.mediaClip.alpha = 1
             self.dimView.alpha = 1
+            self.overlay.alpha = 1
+            self.edgeTab.alpha = 0
+            self.layer.shadowOpacity = 0.18
         }
         if animated {
-            UIView.animate(withDuration: 0.28, delay: 0, options: .curveEaseInOut, animations: apply) { _ in
+            UIView.animate(
+                withDuration: 0.5,
+                delay: 0,
+                usingSpringWithDamping: 0.82,
+                initialSpringVelocity: 0.45,
+                options: [.allowUserInteraction, .beginFromCurrentState],
+                animations: apply
+            ) { finished in
+                guard finished || !self.isDocked else { return }
+                self.edgeTab.isHidden = true
+                self.edgeTab.alpha = 1
                 self.controlsVisible = true
                 self.scheduleHideControls()
                 self.onDockChanged?(false)
             }
         } else {
             apply()
+            edgeTab.isHidden = true
+            edgeTab.alpha = 1
             controlsVisible = true
             scheduleHideControls()
             onDockChanged?(false)

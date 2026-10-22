@@ -238,14 +238,11 @@ final class CustomPipController: NSObject {
         let changed = abs(aspect - videoAspect) > 0.02
         videoAspect = aspect
         floatingView?.videoAspect = aspect
-        guard changed, let hostView, let floatingView, !floatingView.isDocked else { return }
-        let next = Self.preferredFloatingFrame(
-            aspect: aspect,
-            in: hostView,
-            preservingCenter: floatingView.center
-        )
-        UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseInOut) {
-            floatingView.frame = next
+        // Portrait has no large window — drop back to small if needed.
+        if aspect < 1 {
+            floatingView?.setWindowSize(.small, animated: changed)
+        } else if changed, let floatingView, !floatingView.isDocked {
+            floatingView.applyWindowSize(animated: true)
         }
         PipProbe.log("customPip.aspect", [
             "w": Int(size.width),
@@ -254,39 +251,57 @@ final class CustomPipController: NSObject {
         ])
     }
 
-    /// Landscape: up to ~300pt wide. Portrait: narrower + taller, capped to safe area.
+    enum FloatingWindowSize {
+        case small
+        case large
+    }
+
+    /// Small: compact PiP. Large (landscape only): width = screen − side margins.
     static func preferredFloatingFrame(
         aspect: CGFloat,
         in hostView: UIView,
+        size windowSize: FloatingWindowSize = .small,
         preservingCenter: CGPoint? = nil
     ) -> CGRect {
         let safe = hostView.safeAreaInsets
-        let maxW = min(hostView.bounds.width - 24, 300)
-        let maxH = min(
-            hostView.bounds.height - safe.top - safe.bottom - 96,
-            aspect < 1 ? 420 : 220
-        )
+        let inset: CGFloat = 12
+        let maxH = hostView.bounds.height - safe.top - safe.bottom - 96
+        let resolvedSize: FloatingWindowSize = (aspect < 1) ? .small : windowSize
+
         let size: CGSize
-        if aspect >= 1 {
-            var w = maxW
-            var h = w / aspect
+        switch resolvedSize {
+        case .large:
+            // Full width minus margins; height follows aspect, capped to safe area.
+            var w = hostView.bounds.width - inset * 2
+            var h = w / max(aspect, 0.05)
             if h > maxH {
                 h = maxH
                 w = h * aspect
             }
             size = CGSize(width: w, height: h)
-        } else {
-            let portraitMaxW = min(hostView.bounds.width - 24, 200)
-            var w = portraitMaxW
-            var h = w / aspect
-            if h > maxH {
-                h = maxH
-                w = h * aspect
+        case .small:
+            let maxW = min(hostView.bounds.width - inset * 2, 300)
+            let smallMaxH = min(maxH, aspect < 1 ? 420 : 220)
+            if aspect >= 1 {
+                var w = maxW
+                var h = w / aspect
+                if h > smallMaxH {
+                    h = smallMaxH
+                    w = h * aspect
+                }
+                size = CGSize(width: w, height: h)
+            } else {
+                let portraitMaxW = min(hostView.bounds.width - inset * 2, 200)
+                var w = portraitMaxW
+                var h = w / aspect
+                if h > smallMaxH {
+                    h = smallMaxH
+                    w = h * aspect
+                }
+                size = CGSize(width: w, height: h)
             }
-            size = CGSize(width: w, height: h)
         }
 
-        let inset: CGFloat = 12
         let minX = inset
         let maxX = hostView.bounds.width - size.width - inset
         let minY = safe.top + inset
@@ -299,6 +314,12 @@ final class CustomPipController: NSObject {
             x = min(max(x, minX), max(maxX, minX))
             y = min(max(y, minY), max(maxY, minY))
             origin = CGPoint(x: x, y: y)
+        } else if resolvedSize == .large {
+            // Center large window horizontally; keep near bottom like small default.
+            origin = CGPoint(
+                x: (hostView.bounds.width - size.width) / 2,
+                y: max(maxY, minY)
+            )
         } else {
             origin = CGPoint(
                 x: max(maxX, minX),
