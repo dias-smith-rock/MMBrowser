@@ -4,14 +4,59 @@ import SnapKit
 final class PageCleanerRulesViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private var sections: [(host: String, rules: [PageCleanerRule])] = []
+    private var isSelecting = false
+    private let showsCloseButton: Bool
+
+    private lazy var selectButton = UIBarButtonItem(
+        title: "Select",
+        style: .plain,
+        target: self,
+        action: #selector(toggleSelect)
+    )
+    private lazy var doneSelectButton = UIBarButtonItem(
+        title: "Done",
+        style: .done,
+        target: self,
+        action: #selector(toggleSelect)
+    )
+    private lazy var deleteButton = UIBarButtonItem(
+        title: "Delete",
+        style: .plain,
+        target: self,
+        action: #selector(deleteSelected)
+    )
+    private lazy var clearAllButton = UIBarButtonItem(
+        title: "Clear All",
+        style: .plain,
+        target: self,
+        action: #selector(clearAll)
+    )
+
+    init(showsCloseButton: Bool = false) {
+        self.showsCloseButton = showsCloseButton
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Webpage Cleaner"
+        title = "Web Editor"
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
+
+        if showsCloseButton {
+            navigationItem.leftBarButtonItem = UIBarButtonItem(
+                title: "Close",
+                style: .plain,
+                target: self,
+                action: #selector(close)
+            )
+        }
 
         tableView.dataSource = self
         tableView.delegate = self
+        tableView.tintColor = BrowserTheme.chromeBlue
+        tableView.allowsMultipleSelectionDuringEditing = true
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 152
         tableView.register(PageCleanerRuleCell.self, forCellReuseIdentifier: PageCleanerRuleCell.reuseID)
@@ -41,6 +86,7 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
         super.viewWillAppear(animated)
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.reloadData()
+        updateToolbarButtons()
     }
 
     @objc private func themeChanged() {
@@ -48,23 +94,76 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
         tableView.reloadData()
     }
 
+    @objc private func close() {
+        dismiss(animated: true)
+    }
+
     @objc private func reloadData() {
         sections = PageCleanerStore.shared.groupedByHost()
+        if sections.isEmpty, isSelecting {
+            isSelecting = false
+            tableView.setEditing(false, animated: false)
+        }
         tableView.reloadData()
-        navigationItem.rightBarButtonItem = sections.isEmpty
-            ? nil
-            : UIBarButtonItem(title: "Clear All", style: .plain, target: self, action: #selector(clearAll))
+        updateToolbarButtons()
+    }
+
+    private func updateToolbarButtons() {
+        guard !sections.isEmpty else {
+            navigationItem.rightBarButtonItems = nil
+            return
+        }
+        if isSelecting {
+            let selectedCount = tableView.indexPathsForSelectedRows?.count ?? 0
+            deleteButton.title = selectedCount > 0 ? "Delete (\(selectedCount))" : "Delete"
+            deleteButton.isEnabled = selectedCount > 0
+            deleteButton.tintColor = .systemRed
+            navigationItem.rightBarButtonItems = [doneSelectButton, deleteButton]
+        } else {
+            navigationItem.rightBarButtonItems = [selectButton, clearAllButton]
+        }
+    }
+
+    @objc private func toggleSelect() {
+        isSelecting.toggle()
+        tableView.setEditing(isSelecting, animated: true)
+        tableView.reloadData()
+        updateToolbarButtons()
+    }
+
+    @objc private func deleteSelected() {
+        guard let paths = tableView.indexPathsForSelectedRows, !paths.isEmpty else { return }
+        let ids = Set(paths.map { sections[$0.section].rules[$0.row].id })
+        let alert = UIAlertController(
+            title: ids.count == 1 ? "Delete Rule?" : "Delete \(ids.count) Rules?",
+            message: "Hidden elements will show again after pages reload.",
+            preferredStyle: .actionSheet
+        )
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            guard let self else { return }
+            PageCleanerStore.shared.remove(ids: ids)
+            self.isSelecting = false
+            self.tableView.setEditing(false, animated: true)
+            self.reloadData()
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let pop = alert.popoverPresentationController {
+            pop.barButtonItem = deleteButton
+        }
+        present(alert, animated: true)
     }
 
     @objc private func clearAll() {
         let alert = UIAlertController(
-            title: "Clear all cleaner rules?",
+            title: "Clear all Web Editor rules?",
             message: "Hidden elements will show again after pages reload.",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Clear", style: .destructive) { _ in
+        alert.addAction(UIAlertAction(title: "Clear", style: .destructive) { [weak self] _ in
             PageCleanerStore.shared.removeAll()
+            self?.isSelecting = false
+            self?.tableView.setEditing(false, animated: false)
         })
         present(alert, animated: true)
     }
@@ -81,6 +180,13 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         if sections.isEmpty { return nil }
         return sections[section].host
+    }
+
+    func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
+        if sections.isEmpty {
+            return "Rules you create with Delete appear here. Swipe to delete one, or tap Select for batch delete."
+        }
+        return nil
     }
 
     func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
@@ -102,7 +208,7 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
             cell.textLabel?.numberOfLines = 0
             cell.textLabel?.text = "No rules yet"
             cell.detailTextLabel?.numberOfLines = 0
-            cell.detailTextLabel?.text = "Tap the wand icon, then pick This site or This page"
+            cell.detailTextLabel?.text = "Use Web Editor → This site / This page, then Delete an element"
             return cell
         }
 
@@ -110,11 +216,15 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
             withIdentifier: PageCleanerRuleCell.reuseID,
             for: indexPath
         ) as! PageCleanerRuleCell
-        cell.apply(rule: sections[indexPath.section].rules[indexPath.row])
+        cell.apply(rule: sections[indexPath.section].rules[indexPath.row], selecting: isSelecting)
         return cell
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        if isSelecting {
+            updateToolbarButtons()
+            return
+        }
         tableView.deselectRow(at: indexPath, animated: true)
         guard !sections.isEmpty else { return }
         let rule = sections[indexPath.section].rules[indexPath.row]
@@ -126,6 +236,12 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
         present(nav, animated: true)
     }
 
+    func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
+        if isSelecting {
+            updateToolbarButtons()
+        }
+    }
+
     func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
         !sections.isEmpty
     }
@@ -135,9 +251,22 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
         commit editingStyle: UITableViewCell.EditingStyle,
         forRowAt indexPath: IndexPath
     ) {
-        guard editingStyle == .delete, !sections.isEmpty else { return }
+        guard editingStyle == .delete, !sections.isEmpty, !isSelecting else { return }
         let rule = sections[indexPath.section].rules[indexPath.row]
         PageCleanerStore.shared.remove(id: rule.id)
+    }
+
+    func tableView(
+        _ tableView: UITableView,
+        trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath
+    ) -> UISwipeActionsConfiguration? {
+        guard !sections.isEmpty, !isSelecting else { return nil }
+        let rule = sections[indexPath.section].rules[indexPath.row]
+        let delete = UIContextualAction(style: .destructive, title: "Delete") { _, _, done in
+            PageCleanerStore.shared.remove(id: rule.id)
+            done(true)
+        }
+        return UISwipeActionsConfiguration(actions: [delete])
     }
 }
 
@@ -202,7 +331,7 @@ private final class PageCleanerRuleCell: UITableViewCell {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func apply(rule: PageCleanerRule) {
+    func apply(rule: PageCleanerRule, selecting: Bool) {
         backgroundColor = BrowserTheme.card
         titleLabel.textColor = BrowserTheme.textPrimary
         detailLabel.textColor = BrowserTheme.textSecondary
@@ -219,13 +348,13 @@ private final class PageCleanerRuleCell: UITableViewCell {
         if let image = rule.previewImage {
             previewView.image = image
             placeholderIcon.isHidden = true
-            accessoryType = .disclosureIndicator
+            accessoryType = selecting ? .none : .disclosureIndicator
             selectionStyle = .default
         } else {
             previewView.image = nil
             placeholderIcon.isHidden = false
             accessoryType = .none
-            selectionStyle = .none
+            selectionStyle = selecting ? .default : .none
         }
     }
 }

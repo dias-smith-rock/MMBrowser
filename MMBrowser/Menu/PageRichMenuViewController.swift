@@ -107,7 +107,7 @@ final class PageRichMenuViewController: UIViewController {
     private func pageToolItems() -> [(String, String, MenuAction, Bool)] {
         [
             ("PiP", "pip.enter", .pictureInPicture, context.hasLoadablePage && AppSettings.pictureInPictureEnabled),
-            ("Web Cleaner", "wand.and.stars", .pageCleaner, context.hasLoadablePage),
+            ("Web Editor", "wand.and.stars", .pageCleaner, context.hasLoadablePage),
             ("Screenshot", "camera", .screenshot, context.hasLoadablePage),
             ("Split View", "rectangle.split.1x2", .compareAccounts, true),
             (

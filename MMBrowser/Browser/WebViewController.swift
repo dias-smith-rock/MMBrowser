@@ -620,11 +620,59 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         guard message.name == PageCleanerManager.handlerName,
               let body = message.body as? [String: Any],
               let type = body["type"] as? String,
-              type == "delete",
-              let selector = body["selector"] as? String,
-              !selector.isEmpty,
               let webView = webView else { return }
 
+        switch type {
+        case "edit":
+            guard let selector = body["selector"] as? String, !selector.isEmpty else { return }
+            presentPageCleanerTextEditor(
+                selector: selector,
+                initialText: (body["text"] as? String) ?? "",
+                label: (body["label"] as? String) ?? selector
+            )
+        case "delete":
+            guard let selector = body["selector"] as? String, !selector.isEmpty else { return }
+            handlePageCleanerDelete(body: body, selector: selector, webView: webView)
+        case "reset":
+            handlePageCleanerReset(webView: webView)
+        default:
+            break
+        }
+    }
+
+    private func handlePageCleanerReset(webView: WKWebView) {
+        if let url = webView.url {
+            _ = PageCleanerStore.shared.removeRules(matching: url)
+        }
+        PageCleanerManager.clearSessionEdits(on: webView)
+        // Reload so hidden nodes and text come back from the real page.
+        webView.reload()
+        Toast.show("Page restored", from: self)
+    }
+
+    private func presentPageCleanerTextEditor(selector: String, initialText: String, label: String) {
+        let alert = UIAlertController(
+            title: "Edit Text",
+            message: label,
+            preferredStyle: .alert
+        )
+        alert.addTextField { field in
+            field.text = initialText
+            field.clearButtonMode = .whileEditing
+            field.autocapitalizationType = .sentences
+            field.returnKeyType = .done
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self] _ in
+            guard let self, let webView = self.webView else { return }
+            let next = alert.textFields?.first?.text ?? ""
+            PageCleanerManager.setText(next, selector: selector, on: webView)
+            Toast.show("Text updated", from: self)
+        })
+        present(alert, animated: true)
+    }
+
+    private func handlePageCleanerDelete(body: [String: Any], selector: String, webView: WKWebView) {
         let label = (body["label"] as? String) ?? selector
         let host = (body["host"] as? String)?.lowercased()
             ?? webView.url?.host?.lowercased()

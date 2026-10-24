@@ -104,9 +104,15 @@ final class PageCleanerStore {
     }
 
     func remove(id: UUID) {
-        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
-        Self.deletePreview(items[index].previewFileName)
-        items.remove(at: index)
+        remove(ids: [id])
+    }
+
+    func remove(ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        let removed = items.filter { ids.contains($0.id) }
+        guard !removed.isEmpty else { return }
+        removed.forEach { Self.deletePreview($0.previewFileName) }
+        items.removeAll { ids.contains($0.id) }
         save()
     }
 
@@ -117,6 +123,18 @@ final class PageCleanerStore {
         removed.forEach { Self.deletePreview($0.previewFileName) }
         items.removeAll { $0.host.lowercased() == normalized }
         save()
+    }
+
+    /// Removes every rule that currently applies to `url` (page-scoped + domain-wide).
+    @discardableResult
+    func removeRules(matching url: URL) -> Int {
+        let victims = rules(matching: url)
+        guard !victims.isEmpty else { return 0 }
+        let ids = Set(victims.map(\.id))
+        victims.forEach { Self.deletePreview($0.previewFileName) }
+        items.removeAll { ids.contains($0.id) }
+        save()
+        return victims.count
     }
 
     func removeAll() {

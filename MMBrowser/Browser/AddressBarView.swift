@@ -19,6 +19,8 @@ protocol AddressBarViewDelegate: AnyObject {
     func addressBarDidSwipeToNextTab()
     func addressBarDidChoosePageCleaner(urlOnly: Bool)
     func addressBarDidExitPageCleaner()
+    /// Open the saved Web Editor rules list (manage / delete).
+    func addressBarDidRequestWebEditorRules()
     func addressBarDidTapShield(blockCount: Int)
     /// Compact bottom pill was tapped — expand the full chrome again.
     func addressBarDidTapCompactExpand()
@@ -52,7 +54,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private var focusActive = false
 
     private let cleanerMenuContainer = UIView()
-    private let cleanerTitleLabel = UILabel()
+    private let cleanerTitleButton = UIButton(type: .system)
     private let cleanerSiteChip = UIButton(type: .system)
     private let cleanerPageChip = UIButton(type: .system)
     private let cleanerExitChip = UIButton(type: .system)
@@ -315,24 +317,34 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
         configureChip(cleanerSiteChip, title: "This site")
         configureChip(cleanerPageChip, title: "This page")
-        configureChip(cleanerExitChip, title: "Exit")
+        configureExitChip()
         cleanerSiteChip.addTarget(self, action: #selector(cleanerSiteTapped), for: .touchUpInside)
         cleanerPageChip.addTarget(self, action: #selector(cleanerPageTapped), for: .touchUpInside)
         cleanerExitChip.addTarget(self, action: #selector(cleanerExitTapped), for: .touchUpInside)
 
-        cleanerTitleLabel.text = "Cleaner"
-        cleanerTitleLabel.textColor = BrowserTheme.textSecondary
-        cleanerTitleLabel.font = .systemFont(ofSize: 12, weight: .semibold)
-        cleanerTitleLabel.setContentHuggingPriority(.required, for: .horizontal)
-        cleanerTitleLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
+        cleanerTitleButton.setTitle("Web Editor", for: .normal)
+        cleanerTitleButton.setTitleColor(BrowserTheme.textSecondary, for: .normal)
+        cleanerTitleButton.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
+        cleanerTitleButton.contentEdgeInsets = UIEdgeInsets(top: 4, left: 2, bottom: 4, right: 2)
+        cleanerTitleButton.setContentHuggingPriority(.required, for: .horizontal)
+        cleanerTitleButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+        cleanerTitleButton.accessibilityLabel = "Web Editor rules"
+        cleanerTitleButton.accessibilityHint = "Shows saved editor rules"
+        cleanerTitleButton.addTarget(self, action: #selector(cleanerTitleTapped), for: .touchUpInside)
 
-        let chips = UIStackView(arrangedSubviews: [cleanerSiteChip, cleanerPageChip, cleanerExitChip])
+        let modeChips = UIStackView(arrangedSubviews: [cleanerSiteChip, cleanerPageChip])
+        modeChips.axis = .horizontal
+        modeChips.spacing = 6
+        modeChips.alignment = .fill
+        modeChips.distribution = .fillEqually
+
+        let chips = UIStackView(arrangedSubviews: [modeChips, cleanerExitChip])
         chips.axis = .horizontal
         chips.spacing = 6
-        chips.alignment = .fill
-        chips.distribution = .fillEqually
+        chips.alignment = .center
+        chips.distribution = .fill
 
-        let stack = UIStackView(arrangedSubviews: [cleanerTitleLabel, chips])
+        let stack = UIStackView(arrangedSubviews: [cleanerTitleButton, chips])
         stack.axis = .horizontal
         stack.spacing = 10
         stack.alignment = .center
@@ -354,8 +366,11 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.height.equalTo(cleanerSiteChip)
         }
         cleanerExitChip.snp.makeConstraints { make in
-            make.height.equalTo(cleanerSiteChip)
+            make.height.equalTo(34)
+            make.width.equalTo(34)
         }
+        cleanerExitChip.setContentHuggingPriority(.required, for: .horizontal)
+        cleanerExitChip.setContentCompressionResistancePriority(.required, for: .horizontal)
     }
 
     private func styleBubbleContainer(_ view: UIView) {
@@ -380,6 +395,20 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         button.layer.cornerRadius = 10
         button.contentHorizontalAlignment = .center
         button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 8, bottom: 8, right: 8)
+    }
+
+    private func configureExitChip() {
+        let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .bold)
+        cleanerExitChip.setTitle(nil, for: .normal)
+        cleanerExitChip.setImage(UIImage(systemName: "xmark", withConfiguration: config), for: .normal)
+        cleanerExitChip.tintColor = BrowserTheme.textPrimary
+        cleanerExitChip.backgroundColor = BrowserTheme.secondaryCard
+        cleanerExitChip.layer.cornerRadius = 17
+        cleanerExitChip.clipsToBounds = true
+        cleanerExitChip.contentHorizontalAlignment = .center
+        cleanerExitChip.contentVerticalAlignment = .center
+        cleanerExitChip.contentEdgeInsets = .zero
+        cleanerExitChip.accessibilityLabel = "Exit"
     }
 
     func setURLText(_ text: String) {
@@ -552,11 +581,13 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         cleanerMenuContainer.backgroundColor = isPrivateMode
             ? BrowserTheme.privateElevated
             : BrowserTheme.spaceElevatedColor(spaceColor: spaceTintColor)
-        cleanerTitleLabel.textColor = BrowserTheme.textSecondary
-        [cleanerSiteChip, cleanerPageChip, cleanerExitChip].forEach {
+        cleanerTitleButton.setTitleColor(BrowserTheme.textSecondary, for: .normal)
+        [cleanerSiteChip, cleanerPageChip].forEach {
             $0.setTitleColor(BrowserTheme.textPrimary, for: .normal)
             $0.backgroundColor = BrowserTheme.secondaryCard
         }
+        cleanerExitChip.tintColor = BrowserTheme.textPrimary
+        cleanerExitChip.backgroundColor = BrowserTheme.secondaryCard
         updateCleanerChipSelection()
         updateShieldAppearance()
         applyShortcutAccessoryTheme()
@@ -963,6 +994,10 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         delegate?.addressBarDidExitPageCleaner()
     }
 
+    @objc private func cleanerTitleTapped() {
+        delegate?.addressBarDidRequestWebEditorRules()
+    }
+
     @objc private func handleTabSwipe(_ gesture: UIPanGestureRecognizer) {
         guard !textField.isFirstResponder else {
             resetSwipeVisuals(animated: true)
@@ -1159,11 +1194,20 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     private func applyCleanerChipStyle(_ button: UIButton, selected: Bool, accent: UIColor) {
+        let isIconOnly = button === cleanerExitChip
         if selected {
-            button.setTitleColor(.white, for: .normal)
+            if isIconOnly {
+                button.tintColor = .white
+            } else {
+                button.setTitleColor(.white, for: .normal)
+            }
             button.backgroundColor = accent
         } else {
-            button.setTitleColor(BrowserTheme.textPrimary, for: .normal)
+            if isIconOnly {
+                button.tintColor = BrowserTheme.textPrimary
+            } else {
+                button.setTitleColor(BrowserTheme.textPrimary, for: .normal)
+            }
             button.backgroundColor = BrowserTheme.secondaryCard
         }
     }

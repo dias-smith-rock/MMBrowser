@@ -206,7 +206,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             cell.detailTextLabel?.text = AppSettings.clearOptionSummary
             cell.accessoryType = .disclosureIndicator
         case .tools:
-            cell.textLabel?.text = "Webpage Cleaner"
+            cell.textLabel?.text = "Web Editor"
             cell.detailTextLabel?.text = "Manage hidden element rules"
             cell.accessoryType = .disclosureIndicator
         case .youtube:
@@ -342,7 +342,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             case 2:
                 let alert = UIAlertController(
                     title: "What's New",
-                    message: "Spaces: separate logins with a switcher in the address bar, plus lock, clear, and tracker blocking. Webpage Cleaner, Reader Mode, Reading List, Downloads, and a home page you control.",
+                    message: "Spaces: separate logins with a switcher in the address bar, plus lock, clear, and tracker blocking. Web Editor, Reader Mode, Reading List, Downloads, and a home page you control.",
                     preferredStyle: .alert
                 )
                 alert.addAction(UIAlertAction(title: "OK", style: .default))

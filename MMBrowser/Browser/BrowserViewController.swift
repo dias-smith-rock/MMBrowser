@@ -2057,6 +2057,20 @@ extension BrowserViewController: AddressBarViewDelegate {
         setChromeCollapsed(false, animated: true)
     }
 
+    func addressBarDidRequestWebEditorRules() {
+        let list = PageCleanerRulesViewController(showsCloseButton: true)
+        let nav = UINavigationController(rootViewController: list)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        if #available(iOS 15.0, *) {
+            if let sheet = nav.sheetPresentationController {
+                sheet.detents = [.large()]
+                sheet.prefersGrabberVisible = true
+            }
+        }
+        present(nav, animated: true)
+    }
+
     func addressBarDidTapCompactExpand() {
         // Cleaner mode stays on the capsule until Exit.
         guard tabManager.selectedTab?.webController?.isPageCleanerActive != true else { return }
