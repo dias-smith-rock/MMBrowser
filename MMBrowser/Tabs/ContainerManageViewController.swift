@@ -58,7 +58,7 @@ final class ContainerManageViewController: UIViewController {
     }
 
     private func reload() {
-        items = tabManager.sortedContainers
+        items = tabManager.visibleContainers
         tableView.reloadData()
     }
 
@@ -211,7 +211,7 @@ extension ContainerManageViewController: UITableViewDragDelegate, UITableViewDro
             let id = ids.remove(at: source.row)
             ids.insert(id, at: dest.row)
             tabManager.reorderContainers(ids: ids)
-            items = tabManager.sortedContainers
+            items = tabManager.visibleContainers
             tableView.moveRow(at: source, to: dest)
         } completion: { [weak self] _ in
             self?.delegate?.containerManageDidChange()

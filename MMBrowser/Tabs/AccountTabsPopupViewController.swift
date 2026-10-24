@@ -248,7 +248,7 @@ final class AccountTabsPopupViewController: UIViewController {
 
     private func promptMoveGroup(for tab: BrowserTab) {
         let alert = UIAlertController(title: "Move to Space", message: tab.title, preferredStyle: .actionSheet)
-        for container in tabManager.sortedContainers {
+        for container in tabManager.visibleContainers {
             let title = container.id == tab.containerID ? "\(container.name) ✓" : container.name
             alert.addAction(UIAlertAction(title: title, style: .default, handler: { [weak self] _ in
                 self?.confirmMove(tab: tab, to: container)
@@ -328,7 +328,7 @@ extension AccountTabsPopupViewController: UICollectionViewDataSource, UICollecti
         let tab = displayedTabs[indexPath.item]
         return UIContextMenuConfiguration(identifier: tab.id.uuidString as NSString, previewProvider: nil) { [weak self] _ in
             guard let self else { return nil }
-            let moveChildren = self.tabManager.sortedContainers.map { container in
+            let moveChildren = self.tabManager.visibleContainers.map { container in
                 let checked = container.id == tab.containerID
                 return UIAction(
                     title: container.name,

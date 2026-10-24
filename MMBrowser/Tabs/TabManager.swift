@@ -42,6 +42,18 @@ final class TabManager {
         containers.sorted { $0.sortIndex < $1.sortIndex }
     }
 
+    /// Spaces visible in the current App Lock session (hides locked spaces in decoy mode).
+    var visibleContainers: [BrowserContainer] {
+        let all = sortedContainers
+        guard AppLockCoordinator.shared.hidesProtectedContent else { return all }
+        return all.filter { !SpaceLockStore.isConfigured($0.id) }
+    }
+
+    /// Whether lock-feature entry points (e.g. Lock Space) should be shown.
+    var showsLockFeatureEntries: Bool {
+        !AppLockCoordinator.shared.hidesProtectedContent
+    }
+
     var defaultContainer: BrowserContainer {
         sortedContainers.first ?? containers[0]
     }

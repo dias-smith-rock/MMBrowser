@@ -13,6 +13,11 @@ enum AppLockSetupMode {
     case createSpacePattern(containerID: UUID)
     case confirmSpacePattern(containerID: UUID, first: [Int])
     case verifySpace(containerID: UUID, action: SpaceLockVerifyAction)
+    /// Second Lock (decoy) — must differ from the primary App Lock.
+    case createSecondPIN
+    case confirmSecondPIN(first: String)
+    case createSecondPattern
+    case confirmSecondPattern(first: [Int])
 }
 
 enum AppLockVerifyAction {
@@ -23,6 +28,9 @@ enum AppLockVerifyAction {
     case disableBiometrics
     /// One-shot verify for Passwords vault entry (no settings mutation).
     case unlockVault
+    case disableSecondLock
+    case changeToSecondPIN
+    case changeToSecondPattern
 }
 
 enum SpaceLockVerifyAction {
@@ -112,17 +120,17 @@ final class AppLockSetupViewController: UIViewController {
         titleLabel.textColor = .white
 
         switch mode {
-        case .createPIN, .createSpacePIN:
+        case .createPIN, .createSpacePIN, .createSecondPIN:
             // Matches Settings → Passcode: first entry then re-enter.
             titleLabel.text = "Enter a Passcode"
             showPIN(true)
-        case .confirmPIN, .confirmSpacePIN:
+        case .confirmPIN, .confirmSpacePIN, .confirmSecondPIN:
             titleLabel.text = "Re-enter your Passcode"
             showPIN(true)
-        case .createPattern, .createSpacePattern:
+        case .createPattern, .createSpacePattern, .createSecondPattern:
             titleLabel.text = "Draw a Pattern"
             showPIN(false)
-        case .confirmPattern, .confirmSpacePattern:
+        case .confirmPattern, .confirmSpacePattern, .confirmSecondPattern:
             titleLabel.text = "Re-draw your Pattern"
             showPIN(false)
         case .verifyThen:
@@ -170,7 +178,7 @@ final class AppLockSetupViewController: UIViewController {
         case .confirmPIN(let first):
             if pin == first {
                 guard AppLockSecretStore.setPIN(pin) else {
-                    showError("Could Not Save Passcode")
+                    showError(AppLockSecretStore.verifySecondPIN(pin) ? "Must Differ From Second Lock" : "Could Not Save Passcode")
                     return
                 }
                 AppLockSettings.isEnabled = true
@@ -196,6 +204,32 @@ final class AppLockSetupViewController: UIViewController {
             } else {
                 showError("Passcodes Did Not Match")
                 mode = .createSpacePIN(containerID: containerID)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { [weak self] in
+                    self?.applyModeUI()
+                }
+            }
+        case .createSecondPIN:
+            if AppLockSecretStore.verifyPIN(pin) {
+                showError("Must Differ From App Lock")
+                pinValue = ""
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
+                    self?.dotsView.setFilledCount(0)
+                    self?.applyModeUI()
+                }
+                return
+            }
+            mode = .confirmSecondPIN(first: pin)
+            applyModeUI()
+        case .confirmSecondPIN(let first):
+            if pin == first {
+                guard AppLockSecretStore.setSecondPIN(pin) else {
+                    showError(AppLockSecretStore.verifyPIN(pin) ? "Must Differ From App Lock" : "Could Not Save Passcode")
+                    return
+                }
+                finish(success: true, toast: "Second Lock set")
+            } else {
+                showError("Passcodes Did Not Match")
+                mode = .createSecondPIN
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { [weak self] in
                     self?.applyModeUI()
                 }
@@ -235,7 +269,7 @@ final class AppLockSetupViewController: UIViewController {
         case .confirmPattern(let first):
             if indices == first {
                 guard AppLockSecretStore.setPattern(indices) else {
-                    showError("Could Not Save Pattern")
+                    showError(AppLockSecretStore.verifySecondPattern(indices) ? "Must Differ From Second Lock" : "Could Not Save Pattern")
                     return
                 }
                 AppLockSettings.isEnabled = true
@@ -263,6 +297,32 @@ final class AppLockSetupViewController: UIViewController {
                 showError("Patterns Did Not Match")
                 patternView.flashError()
                 mode = .createSpacePattern(containerID: containerID)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { [weak self] in
+                    self?.applyModeUI()
+                }
+            }
+        case .createSecondPattern:
+            if AppLockSecretStore.verifyPattern(indices) {
+                showError("Must Differ From App Lock")
+                patternView.flashError()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
+                    self?.applyModeUI()
+                }
+                return
+            }
+            mode = .confirmSecondPattern(first: indices)
+            applyModeUI()
+        case .confirmSecondPattern(let first):
+            if indices == first {
+                guard AppLockSecretStore.setSecondPattern(indices) else {
+                    showError(AppLockSecretStore.verifyPattern(indices) ? "Must Differ From App Lock" : "Could Not Save Pattern")
+                    return
+                }
+                finish(success: true, toast: "Second Lock set")
+            } else {
+                showError("Patterns Did Not Match")
+                patternView.flashError()
+                mode = .createSecondPattern
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { [weak self] in
                     self?.applyModeUI()
                 }
@@ -328,6 +388,15 @@ final class AppLockSetupViewController: UIViewController {
             finish(success: true)
         case .unlockVault:
             finish(success: true)
+        case .disableSecondLock:
+            AppLockSecretStore.clearSecondSecrets()
+            finish(success: true, toast: "Second Lock off")
+        case .changeToSecondPIN:
+            mode = .createSecondPIN
+            applyModeUI()
+        case .changeToSecondPattern:
+            mode = .createSecondPattern
+            applyModeUI()
         }
     }
 
@@ -389,12 +458,13 @@ extension AppLockSetupViewController: PasscodeKeypadViewDelegate {
         // Restore idle title if user starts typing after an error.
         let idleRestore: String?
         switch mode {
-        case .createPIN, .createSpacePIN:
+        case .createPIN, .createSpacePIN, .createSecondPIN:
             idleRestore = "Enter a Passcode"
-        case .confirmPIN, .confirmSpacePIN:
+        case .confirmPIN, .confirmSpacePIN, .confirmSecondPIN:
             idleRestore = "Re-enter your Passcode"
         case .verifyThen, .verifySpace:
-            idleRestore = (titleLabel.text == "Incorrect Passcode" || titleLabel.text == "Try Again")
+            idleRestore = (titleLabel.text == "Incorrect Passcode" || titleLabel.text == "Try Again"
+                || titleLabel.text == "Must Differ From App Lock")
                 ? "Enter Passcode" : nil
         default:
             idleRestore = nil

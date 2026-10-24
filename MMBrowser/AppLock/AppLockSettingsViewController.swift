@@ -2,8 +2,15 @@ import UIKit
 
 final class AppLockSettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
-    private enum Section: Int, CaseIterable { case status, methods, biometrics }
+    private enum Section: Int, CaseIterable { case status, methods, biometrics, secondLock }
     private enum StatusRow: Int { case master = 0, lockAfter = 1 }
+
+    /// Second Lock uses the same method type as the primary PIN/pattern.
+    private var canConfigureSecondLock: Bool {
+        AppLockSettings.isEnabled
+            && (AppLockSettings.primaryMethod == .pin || AppLockSettings.primaryMethod == .pattern)
+            && !AppLockCoordinator.shared.hidesProtectedContent
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -28,13 +35,17 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
         tableView.reloadData()
     }
 
-    func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
+    func numberOfSections(in tableView: UITableView) -> Int {
+        // Hide Second Lock section entirely in decoy session.
+        AppLockCoordinator.shared.hidesProtectedContent ? 3 : Section.allCases.count
+    }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
         case .status: return 2
         case .methods: return 2
         case .biometrics: return 1
+        case .secondLock: return canConfigureSecondLock ? 2 : 1
         }
     }
 
@@ -43,6 +54,7 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
         case .status: return "Status"
         case .methods: return "Unlock Method"
         case .biometrics: return AppLockBiometrics.biometryDisplayName
+        case .secondLock: return "Second Lock"
         }
     }
 
@@ -59,6 +71,11 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
             case .unavailable(let reason):
                 return reason
             }
+        case .secondLock:
+            if !canConfigureSecondLock {
+                return "Turn on App Lock with a 4-digit PIN or pattern first. Second Lock must use the same method but a different code."
+            }
+            return "Unlocking with Second Lock opens a decoy session: locked Spaces and lock feature entry points stay hidden. It must differ from your App Lock code."
         }
     }
 
@@ -115,6 +132,25 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
             }
             sw.addTarget(self, action: #selector(bioToggled(_:)), for: .valueChanged)
             rowCell.accessoryView = sw
+        case .secondLock:
+            if !canConfigureSecondLock {
+                rowCell.textLabel?.text = "Second Lock"
+                rowCell.detailTextLabel?.text = "Requires PIN or Pattern"
+                rowCell.selectionStyle = .none
+                rowCell.textLabel?.textColor = BrowserTheme.textSecondary
+            } else if indexPath.row == 0 {
+                rowCell.textLabel?.text = "Second Lock"
+                rowCell.selectionStyle = .none
+                let sw = UISwitch()
+                sw.isOn = AppLockSettings.isSecondLockEnabled
+                sw.addTarget(self, action: #selector(secondLockToggled(_:)), for: .valueChanged)
+                rowCell.accessoryView = sw
+            } else {
+                let method = AppLockSettings.primaryMethod
+                rowCell.textLabel?.text = method == .pattern ? "Change Pattern" : "Change Passcode"
+                rowCell.detailTextLabel?.text = AppLockSettings.isSecondLockEnabled ? "On" : "Off"
+                rowCell.accessoryType = .disclosureIndicator
+            }
         }
         return rowCell
     }
@@ -134,6 +170,40 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
             }
         case .biometrics:
             break
+        case .secondLock:
+            guard canConfigureSecondLock, indexPath.row == 1 else { return }
+            beginSecondLockChange()
+        }
+    }
+
+    @objc private func secondLockToggled(_ sw: UISwitch) {
+        if sw.isOn {
+            sw.isOn = AppLockSettings.isSecondLockEnabled
+            beginSecondLockChange()
+        } else {
+            sw.isOn = true
+            authenticateThen { [weak self] in
+                self?.pushSetup(.verifyThen(action: .disableSecondLock))
+            }
+        }
+    }
+
+    private func beginSecondLockChange() {
+        guard canConfigureSecondLock else { return }
+        let create: AppLockSetupMode = AppLockSettings.primaryMethod == .pattern
+            ? .createSecondPattern
+            : .createSecondPIN
+        if AppLockSettings.isSecondLockEnabled {
+            authenticateThen { [weak self] in
+                let action: AppLockVerifyAction = AppLockSettings.primaryMethod == .pattern
+                    ? .changeToSecondPattern
+                    : .changeToSecondPIN
+                self?.pushSetup(.verifyThen(action: action))
+            }
+        } else {
+            authenticateThen { [weak self] in
+                self?.pushSetup(create)
+            }
         }
     }
 

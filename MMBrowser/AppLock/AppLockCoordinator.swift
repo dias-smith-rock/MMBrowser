@@ -1,5 +1,12 @@
 import UIKit
 
+enum AppLockSessionMode: Equatable {
+    /// Unlocked with the primary App Lock (or biometrics). Full UI.
+    case full
+    /// Unlocked with Second Lock — hide protected spaces and lock feature entry points.
+    case decoy
+}
+
 final class AppLockCoordinator {
     static let shared = AppLockCoordinator()
 
@@ -8,7 +15,11 @@ final class AppLockCoordinator {
     private var privacyWindow: UIWindow?
     private var backgroundedAt: Date?
     private(set) var isLocked = false
+    private(set) var sessionMode: AppLockSessionMode = .full
     private var isPresentingPrompt = false
+
+    /// True while the current unlock session should hide locked spaces / lock features.
+    var hidesProtectedContent: Bool { sessionMode == .decoy }
 
     private init() {}
 
@@ -49,19 +60,27 @@ final class AppLockCoordinator {
             return
         }
         isLocked = true
+        // Session mode is chosen again on the next successful unlock.
         presentLockWindow()
     }
 
-    func unlock() {
+    func unlock(as mode: AppLockSessionMode = .full) {
+        let previous = sessionMode
+        sessionMode = mode
         isLocked = false
         dismissLockWindow()
         hidePrivacyCover()
+        if previous != mode {
+            NotificationCenter.default.post(name: .appLockSessionDidChange, object: mode)
+        } else {
+            NotificationCenter.default.post(name: .appLockSessionDidChange, object: mode)
+        }
     }
 
     func disableLockAndUnlock() {
         AppLockSecretStore.clearSecrets()
         AppLockSettings.clearAllFlags()
-        unlock()
+        unlock(as: .full)
     }
 
     /// Called when a non-NTP webpage finishes loading.
@@ -156,8 +175,8 @@ final class AppLockCoordinator {
 }
 
 extension AppLockCoordinator: AppLockViewControllerDelegate {
-    func appLockDidUnlock(_ controller: AppLockViewController) {
-        unlock()
+    func appLockDidUnlock(_ controller: AppLockViewController, mode: AppLockSessionMode) {
+        unlock(as: mode)
     }
 
     func appLockDidDisableLock(_ controller: AppLockViewController) {

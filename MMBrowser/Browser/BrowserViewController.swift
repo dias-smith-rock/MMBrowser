@@ -68,6 +68,7 @@ final class BrowserViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appLockSessionDidChange), name: .appLockSessionDidChange, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(pipProbeDumpTabs(_:)), name: PipProbe.dumpTabsNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(downloadDidFinish(_:)), name: DownloadManager.didFinishNotification, object: nil)
         NotificationCenter.default.addObserver(
@@ -282,6 +283,24 @@ final class BrowserViewController: UIViewController {
 
     @objc private func appWillEnterForeground() {
         stopStickyPipBackgroundKeepAlive()
+    }
+
+    @objc private func appLockSessionDidChange() {
+        leaveProtectedSpacesIfNeeded()
+        refreshAccountChip()
+    }
+
+    /// In a Second Lock (decoy) session, leave any locked Space so it cannot stay on screen.
+    private func leaveProtectedSpacesIfNeeded() {
+        guard AppLockCoordinator.shared.hidesProtectedContent else { return }
+        let visible = tabManager.visibleContainers
+        guard let selected = tabManager.selectedTab, !selected.isIncognito else { return }
+        if SpaceLockStore.isConfigured(selected.containerID) {
+            if let fallback = visible.first {
+                _ = tabManager.switchToAccount(fallback.id)
+                showSelectedTab()
+            }
+        }
     }
 
     /// Native timer + background task so sticky PiP can hand off to the next video after `ended`
@@ -503,7 +522,7 @@ final class BrowserViewController: UIViewController {
     }
 
     func presentDualAccountCompare(leftID: UUID? = nil, rightID: UUID? = nil) {
-        let containers = tabManager.sortedContainers
+        let containers = tabManager.visibleContainers
         guard containers.count >= 2 else {
             Toast.show("Add another space first", from: self)
             return

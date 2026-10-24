@@ -174,7 +174,7 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
     // MARK: - Pages
 
     private func spaces() -> [BrowserContainer] {
-        tabManager?.sortedContainers ?? []
+        tabManager?.visibleContainers ?? []
     }
 
     private func resolvedPreviewID() -> UUID {

@@ -2,7 +2,7 @@ import UIKit
 import SnapKit
 
 protocol AppLockViewControllerDelegate: AnyObject {
-    func appLockDidUnlock(_ controller: AppLockViewController)
+    func appLockDidUnlock(_ controller: AppLockViewController, mode: AppLockSessionMode)
     func appLockDidDisableLock(_ controller: AppLockViewController)
 }
 
@@ -152,7 +152,8 @@ final class AppLockViewController: UIViewController {
         AppLockBiometrics.authenticate(reason: "Unlock XBrowser") { [weak self] success, message in
             guard let self = self else { return }
             if success {
-                self.unlock()
+                // Biometrics always open the full (primary) session.
+                self.unlock(as: .full)
             } else if !auto, let message = message {
                 self.showError(message)
             }
@@ -186,9 +187,22 @@ final class AppLockViewController: UIViewController {
         titleLabel.text = idleTitle
     }
 
-    private func unlock() {
+    private func unlock(as mode: AppLockSessionMode) {
         restoreIdleTitle()
-        delegate?.appLockDidUnlock(self)
+        delegate?.appLockDidUnlock(self, mode: mode)
+    }
+
+    /// Resolve PIN against primary first, then Second Lock (decoy).
+    private func sessionMode(forPIN pin: String) -> AppLockSessionMode? {
+        if AppLockSecretStore.verifyPIN(pin) { return .full }
+        if AppLockSecretStore.verifySecondPIN(pin) { return .decoy }
+        return nil
+    }
+
+    private func sessionMode(forPattern indices: [Int]) -> AppLockSessionMode? {
+        if AppLockSecretStore.verifyPattern(indices) { return .full }
+        if AppLockSecretStore.verifySecondPattern(indices) { return .decoy }
+        return nil
     }
 }
 
@@ -204,8 +218,8 @@ extension AppLockViewController: PasscodeKeypadViewDelegate {
         let pin = pinValue
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             guard let self = self else { return }
-            if AppLockSecretStore.verifyPIN(pin) {
-                self.unlock()
+            if let mode = self.sessionMode(forPIN: pin) {
+                self.unlock(as: mode)
             } else {
                 self.showError("Incorrect Passcode")
                 self.pinValue = ""
@@ -229,8 +243,8 @@ extension AppLockViewController: PasscodeKeypadViewDelegate {
 
 extension AppLockViewController: PatternLockViewDelegate {
     func patternLockView(_ view: PatternLockView, didFinishPattern indices: [Int]) {
-        if AppLockSecretStore.verifyPattern(indices) {
-            unlock()
+        if let mode = sessionMode(forPattern: indices) {
+            unlock(as: mode)
         } else {
             showError("Incorrect Pattern")
             view.flashError()

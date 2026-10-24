@@ -93,13 +93,13 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
     }
 
     private func reload() {
-        items = tabManager.sortedContainers
+        items = tabManager.visibleContainers
         tableView.reloadData()
         configureSheetPresentation()
     }
 
     private var comparableSpaces: [BrowserContainer] {
-        tabManager.sortedContainers
+        tabManager.visibleContainers
     }
 
     private func rebuildActionBar() {

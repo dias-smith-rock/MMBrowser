@@ -97,6 +97,18 @@ final class TabSwitcherViewController: UIViewController {
         !showingIncognito && SpaceLockStore.requiresUnlock(focusedSpaceID)
     }
 
+    private func ensureFocusedSpaceIsVisible() {
+        let visible = tabManager.visibleContainers
+        if tabManager.container(id: focusedSpaceID) == nil {
+            focusedSpaceID = visible.first?.id ?? tabManager.resolvedLastActiveContainerID
+            return
+        }
+        guard !visible.contains(where: { $0.id == focusedSpaceID }) else { return }
+        guard let fallback = visible.first else { return }
+        focusedSpaceID = fallback.id
+        _ = tabManager.switchToAccount(fallback.id)
+    }
+
     private var gridItemCount: Int {
         if isFocusedSpaceLockedOut { return 0 }
         return showsNewTabPlaceholder ? 1 : displayedTabs.count
@@ -454,9 +466,7 @@ final class TabSwitcherViewController: UIViewController {
 
     private func reload() {
         if !showingIncognito {
-            if tabManager.container(id: focusedSpaceID) == nil {
-                focusedSpaceID = tabManager.resolvedLastActiveContainerID
-            }
+            ensureFocusedSpaceIsVisible()
         }
         applyChrome()
         applySurfaceLayout()
@@ -520,14 +530,15 @@ final class TabSwitcherViewController: UIViewController {
         }
         guard !showingIncognito else { return }
 
-        for container in tabManager.sortedContainers {
+        let visible = tabManager.visibleContainers
+        for (index, container) in visible.enumerated() {
             let selected = container.id == focusedSpaceID
             let color = tabManager.accountColor(forContainer: container.id)
             let pill = makeSpacePill(
                 title: container.name,
                 color: color,
                 selected: selected,
-                tag: tabManager.sortedContainers.firstIndex(where: { $0.id == container.id }) ?? 0,
+                tag: index,
                 containerID: container.id
             )
             pill.accessibilityIdentifier = container.id.uuidString
@@ -589,21 +600,25 @@ final class TabSwitcherViewController: UIViewController {
             guard let self, let container = self.tabManager.container(id: containerID) else { return }
             self.presentEditSpace(container)
         }
-        let lockAction: UIAction
-        if SpaceLockStore.isConfigured(containerID) {
-            lockAction = UIAction(
-                title: "Remove Space Lock",
-                image: UIImage(systemName: "lock.open")
-            ) { [weak self] _ in
-                self?.presentRemoveSpaceLock(for: containerID)
+        var children: [UIMenuElement] = [edit]
+        if tabManager.showsLockFeatureEntries {
+            let lockAction: UIAction
+            if SpaceLockStore.isConfigured(containerID) {
+                lockAction = UIAction(
+                    title: "Remove Space Lock",
+                    image: UIImage(systemName: "lock.open")
+                ) { [weak self] _ in
+                    self?.presentRemoveSpaceLock(for: containerID)
+                }
+            } else {
+                lockAction = UIAction(
+                    title: "Lock Space",
+                    image: UIImage(systemName: "lock")
+                ) { [weak self] _ in
+                    self?.presentEnableSpaceLock(for: containerID)
+                }
             }
-        } else {
-            lockAction = UIAction(
-                title: "Lock Space",
-                image: UIImage(systemName: "lock")
-            ) { [weak self] _ in
-                self?.presentEnableSpaceLock(for: containerID)
-            }
+            children.append(lockAction)
         }
         let delete = UIAction(
             title: "Delete Space and Its Tabs",
@@ -613,7 +628,8 @@ final class TabSwitcherViewController: UIViewController {
             guard let self, let container = self.tabManager.container(id: containerID) else { return }
             self.confirmDeleteSpaceAndTabs(container)
         }
-        return UIMenu(children: [edit, lockAction, delete])
+        children.append(delete)
+        return UIMenu(children: children)
     }
 
     private func rebuildLibrarySections() {
@@ -756,7 +772,7 @@ final class TabSwitcherViewController: UIViewController {
 
     private func presentAccountPicker(title: String, onPick: @escaping (BrowserContainer) -> Void) {
         let sheet = UIAlertController(title: title, message: nil, preferredStyle: .actionSheet)
-        for container in tabManager.sortedContainers {
+        for container in tabManager.visibleContainers {
             sheet.addAction(UIAlertAction(title: container.name, style: .default, handler: { _ in
                 onPick(container)
             }))
@@ -805,7 +821,7 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     @objc private func spacePillTapped(_ sender: UIButton) {
-        let containers = tabManager.sortedContainers
+        let containers = tabManager.visibleContainers
         guard containers.indices.contains(sender.tag) else { return }
         let container = containers[sender.tag]
         let previousID = focusedSpaceID
@@ -959,7 +975,7 @@ final class TabSwitcherViewController: UIViewController {
 
     private func promptMoveGroup(for tab: BrowserTab) {
         let alert = UIAlertController(title: "Move to Space", message: tab.title, preferredStyle: .actionSheet)
-        for container in tabManager.sortedContainers {
+        for container in tabManager.visibleContainers {
             let title = container.id == tab.containerID ? "\(container.name) ✓" : container.name
             alert.addAction(UIAlertAction(title: title, style: .default, handler: { [weak self] _ in
                 self?.confirmMove(tab: tab, to: container)
@@ -1060,7 +1076,7 @@ extension TabSwitcherViewController: UICollectionViewDataSource, UICollectionVie
         guard !tab.isIncognito else { return nil }
         return UIContextMenuConfiguration(identifier: tab.id.uuidString as NSString, previewProvider: nil) { [weak self] _ in
             guard let self else { return nil }
-            let moveChildren = self.tabManager.sortedContainers.map { container in
+            let moveChildren = self.tabManager.visibleContainers.map { container in
                 let checked = container.id == tab.containerID
                 return UIAction(
                     title: container.name,

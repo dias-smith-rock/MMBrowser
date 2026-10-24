@@ -68,6 +68,16 @@ enum AppLockSettings {
         set { d.set(newValue.rawValue, forKey: "applock.primary") }
     }
 
+    /// Decoy unlock method. Must differ from `primaryMethod` credentials.
+    static var secondMethod: AppLockPrimaryMethod {
+        get { AppLockPrimaryMethod(rawValue: d.string(forKey: "applock.second") ?? "") ?? .none }
+        set { d.set(newValue.rawValue, forKey: "applock.second") }
+    }
+
+    static var isSecondLockEnabled: Bool {
+        secondMethod != .none
+    }
+
     static var biometricsEnabled: Bool {
         get { d.bool(forKey: "applock.biometrics") }
         set { d.set(newValue, forKey: "applock.biometrics") }
@@ -97,6 +107,12 @@ enum AppLockSettings {
     static func clearAllFlags() {
         isEnabled = false
         primaryMethod = .none
+        secondMethod = .none
         biometricsEnabled = false
     }
+}
+
+extension Notification.Name {
+    /// Posted when the app unlocks into full or decoy (Second Lock) session.
+    static let appLockSessionDidChange = Notification.Name("mmbrowser.applock.sessionDidChange")
 }
