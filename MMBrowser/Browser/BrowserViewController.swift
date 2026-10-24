@@ -1017,6 +1017,17 @@ final class BrowserViewController: UIViewController {
     /// Switch space and show a strong, hard-to-miss identity change.
     private func switchToAccountWithFeedback(_ id: UUID, subtitle: String? = nil) {
         guard let container = tabManager.container(id: id) else { return }
+        if SpaceLockStore.requiresUnlock(id) {
+            presentSpaceUnlock(for: id) { [weak self] success in
+                guard success else { return }
+                self?.switchToAccountWithFeedback(id, subtitle: subtitle)
+            }
+            return
+        }
+        if let previous = tabManager.selectedTab.flatMap({ $0.isIncognito ? nil : $0.containerID }),
+           previous != id {
+            SpaceLockStore.revokeUnlock(previous)
+        }
         _ = tabManager.switchToAccount(id)
         showSelectedTab()
         refreshAccountChip()
@@ -1028,6 +1039,19 @@ final class BrowserViewController: UIViewController {
         presentAccountSwitchBanner(name: container.name, detail: detail, color: color)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         flashChrome(with: color)
+    }
+
+    private var spaceLockSetupBridge: SpaceLockSetupBridge?
+
+    private func presentSpaceUnlock(for containerID: UUID, completion: @escaping (Bool) -> Void) {
+        let setup = AppLockSetupViewController(mode: .verifySpace(containerID: containerID, action: .unlockSession))
+        let bridge = SpaceLockSetupBridge { [weak self] success in
+            self?.spaceLockSetupBridge = nil
+            completion(success)
+        }
+        spaceLockSetupBridge = bridge
+        setup.delegate = bridge
+        present(setup, animated: true)
     }
 
     private func presentAccountSwitchBanner(name: String, detail: String, color: UIColor) {
@@ -2139,16 +2163,27 @@ extension BrowserViewController: AccountHubViewControllerDelegate {
             hub.applySpaceChrome(spaceColor: AccountColor.color(for: container))
             return
         }
-        if tabManager.adoptContainerOnCurrentNewTab(accountID) {
-            AppAnalytics.logSpaceSwitch(spaceName: container.name, source: "hub_swipe")
-            applyPrivateChrome(false)
-            refreshAccountChip()
+        let applySwitch = { [weak self] in
+            guard let self else { return }
+            if self.tabManager.adoptContainerOnCurrentNewTab(accountID) {
+                AppAnalytics.logSpaceSwitch(spaceName: container.name, source: "hub_swipe")
+                self.applyPrivateChrome(false)
+                self.refreshAccountChip()
+                return
+            }
+            _ = self.tabManager.switchToAccount(accountID)
+            AppAnalytics.logSpaceSwitch(spaceName: container.name, source: "hub")
+            self.showSelectedTab()
+            self.refreshAccountChip()
+        }
+        if SpaceLockStore.requiresUnlock(accountID) {
+            presentSpaceUnlock(for: accountID) { success in
+                guard success else { return }
+                applySwitch()
+            }
             return
         }
-        _ = tabManager.switchToAccount(accountID)
-        AppAnalytics.logSpaceSwitch(spaceName: container.name, source: "hub")
-        showSelectedTab()
-        refreshAccountChip()
+        applySwitch()
     }
 
     private func leaveAccountHubIfNeeded(_ hub: AccountHubViewController, then: @escaping () -> Void) {

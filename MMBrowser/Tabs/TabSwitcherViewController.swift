@@ -47,6 +47,12 @@ final class TabSwitcherViewController: UIViewController {
     private var surface: Surface
     /// Space whose tabs are shown in the grid (normal mode).
     private var focusedSpaceID: UUID
+    private let spaceLockOverlay = UIControl()
+    private let spaceLockIcon = UIImageView()
+    private let spaceLockTitle = UILabel()
+    private let spaceLockSubtitle = UILabel()
+    /// Keeps the setup/unlock delegate alive while presented.
+    private var spaceLockSetupBridge: SpaceLockSetupBridge?
 
     init(tabManager: TabManager) {
         self.tabManager = tabManager
@@ -86,8 +92,14 @@ final class TabSwitcherViewController: UIViewController {
         displayedTabs.isEmpty
     }
 
+    /// Locked space that has not been unlocked in this session.
+    private var isFocusedSpaceLockedOut: Bool {
+        !showingIncognito && SpaceLockStore.requiresUnlock(focusedSpaceID)
+    }
+
     private var gridItemCount: Int {
-        showsNewTabPlaceholder ? 1 : displayedTabs.count
+        if isFocusedSpaceLockedOut { return 0 }
+        return showsNewTabPlaceholder ? 1 : displayedTabs.count
     }
 
     /// Drag reorder when the grid has real tabs.
@@ -229,8 +241,11 @@ final class TabSwitcherViewController: UIViewController {
         configureListSection(historySection, title: "History", table: historyTable, kind: .history)
 
         contentStack.addArrangedSubview(collectionView)
+        contentStack.addArrangedSubview(spaceLockOverlay)
         contentStack.addArrangedSubview(bookmarksSection)
         contentStack.addArrangedSubview(historySection)
+
+        configureSpaceLockOverlay()
 
         mainScroll.snp.makeConstraints { make in
             make.top.equalTo(topBar.snp.bottom)
@@ -243,6 +258,47 @@ final class TabSwitcherViewController: UIViewController {
         }
         collectionView.snp.makeConstraints { make in
             collectionHeightConstraint = make.height.equalTo(200).constraint
+        }
+        spaceLockOverlay.snp.makeConstraints { make in
+            make.height.equalTo(280)
+        }
+    }
+
+    private func configureSpaceLockOverlay() {
+        spaceLockOverlay.isHidden = true
+        spaceLockOverlay.backgroundColor = .clear
+        spaceLockOverlay.addTarget(self, action: #selector(spaceLockOverlayTapped), for: .touchUpInside)
+        spaceLockOverlay.accessibilityLabel = "Locked space. Double tap to unlock."
+
+        spaceLockIcon.contentMode = .scaleAspectFit
+        spaceLockIcon.tintColor = BrowserTheme.textSecondary
+        spaceLockIcon.image = UIImage(
+            systemName: "lock.fill",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 64, weight: .medium)
+        )
+
+        spaceLockTitle.text = "Space Locked"
+        spaceLockTitle.font = .systemFont(ofSize: 22, weight: .semibold)
+        spaceLockTitle.textColor = BrowserTheme.textPrimary
+        spaceLockTitle.textAlignment = .center
+
+        spaceLockSubtitle.text = "Tap to unlock"
+        spaceLockSubtitle.font = .systemFont(ofSize: 15, weight: .regular)
+        spaceLockSubtitle.textColor = BrowserTheme.textSecondary
+        spaceLockSubtitle.textAlignment = .center
+
+        let stack = UIStackView(arrangedSubviews: [spaceLockIcon, spaceLockTitle, spaceLockSubtitle])
+        stack.axis = .vertical
+        stack.alignment = .center
+        stack.spacing = 14
+        stack.isUserInteractionEnabled = false
+        spaceLockOverlay.addSubview(stack)
+        stack.snp.makeConstraints { make in
+            make.center.equalToSuperview()
+            make.leading.trailing.equalToSuperview().inset(32)
+        }
+        spaceLockIcon.snp.makeConstraints { make in
+            make.width.height.equalTo(72)
         }
     }
 
@@ -405,10 +461,15 @@ final class TabSwitcherViewController: UIViewController {
         applyChrome()
         applySurfaceLayout()
         rebuildSpacePills()
-        collectionView.dragInteractionEnabled = canReorderTabs
+        let lockedOut = isFocusedSpaceLockedOut
+        collectionView.isHidden = lockedOut
+        spaceLockOverlay.isHidden = !lockedOut
+        collectionView.dragInteractionEnabled = canReorderTabs && !lockedOut
         collectionView.reloadData()
         updateCollectionHeight()
         rebuildLibrarySections()
+        addButton.isEnabled = !lockedOut
+        addButton.alpha = lockedOut ? 0.4 : 1
     }
 
     /// Refresh tab cards after async webpage snapshots finish.
@@ -492,8 +553,16 @@ final class TabSwitcherViewController: UIViewController {
         button.menu = makeSpacePillMenu(for: containerID)
         button.showsMenuAsPrimaryAction = false
 
+        let locked = SpaceLockStore.isConfigured(containerID)
+        let displayTitle = locked ? "  \(title)  " : "  \(title)"
         button.setImage(Self.spaceDotImage(color: color), for: .normal)
-        button.setTitle("  \(title)", for: .normal)
+        button.setTitle(displayTitle, for: .normal)
+        if locked {
+            button.setImage(
+                Self.spacePillImage(dotColor: color, locked: true),
+                for: .normal
+            )
+        }
         button.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
         button.titleLabel?.lineBreakMode = .byTruncatingTail
         button.tintColor = selected ? BrowserTheme.textPrimary : BrowserTheme.textSecondary
@@ -520,6 +589,22 @@ final class TabSwitcherViewController: UIViewController {
             guard let self, let container = self.tabManager.container(id: containerID) else { return }
             self.presentEditSpace(container)
         }
+        let lockAction: UIAction
+        if SpaceLockStore.isConfigured(containerID) {
+            lockAction = UIAction(
+                title: "Remove Space Lock",
+                image: UIImage(systemName: "lock.open")
+            ) { [weak self] _ in
+                self?.presentRemoveSpaceLock(for: containerID)
+            }
+        } else {
+            lockAction = UIAction(
+                title: "Lock Space",
+                image: UIImage(systemName: "lock")
+            ) { [weak self] _ in
+                self?.presentEnableSpaceLock(for: containerID)
+            }
+        }
         let delete = UIAction(
             title: "Delete Space and Its Tabs",
             image: UIImage(systemName: "trash"),
@@ -528,12 +613,12 @@ final class TabSwitcherViewController: UIViewController {
             guard let self, let container = self.tabManager.container(id: containerID) else { return }
             self.confirmDeleteSpaceAndTabs(container)
         }
-        return UIMenu(children: [edit, delete])
+        return UIMenu(children: [edit, lockAction, delete])
     }
 
     private func rebuildLibrarySections() {
         // Library under the tab grid in Spaces mode only.
-        guard !showingIncognito else {
+        guard !showingIncognito, !isFocusedSpaceLockedOut else {
             bookmarkItems = []
             historyItems = []
             bookmarksSection.isHidden = true
@@ -561,6 +646,29 @@ final class TabSwitcherViewController: UIViewController {
         return renderer.image { _ in
             color.setFill()
             UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).fill()
+        }.withRenderingMode(.alwaysOriginal)
+    }
+
+    private static func spacePillImage(dotColor: UIColor, locked: Bool) -> UIImage {
+        guard locked else { return spaceDotImage(color: dotColor) }
+        let diameter: CGFloat = 10
+        let lockSize: CGFloat = 11
+        let gap: CGFloat = 4
+        let size = CGSize(width: diameter + gap + lockSize, height: max(diameter, lockSize))
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { _ in
+            dotColor.setFill()
+            UIBezierPath(ovalIn: CGRect(x: 0, y: (size.height - diameter) / 2, width: diameter, height: diameter)).fill()
+            let lock = UIImage(
+                systemName: "lock.fill",
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 9, weight: .semibold)
+            )?.withTintColor(BrowserTheme.textSecondary, renderingMode: .alwaysOriginal)
+            lock?.draw(in: CGRect(
+                x: diameter + gap,
+                y: (size.height - lockSize) / 2,
+                width: lockSize,
+                height: lockSize
+            ))
         }.withRenderingMode(.alwaysOriginal)
     }
 
@@ -700,9 +808,75 @@ final class TabSwitcherViewController: UIViewController {
         let containers = tabManager.sortedContainers
         guard containers.indices.contains(sender.tag) else { return }
         let container = containers[sender.tag]
+        let previousID = focusedSpaceID
+        if previousID != container.id {
+            SpaceLockStore.revokeUnlock(previousID)
+        }
         focusedSpaceID = container.id
+        if SpaceLockStore.requiresUnlock(container.id) {
+            // Preview the locked space without switching the live browsing session yet.
+            reload()
+            return
+        }
         _ = tabManager.switchToAccount(container.id)
         reload()
+    }
+
+    @objc private func spaceLockOverlayTapped() {
+        presentSpaceUnlock(for: focusedSpaceID)
+    }
+
+    private func presentEnableSpaceLock(for containerID: UUID) {
+        let sheet = UIAlertController(
+            title: "Lock Space",
+            message: "Choose how to unlock this space",
+            preferredStyle: .actionSheet
+        )
+        sheet.addAction(UIAlertAction(title: "4-Digit PIN", style: .default) { [weak self] _ in
+            self?.presentSpaceLockSetup(.createSpacePIN(containerID: containerID))
+        })
+        sheet.addAction(UIAlertAction(title: "Pattern", style: .default) { [weak self] _ in
+            self?.presentSpaceLockSetup(.createSpacePattern(containerID: containerID))
+        })
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        PlatformSupport.configurePopover(sheet, sourceView: view, sourceRect: CGRect(x: view.bounds.midX, y: 80, width: 1, height: 1))
+        present(sheet, animated: true)
+    }
+
+    private func presentRemoveSpaceLock(for containerID: UUID) {
+        presentSpaceLockSetup(.verifySpace(containerID: containerID, action: .removeLock))
+    }
+
+    private func presentSpaceUnlock(for containerID: UUID) {
+        guard SpaceLockStore.requiresUnlock(containerID) else {
+            reload()
+            return
+        }
+        presentSpaceLockSetup(.verifySpace(containerID: containerID, action: .unlockSession))
+    }
+
+    private func presentSpaceLockSetup(_ mode: AppLockSetupMode) {
+        let setup = AppLockSetupViewController(mode: mode)
+        let bridge = SpaceLockSetupBridge { [weak self] success in
+            guard let self else { return }
+            self.spaceLockSetupBridge = nil
+            guard success else { return }
+            switch mode {
+            case .createSpacePIN(let id), .createSpacePattern(let id),
+                 .confirmSpacePIN(let id, _), .confirmSpacePattern(let id, _),
+                 .verifySpace(let id, .unlockSession):
+                self.focusedSpaceID = id
+                _ = self.tabManager.switchToAccount(id)
+            case .verifySpace(let id, .removeLock):
+                self.focusedSpaceID = id
+            default:
+                break
+            }
+            self.reload()
+        }
+        spaceLockSetupBridge = bridge
+        setup.delegate = bridge
+        present(setup, animated: true)
     }
 
     @objc private func addSpaceTapped() {
@@ -741,6 +915,12 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     @objc private func doneTapped() {
+        if !showingIncognito, SpaceLockStore.requiresUnlock(focusedSpaceID) {
+            // Stay on the current unlocked browsing space; don't enter a locked one.
+            Toast.show("Unlock this space to continue", from: self)
+            presentSpaceUnlock(for: focusedSpaceID)
+            return
+        }
         let selectedIsPrivate = tabManager.selectedTab?.isIncognito ?? false
         if selectedIsPrivate != showingIncognito {
             if showingIncognito {
@@ -753,6 +933,10 @@ final class TabSwitcherViewController: UIViewController {
             } else {
                 _ = tabManager.switchToAccount(focusedSpaceID)
             }
+        } else if !showingIncognito,
+                  tabManager.selectedTab?.containerID != focusedSpaceID,
+                  !SpaceLockStore.requiresUnlock(focusedSpaceID) {
+            _ = tabManager.switchToAccount(focusedSpaceID)
         }
         delegate?.tabSwitcherDidClose()
     }

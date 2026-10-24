@@ -7,6 +7,12 @@ enum AppLockSetupMode {
     case confirmPIN(first: String)
     case confirmPattern(first: [Int])
     case verifyThen(action: AppLockVerifyAction)
+    /// Create a passcode lock for a browsing space.
+    case createSpacePIN(containerID: UUID)
+    case confirmSpacePIN(containerID: UUID, first: String)
+    case createSpacePattern(containerID: UUID)
+    case confirmSpacePattern(containerID: UUID, first: [Int])
+    case verifySpace(containerID: UUID, action: SpaceLockVerifyAction)
 }
 
 enum AppLockVerifyAction {
@@ -17,6 +23,11 @@ enum AppLockVerifyAction {
     case disableBiometrics
     /// One-shot verify for Passwords vault entry (no settings mutation).
     case unlockVault
+}
+
+enum SpaceLockVerifyAction {
+    case unlockSession
+    case removeLock
 }
 
 protocol AppLockSetupViewControllerDelegate: AnyObject {
@@ -101,17 +112,17 @@ final class AppLockSetupViewController: UIViewController {
         titleLabel.textColor = .white
 
         switch mode {
-        case .createPIN:
+        case .createPIN, .createSpacePIN:
             // Matches Settings → Passcode: first entry then re-enter.
             titleLabel.text = "Enter a Passcode"
             showPIN(true)
-        case .confirmPIN:
+        case .confirmPIN, .confirmSpacePIN:
             titleLabel.text = "Re-enter your Passcode"
             showPIN(true)
-        case .createPattern:
+        case .createPattern, .createSpacePattern:
             titleLabel.text = "Draw a Pattern"
             showPIN(false)
-        case .confirmPattern:
+        case .confirmPattern, .confirmSpacePattern:
             titleLabel.text = "Re-draw your Pattern"
             showPIN(false)
         case .verifyThen:
@@ -124,6 +135,20 @@ final class AppLockSetupViewController: UIViewController {
                 showPIN(false)
             case .none:
                 titleLabel.text = "Verify"
+                showPIN(true)
+                dotsView.isHidden = true
+                keypad.isHidden = true
+            }
+        case .verifySpace(let containerID, _):
+            switch SpaceLockStore.method(for: containerID) {
+            case .pin:
+                titleLabel.text = "Enter Passcode"
+                showPIN(true)
+            case .pattern:
+                titleLabel.text = "Draw Pattern"
+                showPIN(false)
+            case .none:
+                titleLabel.text = "Unlock Space"
                 showPIN(true)
                 dotsView.isHidden = true
                 keypad.isHidden = true
@@ -158,9 +183,37 @@ final class AppLockSetupViewController: UIViewController {
                     self?.applyModeUI()
                 }
             }
+        case .createSpacePIN(let containerID):
+            mode = .confirmSpacePIN(containerID: containerID, first: pin)
+            applyModeUI()
+        case .confirmSpacePIN(let containerID, let first):
+            if pin == first {
+                guard SpaceLockStore.setPIN(pin, for: containerID) else {
+                    showError("Could Not Save Passcode")
+                    return
+                }
+                finish(success: true, toast: "Space locked")
+            } else {
+                showError("Passcodes Did Not Match")
+                mode = .createSpacePIN(containerID: containerID)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { [weak self] in
+                    self?.applyModeUI()
+                }
+            }
         case .verifyThen(let action):
             if AppLockSecretStore.verifyPIN(pin) {
                 perform(action)
+            } else {
+                showError("Incorrect Passcode")
+                pinValue = ""
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { [weak self] in
+                    self?.dotsView.setFilledCount(0)
+                    self?.titleLabel.text = "Try Again"
+                }
+            }
+        case .verifySpace(let containerID, let action):
+            if SpaceLockStore.verifyPIN(pin, for: containerID) {
+                performSpace(action, containerID: containerID)
             } else {
                 showError("Incorrect Passcode")
                 pinValue = ""
@@ -196,6 +249,24 @@ final class AppLockSetupViewController: UIViewController {
                     self?.applyModeUI()
                 }
             }
+        case .createSpacePattern(let containerID):
+            mode = .confirmSpacePattern(containerID: containerID, first: indices)
+            applyModeUI()
+        case .confirmSpacePattern(let containerID, let first):
+            if indices == first {
+                guard SpaceLockStore.setPattern(indices, for: containerID) else {
+                    showError("Could Not Save Pattern")
+                    return
+                }
+                finish(success: true, toast: "Space locked")
+            } else {
+                showError("Patterns Did Not Match")
+                patternView.flashError()
+                mode = .createSpacePattern(containerID: containerID)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { [weak self] in
+                    self?.applyModeUI()
+                }
+            }
         case .verifyThen(let action):
             if AppLockSecretStore.verifyPattern(indices) {
                 perform(action)
@@ -206,8 +277,29 @@ final class AppLockSetupViewController: UIViewController {
                     self?.titleLabel.text = "Try Again"
                 }
             }
+        case .verifySpace(let containerID, let action):
+            if SpaceLockStore.verifyPattern(indices, for: containerID) {
+                performSpace(action, containerID: containerID)
+            } else {
+                showError("Incorrect Pattern")
+                patternView.flashError()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { [weak self] in
+                    self?.titleLabel.text = "Try Again"
+                }
+            }
         default:
             break
+        }
+    }
+
+    private func performSpace(_ action: SpaceLockVerifyAction, containerID: UUID) {
+        switch action {
+        case .unlockSession:
+            SpaceLockStore.markUnlocked(containerID)
+            finish(success: true)
+        case .removeLock:
+            SpaceLockStore.removeLock(for: containerID)
+            finish(success: true, toast: "Space unlocked")
         }
     }
 
@@ -295,15 +387,20 @@ extension AppLockSetupViewController: PasscodeKeypadViewDelegate {
     func passcodeKeypad(_ view: PasscodeKeypadView, didTapDigit digit: String) {
         guard pinValue.count < 4 else { return }
         // Restore idle title if user starts typing after an error.
+        let idleRestore: String?
         switch mode {
-        case .createPIN where titleLabel.text != "Enter a Passcode":
-            titleLabel.text = "Enter a Passcode"
-        case .confirmPIN where titleLabel.text != "Re-enter your Passcode":
-            titleLabel.text = "Re-enter your Passcode"
-        case .verifyThen where titleLabel.text == "Incorrect Passcode" || titleLabel.text == "Try Again":
-            titleLabel.text = "Enter Passcode"
+        case .createPIN, .createSpacePIN:
+            idleRestore = "Enter a Passcode"
+        case .confirmPIN, .confirmSpacePIN:
+            idleRestore = "Re-enter your Passcode"
+        case .verifyThen, .verifySpace:
+            idleRestore = (titleLabel.text == "Incorrect Passcode" || titleLabel.text == "Try Again")
+                ? "Enter Passcode" : nil
         default:
-            break
+            idleRestore = nil
+        }
+        if let idleRestore, titleLabel.text != idleRestore {
+            titleLabel.text = idleRestore
         }
 
         pinValue += digit

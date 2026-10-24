@@ -98,6 +98,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneDidEnterBackground(_ scene: UIScene) {
         AppLockCoordinator.shared.applicationDidEnterBackground()
         PasswordVaultGate.invalidate()
+        SpaceLockStore.revokeAllUnlocks()
         // Persist tabs/containers before any exit cleanup so force-quit after
         // backgrounding still has a restore point when "close tabs on exit" is off.
         if let browser = window?.rootViewController as? BrowserViewController {

@@ -53,6 +53,8 @@
 		A11F1BEBA5E1000000000011 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A11F1BEBA5E1000000000012 /* GoogleService-Info.plist */; };
 		A1B2C3D4E5F6010101010101 /* AppLockSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020201 /* AppLockSettings.swift */; };
 		A1B2C3D4E5F6010101010102 /* AppLockSecretStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020202 /* AppLockSecretStore.swift */; };
+		C1A2B3C4D5E6010203040502 /* SpaceLockStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6010203040501 /* SpaceLockStore.swift */; };
+		C1A2B3C4D5E6010203040504 /* SpaceLockSetupBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6010203040503 /* SpaceLockSetupBridge.swift */; };
 		A1B2C3D4E5F6010101010103 /* AppLockBiometrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020203 /* AppLockBiometrics.swift */; };
 		A1B2C3D4E5F6010101010104 /* AppLockCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020204 /* AppLockCoordinator.swift */; };
 		A1B2C3D4E5F6010101010105 /* AppLockViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020205 /* AppLockViewController.swift */; };
@@ -235,6 +237,8 @@
 		A11F1BEBA5E1000000000012 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020201 /* AppLockSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockSettings.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020202 /* AppLockSecretStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockSecretStore.swift; sourceTree = "<group>"; };
+		C1A2B3C4D5E6010203040501 /* SpaceLockStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLockStore.swift; sourceTree = "<group>"; };
+		C1A2B3C4D5E6010203040503 /* SpaceLockSetupBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLockSetupBridge.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020203 /* AppLockBiometrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockBiometrics.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020204 /* AppLockCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockCoordinator.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020205 /* AppLockViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockViewController.swift; sourceTree = "<group>"; };
@@ -543,6 +547,8 @@
 			children = (
 				A1B2C3D4E5F6020202020201 /* AppLockSettings.swift */,
 				A1B2C3D4E5F6020202020202 /* AppLockSecretStore.swift */,
+				C1A2B3C4D5E6010203040501 /* SpaceLockStore.swift */,
+				C1A2B3C4D5E6010203040503 /* SpaceLockSetupBridge.swift */,
 				A1B2C3D4E5F6020202020203 /* AppLockBiometrics.swift */,
 				A1B2C3D4E5F6020202020204 /* AppLockCoordinator.swift */,
 				A1B2C3D4E5F6020202020205 /* AppLockViewController.swift */,
@@ -1012,6 +1018,8 @@
 				3E002237DEF54CE88D630EE4 /* ViewController.swift in Sources */,
 				A1B2C3D4E5F6010101010101 /* AppLockSettings.swift in Sources */,
 				A1B2C3D4E5F6010101010102 /* AppLockSecretStore.swift in Sources */,
+				C1A2B3C4D5E6010203040502 /* SpaceLockStore.swift in Sources */,
+				C1A2B3C4D5E6010203040504 /* SpaceLockSetupBridge.swift in Sources */,
 				A1B2C3D4E5F6010101010103 /* AppLockBiometrics.swift in Sources */,
 				A1B2C3D4E5F6010101010104 /* AppLockCoordinator.swift in Sources */,
 				A1B2C3D4E5F6010101010105 /* AppLockViewController.swift in Sources */,

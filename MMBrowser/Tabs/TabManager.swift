@@ -535,6 +535,7 @@ final class TabManager {
         }
         TabSessionStore.removeIfOrphaned(sessionID: removed.sessionID, containers: containers)
         purgeContainerLibraryData(containerID: removed.id)
+        SpaceLockStore.removeLock(for: removed.id)
         notifyUpdated()
         return true
     }
