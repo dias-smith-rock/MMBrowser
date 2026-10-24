@@ -1892,7 +1892,12 @@ extension BrowserViewController: AddressBarViewDelegate {
     }
 
     func addressBarDidEndEditing() {
-        addressSuggestions.hide()
+        // Delay hide so a tap on a suggestion can finish (resignFirstResponder runs first).
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if self.addressBar.textField.isFirstResponder { return }
+            self.addressSuggestions.hide()
+        }
     }
 
     func addressBarTextDidChange(_ text: String) {
@@ -1917,8 +1922,9 @@ extension BrowserViewController: AddressBarViewDelegate {
             containerID: tab.containerID
         )
         addressSuggestions.show(suggestions)
-        view.bringSubviewToFront(addressSuggestions)
+        // Keep suggestions above chrome so row taps are not stolen by the bottom bar.
         view.bringSubviewToFront(chromeHost)
+        view.bringSubviewToFront(addressSuggestions)
     }
 
     func addressBarDidTapReload() {
@@ -2131,7 +2137,8 @@ extension BrowserViewController: AddressBarViewDelegate {
 
 extension BrowserViewController: AddressBarSuggestionsViewDelegate {
     func addressBarSuggestions(_ view: AddressBarSuggestionsView, didSelect item: HistoryItem) {
-        guard let url = item.url else { return }
+        let url = item.navigationURL
+            ?? URLInputResolver.resolve(item.urlString)
         addressSuggestions.hide()
         addressBar.textField.resignFirstResponder()
         setChromeCollapsed(false, animated: true)

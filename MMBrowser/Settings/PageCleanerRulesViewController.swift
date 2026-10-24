@@ -184,7 +184,7 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
 
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         if sections.isEmpty {
-            return "Rules you create with Delete appear here. Swipe to delete one, or tap Select for batch delete."
+            return "Delete and Edit actions appear here and reapply when you reload the page. Swipe to delete one, or tap Select for batch delete."
         }
         return nil
     }
@@ -208,7 +208,7 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
             cell.textLabel?.numberOfLines = 0
             cell.textLabel?.text = "No rules yet"
             cell.detailTextLabel?.numberOfLines = 0
-            cell.detailTextLabel?.text = "Use Web Editor → This site / This page, then Delete an element"
+            cell.detailTextLabel?.text = "Use Web Editor → This site / This page, then Delete or Edit an element"
             return cell
         }
 
@@ -339,10 +339,21 @@ private final class PageCleanerRuleCell: UITableViewCell {
         placeholderIcon.tintColor = BrowserTheme.textSecondary
 
         titleLabel.text = rule.label
+        let scope: String
         if let urlString = rule.urlString {
-            detailLabel.text = "This page · \(urlString)"
+            scope = "This page · \(urlString)"
         } else {
-            detailLabel.text = "Entire site"
+            scope = "Entire site"
+        }
+        switch rule.action {
+        case .hide:
+            detailLabel.text = "Hide · \(scope)"
+            placeholderIcon.image = UIImage(systemName: "eye.slash")
+        case .editText:
+            let text = rule.replacementText ?? ""
+            let preview = text.isEmpty ? "(empty)" : text
+            detailLabel.text = "Edit · \(preview)\n\(scope)"
+            placeholderIcon.image = UIImage(systemName: "pencil")
         }
 
         if let image = rule.previewImage {

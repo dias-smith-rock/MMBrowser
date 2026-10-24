@@ -1,6 +1,11 @@
 import Foundation
 import UIKit
 
+enum PageCleanerAction: String, Codable, Equatable {
+    case hide
+    case editText
+}
+
 struct PageCleanerRule: Codable, Equatable {
     let id: UUID
     var host: String
@@ -11,6 +16,10 @@ struct PageCleanerRule: Codable, Equatable {
     var createdAt: Date
     /// JPEG filename under `PageCleanerStore.previewsDirectory`, if captured.
     var previewFileName: String?
+    /// Default `.hide` for rules saved before edit-text support.
+    var action: PageCleanerAction
+    /// Replacement string when `action == .editText`.
+    var replacementText: String?
 
     var isURLScoped: Bool { urlString != nil }
 
@@ -18,6 +27,45 @@ struct PageCleanerRule: Codable, Equatable {
         guard let previewFileName else { return nil }
         let url = PageCleanerStore.previewsDirectory.appendingPathComponent(previewFileName)
         return UIImage(contentsOfFile: url.path)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, host, urlString, selector, label, createdAt, previewFileName, action, replacementText
+    }
+
+    init(
+        id: UUID = UUID(),
+        host: String,
+        urlString: String?,
+        selector: String,
+        label: String,
+        createdAt: Date = Date(),
+        previewFileName: String? = nil,
+        action: PageCleanerAction = .hide,
+        replacementText: String? = nil
+    ) {
+        self.id = id
+        self.host = host
+        self.urlString = urlString
+        self.selector = selector
+        self.label = label
+        self.createdAt = createdAt
+        self.previewFileName = previewFileName
+        self.action = action
+        self.replacementText = replacementText
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        host = try c.decode(String.self, forKey: .host)
+        urlString = try c.decodeIfPresent(String.self, forKey: .urlString)
+        selector = try c.decode(String.self, forKey: .selector)
+        label = try c.decode(String.self, forKey: .label)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        previewFileName = try c.decodeIfPresent(String.self, forKey: .previewFileName)
+        action = try c.decodeIfPresent(PageCleanerAction.self, forKey: .action) ?? .hide
+        replacementText = try c.decodeIfPresent(String.self, forKey: .replacementText)
     }
 }
 
@@ -73,18 +121,31 @@ final class PageCleanerStore {
         urlString: String?,
         selector: String,
         label: String,
+        action: PageCleanerAction = .hide,
+        replacementText: String? = nil,
         previewImage: UIImage? = nil
     ) -> PageCleanerRule? {
         let normalizedHost = host.lowercased()
         let trimmedSelector = selector.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedHost.isEmpty, !trimmedSelector.isEmpty else { return nil }
 
-        if items.contains(where: {
+        if let index = items.firstIndex(where: {
             $0.host.lowercased() == normalizedHost
                 && $0.urlString == urlString
                 && $0.selector == trimmedSelector
+                && $0.action == action
         }) {
-            return nil
+            // Hide rules stay unique; text edits update the stored replacement.
+            if action == .hide {
+                return nil
+            }
+            items[index].replacementText = replacementText
+            items[index].label = label.isEmpty ? trimmedSelector : label
+            items[index].createdAt = Date()
+            let updated = items.remove(at: index)
+            items.insert(updated, at: 0)
+            save()
+            return items[0]
         }
 
         let id = UUID()
@@ -96,7 +157,9 @@ final class PageCleanerStore {
             selector: trimmedSelector,
             label: label.isEmpty ? trimmedSelector : label,
             createdAt: Date(),
-            previewFileName: previewFileName
+            previewFileName: previewFileName,
+            action: action,
+            replacementText: replacementText
         )
         items.insert(rule, at: 0)
         save()

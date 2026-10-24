@@ -667,7 +667,37 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
             guard let self, let webView = self.webView else { return }
             let next = alert.textFields?.first?.text ?? ""
             PageCleanerManager.setText(next, selector: selector, on: webView)
-            Toast.show("Text updated", from: self)
+
+            if self.isIncognito {
+                Toast.show("Edited for this session", from: self)
+                return
+            }
+
+            let host = webView.url?.host?.lowercased() ?? ""
+            guard !host.isEmpty else {
+                Toast.show("Text updated", from: self)
+                return
+            }
+            let urlString: String?
+            if self.cleanerURLOnly, let url = webView.url {
+                urlString = PageCleanerStore.canonicalURLString(url)
+            } else {
+                urlString = nil
+            }
+            let display = next.trimmingCharacters(in: .whitespacesAndNewlines)
+            let ruleLabel = display.isEmpty ? label : display
+            if PageCleanerStore.shared.add(
+                host: host,
+                urlString: urlString,
+                selector: selector,
+                label: ruleLabel,
+                action: .editText,
+                replacementText: next
+            ) != nil {
+                Toast.show(urlString == nil ? "Saved on this site" : "Saved on this page", from: self)
+            } else {
+                Toast.show("Text updated", from: self)
+            }
         })
         present(alert, animated: true)
     }

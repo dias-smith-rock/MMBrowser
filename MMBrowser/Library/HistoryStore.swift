@@ -7,7 +7,23 @@ struct HistoryItem: Codable, Equatable {
     var urlString: String
     var date: Date
 
-    var url: URL? { URL(string: urlString) }
+    var url: URL? {
+        if let u = URL(string: urlString) { return u }
+        // Fallback for partially-encoded history strings.
+        if let encoded = urlString.addingPercentEncoding(withAllowedCharacters: .urlFragmentAllowed),
+           let u = URL(string: encoded) {
+            return u
+        }
+        return nil
+    }
+
+    /// Prefer a navigable http(s) URL for address-bar suggestion taps.
+    var navigationURL: URL? {
+        guard let url else { return nil }
+        let scheme = url.scheme?.lowercased() ?? ""
+        if scheme == "http" || scheme == "https" { return url }
+        return nil
+    }
 
     enum CodingKeys: String, CodingKey {
         case id, containerID, title, urlString, date
@@ -76,13 +92,27 @@ final class HistoryStore {
         scheduleSave()
     }
 
+    /// Normalize host for suggestion dedupe (`www.youtube.com` / `m.youtube.com` → `youtube.com`).
+    static func suggestionDedupeHost(for urlString: String) -> String {
+        guard let host = URL(string: urlString)?.host?.lowercased(), !host.isEmpty else {
+            return urlString.lowercased()
+        }
+        var h = host
+        for prefix in ["www.", "m.", "mobile.", "music."] where h.hasPrefix(prefix) {
+            h = String(h.dropFirst(prefix.count))
+            break
+        }
+        return h
+    }
+
     /// Unique recent visits for address-bar suggestions (newest first, max `autocompletePoolLimit`).
+    /// Dedupes by registrable-ish host so many YouTube paths only yield one row.
     func recentUniqueVisits(containerID: UUID, limit: Int = HistoryStore.autocompletePoolLimit) -> [HistoryItem] {
         var seen = Set<String>()
         var result: [HistoryItem] = []
         let capped = max(1, min(limit, Self.autocompletePoolLimit))
         for item in items where item.containerID == containerID {
-            let key = item.urlString
+            let key = Self.suggestionDedupeHost(for: item.urlString)
             guard !seen.contains(key) else { continue }
             seen.insert(key)
             result.append(item)
@@ -107,6 +137,7 @@ final class HistoryStore {
             if item.title.lowercased().contains(q) { return true }
             if item.urlString.lowercased().contains(q) { return true }
             if let host = item.url?.host?.lowercased(), host.contains(q) { return true }
+            if Self.suggestionDedupeHost(for: item.urlString).contains(q) { return true }
             return false
         }.prefix(cappedDisplay))
     }

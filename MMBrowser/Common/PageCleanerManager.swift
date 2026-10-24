@@ -9,46 +9,122 @@ enum PageCleanerManager {
         "{display:none!important;visibility:hidden!important;"
         + "pointer-events:none!important;}"
 
-    /// Inject / refresh hide CSS for rules matching the current URL.
+    /// Inject / refresh hide CSS + text edits for rules matching the current URL.
     static func apply(to webView: WKWebView, url: URL?) {
         guard let url = url, url.host != nil else { return }
-        let selectors = PageCleanerStore.shared.rules(matching: url).map(\.selector)
+        let rules = PageCleanerStore.shared.rules(matching: url)
+        let hideSelectors = rules.filter { $0.action == .hide }.map(\.selector)
         let css: String
-        if selectors.isEmpty {
+        if hideSelectors.isEmpty {
             css = ""
         } else {
-            let unique = Array(NSOrderedSet(array: selectors)) as? [String] ?? selectors
+            let unique = Array(NSOrderedSet(array: hideSelectors)) as? [String] ?? hideSelectors
             css = unique.map { "\($0)\(hideCSSSuffix)" }.joined()
         }
+
+        let editsJSON: String = {
+            let pairs: [[String: String]] = rules.compactMap { rule in
+                guard rule.action == .editText, let text = rule.replacementText else { return nil }
+                return ["selector": rule.selector, "text": text]
+            }
+            guard let data = try? JSONSerialization.data(withJSONObject: pairs, options: []),
+                  let s = String(data: data, encoding: .utf8) else { return "[]" }
+            return s
+        }()
+
         let js = """
         (function() {
           var id = '\(styleID)';
           var css = \(jsonString(css));
+          var edits = \(editsJSON);
           var s = document.getElementById(id);
           if (!css) {
             if (s && s.parentNode) s.parentNode.removeChild(s);
-            return;
-          }
-          if (!s) {
-            s = document.createElement('style');
-            s.id = id;
-            (document.documentElement || document.head).appendChild(s);
-          }
-          s.textContent = css;
-          // Re-hide matching nodes that sites force visible again.
-          try {
-            css.split('}').forEach(function(chunk) {
-              var idx = chunk.indexOf('{');
-              if (idx <= 0) return;
-              var sel = chunk.slice(0, idx).trim();
-              if (!sel) return;
-              document.querySelectorAll(sel).forEach(function(el) {
-                el.style.setProperty('display', 'none', 'important');
-                el.setAttribute('hidden', '');
-                el.setAttribute('data-mm-cleaned', '1');
+          } else {
+            if (!s) {
+              s = document.createElement('style');
+              s.id = id;
+              (document.documentElement || document.head).appendChild(s);
+            }
+            s.textContent = css;
+            // Re-hide matching nodes that sites force visible again.
+            try {
+              css.split('}').forEach(function(chunk) {
+                var idx = chunk.indexOf('{');
+                if (idx <= 0) return;
+                var sel = chunk.slice(0, idx).trim();
+                if (!sel) return;
+                document.querySelectorAll(sel).forEach(function(el) {
+                  el.style.setProperty('display', 'none', 'important');
+                  el.setAttribute('hidden', '');
+                  el.setAttribute('data-mm-cleaned', '1');
+                });
               });
+            } catch (e) {}
+          }
+
+          function applyText(el, next) {
+            if (!el || el.nodeType !== 1) return;
+            var tag = (el.tagName || '').toLowerCase();
+            if (tag === 'input' || tag === 'textarea') {
+              el.value = next;
+              return;
+            }
+            var textNodes = [];
+            for (var i = 0; i < el.childNodes.length; i++) {
+              var n = el.childNodes[i];
+              if (n.nodeType === 3 && String(n.textContent || '').replace(/\\s+/g, '').length) {
+                textNodes.push(n);
+              }
+            }
+            if (textNodes.length > 0) {
+              textNodes[0].textContent = next;
+              for (var j = 1; j < textNodes.length; j++) textNodes[j].textContent = '';
+              return;
+            }
+            if (!el.children || el.children.length === 0) {
+              el.textContent = next;
+              return;
+            }
+            var leaf = null;
+            try {
+              var nodes = el.querySelectorAll('*');
+              for (var k = 0; k < nodes.length; k++) {
+                var c = nodes[k];
+                if (c.children && c.children.length === 0) {
+                  var t = (c.innerText || c.textContent || '').replace(/\\s+/g, ' ').trim();
+                  if (t) { leaf = c; break; }
+                }
+              }
+            } catch (e2) {}
+            if (leaf) leaf.textContent = next;
+            else el.innerText = next;
+          }
+
+          function applyEdits() {
+            if (!edits || !edits.length) return;
+            if (!window.__mmPageCleanerTextEdits) window.__mmPageCleanerTextEdits = {};
+            edits.forEach(function(item) {
+              if (!item || !item.selector) return;
+              try {
+                var el = document.querySelector(item.selector);
+                if (!el) return;
+                if (window.__mmPageCleanerTextEdits[item.selector] === undefined) {
+                  var tag = (el.tagName || '').toLowerCase();
+                  var orig = (tag === 'input' || tag === 'textarea')
+                    ? String(el.value || '')
+                    : String(el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim();
+                  window.__mmPageCleanerTextEdits[item.selector] = orig;
+                }
+                applyText(el, item.text == null ? '' : String(item.text));
+                el.setAttribute('data-mm-edited', '1');
+              } catch (e3) {}
             });
-          } catch (e) {}
+          }
+          applyEdits();
+          setTimeout(applyEdits, 50);
+          setTimeout(applyEdits, 300);
+          setTimeout(applyEdits, 1000);
         })();
         """
         webView.evaluateJavaScript(js, completionHandler: nil)

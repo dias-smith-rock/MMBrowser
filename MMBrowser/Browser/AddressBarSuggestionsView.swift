@@ -90,7 +90,15 @@ final class AddressBarSuggestionsView: UIView, UITableViewDataSource, UITableVie
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        delegate?.addressBarSuggestions(self, didSelect: items[indexPath.row])
+        guard items.indices.contains(indexPath.row) else { return }
+        let item = items[indexPath.row]
+        // Keep the item even if end-editing clears the list mid-tap.
+        delegate?.addressBarSuggestions(self, didSelect: item)
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard !isHidden, alpha > 0.01, isUserInteractionEnabled else { return nil }
+        return super.hitTest(point, with: event)
     }
 }
 

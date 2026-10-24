@@ -836,17 +836,23 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         let width = LayoutSupport.windowWidth(relativeTo: self)
         let bar = AddressKeyboardAccessoryView(frame: CGRect(x: 0, y: 0, width: width, height: 46))
         bar.autoresizingMask = .flexibleWidth
+        bar.isUserInteractionEnabled = true
 
         let scroll = UIScrollView()
         scroll.showsHorizontalScrollIndicator = false
         scroll.alwaysBounceHorizontal = true
+        // Accessory chips must receive taps immediately; default delay eats short taps.
+        scroll.delaysContentTouches = false
+        scroll.canCancelContentTouches = false
         scroll.contentInset = UIEdgeInsets(top: 0, left: 10, bottom: 0, right: 8)
+        scroll.isUserInteractionEnabled = true
         bar.addSubview(scroll)
 
         let stack = UIStackView()
         stack.axis = .horizontal
         stack.spacing = 8
         stack.alignment = .center
+        stack.distribution = .fill
         scroll.addSubview(stack)
 
         shortcutButtons.removeAll()
@@ -885,9 +891,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.trailing.equalTo(keyboardDismissButton.snp.leading).offset(-4)
         }
         stack.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview()
-            make.centerY.equalToSuperview()
-            make.height.equalToSuperview().offset(-10)
+            make.edges.equalTo(scroll.contentLayoutGuide).inset(UIEdgeInsets(top: 5, left: 0, bottom: 5, right: 0))
+            make.height.equalTo(scroll.frameLayoutGuide).offset(-10)
         }
 
         shortcutAccessoryView = bar
@@ -907,10 +912,22 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     @objc private func shortcutTapped(_ sender: UIButton) {
-        guard let token = sender.title(for: .normal), !token.isEmpty else { return }
-        // Replaces the current selection (e.g. full URL after focus) or inserts at the caret.
-        textField.insertText(token)
+        guard let token = sender.currentTitle ?? sender.title(for: .normal), !token.isEmpty else { return }
+        if !textField.isFirstResponder {
+            suppressNextEditingURLExpand = true
+            textField.becomeFirstResponder()
+        }
+        // Prefer UITextInput.replace so a full-URL selection is swapped for the token.
+        let range = textField.selectedTextRange
+            ?? textField.textRange(from: textField.endOfDocument, to: textField.endOfDocument)
+        if let range {
+            textField.replace(range, withText: token)
+        } else {
+            textField.text = (textField.text ?? "") + token
+        }
+        textField.sendActions(for: .editingChanged)
         updateClearButtonVisibility()
+        delegate?.addressBarTextDidChange(textField.text ?? "")
     }
 
     @objc private func dismissKeyboardTapped() {
@@ -1314,6 +1331,19 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 private final class AddressKeyboardAccessoryView: UIView {
     override var intrinsicContentSize: CGSize {
         CGSize(width: UIView.noIntrinsicMetric, height: 46)
+    }
+
+    /// Let chip buttons win over the horizontal scroll view on short taps.
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard isUserInteractionEnabled, !isHidden, alpha > 0.01 else { return nil }
+        guard self.point(inside: point, with: event) else { return nil }
+        for subview in subviews.reversed() {
+            let local = convert(point, to: subview)
+            if let hit = subview.hitTest(local, with: event) {
+                return hit
+            }
+        }
+        return self
     }
 }
 
