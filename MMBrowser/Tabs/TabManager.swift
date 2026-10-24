@@ -659,14 +659,21 @@ final class TabManager {
     }
 
     /// Soft caps for live `WKWebView`s (LRU). Keeps URL + navigation history so tabs restore on next open.
-    static let maxLiveWebViewsPerAccount = 5
-    static let maxLiveWebViewsGlobal = 8
+    /// Per-Space / mode cap comes from Settings → Clear Option → Active Background Tabs.
+    static var maxLiveWebViewsPerAccount: Int { AppSettings.activeBackgroundTabLimit }
+    /// Slightly higher ceiling across Spaces so switching accounts does not thrash immediately.
+    static var maxLiveWebViewsGlobal: Int {
+        let limit = AppSettings.activeBackgroundTabLimit
+        return min(8, max(limit, limit * 2))
+    }
 
     /// Drop least-recently-used WebViews over the account / global caps.
     /// - Parameter protecting: Tab that must stay loaded (usually the one about to be shown).
     func evictExcessWebViews(protecting protected: BrowserTab? = nil) {
         let keep = protected ?? selectedTab
         let keepID = keep?.id
+        let perAccountCap = Self.maxLiveWebViewsPerAccount
+        let globalCap = Self.maxLiveWebViewsGlobal
 
         func isProtected(_ tab: BrowserTab) -> Bool {
             if tab.id == keepID { return true }
@@ -700,7 +707,7 @@ final class TabManager {
                 if keep.isIncognito { return true }
                 return tab.containerID == keep.containerID
             }
-            let accountExcess = accountLive.count - Self.maxLiveWebViewsPerAccount
+            let accountExcess = accountLive.count - perAccountCap
             if accountExcess > 0 {
                 let victims = accountLive
                     .filter { !isProtected($0) }
@@ -713,7 +720,7 @@ final class TabManager {
 
         // 2) Global cap across all accounts / modes.
         let globalLive = tabs.filter { $0.webController != nil }
-        let globalExcess = globalLive.count - Self.maxLiveWebViewsGlobal
+        let globalExcess = globalLive.count - globalCap
         if globalExcess > 0 {
             let victims = globalLive
                 .filter { !isProtected($0) }

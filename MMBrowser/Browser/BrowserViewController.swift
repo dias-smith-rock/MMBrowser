@@ -409,6 +409,8 @@ final class BrowserViewController: UIViewController {
         if !AppSettings.showTabsPreviewImages {
             tabManager.clearAllSnapshots()
         }
+        // Apply a newly lowered Active Background Tabs limit immediately.
+        tabManager.evictExcessWebViews(protecting: tabManager.selectedTab)
         // Keep persisting while browsing so crash recovery still works when
         // "Close All Tabs on Exit" is enabled; that option only clears on leave.
         tabManager.persistSessionIfNeeded()

@@ -253,6 +253,23 @@ enum AppSettings {
         get { d.object(forKey: "clear.showTabPreviews") == nil ? true : d.bool(forKey: "clear.showTabPreviews") }
         set { setClearOption(newValue, forKey: "clear.showTabPreviews") }
     }
+
+    /// How many recently used webpage tabs keep a live `WKWebView` (LRU). Default 3.
+    /// Older tabs stay in the switcher but unload until reopened. Range 1…8.
+    static var activeBackgroundTabLimit: Int {
+        get {
+            guard d.object(forKey: "tabs.activeBackgroundLimit") != nil else { return 3 }
+            return min(max(d.integer(forKey: "tabs.activeBackgroundLimit"), 1), 8)
+        }
+        set {
+            let capped = min(max(newValue, 1), 8)
+            d.set(capped, forKey: "tabs.activeBackgroundLimit")
+            d.synchronize()
+            NotificationCenter.default.post(name: .clearOptionSettingsChanged, object: nil)
+        }
+    }
+
+    static let activeBackgroundTabLimitOptions: [Int] = Array(1...8)
 }
 
 extension Notification.Name {

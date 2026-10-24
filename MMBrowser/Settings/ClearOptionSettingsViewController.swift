@@ -48,12 +48,13 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
     }
 
     private enum SessionRow: Int, CaseIterable {
-        case closeAllTabsOnExit, showTabsPreviewImages
+        case closeAllTabsOnExit, showTabsPreviewImages, activeBackgroundTabs
 
         var title: String {
             switch self {
             case .closeAllTabsOnExit: return "Close All Tabs on Exit"
             case .showTabsPreviewImages: return "Show Tabs Preview Images"
+            case .activeBackgroundTabs: return "Active Background Tabs"
             }
         }
 
@@ -61,6 +62,9 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
             switch self {
             case .closeAllTabsOnExit: return "Leave one fresh New Tab when you leave the app"
             case .showTabsPreviewImages: return "Thumbnails on the tab switcher"
+            case .activeBackgroundTabs:
+                let n = AppSettings.activeBackgroundTabLimit
+                return "Keep \(n) most recently used tabs loaded"
             }
         }
 
@@ -68,6 +72,7 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
             switch self {
             case .closeAllTabsOnExit: return AppSettings.closeAllTabsOnExit
             case .showTabsPreviewImages: return AppSettings.showTabsPreviewImages
+            case .activeBackgroundTabs: return false
             }
         }
 
@@ -75,7 +80,12 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
             switch self {
             case .closeAllTabsOnExit: AppSettings.closeAllTabsOnExit = value
             case .showTabsPreviewImages: AppSettings.showTabsPreviewImages = value
+            case .activeBackgroundTabs: break
             }
+        }
+
+        var usesSwitch: Bool {
+            self != .activeBackgroundTabs
         }
     }
 
@@ -117,11 +127,10 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
         case .autoClear:
             return "Only selected items are removed when you leave the app. Cache, Cookies, History, and Local Storage all default off so browsing sessions stay intact. Enabling Cookies or Local Storage will clear them for every space immediately."
         case .session:
-            return "Close All Tabs on Exit resets to a single New Tab when you background the app. Turn off preview images to hide webpage thumbnails in the tab switcher."
+            return "Close All Tabs on Exit resets to a single New Tab when you background the app. Active Background Tabs keeps WebViews only for the most recently used tabs (default 3); older tabs stay listed and reload when you open them again."
         }
     }
 
-    
     func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
         BrowserTheme.styleSectionHeaderFooter(view)
     }
@@ -133,26 +142,51 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = UITableViewCell(style: .subtitle, reuseIdentifier: "cell")
         BrowserTheme.styleListCell(cell)
-        cell.selectionStyle = .none
-        let sw = UISwitch()
         switch Section(rawValue: indexPath.section)! {
         case .autoClear:
             let row = AutoClearRow.allCases[indexPath.row]
+            cell.selectionStyle = .none
             cell.textLabel?.text = row.title
             cell.detailTextLabel?.text = row.detail
+            let sw = UISwitch()
             sw.tag = 100 + row.rawValue
             sw.isOn = row.isOn
             sw.addTarget(self, action: #selector(autoClearChanged(_:)), for: .valueChanged)
+            cell.accessoryView = sw
+            cell.accessoryType = .none
         case .session:
             let row = SessionRow.allCases[indexPath.row]
             cell.textLabel?.text = row.title
             cell.detailTextLabel?.text = row.detail
-            sw.tag = 200 + row.rawValue
-            sw.isOn = row.isOn
-            sw.addTarget(self, action: #selector(sessionChanged(_:)), for: .valueChanged)
+            if row.usesSwitch {
+                cell.selectionStyle = .none
+                let sw = UISwitch()
+                sw.tag = 200 + row.rawValue
+                sw.isOn = row.isOn
+                sw.addTarget(self, action: #selector(sessionChanged(_:)), for: .valueChanged)
+                cell.accessoryView = sw
+                cell.accessoryType = .none
+            } else {
+                cell.selectionStyle = .default
+                cell.accessoryView = nil
+                cell.accessoryType = .disclosureIndicator
+                let value = UILabel()
+                value.text = "\(AppSettings.activeBackgroundTabLimit)"
+                value.textColor = BrowserTheme.textSecondary
+                value.font = .systemFont(ofSize: 17)
+                value.sizeToFit()
+                cell.accessoryView = value
+            }
         }
-        cell.accessoryView = sw
         return cell
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        guard Section(rawValue: indexPath.section) == .session else { return }
+        let row = SessionRow.allCases[indexPath.row]
+        guard row == .activeBackgroundTabs else { return }
+        presentActiveBackgroundTabPicker(from: tableView.cellForRow(at: indexPath))
     }
 
     @objc private func autoClearChanged(_ sw: UISwitch) {
@@ -199,10 +233,34 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
     }
 
     @objc private func sessionChanged(_ sw: UISwitch) {
-        guard let row = SessionRow(rawValue: sw.tag - 200) else { return }
+        guard let row = SessionRow(rawValue: sw.tag - 200), row.usesSwitch else { return }
         row.setOn(sw.isOn)
         if row == .showTabsPreviewImages, !sw.isOn {
             Toast.show("Tab previews off", from: self)
         }
+    }
+
+    private func presentActiveBackgroundTabPicker(from sourceView: UIView?) {
+        let current = AppSettings.activeBackgroundTabLimit
+        let sheet = UIAlertController(
+            title: "Active Background Tabs",
+            message: "Only the most recently used tabs stay loaded in memory. Others reload when you open them.",
+            preferredStyle: .actionSheet
+        )
+        for value in AppSettings.activeBackgroundTabLimitOptions {
+            let label = value == current ? "\(value) (Current)" : "\(value)"
+            sheet.addAction(UIAlertAction(title: label, style: .default) { [weak self] _ in
+                guard let self else { return }
+                AppSettings.activeBackgroundTabLimit = value
+                self.tableView.reloadData()
+                Toast.show("Keeping \(value) active tab\(value == 1 ? "" : "s")", from: self)
+            })
+        }
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        if let pop = sheet.popoverPresentationController {
+            pop.sourceView = sourceView ?? view
+            pop.sourceRect = sourceView?.bounds ?? CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+        }
+        present(sheet, animated: true)
     }
 }
