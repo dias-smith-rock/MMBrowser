@@ -33,6 +33,18 @@ enum PremiumCoordinator {
         presentPaywall(from: presenter, source: "space_limit")
     }
 
+    /// Space Lock (per-space PIN / pattern) requires an active Premium subscription.
+    static func ensureCanLockSpace(
+        from presenter: UIViewController,
+        then: @escaping () -> Void
+    ) {
+        if PremiumStore.shared.canUseSpaceLock {
+            then()
+            return
+        }
+        presentPaywall(from: presenter, source: "space_lock")
+    }
+
     /// Cold start: at most once per calendar day for non-subscribers.
     static func presentColdStartIfNeeded(from root: UIViewController?) {
         guard let root else { return }

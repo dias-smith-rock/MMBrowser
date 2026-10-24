@@ -35,10 +35,17 @@ final class PremiumStore {
         isPremiumActive || currentCount < Self.freeSpaceLimit
     }
 
+    /// Per-space PIN / pattern lock is a Premium feature.
+    var canUseSpaceLock: Bool { isPremiumActive }
+
     /// Safe from any queue — reads the cached entitlement flag.
     nonisolated static func canCreateSpaceSync(currentCount: Int) -> Bool {
         UserDefaults.standard.bool(forKey: cacheActiveKey)
             || currentCount < freeSpaceLimit
+    }
+
+    nonisolated static var canUseSpaceLockSync: Bool {
+        UserDefaults.standard.bool(forKey: cacheActiveKey)
     }
 
     private init() {

@@ -612,7 +612,7 @@ final class TabSwitcherViewController: UIViewController {
                 }
             } else {
                 lockAction = UIAction(
-                    title: "Lock Space",
+                    title: PremiumStore.canUseSpaceLockSync ? "Lock Space" : "Lock Space (Premium)",
                     image: UIImage(systemName: "lock")
                 ) { [weak self] _ in
                     self?.presentEnableSpaceLock(for: containerID)
@@ -843,20 +843,27 @@ final class TabSwitcherViewController: UIViewController {
     }
 
     private func presentEnableSpaceLock(for containerID: UUID) {
-        let sheet = UIAlertController(
-            title: "Lock Space",
-            message: "Choose how to unlock this space",
-            preferredStyle: .actionSheet
-        )
-        sheet.addAction(UIAlertAction(title: "4-Digit PIN", style: .default) { [weak self] _ in
-            self?.presentSpaceLockSetup(.createSpacePIN(containerID: containerID))
-        })
-        sheet.addAction(UIAlertAction(title: "Pattern", style: .default) { [weak self] _ in
-            self?.presentSpaceLockSetup(.createSpacePattern(containerID: containerID))
-        })
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        PlatformSupport.configurePopover(sheet, sourceView: view, sourceRect: CGRect(x: view.bounds.midX, y: 80, width: 1, height: 1))
-        present(sheet, animated: true)
+        PremiumCoordinator.ensureCanLockSpace(from: self) { [weak self] in
+            guard let self else { return }
+            let sheet = UIAlertController(
+                title: "Lock Space",
+                message: "Choose how to unlock this space",
+                preferredStyle: .actionSheet
+            )
+            sheet.addAction(UIAlertAction(title: "4-Digit PIN", style: .default) { [weak self] _ in
+                self?.presentSpaceLockSetup(.createSpacePIN(containerID: containerID))
+            })
+            sheet.addAction(UIAlertAction(title: "Pattern", style: .default) { [weak self] _ in
+                self?.presentSpaceLockSetup(.createSpacePattern(containerID: containerID))
+            })
+            sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            PlatformSupport.configurePopover(
+                sheet,
+                sourceView: self.view,
+                sourceRect: CGRect(x: self.view.bounds.midX, y: 80, width: 1, height: 1)
+            )
+            self.present(sheet, animated: true)
+        }
     }
 
     private func presentRemoveSpaceLock(for containerID: UUID) {

@@ -94,7 +94,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .premium:
-            return "Free includes \(PremiumStore.freeSpaceLimit) Spaces. Premium unlocks unlimited Spaces."
+            return "Free includes \(PremiumStore.freeSpaceLimit) Spaces. Premium unlocks unlimited Spaces and Space Lock."
         case .privacy:
             return "Location Deny/Spoof only affects GPS-like browser APIs—not your network IP."
         case .accounts:
@@ -134,7 +134,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         switch Section(rawValue: indexPath.section)! {
         case .premium:
             cell.textLabel?.text = "XBrowser Premium"
-            cell.detailTextLabel?.text = PremiumStore.shared.isPremiumActive ? "Active" : "Unlock unlimited Spaces"
+            cell.detailTextLabel?.text = PremiumStore.shared.isPremiumActive ? "Active" : "Spaces & Space Lock"
             cell.accessoryType = .disclosureIndicator
         case .privacy:
             switch indexPath.row {

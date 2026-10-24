@@ -11,7 +11,7 @@ final class PremiumPaywallViewController: UIViewController {
     private let contentStack = UIStackView()
     private let closeButton = UIButton(type: .system)
     private let titleLabel = UILabel()
-    private let featureHighlight = FeatureHighlightView()
+    private let featureList = PremiumFeatureListView()
     private let yearlyCard = PlanCardView()
     private let monthlyCard = PlanCardView()
     private let ctaButton = UIButton(type: .system)
@@ -89,11 +89,7 @@ final class PremiumPaywallViewController: UIViewController {
         titleLabel.textColor = .white
         titleLabel.textAlignment = .center
 
-        featureHighlight.configure(
-            title: "Unlimited Spaces",
-            detail: "Keep every identity separate — cookies, logins, and browsing data stay isolated.",
-            footnote: "Free plan includes \(PremiumStore.freeSpaceLimit) Spaces"
-        )
+        featureList.configure(items: Self.premiumFeatureItems(subscribed: false))
 
         yearlyCard.onTap = { [weak self] in
             self?.selectedYearly = true
@@ -142,8 +138,8 @@ final class PremiumPaywallViewController: UIViewController {
         contentStack.alignment = .fill
         contentStack.addArrangedSubview(titleLabel)
         contentStack.setCustomSpacing(20, after: titleLabel)
-        contentStack.addArrangedSubview(featureHighlight)
-        contentStack.setCustomSpacing(24, after: featureHighlight)
+        contentStack.addArrangedSubview(featureList)
+        contentStack.setCustomSpacing(24, after: featureList)
         contentStack.addArrangedSubview(yearlyCard)
         contentStack.addArrangedSubview(monthlyCard)
         contentStack.setCustomSpacing(24, after: monthlyCard)
@@ -238,19 +234,28 @@ final class PremiumPaywallViewController: UIViewController {
             } else {
                 statusLabel.text = "You’re on \(plan)."
             }
-            featureHighlight.configure(
-                title: "Unlimited Spaces Unlocked",
-                detail: "Every identity stays separate on this Apple ID — cookies, logins, and browsing data.",
-                footnote: nil
-            )
+            featureList.configure(items: Self.premiumFeatureItems(subscribed: true))
         } else {
-            featureHighlight.configure(
-                title: "Unlimited Spaces",
-                detail: "Keep every identity separate — cookies, logins, and browsing data stay isolated.",
-                footnote: "Free plan includes \(PremiumStore.freeSpaceLimit) Spaces"
-            )
+            featureList.configure(items: Self.premiumFeatureItems(subscribed: false))
             updateCTATitle()
         }
+    }
+
+    private static func premiumFeatureItems(subscribed: Bool) -> [PremiumFeatureListView.Item] {
+        [
+            .init(
+                symbol: "square.stack.3d.up.fill",
+                title: subscribed ? "Unlimited Spaces Unlocked" : "Unlimited Spaces",
+                detail: subscribed
+                    ? "Every identity stays separate — cookies, logins, and browsing data."
+                    : "Keep every identity separate. Free includes \(PremiumStore.freeSpaceLimit) Spaces."
+            ),
+            .init(
+                symbol: "lock.fill",
+                title: subscribed ? "Space Lock Unlocked" : "Space Lock",
+                detail: "Protect any Space with a PIN or pattern. Locked Spaces stay hidden in Second Lock sessions."
+            )
+        ]
     }
 
     private func applySelection() {
@@ -361,15 +366,16 @@ final class PremiumPaywallViewController: UIViewController {
     }
 }
 
-// MARK: - Feature highlight
+// MARK: - Feature list
 
-private final class FeatureHighlightView: UIView {
-    private let iconBackground = UIView()
-    private let iconView = UIImageView()
-    private let titleLabel = UILabel()
-    private let detailLabel = UILabel()
-    private let footnoteLabel = UILabel()
-    private let textStack = UIStackView()
+private final class PremiumFeatureListView: UIView {
+    struct Item {
+        let symbol: String
+        let title: String
+        let detail: String
+    }
+
+    private let stack = UIStackView()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -378,64 +384,73 @@ private final class FeatureHighlightView: UIView {
         layer.borderColor = UIColor(red: 1.0, green: 0.84, blue: 0.35, alpha: 0.45).cgColor
         backgroundColor = UIColor(red: 1.0, green: 0.84, blue: 0.35, alpha: 0.10)
 
-        iconBackground.backgroundColor = UIColor(red: 1.0, green: 0.84, blue: 0.35, alpha: 0.22)
-        iconBackground.layer.cornerRadius = 22
-
-        iconView.image = UIImage(
-            systemName: "square.stack.3d.up.fill",
-            withConfiguration: UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
-        )
-        iconView.tintColor = UIColor(red: 1.0, green: 0.84, blue: 0.35, alpha: 1)
-        iconView.contentMode = .scaleAspectFit
-
-        titleLabel.font = .systemFont(ofSize: 20, weight: .bold)
-        titleLabel.textColor = .white
-        titleLabel.numberOfLines = 1
-
-        detailLabel.font = .systemFont(ofSize: 14, weight: .regular)
-        detailLabel.textColor = UIColor.white.withAlphaComponent(0.82)
-        detailLabel.numberOfLines = 0
-
-        footnoteLabel.font = .systemFont(ofSize: 12, weight: .semibold)
-        footnoteLabel.textColor = UIColor(red: 1.0, green: 0.84, blue: 0.35, alpha: 0.95)
-        footnoteLabel.numberOfLines = 1
-
-        textStack.axis = .vertical
-        textStack.spacing = 4
-        textStack.alignment = .leading
-        textStack.addArrangedSubview(titleLabel)
-        textStack.addArrangedSubview(detailLabel)
-        textStack.addArrangedSubview(footnoteLabel)
-
-        addSubview(iconBackground)
-        iconBackground.addSubview(iconView)
-        addSubview(textStack)
-
-        iconBackground.snp.makeConstraints { make in
-            make.leading.equalToSuperview().inset(14)
-            make.centerY.equalToSuperview()
-            make.size.equalTo(44)
-        }
-        iconView.snp.makeConstraints { $0.center.equalToSuperview() }
-        textStack.snp.makeConstraints { make in
-            make.leading.equalTo(iconBackground.snp.trailing).offset(12)
-            make.trailing.equalToSuperview().inset(14)
-            make.top.bottom.equalToSuperview().inset(14)
+        stack.axis = .vertical
+        stack.spacing = 14
+        stack.alignment = .fill
+        addSubview(stack)
+        stack.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(14)
         }
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func configure(title: String, detail: String, footnote: String?) {
-        titleLabel.text = title
-        detailLabel.text = detail
-        if let footnote, !footnote.isEmpty {
-            footnoteLabel.isHidden = false
-            footnoteLabel.text = footnote
-        } else {
-            footnoteLabel.isHidden = true
-            footnoteLabel.text = nil
+    func configure(items: [Item]) {
+        stack.arrangedSubviews.forEach {
+            stack.removeArrangedSubview($0)
+            $0.removeFromSuperview()
         }
+        for item in items {
+            stack.addArrangedSubview(makeRow(item))
+        }
+    }
+
+    private func makeRow(_ item: Item) -> UIView {
+        let row = UIView()
+        let iconBackground = UIView()
+        iconBackground.backgroundColor = UIColor(red: 1.0, green: 0.84, blue: 0.35, alpha: 0.22)
+        iconBackground.layer.cornerRadius = 18
+
+        let iconView = UIImageView(
+            image: UIImage(
+                systemName: item.symbol,
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold)
+            )
+        )
+        iconView.tintColor = UIColor(red: 1.0, green: 0.84, blue: 0.35, alpha: 1)
+        iconView.contentMode = .scaleAspectFit
+
+        let titleLabel = UILabel()
+        titleLabel.text = item.title
+        titleLabel.font = .systemFont(ofSize: 16, weight: .bold)
+        titleLabel.textColor = .white
+
+        let detailLabel = UILabel()
+        detailLabel.text = item.detail
+        detailLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        detailLabel.textColor = UIColor.white.withAlphaComponent(0.82)
+        detailLabel.numberOfLines = 0
+
+        let textStack = UIStackView(arrangedSubviews: [titleLabel, detailLabel])
+        textStack.axis = .vertical
+        textStack.spacing = 2
+        textStack.alignment = .leading
+
+        row.addSubview(iconBackground)
+        iconBackground.addSubview(iconView)
+        row.addSubview(textStack)
+
+        iconBackground.snp.makeConstraints { make in
+            make.leading.equalToSuperview()
+            make.top.equalToSuperview().offset(2)
+            make.size.equalTo(36)
+        }
+        iconView.snp.makeConstraints { $0.center.equalToSuperview() }
+        textStack.snp.makeConstraints { make in
+            make.leading.equalTo(iconBackground.snp.trailing).offset(12)
+            make.trailing.top.bottom.equalToSuperview()
+        }
+        return row
     }
 }
 
