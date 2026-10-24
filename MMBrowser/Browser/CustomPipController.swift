@@ -146,6 +146,27 @@ final class CustomPipController: NSObject {
 
     var isActive: Bool { mode != .idle }
 
+    /// Fold / Split View resized the host — keep the float / dock tab inside the new bounds.
+    func relayoutForHostBoundsChange() {
+        guard mode == .custom || mode == .system,
+              let hostView,
+              let floatingView
+        else { return }
+        if floatingView.isDocked {
+            floatingView.clampDockedFrame(in: hostView)
+            return
+        }
+        let next = Self.preferredFloatingFrame(
+            aspect: videoAspect,
+            in: hostView,
+            size: floatingView.windowSize,
+            preservingCenter: floatingView.center
+        )
+        guard next != floatingView.frame else { return }
+        floatingView.frame = next
+        floatingView.layoutIfNeeded()
+    }
+
     /// User tapped play on a webpage — leave custom float so inline media can take over.
     func dismissForPageUserPlay(from web: WebViewController) {
         guard mode != .idle else { return }
@@ -426,6 +447,7 @@ final class CustomPipController: NSObject {
     }
 
     private func configureSystemPip(playerLayer: AVPlayerLayer) {
+        guard PlatformSupport.supportsSystemPictureInPicture else { return }
         guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
         do {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback, options: [])

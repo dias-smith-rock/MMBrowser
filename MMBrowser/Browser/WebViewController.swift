@@ -413,6 +413,10 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         // (UIScrollView.ignoresViewportScaleLimits is unavailable in this SDK).
         // YouTube / Bilibili are excluded inside the script — unlocking breaks sticky players.
         config.userContentController.addUserScript(Self.viewportZoomUnlockScript)
+        // Generic video/overlay/popunder ad reduction (site-agnostic).
+        if AppSettings.trackerProtectionEnabled {
+            config.userContentController.addUserScript(VideoAdShield.userScript)
+        }
         let proxy = WebViewScriptProxy(target: self)
         scriptMessageProxy = proxy
         config.userContentController.add(proxy, name: PageCleanerManager.handlerName)
@@ -1051,6 +1055,7 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
                     let url = FileManager.default.temporaryDirectory.appendingPathComponent("page.pdf")
                     try? data.write(to: url)
                     let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+                    PlatformSupport.configurePopover(activity, sourceView: self.view)
                     self.delegate?.webViewController(self, present: activity)
                 case .failure:
                     Toast.show("PDF failed", from: self)
@@ -1127,6 +1132,7 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
                 return
             }
             let activity = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+            PlatformSupport.configurePopover(activity, sourceView: self.view)
             self.delegate?.webViewController(self, present: activity)
         }
     }
@@ -2857,6 +2863,14 @@ extension WebViewController: WKUIDelegate {
         }
 
         guard navigationAction.targetFrame == nil else {
+            return nil
+        }
+
+        // Block known ad-network / popunder window.open when tracker protection is on.
+        if AppSettings.trackerProtectionEnabled,
+           let url,
+           VideoAdShield.isLikelyAdPopup(url) {
+            PipProbe.log("ui.blockAdPopup", ["url": url.host ?? url.absoluteString])
             return nil
         }
 

@@ -797,7 +797,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     private func setupKeyboardShortcuts() {
-        let bar = AddressKeyboardAccessoryView(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 46))
+        let width = LayoutSupport.windowWidth(relativeTo: self)
+        let bar = AddressKeyboardAccessoryView(frame: CGRect(x: 0, y: 0, width: width, height: 46))
         bar.autoresizingMask = .flexibleWidth
 
         let scroll = UIScrollView()

@@ -33,6 +33,17 @@ enum AppLockBiometrics {
     }
 
     static var biometryDisplayName: String {
+        if PlatformSupport.isMacInterface {
+            // Mac Catalyst uses Touch ID (or password), not Face ID.
+            switch availability() {
+            case .available(let type) where type == .touchID:
+                return "Touch ID"
+            case .available:
+                return "Touch ID"
+            case .unavailable:
+                return "Touch ID"
+            }
+        }
         switch availability() {
         case .available(let type):
             switch type {
@@ -46,6 +57,9 @@ enum AppLockBiometrics {
     }
 
     static var systemImageName: String {
+        if PlatformSupport.isMacInterface {
+            return "touchid"
+        }
         switch availability() {
         case .available(let type):
             switch type {

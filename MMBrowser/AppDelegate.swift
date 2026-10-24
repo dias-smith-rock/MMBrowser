@@ -57,15 +57,17 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     /// Honor the topmost view controller (e.g. landscape custom PiP fullscreen).
+    /// Default is not locked to portrait — iPhone Duo / Split View need the Info.plist mask.
     func application(
         _ application: UIApplication,
         supportedInterfaceOrientationsFor window: UIWindow?
     ) -> UIInterfaceOrientationMask {
-        guard let window else { return .portrait }
+        if PlatformSupport.isMacInterface { return .all }
+        guard let window else { return .allButUpsideDown }
         var top = window.rootViewController
         while let presented = top?.presentedViewController {
             top = presented
         }
-        return top?.supportedInterfaceOrientations ?? .portrait
+        return top?.supportedInterfaceOrientations ?? .allButUpsideDown
     }
 }

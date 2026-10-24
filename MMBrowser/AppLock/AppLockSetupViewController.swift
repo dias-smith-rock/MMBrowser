@@ -88,7 +88,7 @@ final class AppLockSetupViewController: UIViewController {
         patternView.snp.makeConstraints { make in
             make.centerX.equalToSuperview()
             make.top.equalTo(titleLabel.snp.bottom).offset(48)
-            make.width.height.equalTo(min(UIScreen.main.bounds.width - 48, 320))
+            make.width.height.equalTo(min(LayoutSupport.windowWidth(relativeTo: view) - 48, 320))
         }
 
         applyModeUI()

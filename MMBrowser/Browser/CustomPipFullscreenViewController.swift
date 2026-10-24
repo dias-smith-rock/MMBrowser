@@ -58,12 +58,15 @@ final class CustomPipFullscreenViewController: UIViewController {
     override var shouldAutorotate: Bool { true }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        // Mac windows are freely resized — do not force a phone-style lock.
+        if PlatformSupport.isMacInterface { return .all }
         if isExiting { return .portrait }
         return prefersLandscape ? .landscape : .portrait
     }
 
     override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation {
-        prefersLandscape ? .landscapeRight : .portrait
+        if PlatformSupport.isMacInterface { return .portrait }
+        return prefersLandscape ? .landscapeRight : .portrait
     }
 
     override func viewDidLoad() {
@@ -110,6 +113,7 @@ final class CustomPipFullscreenViewController: UIViewController {
 
     private func requestOrientation(_ mask: UIInterfaceOrientationMask) {
         setNeedsUpdateOfSupportedInterfaceOrientations()
+        guard !PlatformSupport.isMacInterface else { return }
         guard let scene = view.window?.windowScene
             ?? UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first
         else { return }
@@ -118,7 +122,7 @@ final class CustomPipFullscreenViewController: UIViewController {
 
     private func exitFullscreen() {
         isExiting = true
-        if prefersLandscape {
+        if prefersLandscape, !PlatformSupport.isMacInterface {
             requestOrientation(.portrait)
         } else {
             setNeedsUpdateOfSupportedInterfaceOrientations()
@@ -343,7 +347,7 @@ final class CustomPipFullscreenViewController: UIViewController {
         switch gesture.state {
         case .began:
             let third = view.bounds.width / 3
-            if location.x < third {
+            if location.x < third, PlatformSupport.supportsScreenBrightnessGestures {
                 verticalGestureMode = .brightness
                 gestureStartValue = UIScreen.main.brightness
             } else if location.x > view.bounds.width - third {
@@ -359,6 +363,7 @@ final class CustomPipFullscreenViewController: UIViewController {
             let next = min(max(gestureStartValue + delta, 0), 1)
             switch mode {
             case .brightness:
+                guard PlatformSupport.supportsScreenBrightnessGestures else { return }
                 UIScreen.main.brightness = next
                 showGestureHint(symbol: brightnessSymbol(for: next), text: "\(Int((next * 100).rounded()))%")
             case .volume:

@@ -141,6 +141,21 @@ final class CustomPipFloatingView: UIView {
         expandFromDock(animated: true)
     }
 
+    /// Keep the edge tab on-screen after a fold / Split View resize.
+    func clampDockedFrame(in superview: UIView) {
+        guard isDocked else { return }
+        let tab = CGSize(width: DockTabStyle.width, height: DockTabStyle.height)
+        var frame = CGRect(origin: .zero, size: tab)
+        frame.origin.y = min(
+            max(self.frame.midY - tab.height / 2, superview.safeAreaInsets.top + 8),
+            superview.bounds.height - tab.height - superview.safeAreaInsets.bottom - 8
+        )
+        frame.origin.x = dockSide == .leading
+            ? 0
+            : superview.bounds.width - tab.width
+        self.frame = frame
+    }
+
     func setDisplayedPlaybackRate(_ rate: Float) {
         speedButton.setRate(rate, notify: false)
     }

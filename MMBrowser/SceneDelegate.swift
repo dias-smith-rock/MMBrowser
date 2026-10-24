@@ -8,6 +8,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
+        configureMacWindowIfNeeded(windowScene)
         let window = UIWindow(windowScene: windowScene)
         window.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         window.rootViewController = BrowserViewController()
@@ -28,6 +29,19 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     @objc private func themeChanged() {
         window?.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+    }
+
+    private func configureMacWindowIfNeeded(_ windowScene: UIWindowScene) {
+        guard PlatformSupport.isMacInterface else { return }
+        if let restrictions = windowScene.sizeRestrictions {
+            restrictions.minimumSize = CGSize(width: 900, height: 600)
+            restrictions.maximumSize = CGSize(width: 10_000, height: 10_000)
+        }
+        #if targetEnvironment(macCatalyst)
+        let preferred = PlatformSupport.preferredMacWindowSize
+        let frame = CGRect(origin: .zero, size: preferred)
+        windowScene.requestGeometryUpdate(UIWindowScene.GeometryPreferences.Mac(systemFrame: frame)) { _ in }
+        #endif
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {

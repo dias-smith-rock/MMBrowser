@@ -55,7 +55,7 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
         actionBar.addSubview(topRule)
         topRule.snp.makeConstraints { make in
             make.top.leading.trailing.equalToSuperview()
-            make.height.equalTo(1.0 / UIScreen.main.scale)
+            make.height.equalTo(1.0 / LayoutSupport.displayScale(in: view))
         }
 
         view.addSubview(tableView)

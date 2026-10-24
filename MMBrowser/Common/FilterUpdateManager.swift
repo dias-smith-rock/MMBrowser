@@ -28,8 +28,8 @@ final class FilterUpdateManager {
 
     private init() {
         shortsCSSSelectors = Self.sanitizedShortsSelectors(Self.defaultShortsSelectors)
-        networkDomains = FilterUpdateManager.defaultNetworkDomains
-        cosmeticSelectors = FilterUpdateManager.defaultCosmeticSelectors
+        networkDomains = Self.mergedUnique(Self.defaultNetworkDomains + Self.videoAdNetworkDomains)
+        cosmeticSelectors = Self.mergedUnique(Self.defaultCosmeticSelectors + Self.videoAdCosmeticSelectors)
         loadFromCacheOrBundle()
     }
 
@@ -115,8 +115,20 @@ final class FilterUpdateManager {
         remoteAllowsYouTubeAdShield = true
         youtubeAdShieldScript = ""
         shortsCSSSelectors = Self.sanitizedShortsSelectors(Self.defaultShortsSelectors)
-        networkDomains = Self.defaultNetworkDomains
-        cosmeticSelectors = Self.defaultCosmeticSelectors
+        networkDomains = Self.mergedUnique(Self.defaultNetworkDomains + Self.videoAdNetworkDomains)
+        cosmeticSelectors = Self.mergedUnique(Self.defaultCosmeticSelectors + Self.videoAdCosmeticSelectors)
+    }
+
+    private static func mergedUnique(_ items: [String]) -> [String] {
+        var seen = Set<String>()
+        var out: [String] = []
+        for raw in items {
+            let s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !s.isEmpty, !seen.contains(s) else { continue }
+            seen.insert(s)
+            out.append(s)
+        }
+        return out
     }
 
     private func applyManifest(_ json: [String: Any], rawData: Data, fromRemote: Bool) {
@@ -133,10 +145,11 @@ final class FilterUpdateManager {
             shortsCSSSelectors = Self.sanitizedShortsSelectors(selectors)
         }
         if let domains = json["networkDomains"] as? [String], !domains.isEmpty {
-            networkDomains = domains
+            // Always union supplemental video/popunder filters so older caches stay current.
+            networkDomains = Self.mergedUnique(domains + Self.videoAdNetworkDomains)
         }
         if let cosmetics = json["cosmeticSelectors"] as? [String], !cosmetics.isEmpty {
-            cosmeticSelectors = cosmetics
+            cosmeticSelectors = Self.mergedUnique(cosmetics + Self.videoAdCosmeticSelectors)
         }
         if fromRemote {
             try? rawData.write(to: cacheURL, options: .atomic)
@@ -223,6 +236,52 @@ final class FilterUpdateManager {
         "securepubads.g.doubleclick.net",
         "pagead46.l.doubleclick.net", "cm.g.doubleclick.net",
         "stats.g.doubleclick.net", "adx.g.doubleclick.net"
+    ]
+
+    /// Supplemental video / overlay / popunder ad networks beyond the core DSP list.
+    static let videoAdNetworkDomains: [String] = [
+        "exoclick.com", "syndication.exoclick.com", "ads.exoclick.com", "main.exoclick.com",
+        "a.exoclick.com", "static.exoclick.com",
+        "juicyads.com", "ads.juicyads.com", "js.juicyads.com", "adserver.juicyads.com",
+        "creative.juicyads.com", "poweredby.jads.co", "jads.co",
+        "trafficjunky.com", "ads.trafficjunky.net", "content.trafficjunky.net",
+        "media.trafficjunky.net", "hw-cdn.trafficjunky.net",
+        "popads.net", "serve.popads.net", "popcash.net", "cdn.popcash.net",
+        "hilltopads.com", "htopads.com", "adsterra.com", "ads.adsterra.com",
+        "tsyndicate.com", "cdn.tsyndicate.com", "clickadu.com",
+        "adxpansion.com", "ads.adxpansion.com",
+        "trafficfactory.biz", "a.trafficfactory.biz", "go.trafficfactory.biz",
+        "plugrush.com", "onclickads.net", "onclickmax.com",
+        "propellerads.com", "propellerclick.com",
+        "realsrv.com", "adsbookie.com", "juicytraffic.com",
+        "twinred.com", "twinreda.com", "abertona.com",
+        "s.zkcdn.net", "cdn.adsafeprotected.com"
+    ]
+
+    static let videoAdCosmeticSelectors: [String] = [
+        "iframe[src*=\"exoclick\"]",
+        "iframe[src*=\"juicyads\"]",
+        "iframe[src*=\"trafficjunky\"]",
+        "iframe[src*=\"popads\"]",
+        "iframe[src*=\"popcash\"]",
+        "iframe[src*=\"hilltopads\"]",
+        "iframe[src*=\"adsterra\"]",
+        "iframe[src*=\"tsyndicate\"]",
+        "iframe[src*=\"clickadu\"]",
+        "iframe[src*=\"trafficfactory\"]",
+        "div[id*=\"ad-overlay\"]",
+        "div[class*=\"ad-overlay\"]",
+        "div[class*=\"video-ads\"]",
+        "div[id*=\"video-ads\"]",
+        "div[class*=\"preroll\"]",
+        "div[class*=\"pre-roll\"]",
+        ".vast-skip-button",
+        ".skip-ad",
+        "#ad-overlay",
+        "#player-ads",
+        ".player-ads",
+        "[data-ad-block]",
+        "div[class*=\"popunder\"]"
     ]
 
     static let defaultCosmeticSelectors: [String] = [

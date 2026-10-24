@@ -297,7 +297,7 @@ final class PageRichMenuViewController: UIViewController {
             line.snp.makeConstraints { make in
                 make.leading.equalToSuperview().offset(52)
                 make.trailing.equalToSuperview()
-                make.height.equalTo(1.0 / UIScreen.main.scale)
+                make.height.equalTo(1.0 / LayoutSupport.displayScale(in: view))
                 make.top.equalTo(row.snp.bottom)
             }
         }

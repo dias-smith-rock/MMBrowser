@@ -418,7 +418,7 @@ enum LongScreenshotCapturer {
         guard width > 1, height > 1 else { return nil }
 
         let format = UIGraphicsImageRendererFormat()
-        format.scale = images.first?.scale ?? UIScreen.main.scale
+        format.scale = images.first?.scale ?? LayoutSupport.displayScale()
         format.opaque = true
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: width, height: height), format: format)
         return renderer.image { ctx in

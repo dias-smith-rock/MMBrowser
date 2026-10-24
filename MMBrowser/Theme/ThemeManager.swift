@@ -61,7 +61,7 @@ final class ThemeManager {
         let ratio = pointSize / maxSide
         let size = CGSize(width: max(1, src.size.width * ratio), height: max(1, src.size.height * ratio))
         let format = UIGraphicsImageRendererFormat.default()
-        format.scale = UIScreen.main.scale
+        format.scale = LayoutSupport.displayScale()
         format.opaque = false
         let rendered = UIGraphicsImageRenderer(size: size, format: format).image { _ in
             src.draw(in: CGRect(origin: .zero, size: size))

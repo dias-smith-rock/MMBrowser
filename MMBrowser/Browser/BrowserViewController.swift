@@ -83,6 +83,26 @@ final class BrowserViewController: UIViewController {
         updateWebChromeContentInset()
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        // iPhone Duo fold/unfold and Split View resize the scene mid-session.
+        CustomPipController.shared.relayoutForHostBoundsChange()
+    }
+
+    override func viewWillTransition(
+        to size: CGSize,
+        with coordinator: UIViewControllerTransitionCoordinator
+    ) {
+        super.viewWillTransition(to: size, with: coordinator)
+        coordinator.animate(alongsideTransition: { [weak self] _ in
+            self?.updateWebChromeContentInset()
+            CustomPipController.shared.relayoutForHostBoundsChange()
+        }, completion: { [weak self] _ in
+            self?.updateWebChromeContentInset()
+            CustomPipController.shared.relayoutForHostBoundsChange()
+        })
+    }
+
     @objc private func downloadDidFinish(_ note: Notification) {
         guard UIApplication.shared.applicationState == .active else { return }
         guard let item = note.userInfo?["item"] as? DownloadItem else { return }
@@ -1531,9 +1551,12 @@ final class BrowserViewController: UIViewController {
     }
 
     private func configurePageRichMenuPresentation(_ menu: UIViewController) {
-        let isPad = traitCollection.userInterfaceIdiom == .pad
-        if isPad {
-            // Wider / taller card than the default iPad page-sheet footprint.
+        // Size-class based (not idiom) — Duo inner display / Split View can be regular width.
+        let regularWidth = LayoutSupport.prefersRegularWidthLayout(
+            in: traitCollection,
+            bounds: view.bounds.size
+        )
+        if regularWidth {
             menu.modalPresentationStyle = .formSheet
             let width = min(max(view.bounds.width * 0.72, 560), 720)
             let height = min(max(view.bounds.height * 0.86, 640), 920)
@@ -1543,7 +1566,7 @@ final class BrowserViewController: UIViewController {
         menu.modalPresentationStyle = .pageSheet
         if let sheet = menu.sheetPresentationController {
             sheet.prefersGrabberVisible = true
-            // ~68% screen height so the first content cards + Long screenshot sit comfortably in view.
+            // ~68% of available height so the first content cards sit comfortably in view.
             let pageMenu = UISheetPresentationController.Detent.custom(
                 identifier: .init("pageRichMenu")
             ) { context in
@@ -2399,6 +2422,7 @@ extension BrowserViewController: WebViewControllerDelegate {
             }
             return
         }
+        PlatformSupport.configurePopover(vc, sourceView: view)
         present(vc, animated: true)
         ScreenshotPerf.mark("ui.present.started", extra: String(describing: type(of: vc)))
     }
@@ -2553,6 +2577,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 return
             }
             let activity = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+            PlatformSupport.configurePopover(activity, sourceView: view)
             present(activity, animated: true)
         case .userAgent:
             presentTabUserAgentPicker()

@@ -201,6 +201,7 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
             DownloadManager.shared.remove(id: item.id)
         })
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        PlatformSupport.configurePopover(sheet, sourceView: view)
         present(sheet, animated: true)
     }
 
@@ -208,14 +209,24 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
         var fields = PageMediaProbe.fileProbeSummary(at: item.fileURL)
         fields["file"] = item.fileName
         fields["mime"] = item.mimeType ?? ""
-        fields["canQL"] = QLPreviewController.canPreview(item.fileURL as QLPreviewItem)
+        let canQL = Self.canQuickLook(item.fileURL)
+        fields["canQL"] = canQL
         PageMediaProbe.log("downloads.open", fields)
-        if QLPreviewController.canPreview(item.fileURL as QLPreviewItem) {
+        if canQL {
             preview(item)
         } else {
             PageMediaProbe.log("downloads.open.fallbackShare", ["file": item.fileName])
             share(item)
         }
+    }
+
+    /// `QLPreviewController.canPreview` is unavailable on Mac Catalyst.
+    private static func canQuickLook(_ url: URL) -> Bool {
+        #if targetEnvironment(macCatalyst)
+        return FileManager.default.fileExists(atPath: url.path)
+        #else
+        return QLPreviewController.canPreview(url as QLPreviewItem)
+        #endif
     }
 
     private func preview(_ item: DownloadItem) {
@@ -236,6 +247,7 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
             return
         }
         let activity = UIActivityViewController(activityItems: [item.fileURL], applicationActivities: nil)
+        PlatformSupport.configurePopover(activity, sourceView: view)
         present(activity, animated: true)
     }
 
