@@ -50,6 +50,7 @@
 		8EC5967C66A941389E277E88 /* ContainerScope.swift in Sources */ = {isa = PBXBuildFile; fileRef = C675306059D24454A0DD680F /* ContainerScope.swift */; };
 		90F8BD6BD7DB43AF80342259 /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37FC46822386450BA067F7F5 /* Toast.swift */; };
 		954C5137A7144B8C9E795785 /* AddressBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3A9332F6F8349D1B899F2EF /* AddressBarView.swift */; };
+		C7D8E9F0A1B2020304050601 /* AddressBarSuggestionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7D8E9F0A1B2020304050602 /* AddressBarSuggestionsView.swift */; };
 		A11F1BEBA5E1000000000011 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A11F1BEBA5E1000000000012 /* GoogleService-Info.plist */; };
 		A1B2C3D4E5F6010101010101 /* AppLockSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020201 /* AppLockSettings.swift */; };
 		A1B2C3D4E5F6010101010102 /* AppLockSecretStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020202 /* AppLockSecretStore.swift */; };
@@ -271,6 +272,7 @@
 		A1B2C3D4E5F6090909090978 /* DesktopUAHint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopUAHint.swift; sourceTree = "<group>"; };
 		A2B3C4D5E6F7010203040505 /* PlatformSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformSupport.swift; sourceTree = "<group>"; };
 		A3A9332F6F8349D1B899F2EF /* AddressBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressBarView.swift; sourceTree = "<group>"; };
+		C7D8E9F0A1B2020304050602 /* AddressBarSuggestionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressBarSuggestionsView.swift; sourceTree = "<group>"; };
 		A3FDC13DE80C4373B1FAB0A5 /* URLTrackingCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLTrackingCleaner.swift; sourceTree = "<group>"; };
 		A7C1E2D3B4A5466788990011 /* AccountTabsPopupViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountTabsPopupViewController.swift; sourceTree = "<group>"; };
 		A7C1E4B29D1046F8A3B1C002 /* WatchLaterStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLaterStore.swift; sourceTree = "<group>"; };
@@ -575,6 +577,7 @@
 			isa = PBXGroup;
 			children = (
 				A3A9332F6F8349D1B899F2EF /* AddressBarView.swift */,
+				C7D8E9F0A1B2020304050602 /* AddressBarSuggestionsView.swift */,
 				54722AEC801542858ECEB795 /* BottomToolbarView.swift */,
 				0B7E0BA721F0467CB355866F /* BrowserViewController.swift */,
 				92B3D348CEA04C5189003BC8 /* WebViewController.swift */,
@@ -906,6 +909,7 @@
 				FBASEBF01010101010103 /* RemoteConfigManager.swift in Sources */,
 				DBB117AB06114DC1B248B14A /* AppDelegate.swift in Sources */,
 				954C5137A7144B8C9E795785 /* AddressBarView.swift in Sources */,
+				C7D8E9F0A1B2020304050601 /* AddressBarSuggestionsView.swift in Sources */,
 				DAC6847DF1C5402ABCCBABC5 /* BottomToolbarView.swift in Sources */,
 				7CF0C1E12B924A02BE0920B0 /* BrowserViewController.swift in Sources */,
 				A2930C25C97F4D61BD386517 /* WebViewController.swift in Sources */,

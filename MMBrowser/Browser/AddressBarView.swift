@@ -4,6 +4,8 @@ import SnapKit
 protocol AddressBarViewDelegate: AnyObject {
     func addressBarDidSubmit(_ text: String)
     func addressBarDidBeginEditing()
+    func addressBarDidEndEditing()
+    func addressBarTextDidChange(_ text: String)
     func addressBarDidTapReload()
     func addressBarDidTapBack()
     func addressBarDidTapForward()
@@ -767,6 +769,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     func textFieldDidEndEditing(_ textField: UITextField) {
         textField.textAlignment = .center
         updateClearButtonVisibility()
+        delegate?.addressBarDidEndEditing()
     }
 
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
@@ -778,6 +781,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
     @objc private func textFieldEditingChanged() {
         updateClearButtonVisibility()
+        delegate?.addressBarTextDidChange(textField.text ?? "")
     }
 
     @objc private func clearAddressTapped() {
@@ -794,6 +798,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             textField.text = ""
         }
         updateClearButtonVisibility()
+        delegate?.addressBarTextDidChange("")
     }
 
     private func setupKeyboardShortcuts() {

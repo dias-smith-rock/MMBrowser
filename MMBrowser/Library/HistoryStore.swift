@@ -41,6 +41,9 @@ final class HistoryStore {
     private var saveWorkItem: DispatchWorkItem?
     private let saveDebounceInterval: TimeInterval = 1.5
     private let perContainerLimit = 300
+    /// Cap used for address-bar autocomplete (unique URLs, most recent first).
+    static let autocompletePoolLimit = 200
+    static let autocompleteDisplayLimit = 8
 
     private init() {
         load()
@@ -52,6 +55,8 @@ final class HistoryStore {
 
     func add(title: String, url: URL, containerID: UUID, calendar: Calendar = .current) {
         if url.absoluteString.hasPrefix("about:") { return }
+        let scheme = url.scheme?.lowercased() ?? ""
+        guard scheme == "http" || scheme == "https" else { return }
         let resolved = ContainerScope.resolveContainerID(containerID)
         let now = Date()
         let item = HistoryItem(
@@ -60,6 +65,7 @@ final class HistoryStore {
             urlString: url.absoluteString,
             date: now
         )
+        // Keep one entry per URL per day for History UI, and always refresh title on revisit.
         items.removeAll {
             $0.containerID == resolved
                 && $0.urlString == item.urlString
@@ -68,6 +74,41 @@ final class HistoryStore {
         items.insert(item, at: 0)
         trim(containerID: resolved)
         scheduleSave()
+    }
+
+    /// Unique recent visits for address-bar suggestions (newest first, max `autocompletePoolLimit`).
+    func recentUniqueVisits(containerID: UUID, limit: Int = HistoryStore.autocompletePoolLimit) -> [HistoryItem] {
+        var seen = Set<String>()
+        var result: [HistoryItem] = []
+        let capped = max(1, min(limit, Self.autocompletePoolLimit))
+        for item in items where item.containerID == containerID {
+            let key = item.urlString
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
+            result.append(item)
+            if result.count >= capped { break }
+        }
+        return result
+    }
+
+    /// Filter unique recent visits by title / URL / host for omnibox autocomplete.
+    func addressBarSuggestions(
+        matching query: String,
+        containerID: UUID,
+        displayLimit: Int = HistoryStore.autocompleteDisplayLimit
+    ) -> [HistoryItem] {
+        let pool = recentUniqueVisits(containerID: containerID)
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let cappedDisplay = max(1, min(displayLimit, Self.autocompleteDisplayLimit))
+        guard !q.isEmpty else {
+            return Array(pool.prefix(cappedDisplay))
+        }
+        return Array(pool.filter { item in
+            if item.title.lowercased().contains(q) { return true }
+            if item.urlString.lowercased().contains(q) { return true }
+            if let host = item.url?.host?.lowercased(), host.contains(q) { return true }
+            return false
+        }.prefix(cappedDisplay))
     }
 
     private func trim(containerID: UUID) {

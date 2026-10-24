@@ -15,6 +15,7 @@ final class BrowserViewController: UIViewController {
     private let chromeHost = BrowserChromeView()
     private let chromeCard = UIView()
     private let chromeStack = UIStackView()
+    private let addressSuggestions = AddressBarSuggestionsView()
     /// Shown only while loading AND bottom chrome is collapsed.
     private let collapsedProgressView = UIProgressView(progressViewStyle: .bar)
 
@@ -563,6 +564,7 @@ final class BrowserViewController: UIViewController {
         adjacentTabPreview.isHidden = true
         addressBar.delegate = self
         toolbar.delegate = self
+        addressSuggestions.delegate = self
 
         chromeStack.axis = .vertical
         chromeStack.alignment = .fill
@@ -586,6 +588,7 @@ final class BrowserViewController: UIViewController {
         contentClipView.addSubview(contentContainer)
         contentClipView.addSubview(adjacentTabPreview)
         view.addSubview(chromeHost)
+        view.addSubview(addressSuggestions)
         view.addSubview(collapsedProgressView)
 
         collapsedProgressView.progressTintColor = BrowserTheme.chromeBlue
@@ -607,6 +610,10 @@ final class BrowserViewController: UIViewController {
             make.leading.trailing.equalToSuperview()
             chromeHeightConstraint = make.height.equalTo(BrowserTheme.chromeHeight).constraint
             chromeBottomConstraint = make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom).constraint
+        }
+        addressSuggestions.snp.makeConstraints { make in
+            make.leading.trailing.equalToSuperview().inset(BrowserTheme.chromeCardInset + 8)
+            make.bottom.equalTo(chromeHost.snp.top).offset(-8)
         }
         chromeCard.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview().inset(BrowserTheme.chromeCardInset)
@@ -1809,6 +1816,7 @@ extension BrowserViewController: TabManagerDelegate {
 
 extension BrowserViewController: AddressBarViewDelegate {
     func addressBarDidSubmit(_ text: String) {
+        addressSuggestions.hide()
         setChromeCollapsed(false, animated: true)
         let resolved = URLInputResolver.classify(text)
         switch resolved.kind {
@@ -1829,14 +1837,47 @@ extension BrowserViewController: AddressBarViewDelegate {
                 addressBar.setURLTextForcing(full)
             }
         }
+        refreshAddressBarSuggestions(query: addressBar.textField.text ?? "")
+    }
+
+    func addressBarDidEndEditing() {
+        addressSuggestions.hide()
+    }
+
+    func addressBarTextDidChange(_ text: String) {
+        refreshAddressBarSuggestions(query: text)
+    }
+
+    private func refreshAddressBarSuggestions(query: String) {
+        guard let tab = tabManager.selectedTab, !tab.isIncognito else {
+            addressSuggestions.hide()
+            return
+        }
+        // After begin-editing we select-all; show recent matches against the typed query.
+        // When the field still holds the full page URL (just focused), treat as empty → recent list.
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let currentURLText = Self.addressBarDisplayText(for: tab.url ?? tab.webController?.webView?.url)
+        let effectiveQuery: String = {
+            if !currentURLText.isEmpty, trimmed == currentURLText { return "" }
+            return trimmed
+        }()
+        let suggestions = HistoryStore.shared.addressBarSuggestions(
+            matching: effectiveQuery,
+            containerID: tab.containerID
+        )
+        addressSuggestions.show(suggestions)
+        view.bringSubviewToFront(addressSuggestions)
+        view.bringSubviewToFront(chromeHost)
     }
 
     func addressBarDidTapReload() {
+        addressSuggestions.hide()
         setChromeCollapsed(false, animated: true)
         tabManager.selectedTab?.webController?.reload()
     }
 
     func addressBarDidTapBack() {
+        addressSuggestions.hide()
         tabManager.selectedTab?.webController?.goBack()
     }
 
@@ -2020,6 +2061,16 @@ extension BrowserViewController: AddressBarViewDelegate {
             pop.sourceRect = addressBar.bounds
         }
         present(alert, animated: true)
+    }
+}
+
+extension BrowserViewController: AddressBarSuggestionsViewDelegate {
+    func addressBarSuggestions(_ view: AddressBarSuggestionsView, didSelect item: HistoryItem) {
+        guard let url = item.url else { return }
+        addressSuggestions.hide()
+        addressBar.textField.resignFirstResponder()
+        setChromeCollapsed(false, animated: true)
+        navigate(to: url)
     }
 }
 
