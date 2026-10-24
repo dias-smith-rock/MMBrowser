@@ -322,6 +322,8 @@ final class TabManager {
         guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
         let closing = tabs[index]
         let wasIncognito = closing.isIncognito
+        let previouslySelectedID = selectedTab?.id
+        let closingWasSelected = previouslySelectedID == id
         AppAnalytics.logTabClose(
             source: "single",
             incognito: wasIncognito,
@@ -340,13 +342,20 @@ final class TabManager {
             selectedIndex = 0
             noteActiveContainer(from: replacement)
             delegate?.tabManager(self, didSelect: replacement)
-        } else {
+        } else if closingWasSelected {
+            // Closing the selected tab: pick the neighbor that slid into its place.
             selectedIndex = min(index, tabs.count - 1)
             if let selected = selectedTab {
                 selected.lastAccessed = Date()
                 noteActiveContainer(from: selected)
                 delegate?.tabManager(self, didSelect: selected)
             }
+        } else if let previouslySelectedID,
+                  let keepIndex = tabs.firstIndex(where: { $0.id == previouslySelectedID }) {
+            // Closing a background tab must not steal selection.
+            selectedIndex = keepIndex
+        } else {
+            selectedIndex = min(selectedIndex, tabs.count - 1)
         }
 
         if wasIncognito, incognitoTabs.isEmpty {

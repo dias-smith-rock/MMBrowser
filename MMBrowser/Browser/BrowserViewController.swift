@@ -1383,6 +1383,51 @@ final class BrowserViewController: UIViewController {
         tabManager.persistSessionIfNeeded()
     }
 
+    /// Opens a user-chosen URL: close existing webpage tabs in the same pool, then load in a fresh tab.
+    /// Keeps New Tab placeholders and tabs in other Spaces / the other privacy mode.
+    private func openWebpageClosingPreviousTabs(_ url: URL) {
+        let selected = tabManager.selectedTab
+        let incognito = selected?.isIncognito ?? false
+        let containerID = selected.flatMap { $0.isIncognito ? nil : Optional($0.containerID) }
+
+        let previousPageIDs = tabManager.tabs.compactMap { tab -> UUID? in
+            guard tab.isIncognito == incognito else { return nil }
+            guard !tab.isNewTabPage else { return nil }
+            if !incognito, let containerID, tab.containerID != containerID { return nil }
+            return tab.id
+        }
+
+        chromeReturnTabID = nil
+
+        if let selected, selected.isNewTabPage {
+            for id in previousPageIDs {
+                tabManager.closeTab(id: id)
+            }
+            if tabManager.selectedTab?.id != selected.id,
+               tabManager.tabs.contains(where: { $0.id == selected.id }) {
+                tabManager.selectTab(id: selected.id)
+            }
+            navigate(to: url, in: tabManager.tabs.first(where: { $0.id == selected.id }) ?? tabManager.selectedTab)
+            return
+        }
+
+        let newTab = tabManager.addTab(
+            incognito: incognito,
+            select: true,
+            containerID: containerID,
+            inheritUserAgentFrom: selected
+        )
+        navigate(to: url, in: newTab)
+        for id in previousPageIDs {
+            tabManager.closeTab(id: id)
+        }
+        if tabManager.selectedTab?.id != newTab.id,
+           tabManager.tabs.contains(where: { $0.id == newTab.id }) {
+            tabManager.selectTab(id: newTab.id)
+            showSelectedTab()
+        }
+    }
+
     /// Full page URL for the address bar (empty for about: pages / missing URL).
     private static func addressBarDisplayText(for url: URL?) -> String {
         guard let url else { return "" }
@@ -1734,7 +1779,7 @@ final class BrowserViewController: UIViewController {
         }
         sheet.onSelectURL = { [weak self] url in
             self?.dismiss(animated: true) {
-                self?.navigate(to: url)
+                self?.openWebpageClosingPreviousTabs(url)
             }
         }
         let nav = UINavigationController(rootViewController: sheet)
@@ -1764,7 +1809,7 @@ final class BrowserViewController: UIViewController {
         }
         list.onSelectURL = { [weak self] url in
             self?.dismiss(animated: true) {
-                self?.navigate(to: url)
+                self?.openWebpageClosingPreviousTabs(url)
             }
         }
         let nav = UINavigationController(rootViewController: list)
@@ -1825,7 +1870,11 @@ extension BrowserViewController: AddressBarViewDelegate {
         case .url, .emptyHome:
             break
         }
-        navigate(to: resolved.url)
+        if resolved.kind == .emptyHome {
+            navigate(to: resolved.url)
+        } else {
+            openWebpageClosingPreviousTabs(resolved.url)
+        }
     }
 
     func addressBarDidBeginEditing() {
@@ -2070,7 +2119,7 @@ extension BrowserViewController: AddressBarSuggestionsViewDelegate {
         addressSuggestions.hide()
         addressBar.textField.resignFirstResponder()
         setChromeCollapsed(false, animated: true)
-        navigate(to: url)
+        openWebpageClosingPreviousTabs(url)
     }
 }
 
@@ -2279,7 +2328,7 @@ extension BrowserViewController: NewTabViewControllerDelegate {
     }
 
     func newTabDidOpenURL(_ url: URL) {
-        navigate(to: url)
+        openWebpageClosingPreviousTabs(url)
     }
 
     func newTabDidTapSeeMoreContinue() {
@@ -2895,7 +2944,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
         let spaceID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
             ?? tabManager.resolvedLastActiveContainerID
         let list = ReadingListViewController(containerID: spaceID)
-        list.onOpenURL = { [weak self] url in self?.navigate(to: url) }
+        list.onOpenURL = { [weak self] url in self?.openWebpageClosingPreviousTabs(url) }
         let nav = UINavigationController(rootViewController: list)
         nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         BrowserTheme.applyNavigationBar(to: nav.navigationBar)
