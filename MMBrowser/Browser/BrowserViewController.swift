@@ -2069,6 +2069,10 @@ extension BrowserViewController: AddressBarViewDelegate {
     }
 
     func addressBarDidRequestWebEditorRules() {
+        AppAnalytics.logWebEditorAction(
+            action: "rules",
+            host: AppAnalytics.privacyHost(tabManager.selectedTab?.url ?? tabManager.selectedTab?.webController?.webView?.url)
+        )
         let list = PageCleanerRulesViewController(showsCloseButton: true)
         let nav = UINavigationController(rootViewController: list)
         nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
@@ -2144,6 +2148,7 @@ extension BrowserViewController: AddressBarSuggestionsViewDelegate {
     func addressBarSuggestions(_ view: AddressBarSuggestionsView, didSelect item: HistoryItem) {
         let url = item.navigationURL
             ?? URLInputResolver.resolve(item.urlString)
+        AppAnalytics.logAddressSuggestTap(host: AppAnalytics.privacyHost(url))
         addressSuggestions.hide()
         addressBar.textField.resignFirstResponder()
         setChromeCollapsed(false, animated: true)
@@ -2168,8 +2173,12 @@ extension BrowserViewController: BottomToolbarViewDelegate {
         // On Home after leaving a page via Home/Back: restore that webpage.
         if tabManager.selectedTab?.isNewTabPage == true,
            let returnID = chromeReturnTabID,
-           tabManager.tabs.contains(where: { $0.id == returnID }) {
+           let returnTab = tabManager.tabs.first(where: { $0.id == returnID }) {
             chromeReturnTabID = nil
+            AppAnalytics.logHomeNav(
+                action: "back_to_page",
+                host: AppAnalytics.privacyHost(returnTab.url)
+            )
             tabManager.selectTab(id: returnID)
             showSelectedTab()
             return
@@ -2183,6 +2192,10 @@ extension BrowserViewController: BottomToolbarViewDelegate {
         // No web history: Back goes to Home; Back from Home can restore this tab.
         guard let tab, !tab.isNewTabPage, tab.url != nil else { return }
         chromeReturnTabID = tab.id
+        AppAnalytics.logHomeNav(
+            action: "home_from_page",
+            host: AppAnalytics.privacyHost(tab.url)
+        )
         openHomeTabPreservingReturn()
     }
 
@@ -2199,6 +2212,10 @@ extension BrowserViewController: BottomToolbarViewDelegate {
         // Remember the current webpage so Back on Home can return to it.
         if let tab = tabManager.selectedTab, !tab.isNewTabPage, tab.url != nil {
             chromeReturnTabID = tab.id
+            AppAnalytics.logHomeNav(
+                action: "home_from_page",
+                host: AppAnalytics.privacyHost(tab.url)
+            )
         }
         openHomeTabPreservingReturn()
     }

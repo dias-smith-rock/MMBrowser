@@ -503,6 +503,13 @@ final class CustomPipFullscreenViewController: UIViewController {
     @objc private func lockTapped() {
         isControlsLocked.toggle()
         applyLockChrome(animated: true)
+        let host: String? = {
+            if let asset = player.currentItem?.asset as? AVURLAsset {
+                return AppAnalytics.privacyHost(asset.url)
+            }
+            return nil
+        }()
+        AppAnalytics.logFullscreenLock(locked: isControlsLocked, host: host)
         scheduleHide()
     }
 

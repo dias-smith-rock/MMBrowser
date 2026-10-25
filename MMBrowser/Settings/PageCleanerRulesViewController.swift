@@ -142,6 +142,7 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
             guard let self else { return }
             PageCleanerStore.shared.remove(ids: ids)
+            AppAnalytics.logWebEditorAction(action: "rules_delete", count: ids.count)
             self.isSelecting = false
             self.tableView.setEditing(false, animated: true)
             self.reloadData()
@@ -161,7 +162,9 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
         )
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Clear", style: .destructive) { [weak self] _ in
+            let count = PageCleanerStore.shared.items.count
             PageCleanerStore.shared.removeAll()
+            AppAnalytics.logWebEditorAction(action: "rules_clear", count: count)
             self?.isSelecting = false
             self?.tableView.setEditing(false, animated: false)
         })
@@ -254,6 +257,7 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
         guard editingStyle == .delete, !sections.isEmpty, !isSelecting else { return }
         let rule = sections[indexPath.section].rules[indexPath.row]
         PageCleanerStore.shared.remove(id: rule.id)
+        AppAnalytics.logWebEditorAction(action: "rules_delete", host: rule.host, count: 1)
     }
 
     func tableView(
@@ -264,6 +268,7 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
         let rule = sections[indexPath.section].rules[indexPath.row]
         let delete = UIContextualAction(style: .destructive, title: "Delete") { _, _, done in
             PageCleanerStore.shared.remove(id: rule.id)
+            AppAnalytics.logWebEditorAction(action: "rules_delete", host: rule.host, count: 1)
             done(true)
         }
         return UISwipeActionsConfiguration(actions: [delete])

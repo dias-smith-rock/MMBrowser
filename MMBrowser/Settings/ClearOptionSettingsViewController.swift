@@ -252,6 +252,7 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
             sheet.addAction(UIAlertAction(title: label, style: .default) { [weak self] _ in
                 guard let self else { return }
                 AppSettings.activeBackgroundTabLimit = value
+                AppAnalytics.logSettingsChange(setting: "active_background_tabs", value: "\(value)")
                 self.tableView.reloadData()
                 Toast.show("Keeping \(value) active tab\(value == 1 ? "" : "s")", from: self)
             })

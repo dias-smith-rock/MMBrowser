@@ -647,6 +647,11 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         PageCleanerManager.clearSessionEdits(on: webView)
         // Reload so hidden nodes and text come back from the real page.
         webView.reload()
+        AppAnalytics.logWebEditorAction(
+            action: "reset",
+            scope: cleanerURLOnly ? "page" : "site",
+            host: AppAnalytics.privacyHost(webView.url)
+        )
         Toast.show("Page restored", from: self)
     }
 
@@ -669,6 +674,11 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
             PageCleanerManager.setText(next, selector: selector, on: webView)
 
             if self.isIncognito {
+                AppAnalytics.logWebEditorAction(
+                    action: "edit",
+                    scope: "session",
+                    host: AppAnalytics.privacyHost(webView.url)
+                )
                 Toast.show("Edited for this session", from: self)
                 return
             }
@@ -694,6 +704,11 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
                 action: .editText,
                 replacementText: next
             ) != nil {
+                AppAnalytics.logWebEditorAction(
+                    action: "edit",
+                    scope: urlString == nil ? "site" : "page",
+                    host: AppAnalytics.privacyHost(webView.url)
+                )
                 Toast.show(urlString == nil ? "Saved on this site" : "Saved on this page", from: self)
             } else {
                 Toast.show("Text updated", from: self)
@@ -718,6 +733,11 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
                 PageCleanerManager.hideSelector(selector, on: webView)
 
                 if self.isIncognito {
+                    AppAnalytics.logWebEditorAction(
+                        action: "delete",
+                        scope: "session",
+                        host: AppAnalytics.privacyHost(webView.url)
+                    )
                     Toast.show("Hidden for this session", from: self)
                     return
                 }
@@ -744,6 +764,11 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
                     label: label,
                     previewImage: preview
                 ) != nil {
+                    AppAnalytics.logWebEditorAction(
+                        action: "delete",
+                        scope: urlString == nil ? "site" : "page",
+                        host: AppAnalytics.privacyHost(webView.url)
+                    )
                     Toast.show(urlString == nil ? "Hidden on this site" : "Hidden on this page", from: self)
                 } else {
                     Toast.show("Already hidden", from: self)
@@ -1085,6 +1110,10 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         }
         if !wasActive {
             onPageCleanerActiveChanged?(true)
+            AppAnalytics.logWebEditorEnter(
+                scope: urlOnly ? "page" : "site",
+                host: AppAnalytics.privacyHost(webView?.url)
+            )
         }
     }
 
@@ -1096,6 +1125,7 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         cleanerURLOnly = false
         isPageCleanerActive = false
         onPageCleanerActiveChanged?(false)
+        AppAnalytics.logWebEditorExit(host: AppAnalytics.privacyHost(webView?.url))
     }
 
     func saveReadingList() {

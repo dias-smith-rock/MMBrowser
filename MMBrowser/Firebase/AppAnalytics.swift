@@ -32,6 +32,18 @@ enum AppAnalytics {
         static let purchaseSuccess = "purchase_success"
         static let purchaseFail = "purchase_fail"
         static let restore = "restore"
+
+        /// Address-bar history suggestion selected.
+        static let addressSuggestTap = "address_suggest_tap"
+        /// Web Editor enter / exit pick mode.
+        static let webEditorEnter = "web_editor_enter"
+        static let webEditorExit = "web_editor_exit"
+        /// Web Editor delete / edit / reset / open rules list.
+        static let webEditorAction = "web_editor_action"
+        /// Fullscreen player controls lock toggle.
+        static let fullscreenLock = "fullscreen_lock"
+        /// Home button from a page, or Back restoring that page.
+        static let homeNav = "home_nav"
     }
 
     // MARK: - Parameter keys
@@ -58,6 +70,10 @@ enum AppAnalytics {
         static let tabCount = "tab_count"
         static let mediaKind = "media_kind"
         static let productID = "product_id"
+        static let action = "action"
+        static let scope = "scope"
+        static let locked = "locked"
+        static let count = "count"
     }
 
     // MARK: - Core helpers
@@ -253,6 +269,65 @@ enum AppAnalytics {
         log(Event.restore, parameters: [
             Param.success: success,
             Param.source: sanitize(source)
+        ])
+    }
+
+    // MARK: - Newer product surfaces
+
+    static func logAddressSuggestTap(host: String?, source: String = "address_bar") {
+        log(Event.addressSuggestTap, parameters: [
+            Param.host: sanitize(host ?? "unknown"),
+            Param.source: sanitize(source)
+        ])
+    }
+
+    /// - Parameter scope: `site` or `page`.
+    static func logWebEditorEnter(scope: String, host: String?) {
+        log(Event.webEditorEnter, parameters: [
+            Param.scope: sanitize(scope, limit: 16),
+            Param.host: sanitize(host ?? "unknown")
+        ])
+    }
+
+    static func logWebEditorExit(host: String?) {
+        log(Event.webEditorExit, parameters: [
+            Param.host: sanitize(host ?? "unknown")
+        ])
+    }
+
+    /// - Parameter action: `delete` | `edit` | `reset` | `rules` | `rules_clear` | `rules_delete`.
+    /// - Parameter scope: `site` | `page` | `session` when relevant.
+    static func logWebEditorAction(
+        action: String,
+        scope: String? = nil,
+        host: String? = nil,
+        count: Int? = nil
+    ) {
+        var params: [String: Any] = [
+            Param.action: sanitize(action, limit: 24),
+            Param.host: sanitize(host ?? "unknown")
+        ]
+        if let scope {
+            params[Param.scope] = sanitize(scope, limit: 16)
+        }
+        if let count {
+            params[Param.count] = min(max(count, 0), 500)
+        }
+        log(Event.webEditorAction, parameters: params)
+    }
+
+    static func logFullscreenLock(locked: Bool, host: String? = nil) {
+        log(Event.fullscreenLock, parameters: [
+            Param.locked: locked,
+            Param.host: sanitize(host ?? "unknown")
+        ])
+    }
+
+    /// - Parameter action: `home_from_page` | `back_to_page`.
+    static func logHomeNav(action: String, host: String? = nil) {
+        log(Event.homeNav, parameters: [
+            Param.action: sanitize(action, limit: 24),
+            Param.host: sanitize(host ?? "unknown")
         ])
     }
 
