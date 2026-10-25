@@ -27,7 +27,7 @@ final class BrowserViewController: UIViewController {
     private var chromeHeightConstraint: Constraint?
     private var contentTopConstraint: Constraint?
     private var isChromeCollapsed = false
-    /// Tab to restore when user taps Forward after a synthetic Back→Home.
+    /// Tab to restore when user taps Back on Home after leaving a webpage via Home/Back.
     private var chromeReturnTabID: UUID?
     private var scrollAccumulator: CGFloat = 0
     private let chromeScrollThreshold: CGFloat = 10
@@ -1477,13 +1477,18 @@ final class BrowserViewController: UIViewController {
         let isNTP = tab?.isNewTabPage == true
         let webCanGoBack = web?.canGoBack ?? false
         let webCanGoForward = web?.canGoForward ?? false
-        // After Back→Home, keep Forward available to restore the previous tab.
-        let hasHomeReturn = chromeReturnTabID != nil && isNTP
-        let canGoForward = webCanGoForward || hasHomeReturn
-        // Back works for web history, or to leave a page for Home when history is empty.
-        let backActionable = webCanGoBack || (!isNTP && tab?.url != nil)
+        // After Home (or Back→Home), Back restores the remembered webpage tab.
+        let hasHomeReturn: Bool = {
+            guard isNTP, let id = chromeReturnTabID else { return false }
+            return tabManager.tabs.contains(where: { $0.id == id })
+        }()
+        let canGoBack = webCanGoBack || hasHomeReturn
+        // Keep Forward for in-page history only so the Home icon stays available on NTP.
+        let canGoForward = webCanGoForward
+        // Back works for web history, home-return, or leaving a page for Home when history is empty.
+        let backActionable = canGoBack || (!isNTP && tab?.url != nil)
         toolbar.update(
-            canGoBack: webCanGoBack,
+            canGoBack: canGoBack,
             canGoForward: canGoForward,
             tabCount: tabManager.toolbarTabCount(incognito: isPrivate),
             isPrivate: isPrivate,
@@ -2160,13 +2165,22 @@ extension BrowserViewController: BottomToolbarViewDelegate {
     }
 
     func toolbarDidTapBack() {
+        // On Home after leaving a page via Home/Back: restore that webpage.
+        if tabManager.selectedTab?.isNewTabPage == true,
+           let returnID = chromeReturnTabID,
+           tabManager.tabs.contains(where: { $0.id == returnID }) {
+            chromeReturnTabID = nil
+            tabManager.selectTab(id: returnID)
+            showSelectedTab()
+            return
+        }
         let tab = tabManager.selectedTab
         let web = tab?.webController
         if web?.canGoBack == true {
             web?.goBack()
             return
         }
-        // No web history: Back goes to Home, and Forward can restore this tab.
+        // No web history: Back goes to Home; Back from Home can restore this tab.
         guard let tab, !tab.isNewTabPage, tab.url != nil else { return }
         chromeReturnTabID = tab.id
         openHomeTabPreservingReturn()
@@ -2179,18 +2193,13 @@ extension BrowserViewController: BottomToolbarViewDelegate {
             web?.goForward()
             return
         }
-        // Synthetic Forward after Back→Home: restore the previous tab.
-        if let returnID = chromeReturnTabID,
-           tabManager.tabs.contains(where: { $0.id == returnID }) {
-            chromeReturnTabID = nil
-            tabManager.selectTab(id: returnID)
-            showSelectedTab()
-            return
-        }
     }
 
     func toolbarDidTapHome() {
-        chromeReturnTabID = nil
+        // Remember the current webpage so Back on Home can return to it.
+        if let tab = tabManager.selectedTab, !tab.isNewTabPage, tab.url != nil {
+            chromeReturnTabID = tab.id
+        }
         openHomeTabPreservingReturn()
     }
 
