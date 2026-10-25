@@ -24,6 +24,7 @@ final class CustomPipFullscreenViewController: UIViewController {
     private let playButton = UIButton(type: .system)
     private let rewindButton = UIButton(type: .system)
     private let forwardButton = UIButton(type: .system)
+    private let lockButton = UIButton(type: .system)
     private let progress = UISlider()
     private let elapsedLabel = UILabel()
     private let remainingLabel = UILabel()
@@ -35,6 +36,7 @@ final class CustomPipFullscreenViewController: UIViewController {
     private var hintWorkItem: DispatchWorkItem?
     private var timeObserver: Any?
     private var isScrubbing = false
+    private var isControlsLocked = false
     private var verticalGestureMode: VerticalGestureMode?
     private var gestureStartValue: CGFloat = 0
 
@@ -149,6 +151,9 @@ final class CustomPipFullscreenViewController: UIViewController {
         style(playButton, symbol: "pause.fill", size: 22, diameter: 64)
         style(forwardButton, symbol: "goforward.10", size: 18, diameter: 44)
         style(speedButton, symbol: nil, size: 12, diameter: 36)
+        style(lockButton, symbol: "lock.open.fill", size: 16, diameter: 40)
+        lockButton.accessibilityLabel = "Lock controls"
+        lockButton.addTarget(self, action: #selector(lockTapped), for: .touchUpInside)
         speedButton.titleLabel?.font = .systemFont(ofSize: 12, weight: .bold)
         speedButton.setTitleColor(.white, for: .normal)
         speedButton.showsMenuAsPrimaryAction = true
@@ -192,6 +197,7 @@ final class CustomPipFullscreenViewController: UIViewController {
         overlay.addSubview(rewindButton)
         overlay.addSubview(playButton)
         overlay.addSubview(forwardButton)
+        view.addSubview(lockButton)
         overlay.addSubview(progress)
         overlay.addSubview(elapsedLabel)
         overlay.addSubview(remainingLabel)
@@ -224,6 +230,11 @@ final class CustomPipFullscreenViewController: UIViewController {
             make.centerY.equalTo(playButton)
             make.leading.equalTo(playButton.snp.trailing).offset(28)
             make.size.equalTo(44)
+        }
+        lockButton.snp.makeConstraints { make in
+            make.leading.equalTo(view.safeAreaLayoutGuide).offset(8)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(40)
         }
         progress.snp.makeConstraints { make in
             make.leading.equalTo(view.safeAreaLayoutGuide).offset(56)
@@ -333,15 +344,54 @@ final class CustomPipFullscreenViewController: UIViewController {
     private func scheduleHide() {
         hideWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in
-            UIView.animate(withDuration: 0.2) { self?.overlay.alpha = 0 }
+            guard let self else { return }
+            UIView.animate(withDuration: 0.2) {
+                if self.isControlsLocked {
+                    self.lockButton.alpha = 0
+                } else {
+                    self.overlay.alpha = 0
+                    self.lockButton.alpha = 0
+                }
+            }
         }
         hideWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: work)
     }
 
+    private var chromeControls: [UIView] {
+        [closeButton, speedButton, rewindButton, playButton, forwardButton, progress, elapsedLabel, remainingLabel]
+    }
+
+    private func applyLockChrome(animated: Bool) {
+        let symbol = isControlsLocked ? "lock.fill" : "lock.open.fill"
+        lockButton.setImage(
+            UIImage(
+                systemName: symbol,
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .bold)
+            ),
+            for: .normal
+        )
+        lockButton.accessibilityLabel = isControlsLocked ? "Unlock controls" : "Lock controls"
+        let updates = {
+            self.overlay.alpha = self.isControlsLocked ? 0 : 1
+            self.overlay.isUserInteractionEnabled = !self.isControlsLocked
+            self.lockButton.alpha = 1
+            for control in self.chromeControls {
+                control.alpha = self.isControlsLocked ? 0 : 1
+                control.isUserInteractionEnabled = !self.isControlsLocked
+            }
+        }
+        if animated {
+            UIView.animate(withDuration: 0.2, animations: updates)
+        } else {
+            updates()
+        }
+    }
+
     // MARK: - Brightness / volume
 
     @objc private func verticalPanned(_ gesture: UIPanGestureRecognizer) {
+        guard !isControlsLocked else { return }
         let location = gesture.location(in: view)
         let translation = gesture.translation(in: view)
         switch gesture.state {
@@ -427,12 +477,33 @@ final class CustomPipFullscreenViewController: UIViewController {
     // MARK: - Actions
 
     @objc private func toggleOverlay() {
+        if isControlsLocked {
+            if lockButton.alpha < 0.5 {
+                UIView.animate(withDuration: 0.2) { self.lockButton.alpha = 1 }
+                scheduleHide()
+            } else {
+                UIView.animate(withDuration: 0.2) { self.lockButton.alpha = 0 }
+            }
+            return
+        }
         if overlay.alpha < 0.5 {
-            UIView.animate(withDuration: 0.2) { self.overlay.alpha = 1 }
+            UIView.animate(withDuration: 0.2) {
+                self.overlay.alpha = 1
+                self.lockButton.alpha = 1
+            }
             scheduleHide()
         } else {
-            UIView.animate(withDuration: 0.2) { self.overlay.alpha = 0 }
+            UIView.animate(withDuration: 0.2) {
+                self.overlay.alpha = 0
+                self.lockButton.alpha = 0
+            }
         }
+    }
+
+    @objc private func lockTapped() {
+        isControlsLocked.toggle()
+        applyLockChrome(animated: true)
+        scheduleHide()
     }
 
     @objc private func closeTapped() {
@@ -474,6 +545,7 @@ extension CustomPipFullscreenViewController: UIGestureRecognizerDelegate {
         _ gestureRecognizer: UIGestureRecognizer,
         shouldReceive touch: UITouch
     ) -> Bool {
+        if isControlsLocked { return false }
         if touch.view is UIControl { return false }
         let point = touch.location(in: view)
         // Progress scrubber owns horizontal interaction.
