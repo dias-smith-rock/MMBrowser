@@ -30,7 +30,7 @@ Capabilities that define XBrowser’s identity, or that are essential to being a
 | Feature | Description |
 | --- | --- |
 | **App Lock** | Lock the whole app on launch / after background with PIN, pattern, and optional biometrics. |
-| **Second Lock (decoy)** | Alternate unlock that opens a decoy session and keeps locked Spaces / lock entry points hidden. |
+| **Second Lock (decoy / secondary password)** | Alternate App Lock PIN or pattern (must differ from the primary). Unlocking with it opens a decoy session where locked Spaces and lock feature entry points stay completely hidden. |
 | **Space Lock** | PIN/pattern lock for an individual Space. **Premium.** Locked Spaces stay hidden under Second Lock sessions. |
 
 ### 1.3 Essential browsing
@@ -62,10 +62,11 @@ Capabilities that define XBrowser’s identity, or that are essential to being a
 
 Valuable for acquisition, retention, or polish. Listed in full so media, ads, Web Editor, and tools are not collapsed into vague buckets.
 
-### 2.1 Ads & tracker blocking
+### 2.1 Ads & tracker blocking / ad-free product
 
 | Feature | Description |
 | --- | --- |
+| **Ad-free product chrome** | XBrowser does not monetize with in-app ads (no AdMob-style banners / interstitials / app-open ads in the app UI). Optional Premium is App Store subscription. |
 | **Block Ads & Trackers** | Blocks ad/tracker network requests and hides common on-page ad banners. Toggle in Settings; address-bar shield reflects protection. |
 | **Accurate Block Count** | Optional shield badge that counts blocks via a heavier page scan (uses more CPU). |
 | **Filter updates** | Downloadable/updatable filter packs so blocking can recover after site changes. |
@@ -129,7 +130,8 @@ Native player used for supported streams (alongside system PiP where applicable)
 | **Translate** | Open translation for the current page (e.g. via Google Translate flow). |
 | **Text size** | Adjust page text size. |
 | **User Agent** | Override browser user agent for the tab/site when needed. |
-| **Long screenshot** | Capture a tall screenshot of page content. |
+| **Screenshot** | Capture the current page viewport and open the built-in editor (crop shapes, annotate, save). |
+| **Long screenshot** | Capture a tall screenshot of page content (scroll + stitch beyond the viewport), then edit/save. |
 | **Save as PDF** | Export the page as a PDF. |
 | **Passwords** | Saved passwords vault (isolated per Space), with unlock gating. |
 
@@ -186,6 +188,11 @@ When describing YouTube ad reduction / auto-skip publicly:
 
 - Prefer: *Fewer YouTube interruptions*, *best-effort*, *experimental*.
 - Avoid: *ad-free YouTube*, *guaranteed no ads*, *blocks all video ads*.
+
+When describing the product as ad-free:
+
+- Prefer: *no in-app ads*, *we don’t monetize with advertising*, *built-in web ad & tracker blocking (best-effort)*.
+- Keep clear: product chrome is ad-free; websites may still show ads that blocking does not catch.
 
 ---
 
