@@ -9,7 +9,7 @@
   --accent-dim: #2a9a9a;
   --accent-soft: rgba(62, 207, 207, 0.14);
   --line: rgba(232, 238, 246, 0.1);
-  --font-display: "Instrument Serif", "Times New Roman", serif;
+  --font-display: "Sora", "DM Sans", "Helvetica Neue", sans-serif;
   --font-body: "DM Sans", "Helvetica Neue", sans-serif;
   --max: 1120px;
   --nav-h: 72px;
@@ -212,7 +212,7 @@ img {
 .section__title {
   font-family: var(--font-display);
   font-size: clamp(2rem, 4vw, 2.75rem);
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1.15;
   margin: 0 0 16px;
   letter-spacing: -0.02em;
@@ -281,7 +281,7 @@ img {
 .hero__brand {
   font-family: var(--font-display);
   font-size: clamp(3.25rem, 8vw, 5.5rem);
-  font-weight: 400;
+  font-weight: 600;
   line-height: 0.95;
   letter-spacing: -0.03em;
   margin: 0 0 20px;
@@ -290,7 +290,7 @@ img {
 .hero__headline {
   font-family: var(--font-display);
   font-size: clamp(1.35rem, 3vw, 1.85rem);
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1.35;
   margin: 0 0 20px;
   color: var(--ink);
@@ -371,7 +371,7 @@ img {
 .feature__copy h3 {
   font-family: var(--font-display);
   font-size: clamp(1.75rem, 3vw, 2.35rem);
-  font-weight: 400;
+  font-weight: 600;
   margin: 0 0 14px;
   letter-spacing: -0.02em;
 }
@@ -435,7 +435,7 @@ img {
 .step h3 {
   font-family: var(--font-display);
   font-size: 1.45rem;
-  font-weight: 400;
+  font-weight: 600;
   margin: 0 0 10px;
   letter-spacing: -0.02em;
 }
@@ -477,7 +477,7 @@ img {
 .download__title {
   font-family: var(--font-display);
   font-size: clamp(2rem, 4vw, 2.75rem);
-  font-weight: 400;
+  font-weight: 600;
   margin: 0 0 12px;
   letter-spacing: -0.02em;
 }
@@ -507,7 +507,7 @@ img {
 .legal-hero h1 {
   font-family: var(--font-display);
   font-size: clamp(2.4rem, 5vw, 3.5rem);
-  font-weight: 400;
+  font-weight: 600;
   margin: 0 0 12px;
   letter-spacing: -0.02em;
 }
@@ -525,7 +525,7 @@ img {
 .legal h2 {
   font-family: var(--font-display);
   font-size: 1.65rem;
-  font-weight: 400;
+  font-weight: 600;
   margin: 40px 0 12px;
 }
 
@@ -730,7 +730,7 @@ img {
 .page-hero h1 {
   font-family: var(--font-display);
   font-size: clamp(2.2rem, 5vw, 3.4rem);
-  font-weight: 400;
+  font-weight: 600;
   line-height: 1.12;
   letter-spacing: -0.02em;
   margin: 0 0 16px;
@@ -844,7 +844,7 @@ img {
 .blog-item h2 {
   font-family: var(--font-display);
   font-size: clamp(1.35rem, 2.5vw, 1.75rem);
-  font-weight: 400;
+  font-weight: 600;
   margin: 0 0 10px;
   letter-spacing: -0.02em;
 }
@@ -871,7 +871,7 @@ img {
 .prose h2 {
   font-family: var(--font-display);
   font-size: 1.65rem;
-  font-weight: 400;
+  font-weight: 600;
   margin: 40px 0 12px;
 }
 
@@ -908,7 +908,7 @@ img {
 .related h2 {
   font-family: var(--font-display);
   font-size: 1.4rem;
-  font-weight: 400;
+  font-weight: 600;
   margin: 0 0 14px;
 }
 
@@ -931,7 +931,7 @@ img {
 .cta-band h2 {
   font-family: var(--font-display);
   font-size: clamp(1.75rem, 3vw, 2.25rem);
-  font-weight: 400;
+  font-weight: 600;
   margin: 0 0 12px;
 }
 
@@ -958,7 +958,7 @@ img {
 .feature-tile h3 {
   font-family: var(--font-display);
   font-size: 1.35rem;
-  font-weight: 400;
+  font-weight: 600;
   margin: 0 0 10px;
 }
 
