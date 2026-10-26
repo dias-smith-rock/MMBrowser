@@ -228,48 +228,52 @@ img {
 .hero {
   position: relative;
   min-height: calc(100vh - var(--nav-h));
+  width: min(100% - 40px, var(--max));
+  margin: 0 auto;
   display: grid;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1.15fr) minmax(240px, 0.85fr);
+  gap: clamp(28px, 5vw, 64px);
+  align-items: center;
   overflow: hidden;
 }
 
 .hero__plane {
-  position: absolute;
-  inset: 0;
+  position: relative;
   z-index: 0;
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 48px 0;
 }
 
 .hero__plane img {
-  position: absolute;
-  right: max(2%, calc(50% - 520px));
-  top: 50%;
-  transform: translateY(-48%);
-  width: min(42vw, 380px);
+  position: relative;
+  width: min(100%, 360px);
   height: auto;
   aspect-ratio: 9 / 16;
   object-fit: contain;
-  opacity: 0.95;
+  opacity: 0.98;
   filter: drop-shadow(0 24px 48px rgba(0, 0, 0, 0.45));
   animation: hero-drift 18s var(--ease) alternate infinite;
 }
 
 .hero__plane::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(90deg, var(--bg-deep) 0%, rgba(10, 14, 20, 0.88) 38%, rgba(10, 14, 20, 0.25) 62%, transparent 78%),
-    linear-gradient(180deg, transparent 70%, var(--bg-deep) 100%);
-  pointer-events: none;
+  display: none;
 }
 
 .hero__content {
   position: relative;
   z-index: 1;
-  width: min(100% - 40px, var(--max));
-  margin: 0 auto;
+  grid-column: 1;
+  grid-row: 1;
+  width: 100%;
+  max-width: 34rem;
+  margin: 0;
   padding: 72px 0 96px;
-  max-width: 560px;
+  min-width: 0;
   align-self: center;
   justify-self: start;
 }
@@ -288,9 +292,9 @@ img {
   font-size: clamp(1.35rem, 3vw, 1.85rem);
   font-weight: 400;
   line-height: 1.35;
-  margin: 0 0 16px;
+  margin: 0 0 20px;
   color: var(--ink);
-  max-width: 22em;
+  max-width: 18ch;
 }
 
 .hero__support {
@@ -321,8 +325,8 @@ img {
 }
 
 @keyframes hero-drift {
-  from { transform: translateY(-48%) translate3d(0, 0, 0); }
-  to { transform: translateY(-48%) translate3d(0, -10px, 0); }
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(0, -10px, 0); }
 }
 
 /* —— Features —— */
@@ -608,38 +612,28 @@ img {
     min-height: auto;
     display: flex;
     flex-direction: column;
+    gap: 0;
   }
 
   .hero__plane {
-    position: relative;
     order: 2;
-    inset: auto;
-    display: flex;
-    justify-content: center;
     padding: 8px 0 48px;
   }
 
   .hero__plane img {
-    position: relative;
-    right: auto;
-    top: auto;
-    left: auto;
-    transform: none;
     width: min(70vw, 260px);
     opacity: 1;
-    margin: 0;
     animation: none;
-  }
-
-  .hero__plane::after {
-    display: none;
   }
 
   .hero__content {
     order: 1;
     padding: 48px 0 24px;
     max-width: none;
-    justify-self: stretch;
+  }
+
+  .hero__headline {
+    max-width: none;
   }
 
   .feature,
@@ -1039,7 +1033,7 @@ img {
   }
 
   .hero__plane img {
-    transform: translateY(-48%);
+    transform: none;
   }
 
   .step,
