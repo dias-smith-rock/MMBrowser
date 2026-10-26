@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add SPM package refs with 24-char HEX UUIDs. Run AFTER pod install."""
+"""Legacy SPM helper (Firebase now via CocoaPods). Kept without AdMob packages."""
 from pathlib import Path
 
 PBX = Path("/Users/rock/Documents/Code/MMBrowser/MMBrowser.xcodeproj/project.pbxproj")
@@ -10,18 +10,13 @@ if "XCRemoteSwiftPackageReference" in text and "FirebaseAnalytics" in text:
     raise SystemExit(0)
 
 PKG_FIREBASE = "A11F1BEBA5E0000000000001"
-PKG_GMA = "A11AD60B0000000000000001"
-PKG_UMP = "A110A0D0B000000000000001"
 
 PRODUCTS = [
     ("A11FA0000000000000000001", "A11FABF00000000000000001", PKG_FIREBASE, "FirebaseAnalytics"),
     ("A11FBC000000000000000001", "A11FBCBF0000000000000001", PKG_FIREBASE, "FirebaseRemoteConfig"),
     ("A11FCD000000000000000001", "A11FCDBF0000000000000001", PKG_FIREBASE, "FirebaseCrashlytics"),
-    ("A11AD6100000000000000001", "A11AD61BF000000000000001", PKG_GMA, "GoogleMobileAds"),
-    ("A110A0D10000000000000001", "A110A0D1BF00000000000001", PKG_UMP, "GoogleUserMessagingPlatform"),
 ]
 
-for ids in [PKG_FIREBASE, PKG_GMA, PKG_UMP] + [p[0] for p in PRODUCTS] + [p[1] for p in PRODUCTS]:
     assert len(ids) == 24, f"{ids} len={len(ids)}"
     assert all(c in "0123456789ABCDEF" for c in ids), f"non-hex {ids}"
 
@@ -56,8 +51,6 @@ proj_needle = "\t\t\tprojectDirPath = \"\";\n\t\t\tprojectRoot = \"\";"
 proj_repl = (
     "\t\t\tpackageReferences = (\n"
     f"\t\t\t\t{PKG_FIREBASE} /* XCRemoteSwiftPackageReference \"firebase-ios-sdk\" */,\n"
-    f"\t\t\t\t{PKG_GMA} /* XCRemoteSwiftPackageReference \"swift-package-manager-google-mobile-ads\" */,\n"
-    f"\t\t\t\t{PKG_UMP} /* XCRemoteSwiftPackageReference \"swift-package-manager-google-user-messaging-platform\" */,\n"
     "\t\t\t);\n"
     "\t\t\tprojectDirPath = \"\";\n"
     "\t\t\tprojectRoot = \"\";"
@@ -77,7 +70,6 @@ package_section = f"""
 				minimumVersion = 11.0.0;
 			}};
 		}};
-		{PKG_GMA} /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {{
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads.git";
 			requirement = {{
@@ -85,7 +77,6 @@ package_section = f"""
 				minimumVersion = 11.0.0;
 			}};
 		}};
-		{PKG_UMP} /* XCRemoteSwiftPackageReference "swift-package-manager-google-user-messaging-platform" */ = {{
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/googleads/swift-package-manager-google-user-messaging-platform.git";
 			requirement = {{

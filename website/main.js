@@ -56,5 +56,9 @@ window.XBrowserSite = {
   };
 
   observeReveal(document.querySelectorAll(".feature"));
-  observeReveal(document.querySelectorAll(".step, .honest-note, .download .reveal-on-scroll"));
+  observeReveal(
+    document.querySelectorAll(
+      ".step, .honest-note, .download .reveal-on-scroll, .quote, .blog-item, .price-card"
+    )
+  );
 })();

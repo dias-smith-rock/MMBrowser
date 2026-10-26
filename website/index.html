@@ -3,33 +3,53 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>XBrowser — Separate logins. One browser.</title>
-  <meta name="description" content="XBrowser isolates cookies, history, and bookmarks per space—great for multiple WhatsApp Web, Instagram, Telegram, and Facebook sessions, plus shops and work." />
-  <meta property="og:title" content="XBrowser — Separate logins. One browser." />
-  <meta property="og:description" content="Keep messaging, shop, and work identities isolated. Switch in one tap." />
+  <title>XBrowser — Multi-account Private Sandbox Browser | Background Play &amp; Sleep Timer</title>
+  <meta name="description" content="XBrowser is a private sandbox browser with web video lock-screen background play, sleep timer auto-stop, isolated multi-account Spaces, and clean ad-light browsing." />
+  <link rel="canonical" href="https://xxxxxbrowser.cc/" />
+  <meta property="og:title" content="XBrowser — Multi-account Private Sandbox Browser | Background Play &amp; Sleep Timer" />
+  <meta property="og:description" content="Web video lock-screen play, sleep timer, multi-account sandboxes, and per-Space Face ID lock." />
   <meta property="og:type" content="website" />
-  <meta property="og:image" content="assets/logo.png" />
+  <meta property="og:url" content="https://xxxxxbrowser.cc/" />
+  <meta property="og:image" content="https://xxxxxbrowser.cc/assets/logo.webp" />
   <meta name="theme-color" content="#0a0e14" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
-  <link rel="icon" href="assets/logo.png" />
+  <link rel="icon" href="assets/logo.webp" type="image/webp" />
+  <link rel="alternate icon" href="assets/logo.png" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "XBrowser",
+    "operatingSystem": "iOS, Android",
+    "applicationCategory": "UtilitiesApplication",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "description": "A secure browser with web video background play, sleep timer, multi-account sandbox isolation, and per-space encryption."
+  }
+  </script>
+
 </head>
 <body>
   <div class="site-wrap">
     <header class="site-header">
       <div class="site-header__inner">
-        <a class="brand" href="index.html">
-          <img class="brand__mark" src="assets/logo.png" alt="" width="36" height="36" />
+        <a class="brand" href="/">
+          <img class="brand__mark" src="assets/logo.webp" alt="" width="36" height="36" />
           <span class="brand__name">XBrowser</span>
         </a>
         <nav aria-label="Primary">
           <ul class="nav-links">
             <li class="nav-hide-sm"><a href="#features">Features</a></li>
-            <li class="nav-hide-sm"><a href="#how">How it works</a></li>
-            <li><a href="privacy.html">Privacy</a></li>
-            <li><a href="terms.html">Terms</a></li>
+            <li class="nav-hide-sm"><a href="/features/sleep-timer-background-play/">Sleep Timer</a></li>
+            <li class="nav-hide-sm"><a href="/blog/">Blog</a></li>
+            <li><a href="/pricing/">Pricing</a></li>
+            <li><a href="/privacy.html">Privacy</a></li>
           </ul>
         </nav>
       </div>
@@ -38,110 +58,161 @@
     <main>
       <section class="hero" aria-label="Introduction">
         <div class="hero__plane" aria-hidden="true">
-          <img src="assets/onboarding_messaging.png" alt="" />
+          <img
+            src="assets/onboarding_focus.webp"
+            alt=""
+            width="600"
+            height="900"
+            fetchpriority="high"
+            decoding="async"
+          />
         </div>
         <div class="hero__content">
-          <h1 class="hero__brand reveal reveal-delay-1">XBrowser</h1>
-          <p class="hero__headline reveal reveal-delay-2">Separate logins. One browser.</p>
+          <p class="hero__brand reveal reveal-delay-1" aria-hidden="true">XBrowser</p>
+          <h1 class="hero__headline reveal reveal-delay-2">A multi-account private sandbox browser with background play and sleep timer</h1>
           <p class="hero__support reveal reveal-delay-3">
-            Keep messaging, shop, and work identities isolated—cookies, history, bookmarks, and home included. Switch in one tap.
+            Lock-screen web video, sleep-timer fade-out, isolated Spaces, and Face ID locks—built for how you actually browse on mobile.
           </p>
           <div class="btn-row reveal reveal-delay-4">
             <a class="btn btn--primary" data-app-store href="https://apps.apple.com/us/app/id6804914972?l=en-us">
-              Download from App Store
+              Download on the App Store
             </a>
-            <a class="btn btn--ghost" href="#features">See how</a>
+            <a class="btn btn--ghost" href="/features/sleep-timer-background-play/">Try Sleep Mode</a>
           </div>
         </div>
       </section>
 
       <section class="section" id="features">
         <div class="container">
-          <p class="section__label">Why XBrowser</p>
-          <h2 class="section__title">Built for how you actually juggle spaces</h2>
+          <p class="section__label">Core capabilities</p>
+          <h2 class="section__title" id="sleep-timer">Auto-stop at bedtime—your sleep media companion</h2>
           <p class="section__lead">
-            One browser, multiple identities. Each space keeps its own cookies and sessions—without pretending to hide your IP.
+            Set a countdown for web podcasts, white noise, and YouTube / Bilibili. Playback fades out smoothly and stops—saves battery and your ears.
           </p>
 
           <article class="feature">
             <div class="feature__copy">
-              <h3>Multiple WhatsApp &amp; IG logins</h3>
+              <h3>Sleep timer + gentle fade-out</h3>
               <p>
-                Run multiple web sessions for WhatsApp Web, Instagram, Telegram, and Facebook—each in its own space so cookies and logins don’t mix. Uses each site’s web version inside the browser; features may differ from the official apps.
+                Falling asleep to a podcast or web video? Set a timer. Volume fades, then playback stops—no midnight hunting for pause, no all-night drain.
+              </p>
+              <p style="margin-top:14px">
+                <a href="/features/sleep-timer-background-play/">Learn about Sleep Timer &amp; background play →</a>
               </p>
             </div>
             <div class="feature__media">
-              <img src="assets/onboarding_messaging.png" alt="Illustration of separate messaging web sessions" width="600" height="900" loading="lazy" />
+              <img src="assets/onboarding_focus.webp" alt="Sleep timer and focused playback illustration" width="600" height="900" loading="lazy" />
             </div>
           </article>
+
+          <h2 class="section__title" id="background-play" style="margin-top:48px">Break lock-screen limits—keep web video and podcasts playing</h2>
+          <p class="section__lead">
+            After lock or switching apps, web audio and video can keep playing—past typical mobile browser foreground limits.
+          </p>
 
           <article class="feature feature--flip">
             <div class="feature__copy">
-              <h3>Run multiple shops, cleanly</h3>
+              <h3>Background web media</h3>
               <p>
-                Manage different store or seller accounts in one browser. Each shop keeps its own cookies, history, and bookmarks.
+                Commute podcasts, bedtime videos, lock-screen white noise. Pair with Sleep Timer for a complete listen-and-sleep workflow.
               </p>
             </div>
             <div class="feature__media">
-              <img src="assets/onboarding_shops.png" alt="Illustration of separate shop accounts" width="600" height="900" loading="lazy" />
+              <img src="assets/onboarding_cleaner.webp" alt="Clean browsing and media playback illustration" width="600" height="900" loading="lazy" />
             </div>
           </article>
 
+          <h2 class="section__title" id="sandbox" style="margin-top:48px">Zero-trust Spaces—multi-account without cookie mixing</h2>
+          <p class="section__lead">
+            Each Space keeps its own cookies, cache, history, and bookmarks. Run multiple social or shop logins on one device without cross-contamination.
+          </p>
+
           <article class="feature">
             <div class="feature__copy">
-              <h3>Work stays at work</h3>
+              <h3>Isolated multi-account sandboxes</h3>
               <p>
-                Use a dedicated work identity for email and docs. One tap on the space chip switches you back—history and home stay separate too.
+                Cross-border sellers, social ops, or work/personal split: one browser, multiple fully isolated sessions. Switch in one tap.
+              </p>
+              <p style="margin-top:14px">
+                <a href="/features/multi-account-sandbox/">See the multi-account sandbox →</a>
               </p>
             </div>
             <div class="feature__media">
-              <img src="assets/onboarding_work.png" alt="Illustration of work space switching" width="600" height="900" loading="lazy" />
+              <img src="assets/onboarding_messaging.webp" alt="Separate messaging sessions illustration" width="600" height="900" loading="lazy" />
+            </div>
+          </article>
+
+          <h2 class="section__title" id="encryption" style="margin-top:48px">Per-Space Face ID encryption for sensitive accounts</h2>
+          <p class="section__lead">
+            Lock a specific Space with biometrics. Local data stays isolated—built for privacy-minded users.
+          </p>
+
+          <article class="feature feature--flip">
+            <div class="feature__copy">
+              <h3>Lock one Space, not everything</h3>
+              <p>
+                Face ID / Touch ID plus PIN or pattern can protect a single Space. Keep sensitive accounts locked while the rest stay usable.
+              </p>
+              <p style="margin-top:14px">
+                <a href="/features/encrypted-private-browser/">Learn about encryption &amp; privacy →</a>
+              </p>
+            </div>
+            <div class="feature__media">
+              <img src="assets/onboarding_privacy.webp" alt="Space encryption and privacy illustration" width="600" height="900" loading="lazy" />
             </div>
           </article>
         </div>
       </section>
 
-      <section class="section section--how" id="how">
+      <section class="section section--how" id="faq">
         <div class="container">
-          <p class="section__label">How it works</p>
-          <h2 class="section__title">Isolation you can feel in one tap</h2>
-          <p class="section__lead">
-            Each space is a separate browsing identity on your device. You stay signed in where you need to—without mixing sessions.
-          </p>
-          <ol class="steps">
-            <li class="step reveal-on-scroll">
-              <span class="step__num" aria-hidden="true">01</span>
-              <h3>Create a space</h3>
-              <p>Add Messaging, Shop, Work, or a custom identity. Each gets its own cookies and site data.</p>
-            </li>
-            <li class="step reveal-on-scroll">
-              <span class="step__num" aria-hidden="true">02</span>
-              <h3>Browse in that space</h3>
-              <p>History, bookmarks, and home stay with the space you’re in—so work doesn’t bleed into personal.</p>
-            </li>
-            <li class="step reveal-on-scroll">
-              <span class="step__num" aria-hidden="true">03</span>
-              <h3>Switch with the chip</h3>
-              <p>Tap the space chip to jump identities. Sessions stay put until you delete the space.</p>
-            </li>
-          </ol>
-          <p class="honest-note reveal-on-scroll">
-            Space separation does not change your network IP or make you anonymous online. XBrowser focuses on practical session isolation and local data control.
-          </p>
+          <p class="section__label">Reviews &amp; FAQ</p>
+          <h2 class="section__title">What users ask—and what they say</h2>
+          <p class="section__lead">Bedtime podcasts, multi-shop logins, locked private Spaces—the scenarios people mention most.</p>
+
+          <div class="quotes">
+            <blockquote class="quote">
+              <p>“Finally I can lock the screen and keep a web podcast going—plus a sleep timer so it doesn’t run all night.”</p>
+              <footer>— Sleep media listener</footer>
+            </blockquote>
+            <blockquote class="quote">
+              <p>“Three shop accounts, three Spaces. Cookies don’t mix. Way better than logging in and out.”</p>
+              <footer>— Cross-border seller</footer>
+            </blockquote>
+          </div>
+
+          <div class="faq">
+            <details>
+              <summary>Which web content works with Sleep Timer?</summary>
+              <p>Web video and audio—YouTube, Bilibili, podcast sites, white-noise pages, and similar. After the countdown, playback fades out and stops.</p>
+            </details>
+            <details>
+              <summary>Does background play hide my IP?</summary>
+              <p>No. Background play keeps media going after lock or app switch. Spaces isolate cookies and logins. Neither changes your network IP.</p>
+            </details>
+            <details>
+              <summary>How many Spaces are free?</summary>
+              <p>Free includes up to 3 Spaces. Unlimited Spaces and Space Lock need Premium. See <a href="/pricing/">Pricing</a>.</p>
+            </details>
+            <details>
+              <summary>Can it skip video pre-roll ads?</summary>
+              <p>Built-in ad and tracker blocking reduces popups and common ad slots. Video pre-roll reduction is best-effort and may change when sites update.</p>
+            </details>
+          </div>
         </div>
       </section>
 
       <section class="section section--download" id="download">
         <div class="container download">
-          <h2 class="download__title reveal-on-scroll">Ready when you are</h2>
+          <h2 class="download__title reveal-on-scroll">Ready for private, practical browsing</h2>
           <p class="download__lead reveal-on-scroll">
-            XBrowser for iPhone—separate logins without juggling apps or profiles.
+            Background play, Sleep Timer, multi-account Spaces, and Face ID locks—in one browser.
           </p>
           <div class="btn-row reveal-on-scroll">
             <a class="btn btn--primary" data-app-store href="https://apps.apple.com/us/app/id6804914972?l=en-us">
-              Download from App Store
+              Download on the App Store
             </a>
-            <a class="btn btn--ghost" href="privacy.html">Privacy Policy</a>
+            <a class="btn btn--ghost" href="/blog/guides/sleep-timer-and-media/">Read the sleep media guide</a>
           </div>
         </div>
       </section>
@@ -152,18 +223,22 @@
         <div>
           <p class="site-footer__brand">XBrowser</p>
           <p class="site-footer__note">
-            A product by <span>XBrowser</span>.
-            Questions: <a data-contact-email href="mailto:gaowei85714@gmail.com">gaowei85714@gmail.com</a>
+            Multi-account sandbox browser. Questions:
+            <a data-contact-email href="mailto:gaowei85714@gmail.com">gaowei85714@gmail.com</a>
           </p>
         </div>
         <ul class="site-footer__links">
-          <li><a href="privacy.html">Privacy Policy</a></li>
-          <li><a href="terms.html">Terms of Use</a></li>
-          <li><a data-app-store href="https://apps.apple.com/us/app/id6804914972?l=en-us">App Store</a></li>
+          <li><a href="/features/sleep-timer-background-play/">Sleep Timer</a></li>
+          <li><a href="/features/multi-account-sandbox/">Multi-account</a></li>
+          <li><a href="/blog/">Blog</a></li>
+          <li><a href="/pricing/">Pricing</a></li>
+          <li><a href="/support/">Support</a></li>
+          <li><a href="/privacy.html">Privacy</a></li>
+          <li><a href="/terms.html">Terms</a></li>
         </ul>
       </div>
     </footer>
   </div>
-  <script src="main.js"></script>
+  <script src="main.js" defer></script>
 </body>
 </html>

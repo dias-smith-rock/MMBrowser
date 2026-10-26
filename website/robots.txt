@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+Disallow: /api/
+Disallow: /admin/
+Disallow: /private/
+Disallow: /test/
+Disallow: /*?*
+
+Sitemap: https://xxxxxbrowser.cc/sitemap.xml
