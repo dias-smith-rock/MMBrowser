@@ -40,6 +40,8 @@ final class CustomPipController: NSObject {
     private var pendingStartCompletion: ((Bool) -> Void)?
     private var didReportStartResult = false
     private var readyTimeoutWorkItem: DispatchWorkItem?
+    private var sleepTimerEndsAt: Date?
+    private var sleepTimerWorkItem: DispatchWorkItem?
 
     private override init() {
         super.init()
@@ -183,6 +185,7 @@ final class CustomPipController: NSObject {
         PipProbe.log("customPip.stop", ["reason": reason, "mode": "\(mode)"])
         readyTimeoutWorkItem?.cancel()
         readyTimeoutWorkItem = nil
+        clearSleepTimer(notifyUI: false, analyticsAction: nil)
         // If still waiting on start, treat as failure so callers can fall back to legacy PiP.
         if pendingStartCompletion != nil, !didReportStartResult, reason != "restart" {
             reportStartResult(false, reason: reason)
@@ -255,6 +258,10 @@ final class CustomPipController: NSObject {
         floating.onPlaybackRate = { [weak self] rate in
             self?.setPlaybackRate(rate)
         }
+        floating.onSleepTimer = { [weak self] seconds in
+            self?.setSleepTimer(duration: seconds)
+        }
+        floating.setSleepTimerEndDate(sleepTimerEndsAt)
         hostView.addSubview(floating)
         floating.frame = Self.preferredFloatingFrame(aspect: videoAspect, in: hostView)
         floating.videoAspect = videoAspect
@@ -509,6 +516,57 @@ final class CustomPipController: NSObject {
         }
     }
 
+    // MARK: - Sleep Timer
+
+    /// `nil` clears the timer; otherwise schedules pause after `duration` seconds.
+    private func setSleepTimer(duration: TimeInterval?) {
+        if let duration, duration > 0 {
+            clearSleepTimer(notifyUI: false, analyticsAction: nil)
+            sleepTimerEndsAt = Date().addingTimeInterval(duration)
+            let work = DispatchWorkItem { [weak self] in
+                self?.fireSleepTimer()
+            }
+            sleepTimerWorkItem = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: work)
+            refreshSleepTimerUI()
+            let minutes = Int((duration / 60).rounded())
+            AppAnalytics.logSleepTimer(action: "set", minutes: minutes, host: AppAnalytics.privacyHost(streamURL))
+        } else {
+            let hadTimer = sleepTimerEndsAt != nil
+            clearSleepTimer(notifyUI: true, analyticsAction: hadTimer ? "off" : nil)
+        }
+    }
+
+    private func fireSleepTimer() {
+        clearSleepTimer(notifyUI: false, analyticsAction: nil)
+        player?.pause()
+        floatingView?.setPlaying(false)
+        updateNowPlaying(isPlaying: false)
+        refreshSleepTimerUI()
+        AppAnalytics.logSleepTimer(action: "fired", minutes: nil, host: AppAnalytics.privacyHost(streamURL))
+    }
+
+    private func clearSleepTimer(notifyUI: Bool, analyticsAction: String?) {
+        sleepTimerWorkItem?.cancel()
+        sleepTimerWorkItem = nil
+        sleepTimerEndsAt = nil
+        if let analyticsAction {
+            AppAnalytics.logSleepTimer(
+                action: analyticsAction,
+                minutes: nil,
+                host: AppAnalytics.privacyHost(streamURL)
+            )
+        }
+        if notifyUI {
+            refreshSleepTimerUI()
+        }
+    }
+
+    private func refreshSleepTimerUI() {
+        floatingView?.setSleepTimerEndDate(sleepTimerEndsAt)
+        fullscreenController?.setSleepTimerEndDate(sleepTimerEndsAt)
+    }
+
     private func returnToPage() {
         // Close floating player and leave page media available again.
         suppressForegroundRestore = true
@@ -550,11 +608,16 @@ final class CustomPipController: NSObject {
             self?.setPlaybackRate(rate)
             self?.floatingView?.setDisplayedPlaybackRate(rate)
         }
+        full.onSleepTimer = { [weak self] seconds in
+            self?.setSleepTimer(duration: seconds)
+        }
+        full.setSleepTimerEndDate(sleepTimerEndsAt)
         full.onDismiss = { [weak self] in
             guard let self else { return }
             self.floatingView?.playerLayer.player = self.player
             self.floatingView?.isHidden = false
             self.fullscreenController = nil
+            self.floatingView?.setSleepTimerEndDate(self.sleepTimerEndsAt)
             if let hostView = self.hostView, let floating = self.floatingView {
                 hostView.bringSubviewToFront(floating)
             }
@@ -814,5 +877,38 @@ private extension String {
     var nilIfEmpty: String? {
         let t = trimmingCharacters(in: .whitespacesAndNewlines)
         return t.isEmpty ? nil : t
+    }
+}
+
+/// Shared sleep-timer presets and labels for floating / fullscreen chrome.
+enum PipSleepTimer {
+    static let presets: [(title: String, minutes: Int)] = [
+        ("10 Minutes", 10),
+        ("15 Minutes", 15),
+        ("30 Minutes", 30),
+        ("45 Minutes", 45),
+        ("1 Hour", 60)
+    ]
+
+    static let maxCustomMinutes = 12 * 60
+
+    static func remaining(until endsAt: Date?) -> TimeInterval? {
+        guard let endsAt else { return nil }
+        let left = endsAt.timeIntervalSinceNow
+        return left > 0.05 ? left : nil
+    }
+
+    static func remainingLabel(for seconds: TimeInterval) -> String {
+        let total = max(Int(seconds.rounded(.up)), 1)
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let secs = total % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d left", hours, minutes, secs)
+        }
+        if minutes > 0 {
+            return String(format: "%d:%02d left", minutes, secs)
+        }
+        return String(format: "%d sec left", secs)
     }
 }

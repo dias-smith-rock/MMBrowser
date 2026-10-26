@@ -12,6 +12,8 @@ final class CustomPipFloatingView: UIView {
     var onSeekToFraction: ((Double) -> Void)?
     var onFullscreen: (() -> Void)?
     var onPlaybackRate: ((Float) -> Void)?
+    /// `nil` turns the sleep timer off; otherwise duration in seconds.
+    var onSleepTimer: ((TimeInterval?) -> Void)?
     var onDockChanged: ((Bool) -> Void)?
 
     private let playerContainer = PlayerContainerView()
@@ -32,6 +34,8 @@ final class CustomPipFloatingView: UIView {
     private let playButton = GlassCircleButton(symbol: "pause.fill", pointSize: 20, diameter: 56)
     private let forwardButton = GlassCircleButton(symbol: "goforward.10", pointSize: 16)
     private let speedButton = GlassSpeedButton()
+    private let sleepButton = GlassSleepButton()
+    private var sleepTimerEndsAt: Date?
 
     private let progressPill = GlassPillView()
     private let progressFill = UIView()
@@ -46,6 +50,10 @@ final class CustomPipFloatingView: UIView {
     private var isScrubbing = false
     private var controlsVisible = true
     private var hideWorkItem: DispatchWorkItem?
+    /// Compact float is too narrow for mid-side chrome beside ±10s / play.
+    private var sideChromeStyle: SideChromeStyle = .compact
+
+    private enum SideChromeStyle { case compact, roomy }
     private lazy var dockTabPan = UIPanGestureRecognizer(target: self, action: #selector(dockTabPanned(_:)))
     private var volumeObservation: NSKeyValueObservation?
     private var isUpdatingVolumeUI = false
@@ -114,6 +122,7 @@ final class CustomPipFloatingView: UIView {
         if !isDocked, layer.shadowOpacity < 0.01 {
             layer.shadowOpacity = 0.18
         }
+        updateSideChromeLayoutIfNeeded()
     }
 
     func attach(player: AVPlayer) {
@@ -160,6 +169,15 @@ final class CustomPipFloatingView: UIView {
         speedButton.setRate(rate, notify: false)
     }
 
+    func setSleepTimerEndDate(_ endsAt: Date?) {
+        sleepTimerEndsAt = endsAt
+        let remaining = PipSleepTimer.remaining(until: endsAt)
+        sleepButton.setActive(remaining != nil)
+        sleepButton.accessibilityLabel = remaining.map {
+            "Sleep timer, \(PipSleepTimer.remainingLabel(for: $0))"
+        } ?? "Sleep timer"
+    }
+
     // MARK: - Setup
 
     private func configureChrome() {
@@ -169,6 +187,7 @@ final class CustomPipFloatingView: UIView {
         forwardButton.accessibilityLabel = "Forward 10 seconds"
         playButton.accessibilityLabel = "Play or pause"
         speedButton.accessibilityLabel = "Playback speed"
+        sleepButton.accessibilityLabel = "Sleep timer"
         fullscreenButton.accessibilityLabel = "Full screen"
 
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
@@ -181,6 +200,10 @@ final class CustomPipFloatingView: UIView {
             self?.bumpControls()
             self?.onPlaybackRate?(rate)
         }
+        sleepButton.configure(
+            remainingProvider: { [weak self] in PipSleepTimer.remaining(until: self?.sleepTimerEndsAt) },
+            handler: makeSleepTimerHandler()
+        )
 
         volumeFill.backgroundColor = UIColor.white.withAlphaComponent(0.92)
         volumeFill.layer.cornerRadius = 3
@@ -238,6 +261,7 @@ final class CustomPipFloatingView: UIView {
         overlay.addSubview(playButton)
         overlay.addSubview(forwardButton)
         overlay.addSubview(speedButton)
+        overlay.addSubview(sleepButton)
 
         overlay.addSubview(progressPill)
         progressPill.addSubview(elapsedLabel)
@@ -291,19 +315,10 @@ final class CustomPipFloatingView: UIView {
             make.leading.equalTo(playButton.snp.trailing).offset(18)
         }
 
-        speedButton.snp.makeConstraints { make in
-            make.trailing.equalToSuperview().inset(10)
-            make.centerY.equalToSuperview()
-        }
         fullscreenButton.snp.makeConstraints { make in
             make.trailing.bottom.equalToSuperview().inset(10)
         }
-        progressPill.snp.makeConstraints { make in
-            make.leading.equalToSuperview().inset(10)
-            make.trailing.equalTo(fullscreenButton.snp.leading).offset(-8)
-            make.centerY.equalTo(fullscreenButton)
-            make.height.equalTo(22)
-        }
+        applySideChromeLayout(style: .compact)
         elapsedLabel.snp.makeConstraints { make in
             make.leading.equalToSuperview().inset(10)
             make.centerY.equalToSuperview()
@@ -328,6 +343,58 @@ final class CustomPipFloatingView: UIView {
             UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: 11, weight: .bold)),
             for: .normal
         )
+    }
+
+    private func preferredSideChromeStyle() -> SideChromeStyle {
+        // Small float max width is 300; mid-side speed/sleep collide with ±10s there.
+        // Roomy mid-side layout is for the large landscape float only.
+        if windowSize == .large, bounds.width >= 320 {
+            return .roomy
+        }
+        return .compact
+    }
+
+    private func updateSideChromeLayoutIfNeeded() {
+        let style = preferredSideChromeStyle()
+        guard style != sideChromeStyle else { return }
+        sideChromeStyle = style
+        applySideChromeLayout(style: style)
+    }
+
+    private func applySideChromeLayout(style: SideChromeStyle) {
+        switch style {
+        case .compact:
+            // Keep mid row for transport only; park speed / sleep on the bottom chrome.
+            speedButton.snp.remakeConstraints { make in
+                make.leading.equalToSuperview().inset(10)
+                make.centerY.equalTo(fullscreenButton)
+            }
+            sleepButton.snp.remakeConstraints { make in
+                make.trailing.equalToSuperview().inset(10)
+                make.bottom.equalTo(fullscreenButton.snp.top).offset(-8)
+            }
+            progressPill.snp.remakeConstraints { make in
+                make.leading.equalTo(speedButton.snp.trailing).offset(8)
+                make.trailing.equalTo(fullscreenButton.snp.leading).offset(-8)
+                make.centerY.equalTo(fullscreenButton)
+                make.height.equalTo(22)
+            }
+        case .roomy:
+            speedButton.snp.remakeConstraints { make in
+                make.leading.equalToSuperview().inset(10)
+                make.centerY.equalToSuperview()
+            }
+            sleepButton.snp.remakeConstraints { make in
+                make.trailing.equalToSuperview().inset(10)
+                make.centerY.equalToSuperview()
+            }
+            progressPill.snp.remakeConstraints { make in
+                make.leading.equalToSuperview().inset(10)
+                make.trailing.equalTo(fullscreenButton.snp.leading).offset(-8)
+                make.centerY.equalTo(fullscreenButton)
+                make.height.equalTo(22)
+            }
+        }
     }
 
     private func setupGestures() {
@@ -506,6 +573,53 @@ final class CustomPipFloatingView: UIView {
     @objc private func fullscreenTapped() {
         bumpControls()
         onFullscreen?()
+    }
+
+    private func makeSleepTimerHandler() -> GlassSleepButton.Handler {
+        { [weak self] action in
+            guard let self else { return }
+            self.bumpControls()
+            switch action {
+            case .off:
+                self.onSleepTimer?(nil)
+            case .preset(let minutes):
+                self.onSleepTimer?(TimeInterval(minutes * 60))
+            case .custom:
+                DispatchQueue.main.async { self.presentCustomSleepTimer() }
+            }
+        }
+    }
+
+    private func presentCustomSleepTimer() {
+        guard let presenter = nearestViewController() else { return }
+        let alert = UIAlertController(
+            title: "Custom Sleep Timer",
+            message: "Enter minutes until playback pauses.",
+            preferredStyle: .alert
+        )
+        alert.addTextField { field in
+            field.keyboardType = .numberPad
+            field.placeholder = "Minutes"
+            field.textAlignment = .center
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Start", style: .default) { [weak self, weak alert] _ in
+            guard let self else { return }
+            let raw = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard let minutes = Int(raw), minutes > 0 else { return }
+            let clamped = min(minutes, PipSleepTimer.maxCustomMinutes)
+            self.onSleepTimer?(TimeInterval(clamped * 60))
+        })
+        presenter.present(alert, animated: true)
+    }
+
+    private func nearestViewController() -> UIViewController? {
+        var responder: UIResponder? = self
+        while let current = responder {
+            if let vc = current as? UIViewController { return vc }
+            responder = current.next
+        }
+        return window?.rootViewController
     }
 
     @objc private func edgeTabTapped() {
@@ -945,6 +1059,64 @@ private final class GlassPillView: UIView {
     }
 
     required init?(coder: NSCoder) { fatalError() }
+}
+
+/// Circular sleep-timer control — tap opens duration menu.
+private final class GlassSleepButton: UIButton {
+    enum Action {
+        case off
+        case preset(minutes: Int)
+        case custom
+    }
+
+    typealias Handler = (Action) -> Void
+
+    init(diameter: CGFloat = 32) {
+        super.init(frame: .zero)
+        isOpaque = false
+        backgroundColor = PipChromeStyle.fill
+        clipsToBounds = true
+        layer.cornerRadius = diameter / 2
+        tintColor = .white
+        snp.makeConstraints { $0.size.equalTo(diameter) }
+        showsMenuAsPrimaryAction = true
+        setActive(false)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func setActive(_ active: Bool) {
+        let name = active ? "moon.zzz.fill" : "moon.zzz"
+        setImage(
+            UIImage(systemName: name, withConfiguration: UIImage.SymbolConfiguration(pointSize: 13, weight: .bold)),
+            for: .normal
+        )
+    }
+
+    func configure(remainingProvider: @escaping () -> TimeInterval?, handler: @escaping Handler) {
+        menu = UIMenu(children: [
+            UIDeferredMenuElement.uncached { completion in
+                completion(Self.makeActions(remaining: remainingProvider(), handler: handler))
+            }
+        ])
+    }
+
+    private static func makeActions(remaining: TimeInterval?, handler: @escaping Handler) -> [UIMenuElement] {
+        var items: [UIMenuElement] = []
+        if let remaining {
+            items.append(UIAction(
+                title: "Turn Off · \(PipSleepTimer.remainingLabel(for: remaining))",
+                attributes: .destructive
+            ) { _ in handler(.off) })
+        }
+        for preset in PipSleepTimer.presets {
+            items.append(UIAction(title: preset.title) { _ in
+                handler(.preset(minutes: preset.minutes))
+            })
+        }
+        items.append(UIAction(title: "Custom…") { _ in handler(.custom) })
+        return items
+    }
 }
 
 /// Circular speed control — tap opens rate menu.

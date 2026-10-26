@@ -1,0 +1,24 @@
+---
+description: Keep docs/XBrowser-Feature-Catalog.md in sync when features change
+alwaysApply: true
+---
+
+# Feature catalog sync
+
+Whenever you **add**, **remove**, **rename**, or **materially change** a user-facing feature (including Settings toggles, menus, Web Editor, player/PiP, ads/YouTube hooks, Spaces/locks, Premium gates), update [`docs/XBrowser-Feature-Catalog.md`](docs/XBrowser-Feature-Catalog.md) in the **same task**.
+
+## What to update
+
+- Add or revise the matching row under **Core** or **Non-core** with a one-line description.
+- If Premium gating changes, update the Premium section and the “future Premium expansion” notes.
+- Keep entries concrete (prefer “YouTube video ad auto-skip” over a vague bucket).
+- Do not invent marketing claims; describe what the product actually does.
+- UI-facing names in the catalog may stay English to match the app.
+
+## When it does not apply
+
+- Pure refactors, bugfixes with no user-visible behavior change, build/Pods-only, or docs-only unrelated to features.
+
+## Done check
+
+Before finishing feature work, confirm the catalog reflects the new or changed capability (or explicitly note why no catalog change was needed).

@@ -10,6 +10,8 @@ final class CustomPipFullscreenViewController: UIViewController {
     var onSeekBy: ((TimeInterval) -> Void)?
     var onSeekToFraction: ((Double) -> Void)?
     var onPlaybackRate: ((Float) -> Void)?
+    /// `nil` turns the sleep timer off; otherwise duration in seconds.
+    var onSleepTimer: ((TimeInterval?) -> Void)?
     var onCloseSession: (() -> Void)?
 
     private let player: AVPlayer
@@ -25,6 +27,8 @@ final class CustomPipFullscreenViewController: UIViewController {
     private let rewindButton = UIButton(type: .system)
     private let forwardButton = UIButton(type: .system)
     private let lockButton = UIButton(type: .system)
+    private let sleepButton = UIButton(type: .system)
+    private var sleepTimerEndsAt: Date?
     private let progress = UISlider()
     private let elapsedLabel = UILabel()
     private let remainingLabel = UILabel()
@@ -154,6 +158,10 @@ final class CustomPipFullscreenViewController: UIViewController {
         style(lockButton, symbol: "lock.open.fill", size: 16, diameter: 40)
         lockButton.accessibilityLabel = "Lock controls"
         lockButton.addTarget(self, action: #selector(lockTapped), for: .touchUpInside)
+        style(sleepButton, symbol: "moon.zzz", size: 16, diameter: 40)
+        sleepButton.accessibilityLabel = "Sleep timer"
+        sleepButton.showsMenuAsPrimaryAction = true
+        sleepButton.menu = makeSleepTimerMenu()
         speedButton.titleLabel?.font = .systemFont(ofSize: 12, weight: .bold)
         speedButton.setTitleColor(.white, for: .normal)
         speedButton.showsMenuAsPrimaryAction = true
@@ -198,6 +206,7 @@ final class CustomPipFullscreenViewController: UIViewController {
         overlay.addSubview(playButton)
         overlay.addSubview(forwardButton)
         view.addSubview(lockButton)
+        overlay.addSubview(sleepButton)
         overlay.addSubview(progress)
         overlay.addSubview(elapsedLabel)
         overlay.addSubview(remainingLabel)
@@ -233,6 +242,11 @@ final class CustomPipFullscreenViewController: UIViewController {
         }
         lockButton.snp.makeConstraints { make in
             make.leading.equalTo(view.safeAreaLayoutGuide).offset(8)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(40)
+        }
+        sleepButton.snp.makeConstraints { make in
+            make.trailing.equalTo(view.safeAreaLayoutGuide).inset(8)
             make.centerY.equalToSuperview()
             make.size.equalTo(40)
         }
@@ -278,6 +292,65 @@ final class CustomPipFullscreenViewController: UIViewController {
         let pan = UIPanGestureRecognizer(target: self, action: #selector(verticalPanned(_:)))
         pan.delegate = self
         view.addGestureRecognizer(pan)
+    }
+
+    // MARK: - Sleep Timer
+
+    private func makeSleepTimerMenu() -> UIMenu {
+        UIMenu(children: [
+            UIDeferredMenuElement.uncached { [weak self] completion in
+                completion(self?.makeSleepTimerActions() ?? [])
+            }
+        ])
+    }
+
+    private func makeSleepTimerActions() -> [UIMenuElement] {
+        var items: [UIMenuElement] = []
+        if let remaining = PipSleepTimer.remaining(until: sleepTimerEndsAt) {
+            items.append(UIAction(
+                title: "Turn Off · \(PipSleepTimer.remainingLabel(for: remaining))",
+                attributes: .destructive
+            ) { [weak self] _ in
+                self?.onSleepTimer?(nil)
+                self?.scheduleHide()
+            })
+        }
+        for preset in PipSleepTimer.presets {
+            items.append(UIAction(title: preset.title) { [weak self] _ in
+                self?.onSleepTimer?(TimeInterval(preset.minutes * 60))
+                self?.scheduleHide()
+            })
+        }
+        items.append(UIAction(title: "Custom…") { [weak self] _ in
+            DispatchQueue.main.async { self?.presentCustomSleepTimer() }
+        })
+        return items
+    }
+
+    private func presentCustomSleepTimer() {
+        let alert = UIAlertController(
+            title: "Custom Sleep Timer",
+            message: "Enter minutes until playback pauses.",
+            preferredStyle: .alert
+        )
+        alert.addTextField { field in
+            field.keyboardType = .numberPad
+            field.placeholder = "Minutes"
+            field.textAlignment = .center
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
+            self?.scheduleHide()
+        })
+        alert.addAction(UIAlertAction(title: "Start", style: .default) { [weak self, weak alert] _ in
+            guard let self else { return }
+            let raw = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if let minutes = Int(raw), minutes > 0 {
+                let clamped = min(minutes, PipSleepTimer.maxCustomMinutes)
+                self.onSleepTimer?(TimeInterval(clamped * 60))
+            }
+            self.scheduleHide()
+        })
+        present(alert, animated: true)
     }
 
     // MARK: - Speed
@@ -359,7 +432,23 @@ final class CustomPipFullscreenViewController: UIViewController {
     }
 
     private var chromeControls: [UIView] {
-        [closeButton, speedButton, rewindButton, playButton, forwardButton, progress, elapsedLabel, remainingLabel]
+        [closeButton, speedButton, sleepButton, rewindButton, playButton, forwardButton, progress, elapsedLabel, remainingLabel]
+    }
+
+    func setSleepTimerEndDate(_ endsAt: Date?) {
+        sleepTimerEndsAt = endsAt
+        let remaining = PipSleepTimer.remaining(until: endsAt)
+        let symbol = remaining == nil ? "moon.zzz" : "moon.zzz.fill"
+        sleepButton.setImage(
+            UIImage(
+                systemName: symbol,
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .bold)
+            ),
+            for: .normal
+        )
+        sleepButton.accessibilityLabel = remaining.map {
+            "Sleep timer, \(PipSleepTimer.remainingLabel(for: $0))"
+        } ?? "Sleep timer"
     }
 
     private func applyLockChrome(animated: Bool) {

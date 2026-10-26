@@ -42,6 +42,8 @@ enum AppAnalytics {
         static let webEditorAction = "web_editor_action"
         /// Fullscreen player controls lock toggle.
         static let fullscreenLock = "fullscreen_lock"
+        /// Custom player sleep timer set / off / fired.
+        static let sleepTimer = "sleep_timer"
         /// Home button from a page, or Back restoring that page.
         static let homeNav = "home_nav"
     }
@@ -74,6 +76,7 @@ enum AppAnalytics {
         static let scope = "scope"
         static let locked = "locked"
         static let count = "count"
+        static let minutes = "minutes"
     }
 
     // MARK: - Core helpers
@@ -321,6 +324,18 @@ enum AppAnalytics {
             Param.locked: locked,
             Param.host: sanitize(host ?? "unknown")
         ])
+    }
+
+    /// - Parameter action: `set` | `off` | `fired`.
+    static func logSleepTimer(action: String, minutes: Int? = nil, host: String? = nil) {
+        var params: [String: Any] = [
+            Param.action: sanitize(action, limit: 16),
+            Param.host: sanitize(host ?? "unknown")
+        ]
+        if let minutes {
+            params[Param.minutes] = min(max(minutes, 1), 24 * 60)
+        }
+        log(Event.sleepTimer, parameters: params)
     }
 
     /// - Parameter action: `home_from_page` | `back_to_page`.
