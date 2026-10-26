@@ -155,7 +155,8 @@ Native player used for supported streams (alongside system PiP where applicable)
 | **Home wallpaper** | Home background colors / wallpaper options. |
 | **Background gallery** | Additional background choices. |
 | **Onboarding** | First-run carousel focused on multi WhatsApp/IG and clean multi-shop use; may demo Split View. |
-| **Tips** | Lightweight UX tips (e.g. address-bar tab swipe). |
+| **Feature Highlights (new users)** | One-time sheet after Spaces intro: multi-account isolation, App Lock + Space isolation + Space Lock, ads/pop-up blocking, background / lock-screen playback. Not shown to existing installs. |
+| **Tips** | Lightweight UX tips (address-bar tab swipe; post-highlights ads shield and Background Audio toasts for new users). |
 | **What's New / about copy** | In-app feature summary strings for releases and settings. |
 
 ---

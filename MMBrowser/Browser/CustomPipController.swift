@@ -342,6 +342,7 @@ final class CustomPipController: NSObject {
         PipProbe.log("customPip.startResult", ["ok": ok, "reason": reason])
         if ok {
             AppAnalytics.logPipEnter(source: "custom", host: AppAnalytics.privacyHost(streamURL))
+            NotificationCenter.default.post(name: .featureDiscoveryMediaStarted, object: nil)
         }
         cb?(ok)
     }

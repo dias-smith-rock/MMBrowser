@@ -185,10 +185,13 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 cell.accessoryType = .disclosureIndicator
             case 6:
                 cell.textLabel?.text = "App Lock"
-                cell.detailTextLabel?.text = AppLockSettings.isEnabled ? "On" : "Off"
+                cell.detailTextLabel?.text = AppLockSettings.isEnabled
+                    ? "On · whole-app PIN / pattern"
+                    : "Off · protect the whole app"
                 cell.accessoryType = .disclosureIndicator
             default:
                 cell.textLabel?.text = "Privacy Explained"
+                cell.detailTextLabel?.text = "Spaces, locks, ads, and background play"
                 cell.accessoryType = .disclosureIndicator
             }
         case .accounts:
@@ -230,6 +233,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .media:
             if indexPath.row == 0 {
                 cell.textLabel?.text = "Background Audio"
+                cell.detailTextLabel?.text = "Keep playing after leave / lock screen"
                 cell.selectionStyle = .none
                 let sw = UISwitch()
                 sw.isOn = AppSettings.backgroundAudioEnabled
@@ -237,6 +241,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 cell.accessoryView = sw
             } else {
                 cell.textLabel?.text = "Picture in Picture"
+                cell.detailTextLabel?.text = "Floating system video window"
                 cell.selectionStyle = .none
                 let sw = UISwitch()
                 sw.isOn = AppSettings.pictureInPictureEnabled

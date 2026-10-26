@@ -71,6 +71,12 @@ final class BrowserViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(appLockSessionDidChange), name: .appLockSessionDidChange, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(pipProbeDumpTabs(_:)), name: PipProbe.dumpTabsNotification, object: nil)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleFeatureDiscoveryMediaStarted),
+            name: .featureDiscoveryMediaStarted,
+            object: nil
+        )
         NotificationCenter.default.addObserver(self, selector: #selector(downloadDidFinish(_:)), name: DownloadManager.didFinishNotification, object: nil)
         NotificationCenter.default.addObserver(
             self,
@@ -369,6 +375,9 @@ final class BrowserViewController: UIViewController {
         if !AppSettings.didShowOnboarding {
             presentOnboarding()
         } else {
+            // Resume Highlights if a new user finished Spaces intro then killed the app.
+            // Preexisting installs are migrated to `didShowFeatureHighlights == true`.
+            if maybeShowFeatureHighlights() { return }
             PremiumCoordinator.presentColdStartIfNeeded(from: self)
         }
         #endif
@@ -481,7 +490,7 @@ final class BrowserViewController: UIViewController {
             onboarding?.dismiss(animated: true) {
                 self?.maybeShowAddressBarSwipeTip()
                 if self?.maybeShowAccountWow() != true {
-                    PremiumCoordinator.presentColdStartIfNeeded(from: self)
+                    self?.continueAfterSpacesIntro()
                 }
             }
             self?.accountHubController?.reloadFromExternalChange()
@@ -498,17 +507,59 @@ final class BrowserViewController: UIViewController {
         let wow = AccountOnboardingWowViewController(tabManager: tabManager)
         wow.onFinished = { [weak self, weak wow] in
             wow?.dismiss(animated: true) {
-                self?.maybeShowAccountChipTip()
-                PremiumCoordinator.presentColdStartIfNeeded(from: self)
+                self?.continueAfterSpacesIntro()
             }
         }
         wow.onStartedSplitDemo = { [weak self] in
-            // Split View dismisses the modal chain; tip not needed after a live demo.
+            // Split View dismisses the whole modal chain; continue when the browser is idle.
             UserDefaults.standard.set(false, forKey: ContainerScope.needsAccountChipTipKey)
             self?.refreshAccountChip()
-            PremiumCoordinator.presentColdStartIfNeeded(from: self)
+            self?.scheduleContinueAfterSpacesIntroWhenIdle()
         }
         present(wow, animated: true)
+        return true
+    }
+
+    /// Chip tip → Feature Highlights (new users) → cold-start paywall.
+    private func continueAfterSpacesIntro() {
+        maybeShowAccountChipTip()
+        if maybeShowFeatureHighlights() { return }
+        PremiumCoordinator.presentColdStartIfNeeded(from: self)
+    }
+
+    private var isSchedulingSpacesIntroContinue = false
+
+    private func scheduleContinueAfterSpacesIntroWhenIdle() {
+        guard !isSchedulingSpacesIntroContinue else { return }
+        isSchedulingSpacesIntroContinue = true
+        Task { @MainActor in
+            defer { self.isSchedulingSpacesIntroContinue = false }
+            for _ in 0..<60 {
+                if self.presentedViewController == nil { break }
+                try? await Task.sleep(nanoseconds: 400_000_000)
+            }
+            self.continueAfterSpacesIntro()
+        }
+    }
+
+    /// New-user-only highlights. Never called from cold start for existing installs.
+    @discardableResult
+    private func maybeShowFeatureHighlights() -> Bool {
+        guard !AppSettings.didShowFeatureHighlights else { return false }
+        let highlights = FeatureHighlightsViewController()
+        highlights.onFinished = { [weak self, weak highlights] in
+            let finishPaywall = {
+                PremiumCoordinator.presentColdStartIfNeeded(from: self)
+            }
+            if highlights?.presentingViewController != nil {
+                highlights?.dismiss(animated: true, completion: finishPaywall)
+            } else {
+                // Already dismissed interactively via the sheet grabber.
+                finishPaywall()
+            }
+        }
+        present(highlights, animated: true)
+        AppAnalytics.logTipShown(tipID: "feature_highlights")
         return true
     }
 
@@ -522,6 +573,36 @@ final class BrowserViewController: UIViewController {
             guard let self else { return }
             Toast.show("Tap the space chip to switch identities — long-press for the previous space", from: self)
         }
+    }
+
+    private func maybeShowAdsDiscoveryTip() {
+        guard AppSettings.didShowFeatureHighlights else { return }
+        guard !AppSettings.didShowAdsDiscoveryTip else { return }
+        guard AppSettings.trackerProtectionEnabled else { return }
+        guard presentedViewController == nil, addressBarSwipeTip == nil else { return }
+        AppSettings.didShowAdsDiscoveryTip = true
+        Toast.show(
+            "Shield on — ads, trackers, and many pop-ups are blocked. Fewer YouTube video ads is in Settings.",
+            from: self
+        )
+        AppAnalytics.logTipShown(tipID: "ads_discovery")
+    }
+
+    @objc private func handleFeatureDiscoveryMediaStarted() {
+        maybeShowBackgroundAudioTip()
+    }
+
+    private func maybeShowBackgroundAudioTip() {
+        guard AppSettings.didShowFeatureHighlights else { return }
+        guard !AppSettings.didShowBackgroundAudioTip else { return }
+        guard AppSettings.backgroundAudioEnabled else { return }
+        guard presentedViewController == nil, addressBarSwipeTip == nil else { return }
+        AppSettings.didShowBackgroundAudioTip = true
+        Toast.show(
+            "Background Audio is on — leave the app or lock the screen and supported media can keep playing.",
+            from: self
+        )
+        AppAnalytics.logTipShown(tipID: "background_audio_discovery")
     }
 
     func presentDualAccountCompare(leftID: UUID? = nil, rightID: UUID? = nil) {
@@ -2471,6 +2552,10 @@ extension BrowserViewController: WebViewControllerDelegate {
                 applyCompactChromeLayout(true)
             }
             refreshToolbar()
+            let scheme = url.scheme?.lowercased() ?? ""
+            if scheme == "http" || scheme == "https" {
+                maybeShowAdsDiscoveryTip()
+            }
         }
         if !tab.isIncognito, !url.absoluteString.hasPrefix("about:") {
             HistoryStore.shared.add(title: tab.title, url: url, containerID: tab.containerID)
@@ -2486,6 +2571,9 @@ extension BrowserViewController: WebViewControllerDelegate {
     func webViewController(_ controller: WebViewController, didUpdateBlockCount count: Int) {
         guard tabManager.selectedTab?.webController === controller else { return }
         addressBar.setBlockCount(count)
+        if count > 0 {
+            maybeShowAdsDiscoveryTip()
+        }
     }
 
     func webViewControllerDidReportYouTubeDegraded(_ controller: WebViewController) {

@@ -126,6 +126,19 @@ enum AppSettings {
     /// Records install/first-open if missing. Safe to call every launch.
     static func recordFirstLaunchIfNeeded() {
         _ = firstLaunchDate
+        migrateFeatureHighlightsForPreexistingUsersIfNeeded()
+    }
+
+    /// Upgrades that already finished first-run before Highlights shipped should never see the sheet.
+    /// Fresh installs still have `onboarding.done == false` here, so they remain eligible.
+    private static func migrateFeatureHighlightsForPreexistingUsersIfNeeded() {
+        let key = "onboarding.featureHighlights.migratedV1"
+        guard d.object(forKey: key) == nil else { return }
+        d.set(true, forKey: key)
+        guard d.bool(forKey: "onboarding.done") else { return }
+        d.set(true, forKey: "onboarding.featureHighlights.v1")
+        d.set(true, forKey: "tip.adsDiscovery.done")
+        d.set(true, forKey: "tip.backgroundAudio.done")
     }
 
     /// NTP account hero subtitle — shown for the first 7 days after install.
@@ -144,6 +157,24 @@ enum AppSettings {
     static var didShowAddressBarSwipeTip: Bool {
         get { d.bool(forKey: "tip.addressBarSwipe.done") }
         set { d.set(newValue, forKey: "tip.addressBarSwipe.done") }
+    }
+
+    /// One-time Feature Highlights sheet after first-run Spaces intro (**new users only**).
+    static var didShowFeatureHighlights: Bool {
+        get { d.bool(forKey: "onboarding.featureHighlights.v1") }
+        set { d.set(newValue, forKey: "onboarding.featureHighlights.v1") }
+    }
+
+    /// Post-highlights discovery toast: ads / pop-up blocking.
+    static var didShowAdsDiscoveryTip: Bool {
+        get { d.bool(forKey: "tip.adsDiscovery.done") }
+        set { d.set(newValue, forKey: "tip.adsDiscovery.done") }
+    }
+
+    /// Post-highlights discovery toast: background audio / lock-screen play.
+    static var didShowBackgroundAudioTip: Bool {
+        get { d.bool(forKey: "tip.backgroundAudio.done") }
+        set { d.set(newValue, forKey: "tip.backgroundAudio.done") }
     }
 
     /// Default Deny — privacy browser does not expose GPS-like location unless user opts in.
@@ -286,4 +317,6 @@ extension Notification.Name {
     static let clearOptionSettingsChanged = Notification.Name("mmbrowser.clearOption.changed")
     /// Posted after scheduled clear so the browser can close tabs if configured.
     static let clearOptionSessionCleanup = Notification.Name("mmbrowser.clearOption.sessionCleanup")
+    /// Media / PiP session started — used for one-time Background Audio discovery tip.
+    static let featureDiscoveryMediaStarted = Notification.Name("mmbrowser.featureDiscovery.mediaStarted")
 }

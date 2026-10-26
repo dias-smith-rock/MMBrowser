@@ -18,6 +18,7 @@
 		225CD882697F4D4E83068A67 /* BrowserTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 094FFB3CDC234AA8BFFC8140 /* BrowserTab.swift */; };
 		2407C85515E24617A4EF10BA /* YouTubeShortsFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B4B9A76DFE4E32A1FD3ADD /* YouTubeShortsFocus.swift */; };
 		3482941CAE41470B96988EF9 /* AccountSwitcherViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 227B279F47CA4EFE986E5EC9 /* AccountSwitcherViewController.swift */; };
+		FH00BF01010101010101 /* FeatureHighlightsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FH00FR01010101010101 /* FeatureHighlightsViewController.swift */; };
 		37AA62CE9A0C431B894137F8 /* AccountOnboardingWowViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83C808C4483D46408CF5B93A /* AccountOnboardingWowViewController.swift */; };
 		39B5B31AA5B34064830D0554 /* DownloadsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EF1A8CF7C4FDF9609AC37 /* DownloadsViewController.swift */; };
 		3B0B5010105C7BB485B89CD7 /* IsolatedVsSharedViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BB059B320F13DD5C0933643 /* IsolatedVsSharedViewController.swift */; };
@@ -222,6 +223,7 @@
 		816144A277FA4A77BF09DA4E /* AccountColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountColor.swift; sourceTree = "<group>"; };
 		81A1B2C3D4E54678A9B0C1D3 /* PrivateNewTabViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateNewTabViewController.swift; sourceTree = "<group>"; };
 		82A1B2C3D4E54678A9B0C1D3 /* ImageBlockManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageBlockManager.swift; sourceTree = "<group>"; };
+		FH00FR01010101010101 /* FeatureHighlightsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureHighlightsViewController.swift; sourceTree = "<group>"; };
 		83C808C4483D46408CF5B93A /* AccountOnboardingWowViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountOnboardingWowViewController.swift; sourceTree = "<group>"; };
 		84CA640C99484A4C865E5912 /* FindInPageBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindInPageBar.swift; sourceTree = "<group>"; };
 		84E02C1618E34EE4A38D4E1C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -624,6 +626,7 @@
 		C0DD147D9D614DF3869C04E7 /* Onboarding */ = {
 			isa = PBXGroup;
 			children = (
+				FH00FR01010101010101 /* FeatureHighlightsViewController.swift */,
 				83C808C4483D46408CF5B93A /* AccountOnboardingWowViewController.swift */,
 				D201F70CA9F44BF2B13F17C2 /* OnboardingViewController.swift */,
 			);
@@ -891,6 +894,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FH00BF01010101010101 /* FeatureHighlightsViewController.swift in Sources */,
 				37AA62CE9A0C431B894137F8 /* AccountOnboardingWowViewController.swift in Sources */,
 				0696A518DA3C4EAF95A48D06 /* DualAccountCompareViewController.swift in Sources */,
 				D69D0FAE2FE0493A8465624C /* AccountHealthViewController.swift in Sources */,

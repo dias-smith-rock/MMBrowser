@@ -1949,6 +1949,7 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         suppressPipClaimUntil = nil
         let pipSource = showFailureToast ? "menu" : "chip"
         AppAnalytics.logPipEnter(source: pipSource, host: AppAnalytics.privacyHost(webView?.url))
+        NotificationCenter.default.post(name: .featureDiscoveryMediaStarted, object: nil)
         guard !YouTubeDarkMode.isYouTubeMusic(webView?.url) else {
             PipProbe.log("enter.userAction.skip", ["why": "youtubeMusic", "host": host])
             AppAnalytics.logPipResult(source: pipSource, success: false, host: AppAnalytics.privacyHost(webView?.url), reason: "youtube_music")
