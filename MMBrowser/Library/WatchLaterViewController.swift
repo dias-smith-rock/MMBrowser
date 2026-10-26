@@ -11,6 +11,7 @@ final class WatchLaterViewController: UIViewController, UICollectionViewDataSour
     var currentPageURL: URL?
 
     private var collectionView: UICollectionView!
+    private var emptyStateView: UIView!
     private var sections: [(day: Date, items: [WatchLaterItem])] = []
     private let clearAllButton = UIBarButtonItem(title: "Clear All", style: .plain, target: nil, action: nil)
 
@@ -73,6 +74,16 @@ final class WatchLaterViewController: UIViewController, UICollectionViewDataSour
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+
+        emptyStateView = makeEmptyStateView()
+        view.addSubview(emptyStateView)
+        emptyStateView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            emptyStateView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            emptyStateView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            emptyStateView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            emptyStateView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 
         changeObserver = NotificationCenter.default.addObserver(
@@ -313,6 +324,122 @@ final class WatchLaterViewController: UIViewController, UICollectionViewDataSour
         reloadSections()
         collectionView?.reloadData()
         updateClearButton()
+        let isEmpty = sections.isEmpty
+        emptyStateView?.isHidden = !isEmpty
+        collectionView?.isHidden = isEmpty
+    }
+
+    private func makeEmptyStateView() -> UIView {
+        let host = UIView()
+        host.backgroundColor = BrowserTheme.background
+
+        let scroll = UIScrollView()
+        scroll.alwaysBounceVertical = true
+        host.addSubview(scroll)
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            scroll.topAnchor.constraint(equalTo: host.topAnchor),
+            scroll.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+            scroll.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+            scroll.bottomAnchor.constraint(equalTo: host.bottomAnchor)
+        ])
+
+        let content = UIView()
+        scroll.addSubview(content)
+        content.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            content.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
+            content.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
+            content.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
+            content.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor)
+        ])
+
+        let iconWrap = UIView()
+        iconWrap.backgroundColor = BrowserTheme.chromeBlue.withAlphaComponent(0.16)
+        iconWrap.layer.cornerRadius = 36
+
+        let icon = UIImageView(
+            image: UIImage(
+                systemName: "clock.badge.checkmark",
+                withConfiguration: UIImage.SymbolConfiguration(pointSize: 32, weight: .semibold)
+            )
+        )
+        icon.tintColor = BrowserTheme.chromeBlue
+        icon.contentMode = .scaleAspectFit
+        iconWrap.addSubview(icon)
+        icon.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            icon.centerXAnchor.constraint(equalTo: iconWrap.centerXAnchor),
+            icon.centerYAnchor.constraint(equalTo: iconWrap.centerYAnchor),
+            icon.widthAnchor.constraint(equalToConstant: 40),
+            icon.heightAnchor.constraint(equalToConstant: 40),
+            iconWrap.widthAnchor.constraint(equalToConstant: 72),
+            iconWrap.heightAnchor.constraint(equalToConstant: 72)
+        ])
+
+        let iconRow = UIView()
+        iconRow.addSubview(iconWrap)
+        iconWrap.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            iconWrap.centerXAnchor.constraint(equalTo: iconRow.centerXAnchor),
+            iconWrap.topAnchor.constraint(equalTo: iconRow.topAnchor),
+            iconWrap.bottomAnchor.constraint(equalTo: iconRow.bottomAnchor)
+        ])
+
+        let title = UILabel()
+        title.text = "Save videos for later"
+        title.font = .systemFont(ofSize: 22, weight: .bold)
+        title.textColor = BrowserTheme.textPrimary
+        title.textAlignment = .center
+        title.numberOfLines = 0
+
+        let body = UILabel()
+        body.text = "Watch Later keeps pages and videos in this Space so you can come back anytime—without mixing logins from other Spaces."
+        body.font = .systemFont(ofSize: 15)
+        body.textColor = BrowserTheme.textSecondary
+        body.textAlignment = .center
+        body.numberOfLines = 0
+
+        let howTitle = UILabel()
+        howTitle.text = "How to use"
+        howTitle.font = .systemFont(ofSize: 17, weight: .semibold)
+        howTitle.textColor = BrowserTheme.textPrimary
+
+        let steps = UILabel()
+        steps.text = """
+        1. Open a video or page you want to save.
+        2. Tap the menu, then Add to Watch Later.
+        3. Open Watch Later from the menu to play or reopen it.
+        4. With Background Audio on, supported media can keep playing after you leave the app or lock the screen.
+        """
+        steps.font = .systemFont(ofSize: 15)
+        steps.textColor = BrowserTheme.textSecondary
+        steps.numberOfLines = 0
+
+        let tip = UILabel()
+        tip.text = "Tip: Long-press an item to edit or delete it."
+        tip.font = .systemFont(ofSize: 14, weight: .medium)
+        tip.textColor = BrowserTheme.textSecondary.withAlphaComponent(0.9)
+        tip.textAlignment = .center
+        tip.numberOfLines = 0
+
+        let stack = UIStackView(arrangedSubviews: [iconRow, title, body, howTitle, steps, tip])
+        stack.axis = .vertical
+        stack.alignment = .fill
+        stack.spacing = 14
+        stack.setCustomSpacing(20, after: body)
+        stack.setCustomSpacing(8, after: howTitle)
+        content.addSubview(stack)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: content.topAnchor, constant: 36),
+            stack.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 28),
+            stack.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -28),
+            stack.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -28)
+        ])
+
+        return host
     }
 }
 

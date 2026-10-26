@@ -123,7 +123,7 @@ Native player used for supported streams (alongside system PiP where applicable)
 | Feature | Description |
 | --- | --- |
 | **Reading List** | Save pages for later; supports offline-oriented saving (isolated per Space). |
-| **Watch Later** | Save videos/pages to watch later (isolated per Space), with offline-oriented options where applicable. |
+| **Watch Later** | Save videos/pages to watch later (isolated per Space), with offline-oriented options where applicable. Empty list shows an intro and how-to (menu → Add to Watch Later; Background Audio tip). |
 | **Reader Mode** | Simplified reading view for articles. |
 | **Find on Page** | Search text within the current page. |
 | **Translate** | Open translation for the current page (e.g. via Google Translate flow). |

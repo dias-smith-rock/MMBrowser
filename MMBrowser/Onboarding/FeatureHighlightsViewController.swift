@@ -159,6 +159,8 @@ final class FeatureHighlightsViewController: UIViewController {
         titleLabel.textColor = BrowserTheme.textPrimary
         titleLabel.numberOfLines = 0
         titleLabel.textAlignment = .center
+        // Required so multi-line labels wrap to the card width (not intrinsic glyph width).
+        titleLabel.setContentCompressionResistancePriority(.required, for: .vertical)
 
         let bodyLabel = UILabel()
         bodyLabel.text = body
@@ -166,14 +168,22 @@ final class FeatureHighlightsViewController: UIViewController {
         bodyLabel.textColor = BrowserTheme.textSecondary
         bodyLabel.numberOfLines = 0
         bodyLabel.textAlignment = .center
+        bodyLabel.setContentCompressionResistancePriority(.required, for: .vertical)
 
-        let stack = UIStackView(arrangedSubviews: [iconWrap, titleLabel, bodyLabel])
+        let iconRow = UIView()
+        iconRow.addSubview(iconWrap)
+        iconWrap.snp.makeConstraints { make in
+            make.centerX.equalToSuperview()
+            make.top.bottom.equalToSuperview()
+            make.size.equalTo(56)
+        }
+
+        let stack = UIStackView(arrangedSubviews: [iconRow, titleLabel, bodyLabel])
         stack.axis = .vertical
         stack.spacing = 14
-        stack.alignment = .center
+        stack.alignment = .fill
         card.addSubview(stack)
 
-        iconWrap.snp.makeConstraints { $0.size.equalTo(56) }
         stack.snp.makeConstraints { make in
             make.leading.trailing.equalToSuperview().inset(20)
             make.centerY.equalToSuperview()
