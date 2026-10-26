@@ -68,6 +68,12 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
     func reloadFromExternalChange() {
         guard isViewLoaded else { return }
         rebuildPages(scrollToCurrent: true, animated: false)
+        updatePremiumButtonVisibility()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        updatePremiumButtonVisibility()
     }
 
     func applySpaceChrome(spaceColor: UIColor?) {
@@ -135,6 +141,7 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
             make.trailing.equalTo(view.safeAreaLayoutGuide).inset(isOverlay ? 56 : 16)
             make.size.equalTo(32)
         }
+        updatePremiumButtonVisibility()
 
         if isOverlay {
             configureCloseButton()
@@ -156,6 +163,12 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         premiumButton.layer.cornerRadius = 16
         premiumButton.accessibilityLabel = "XBrowser Premium"
         premiumButton.addTarget(self, action: #selector(premiumTapped), for: .touchUpInside)
+    }
+
+    private func updatePremiumButtonVisibility() {
+        // No VIP pitch on the install calendar day.
+        premiumButton.isHidden = PremiumPaywallGate.isFirstLaunchCalendarDay
+            || PremiumStore.shared.isPremiumActive
     }
 
     private func configureCloseButton() {

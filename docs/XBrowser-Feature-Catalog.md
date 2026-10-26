@@ -154,9 +154,8 @@ Native player used for supported streams (alongside system PiP where applicable)
 | **Themes** | Theme packs (e.g. Default, Minimal, Cute, Steady, Feminine). |
 | **Home wallpaper** | Home background colors / wallpaper options. |
 | **Background gallery** | Additional background choices. |
-| **Onboarding** | First-run carousel focused on multi WhatsApp/IG and clean multi-shop use; may demo Split View. |
-| **Feature Highlights (new users)** | One-time sheet after Spaces intro: multi-account isolation, App Lock + Space isolation + Space Lock, ads/pop-up blocking, background / lock-screen playback. Not shown to existing installs. |
-| **Tips** | Lightweight UX tips (address-bar tab swipe; post-highlights ads shield and Background Audio toasts for new users). |
+| **Onboarding (Feature Highlights)** | First-run full-screen Highlights: multi-account isolation, App Lock + Space Lock, ads/pop-up blocking, background / lock-screen playback. Split View Wow waits until the first toolbar page-menu tap. No auto VIP paywall (and home crown hidden) on the install calendar day. |
+| **Tips** | Lightweight UX tips (address-bar tab swipe; post-onboarding ads shield and Background Audio toasts for new users). |
 | **What's New / about copy** | In-app feature summary strings for releases and settings. |
 
 ---

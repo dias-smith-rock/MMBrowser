@@ -375,9 +375,6 @@ final class BrowserViewController: UIViewController {
         if !AppSettings.didShowOnboarding {
             presentOnboarding()
         } else {
-            // Resume Highlights if a new user finished Spaces intro then killed the app.
-            // Preexisting installs are migrated to `didShowFeatureHighlights == true`.
-            if maybeShowFeatureHighlights() { return }
             PremiumCoordinator.presentColdStartIfNeeded(from: self)
         }
         #endif
@@ -407,7 +404,10 @@ final class BrowserViewController: UIViewController {
         #if !DEBUG
         if !AppSettings.didShowOnboarding { return }
         #endif
-        if presentedViewController is OnboardingViewController { return }
+        if presentedViewController is OnboardingViewController
+            || presentedViewController is FeatureHighlightsViewController {
+            return
+        }
         presentedViewController?.dismiss(animated: false)
         tabManager.closeAllTabsAndReset()
         showSelectedTab()
@@ -483,84 +483,58 @@ final class BrowserViewController: UIViewController {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
     }
 
+    /// First-run: Feature Highlights (replaces the old Spaces carousel).
+    /// DEBUG always presents so copy / art can be iterated without resetting defaults.
     private func presentOnboarding() {
-        let onboarding = OnboardingViewController()
-        onboarding.modalPresentationStyle = .fullScreen
-        onboarding.onFinished = { [weak self, weak onboarding] in
-            onboarding?.dismiss(animated: true) {
+        let highlights = FeatureHighlightsViewController()
+        highlights.modalPresentationStyle = .fullScreen
+        highlights.onFinished = { [weak self, weak highlights] in
+            AppSettings.didShowOnboarding = true
+            AppSettings.didShowFeatureHighlights = true
+            AppAnalytics.logOnboardingComplete()
+            let continueFlow = { [weak self] in
                 self?.maybeShowAddressBarSwipeTip()
-                if self?.maybeShowAccountWow() != true {
-                    self?.continueAfterSpacesIntro()
-                }
+                self?.accountHubController?.reloadFromExternalChange()
+                // Split View Wow waits until the first toolbar / page-menu tap.
+                self?.continueAfterFirstRun()
             }
-            self?.accountHubController?.reloadFromExternalChange()
+            if highlights?.presentingViewController != nil {
+                highlights?.dismiss(animated: true, completion: continueFlow)
+            } else {
+                continueFlow()
+            }
         }
-        present(onboarding, animated: true)
+        present(highlights, animated: true)
+        AppAnalytics.logTipShown(tipID: "feature_highlights")
     }
 
+    /// First tap on the toolbar page menu → Split View Wow (once).
     @discardableResult
-    private func maybeShowAccountWow() -> Bool {
+    private func maybeShowAccountWow(thenOpenMenu: Bool) -> Bool {
         guard !UserDefaults.standard.bool(forKey: ContainerScope.didShowAccountWowKey) else {
-            maybeShowAccountChipTip()
             return false
         }
         let wow = AccountOnboardingWowViewController(tabManager: tabManager)
         wow.onFinished = { [weak self, weak wow] in
             wow?.dismiss(animated: true) {
-                self?.continueAfterSpacesIntro()
+                self?.maybeShowAccountChipTip()
+                if thenOpenMenu {
+                    self?.presentPageRichMenu()
+                }
             }
         }
         wow.onStartedSplitDemo = { [weak self] in
-            // Split View dismisses the whole modal chain; continue when the browser is idle.
+            // Split View dismisses the whole modal chain; tip not needed after a live demo.
             UserDefaults.standard.set(false, forKey: ContainerScope.needsAccountChipTipKey)
             self?.refreshAccountChip()
-            self?.scheduleContinueAfterSpacesIntroWhenIdle()
         }
         present(wow, animated: true)
         return true
     }
 
-    /// Chip tip → Feature Highlights (new users) → cold-start paywall.
-    private func continueAfterSpacesIntro() {
-        maybeShowAccountChipTip()
-        if maybeShowFeatureHighlights() { return }
+    /// After Feature Highlights — no VIP pitch on install day.
+    private func continueAfterFirstRun() {
         PremiumCoordinator.presentColdStartIfNeeded(from: self)
-    }
-
-    private var isSchedulingSpacesIntroContinue = false
-
-    private func scheduleContinueAfterSpacesIntroWhenIdle() {
-        guard !isSchedulingSpacesIntroContinue else { return }
-        isSchedulingSpacesIntroContinue = true
-        Task { @MainActor in
-            defer { self.isSchedulingSpacesIntroContinue = false }
-            for _ in 0..<60 {
-                if self.presentedViewController == nil { break }
-                try? await Task.sleep(nanoseconds: 400_000_000)
-            }
-            self.continueAfterSpacesIntro()
-        }
-    }
-
-    /// New-user-only highlights. Never called from cold start for existing installs.
-    @discardableResult
-    private func maybeShowFeatureHighlights() -> Bool {
-        guard !AppSettings.didShowFeatureHighlights else { return false }
-        let highlights = FeatureHighlightsViewController()
-        highlights.onFinished = { [weak self, weak highlights] in
-            let finishPaywall = {
-                PremiumCoordinator.presentColdStartIfNeeded(from: self)
-            }
-            if highlights?.presentingViewController != nil {
-                highlights?.dismiss(animated: true, completion: finishPaywall)
-            } else {
-                // Already dismissed interactively via the sheet grabber.
-                finishPaywall()
-            }
-        }
-        present(highlights, animated: true)
-        AppAnalytics.logTipShown(tipID: "feature_highlights")
-        return true
     }
 
     private func maybeShowAccountChipTip() {
@@ -1710,6 +1684,8 @@ final class BrowserViewController: UIViewController {
 
     private func presentMenu() {
         // Page actions and app library share one sheet (former ··· + ≡ menus).
+        // First tap: Split View intro; afterward open the menu as usual.
+        if maybeShowAccountWow(thenOpenMenu: true) { return }
         presentPageRichMenu()
     }
 
@@ -2362,6 +2338,8 @@ extension BrowserViewController: AccountHubViewControllerDelegate {
     }
 
     func accountHubDidRequestPremium(_ hub: AccountHubViewController) {
+        // Soften day-one monetization: crown is hidden, but ignore taps if shown.
+        guard !PremiumPaywallGate.isFirstLaunchCalendarDay else { return }
         PremiumCoordinator.presentPaywall(from: hub, source: "home")
     }
 

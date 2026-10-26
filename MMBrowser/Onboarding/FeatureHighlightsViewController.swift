@@ -10,24 +10,24 @@ final class FeatureHighlightsViewController: UIViewController {
     private var cards: [UIView] = []
     private var didFinish = false
 
-    private let items: [(symbol: String, title: String, body: String)] = [
+    private let items: [(image: String, title: String, body: String)] = [
         (
-            "person.2.fill",
+            "highlight_spaces",
             "Multi-account isolation",
             "Spaces keep separate cookies, history, and logins—so WhatsApp, Instagram, and shopping accounts never mix."
         ),
         (
-            "lock.shield.fill",
+            "highlight_locks",
             "App Lock & Space Lock",
             "Protect the whole app with App Lock. Each Space stays isolated, and Space Lock (Premium) can PIN-protect a single identity."
         ),
         (
-            "shield.checkered",
+            "highlight_ads",
             "Fewer pop-ups & video ads",
             "Block Ads & Trackers cuts network ads, trackers, and common pop-up banners. Fewer YouTube video ads is best-effort and may change when the site updates."
         ),
         (
-            "play.circle.fill",
+            "highlight_playback",
             "Play with the screen locked",
             "Background Audio and Picture in Picture keep supported web video and audio playing after you leave the app or lock the screen."
         )
@@ -36,12 +36,15 @@ final class FeatureHighlightsViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = BrowserTheme.background
-        modalPresentationStyle = .pageSheet
-        presentationController?.delegate = self
-        if let sheet = sheetPresentationController {
-            sheet.detents = [.large()]
-            sheet.prefersGrabberVisible = true
+        // First-run uses `.fullScreen` (set by presenter); sheet is only a fallback.
+        if modalPresentationStyle != .fullScreen {
+            modalPresentationStyle = .pageSheet
+            if let sheet = sheetPresentationController {
+                sheet.detents = [.large()]
+                sheet.prefersGrabberVisible = true
+            }
         }
+        presentationController?.delegate = self
 
         let titleLabel = UILabel()
         titleLabel.text = "Built for how you browse"
@@ -69,7 +72,7 @@ final class FeatureHighlightsViewController: UIViewController {
         pageControl.addTarget(self, action: #selector(pageControlChanged), for: .valueChanged)
 
         let continueButton = UIButton(type: .system)
-        continueButton.setTitle("Continue", for: .normal)
+        continueButton.setTitle("Get Started", for: .normal)
         continueButton.setTitleColor(.white, for: .normal)
         continueButton.backgroundColor = BrowserTheme.chromeBlue
         continueButton.layer.cornerRadius = 14
@@ -92,15 +95,15 @@ final class FeatureHighlightsViewController: UIViewController {
             make.bottom.equalTo(continueButton.snp.top).offset(-12)
         }
         titleLabel.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide).offset(20)
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(16)
             make.leading.trailing.equalToSuperview().inset(24)
         }
         subtitle.snp.makeConstraints { make in
-            make.top.equalTo(titleLabel.snp.bottom).offset(8)
+            make.top.equalTo(titleLabel.snp.bottom).offset(6)
             make.leading.trailing.equalToSuperview().inset(28)
         }
         scrollView.snp.makeConstraints { make in
-            make.top.equalTo(subtitle.snp.bottom).offset(16)
+            make.top.equalTo(subtitle.snp.bottom).offset(12)
             make.leading.trailing.equalToSuperview()
             make.bottom.equalTo(pageControl.snp.top).offset(-8)
         }
@@ -116,7 +119,7 @@ final class FeatureHighlightsViewController: UIViewController {
 
     private func buildCards() {
         for item in items {
-            let card = makeCard(symbol: item.symbol, title: item.title, body: item.body)
+            let card = makeCard(imageName: item.image, title: item.title, body: item.body)
             scrollView.addSubview(card)
             cards.append(card)
         }
@@ -127,30 +130,30 @@ final class FeatureHighlightsViewController: UIViewController {
         let height = scrollView.bounds.height
         guard width > 1, height > 1 else { return }
         for (index, card) in cards.enumerated() {
-            card.frame = CGRect(x: CGFloat(index) * width + 24, y: 0, width: width - 48, height: height)
+            card.frame = CGRect(x: CGFloat(index) * width + 20, y: 0, width: width - 40, height: height)
         }
         scrollView.contentSize = CGSize(width: width * CGFloat(cards.count), height: height)
     }
 
-    private func makeCard(symbol: String, title: String, body: String) -> UIView {
+    private func makeCard(imageName: String, title: String, body: String) -> UIView {
         let card = UIView()
         card.backgroundColor = BrowserTheme.card
         card.layer.cornerRadius = 18
         card.clipsToBounds = true
 
-        let iconWrap = UIView()
-        iconWrap.backgroundColor = BrowserTheme.chromeBlue.withAlphaComponent(0.16)
-        iconWrap.layer.cornerRadius = 28
+        let imageCard = UIView()
+        imageCard.backgroundColor = UIColor.white.withAlphaComponent(0.04)
+        imageCard.layer.cornerRadius = 16
+        imageCard.clipsToBounds = true
 
-        let icon = UIImageView(
-            image: UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 26, weight: .semibold))
-        )
-        icon.tintColor = BrowserTheme.chromeBlue
-        icon.contentMode = .scaleAspectFit
-        iconWrap.addSubview(icon)
-        icon.snp.makeConstraints { make in
-            make.center.equalToSuperview()
-            make.size.equalTo(32)
+        let imageView = UIImageView(image: UIImage(named: imageName))
+        imageView.contentMode = .scaleAspectFit
+        imageView.clipsToBounds = true
+        imageView.setContentHuggingPriority(.defaultLow, for: .vertical)
+        imageView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        imageCard.addSubview(imageView)
+        imageView.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(6)
         }
 
         let titleLabel = UILabel()
@@ -159,8 +162,8 @@ final class FeatureHighlightsViewController: UIViewController {
         titleLabel.textColor = BrowserTheme.textPrimary
         titleLabel.numberOfLines = 0
         titleLabel.textAlignment = .center
-        // Required so multi-line labels wrap to the card width (not intrinsic glyph width).
         titleLabel.setContentCompressionResistancePriority(.required, for: .vertical)
+        titleLabel.setContentHuggingPriority(.required, for: .vertical)
 
         let bodyLabel = UILabel()
         bodyLabel.text = body
@@ -169,24 +172,30 @@ final class FeatureHighlightsViewController: UIViewController {
         bodyLabel.numberOfLines = 0
         bodyLabel.textAlignment = .center
         bodyLabel.setContentCompressionResistancePriority(.required, for: .vertical)
+        bodyLabel.setContentHuggingPriority(.required, for: .vertical)
 
-        let iconRow = UIView()
-        iconRow.addSubview(iconWrap)
-        iconWrap.snp.makeConstraints { make in
-            make.centerX.equalToSuperview()
-            make.top.bottom.equalToSuperview()
-            make.size.equalTo(56)
-        }
+        let textStack = UIStackView(arrangedSubviews: [titleLabel, bodyLabel])
+        textStack.axis = .vertical
+        textStack.spacing = 8
+        textStack.alignment = .fill
+        textStack.setContentHuggingPriority(.required, for: .vertical)
+        textStack.setContentCompressionResistancePriority(.required, for: .vertical)
 
-        let stack = UIStackView(arrangedSubviews: [iconRow, titleLabel, bodyLabel])
+        let stack = UIStackView(arrangedSubviews: [imageCard, textStack])
         stack.axis = .vertical
         stack.spacing = 14
         stack.alignment = .fill
         card.addSubview(stack)
 
         stack.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview().inset(20)
-            make.centerY.equalToSuperview()
+            make.top.equalToSuperview().offset(14)
+            make.leading.trailing.equalToSuperview().inset(14)
+            make.bottom.equalToSuperview().offset(-14)
+        }
+        // Keep illustration dominant but leave room for copy on short sheets.
+        imageCard.snp.makeConstraints { make in
+            make.height.greaterThanOrEqualTo(180)
+            make.height.equalTo(stack.snp.height).multipliedBy(0.58).priority(.high)
         }
         return card
     }

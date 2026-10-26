@@ -201,7 +201,14 @@ enum PremiumPaywallGate {
 
     static func shouldAutoPresentColdStart() -> Bool {
         guard !UserDefaults.standard.bool(forKey: PremiumStore.cacheActiveKey) else { return false }
+        // New installs: no auto VIP pitch on the first calendar day.
+        if isFirstLaunchCalendarDay { return false }
         return UserDefaults.standard.string(forKey: dismissDayKey) != todayString()
+    }
+
+    /// True while still on the install calendar day (local timezone).
+    static var isFirstLaunchCalendarDay: Bool {
+        Calendar.current.isDate(AppSettings.firstLaunchDate, inSameDayAs: Date())
     }
 
     static func markColdStartDismissedToday() {
