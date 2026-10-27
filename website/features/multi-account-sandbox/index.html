@@ -19,38 +19,83 @@
   <link rel="icon" href="../../assets/logo.webp" type="image/webp" />
   <link rel="alternate icon" href="../../assets/logo.png" />
   <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": [
+        "SoftwareApplication",
+        "MobileApplication"
+      ],
+      "name": "XBrowser",
+      "alternateName": "XBrowser: Dual Private Browser",
+      "url": "https://xxxxxbrowser.cc/",
+      "description": "A privacy browser for iPhone with independent multi-account Spaces, tracker blocking, and optional Space Lock. Free to download; Premium unlocks unlimited Spaces and locks.",
+      "operatingSystem": "iOS",
+      "applicationCategory": "BrowserApplication",
+      "applicationSubCategory": "UtilitiesApplication",
+      "softwareVersion": "1.2.0",
+      "softwareRequirements": "Requires iOS 17.6 or later",
+      "downloadUrl": "https://apps.apple.com/us/app/id6804914972",
+      "installUrl": "https://apps.apple.com/us/app/id6804914972",
+      "image": "https://xxxxxbrowser.cc/assets/logo.webp",
+      "screenshot": "https://xxxxxbrowser.cc/assets/demos/space-switch-01.webp",
+      "author": {
         "@type": "Organization",
         "name": "XBrowser International Limited",
         "url": "https://xxxxxbrowser.cc/",
         "email": "support@xxxxxbrowser.cc"
       },
-      {
-        "@type": "FAQPage",
-        "mainEntity": [
-          {
-            "@type": "Question",
-            "name": "How does Space isolation work under the hood?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Each Space is backed by its own WebKit website data store—Apple’s WKWebsiteDataStore with a unique identifier. Cookies, HTTP cache, and local storage for that Space live only in that store."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "How is that different from Incognito / Private Browsing?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Incognito typically uses a temporary, non-persistent store discarded when you leave. Spaces are persistent sandboxes so multiple long-lived logins can coexist without overwriting each other’s cookies."
-            }
+      "publisher": {
+        "@type": "Organization",
+        "name": "XBrowser International Limited",
+        "url": "https://xxxxxbrowser.cc/"
+      },
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Free",
+          "price": "0",
+          "priceCurrency": "USD",
+          "category": "Freeware",
+          "availability": "https://schema.org/InStock",
+          "url": "https://apps.apple.com/us/app/id6804914972"
+        },
+        {
+          "@type": "Offer",
+          "name": "XBrowser Premium",
+          "price": "0",
+          "priceCurrency": "USD",
+          "description": "Optional in-app subscription (monthly/yearly). Regional App Store pricing. Unlimited Spaces and Space Lock.",
+          "category": "Subscription",
+          "availability": "https://schema.org/InStock",
+          "url": "https://apps.apple.com/us/app/id6804914972"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How does Space isolation work under the hood?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Each Space is backed by its own WebKit website data store—Apple’s WKWebsiteDataStore with a unique identifier. Cookies, HTTP cache, and local storage for that Space live only in that store."
           }
-        ]
-      }
-    ]
-  }
+        },
+        {
+          "@type": "Question",
+          "name": "How is that different from Incognito / Private Browsing?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Incognito typically uses a temporary, non-persistent store discarded when you leave. Spaces are persistent sandboxes so multiple long-lived logins can coexist without overwriting each other’s cookies."
+          }
+        }
+      ]
+    }
+  ]
+}
   </script>
 </head>
 <body>
@@ -58,7 +103,7 @@
     <header class="site-header">
       <div class="site-header__inner">
         <a class="brand" href="../../">
-          <img class="brand__mark" src="../../assets/logo.webp" alt="" width="36" height="36" />
+          <img class="brand__mark" src="../../assets/logo.webp" alt="XBrowser" width="36" height="36" />
           <span class="brand__name">XBrowser</span>
         </a>
         <nav aria-label="Primary">
@@ -96,10 +141,11 @@
           <article class="feature">
             <div class="feature__copy">
               <h3>Parallel sandboxes—not endless logouts</h3>
-              <p>Typical browsers keep one cookie jar per site. XBrowser gives Messaging, Shop, and Work their own Spaces so sessions do not overwrite each other.</p>
+              <p>Typical browsers keep one cookie jar per site. XBrowser gives Messaging, Shop, and Work their own Spaces so sessions do not overwrite each other. Tap the Space chip—identity switches, sessions stay.</p>
             </div>
             <div class="feature__media">
-              <img src="../../assets/onboarding_messaging.webp" alt="Isolated multi-account sessions" width="600" height="900" loading="lazy" />
+              <img class="motion-safe" src="../../assets/demos/space-chip-switch.webp" alt="Animated demo of XBrowser Space chip switching Personal Work and Shop identities on iPhone" width="720" height="960" loading="lazy" />
+              <img class="motion-reduce" src="../../assets/demos/space-switch-01.webp" alt="XBrowser Space chip selected on Personal identity on iPhone" width="720" height="960" loading="lazy" hidden />
             </div>
           </article>
           <article class="feature feature--flip">
@@ -108,7 +154,7 @@
               <p>Sellers, social operators, or personal/work split: switch Spaces in one tap. History and bookmarks follow the identity you are in.</p>
             </div>
             <div class="feature__media">
-              <img src="../../assets/onboarding_shops.webp" alt="Separate shop accounts illustration" width="600" height="900" loading="lazy" />
+              <img src="../../assets/onboarding_shops.webp" alt="XBrowser separate Spaces for multiple shop accounts on iPhone" width="600" height="900" loading="lazy" />
             </div>
           </article>
           <article class="feature">
@@ -117,7 +163,7 @@
               <p>Use a dedicated work Space for email and docs. One tap on the Space chip switches you back—cookies and home stay separate too.</p>
             </div>
             <div class="feature__media">
-              <img src="../../assets/onboarding_work.webp" alt="Work space switching illustration" width="600" height="900" loading="lazy" />
+              <img src="../../assets/onboarding_work.webp" alt="XBrowser Space chip switching from personal to work identity on iPhone" width="600" height="900" loading="lazy" />
             </div>
           </article>
           <div class="feature-grid">

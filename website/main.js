@@ -61,7 +61,25 @@ window.XBrowserSite = {
   observeReveal(document.querySelectorAll(".feature"));
   observeReveal(
     document.querySelectorAll(
-      ".step, .honest-note, .download .reveal-on-scroll, .quote, .blog-item, .price-card"
+      ".step, .how-demo, .honest-note, .download .reveal-on-scroll, .quote, .blog-item, .price-card"
     )
   );
+
+  /* Swap GIF ↔ static frame for prefers-reduced-motion (and late OS changes). */
+  const syncMotionMedia = () => {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    document.querySelectorAll(".motion-safe").forEach((el) => {
+      el.hidden = reduce;
+    });
+    document.querySelectorAll(".motion-reduce").forEach((el) => {
+      el.hidden = !reduce;
+    });
+  };
+  syncMotionMedia();
+  const motionMq = window.matchMedia("(prefers-reduced-motion: reduce)");
+  if (motionMq.addEventListener) {
+    motionMq.addEventListener("change", syncMotionMedia);
+  } else if (motionMq.addListener) {
+    motionMq.addListener(syncMotionMedia);
+  }
 })();

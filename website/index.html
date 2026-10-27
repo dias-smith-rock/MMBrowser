@@ -19,62 +19,101 @@
   <link rel="icon" href="assets/logo.webp" type="image/webp" />
   <link rel="alternate icon" href="assets/logo.png" />
   <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://xxxxxbrowser.cc/#organization",
+      "name": "XBrowser International Limited",
+      "url": "https://xxxxxbrowser.cc/",
+      "email": "support@xxxxxbrowser.cc",
+      "brand": {
+        "@type": "Brand",
+        "name": "XBrowser"
+      },
+      "logo": "https://xxxxxbrowser.cc/assets/logo.webp"
+    },
+    {
+      "@type": [
+        "SoftwareApplication",
+        "MobileApplication"
+      ],
+      "name": "XBrowser",
+      "alternateName": "XBrowser: Dual Private Browser",
+      "url": "https://xxxxxbrowser.cc/",
+      "description": "A privacy browser for iPhone with independent multi-account Spaces, tracker blocking, and optional Space Lock. Free to download; Premium unlocks unlimited Spaces and locks.",
+      "operatingSystem": "iOS",
+      "applicationCategory": "BrowserApplication",
+      "applicationSubCategory": "UtilitiesApplication",
+      "softwareVersion": "1.2.0",
+      "softwareRequirements": "Requires iOS 17.6 or later",
+      "downloadUrl": "https://apps.apple.com/us/app/id6804914972",
+      "installUrl": "https://apps.apple.com/us/app/id6804914972",
+      "image": "https://xxxxxbrowser.cc/assets/logo.webp",
+      "screenshot": "https://xxxxxbrowser.cc/assets/demos/space-switch-01.webp",
+      "author": {
         "@type": "Organization",
-        "@id": "https://xxxxxbrowser.cc/#organization",
         "name": "XBrowser International Limited",
         "url": "https://xxxxxbrowser.cc/",
-        "email": "support@xxxxxbrowser.cc",
-        "brand": { "@type": "Brand", "name": "XBrowser" },
-        "logo": "https://xxxxxbrowser.cc/assets/logo.webp"
+        "email": "support@xxxxxbrowser.cc"
       },
-      {
-        "@type": "SoftwareApplication",
-        "name": "XBrowser",
-        "operatingSystem": "iOS, Android",
-        "applicationCategory": "UtilitiesApplication",
-        "publisher": { "@id": "https://xxxxxbrowser.cc/#organization" },
-        "offers": {
+      "publisher": {
+        "@id": "https://xxxxxbrowser.cc/#organization"
+      },
+      "offers": [
+        {
           "@type": "Offer",
+          "name": "Free",
           "price": "0",
-          "priceCurrency": "USD"
+          "priceCurrency": "USD",
+          "category": "Freeware",
+          "availability": "https://schema.org/InStock",
+          "url": "https://apps.apple.com/us/app/id6804914972"
         },
-        "description": "A privacy browser with independent multi-account Spaces, tracker blocking, and per-Space locks—without in-app advertising monetization."
-      },
-      {
-        "@type": "FAQPage",
-        "mainEntity": [
-          {
-            "@type": "Question",
-            "name": "How does Space isolation work under the hood?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Each Space is backed by its own WebKit data store—Apple’s WKWebsiteDataStore with a unique identifier. Cookies, cache, and local storage for that Space live only in that store. Switching Spaces switches which store the web view uses."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "How is that better than Incognito / Private Browsing?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "Incognito usually means a temporary, non-persistent store that is discarded when you close private tabs. Spaces are persistent sandboxes—each account stays signed in until you clear that Space, and switching does not overwrite the other Space’s cookies."
-            }
-          },
-          {
-            "@type": "Question",
-            "name": "Who makes XBrowser?",
-            "acceptedAnswer": {
-              "@type": "Answer",
-              "text": "XBrowser is a product of XBrowser International Limited. Support: support@xxxxxbrowser.cc."
-            }
+        {
+          "@type": "Offer",
+          "name": "XBrowser Premium",
+          "price": "0",
+          "priceCurrency": "USD",
+          "description": "Optional in-app subscription (monthly/yearly). Regional App Store pricing. Unlimited Spaces and Space Lock.",
+          "category": "Subscription",
+          "availability": "https://schema.org/InStock",
+          "url": "https://apps.apple.com/us/app/id6804914972"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How does Space isolation work under the hood?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Each Space is backed by its own WebKit data store—Apple’s WKWebsiteDataStore with a unique identifier. Cookies, cache, and local storage for that Space live only in that store. Switching Spaces switches which store the web view uses."
           }
-        ]
-      }
-    ]
-  }
+        },
+        {
+          "@type": "Question",
+          "name": "How is that better than Incognito / Private Browsing?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Incognito usually means a temporary, non-persistent store that is discarded when you close private tabs. Spaces are persistent sandboxes—each account stays signed in until you clear that Space, and switching does not overwrite the other Space’s cookies."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Who makes XBrowser?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "XBrowser is a product of XBrowser International Limited. Support: support@xxxxxbrowser.cc."
+          }
+        }
+      ]
+    }
+  ]
+}
   </script>
 </head>
 <body>
@@ -82,7 +121,7 @@
     <header class="site-header">
       <div class="site-header__inner">
         <a class="brand" href="/">
-          <img class="brand__mark" src="assets/logo.webp" alt="" width="36" height="36" />
+          <img class="brand__mark" src="assets/logo.webp" alt="XBrowser" width="36" height="36" />
           <span class="brand__name">XBrowser</span>
         </a>
         <nav aria-label="Primary">
@@ -100,14 +139,24 @@
 
     <main>
       <section class="hero" aria-label="Introduction">
-        <div class="hero__plane" aria-hidden="true">
+        <div class="hero__plane">
           <img
-            src="assets/onboarding_privacy.webp"
-            alt=""
-            width="600"
-            height="900"
+            class="hero__demo motion-safe"
+            src="assets/demos/space-chip-switch.webp"
+            alt="Animated demo of XBrowser Space chip switching Personal Work and Shop identities on iPhone"
+            width="720"
+            height="960"
             fetchpriority="high"
             decoding="async"
+          />
+          <img
+            class="hero__demo motion-reduce"
+            src="assets/demos/space-switch-01.webp"
+            alt="XBrowser Space chip selected on Personal identity on iPhone"
+            width="720"
+            height="960"
+            decoding="async"
+            hidden
           />
         </div>
         <div class="hero__content">
@@ -145,7 +194,7 @@
               </p>
             </div>
             <div class="feature__media">
-              <img src="assets/features/ad_blocking.webp" alt="Built-in ads and tracker blocking illustration" width="600" height="900" loading="lazy" />
+              <img src="assets/features/ad_blocking.webp" alt="XBrowser address-bar shield blocking ads and trackers on iPhone webpage" width="600" height="900" loading="lazy" />
             </div>
           </article>
 
@@ -162,7 +211,7 @@
               </p>
             </div>
             <div class="feature__media">
-              <img src="assets/onboarding_privacy.webp" alt="Space encryption and privacy illustration" width="600" height="900" loading="lazy" />
+              <img src="assets/onboarding_privacy.webp" alt="XBrowser Space Lock protecting a private browsing Space with biometrics on iPhone" width="600" height="900" loading="lazy" />
             </div>
           </article>
 
@@ -182,7 +231,8 @@
               </p>
             </div>
             <div class="feature__media">
-              <img src="assets/onboarding_messaging.webp" alt="Separate messaging sessions illustration" width="600" height="900" loading="lazy" />
+              <img class="motion-safe" src="assets/demos/space-chip-switch.webp" alt="Animated demo of XBrowser Space chip switching Personal Work and Shop identities on iPhone" width="720" height="960" loading="lazy" />
+              <img class="motion-reduce" src="assets/demos/space-switch-01.webp" alt="XBrowser Space chip selected on Personal identity on iPhone" width="720" height="960" loading="lazy" hidden />
             </div>
           </article>
 
@@ -194,7 +244,7 @@
               </p>
             </div>
             <div class="feature__media">
-              <img src="assets/onboarding_shops.webp" alt="Separate shop accounts illustration" width="600" height="900" loading="lazy" />
+              <img src="assets/onboarding_shops.webp" alt="XBrowser separate Spaces for multiple shop accounts on iPhone" width="600" height="900" loading="lazy" />
             </div>
           </article>
         </div>
@@ -207,6 +257,42 @@
           <p class="section__lead">
             Spaces isolate identities. Locks and tracker blocking protect them. Everything else is optional tooling on top.
           </p>
+
+          <div class="how-demo reveal-on-scroll">
+            <div class="how-demo__media">
+              <img
+                class="motion-safe"
+                src="assets/demos/space-chip-switch.webp"
+                alt="Animated demo of XBrowser Space chip switching Personal Work and Shop identities on iPhone"
+                width="720"
+                height="960"
+                loading="lazy"
+              />
+              <img
+                class="motion-reduce"
+                src="assets/demos/space-switch-02.webp"
+                alt="XBrowser Space chip selected on Work identity on iPhone"
+                width="720"
+                height="960"
+                loading="lazy"
+                hidden
+              />
+            </div>
+            <div class="how-demo__copy">
+              <p class="how-demo__eyebrow">Live demo</p>
+              <h3>Tap the Space chip. Identity switches. Sessions stay.</h3>
+              <p>
+                Watch Personal → Work → Shop in a loop. Each Space keeps its own cookies and logins—no logout, no clone app, no mixed history.
+              </p>
+              <ul class="how-demo__chips" aria-hidden="true">
+                <li class="how-demo__chip how-demo__chip--personal">Personal</li>
+                <li class="how-demo__chip how-demo__chip--work">Work</li>
+                <li class="how-demo__chip how-demo__chip--shop">Shop</li>
+              </ul>
+              <a class="btn btn--ghost" href="/features/multi-account-sandbox/">How Spaces isolate accounts →</a>
+            </div>
+          </div>
+
           <ol class="steps">
             <li class="step reveal-on-scroll">
               <span class="step__num" aria-hidden="true">01</span>
