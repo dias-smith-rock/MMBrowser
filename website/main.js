@@ -1,7 +1,10 @@
 /* Site config — set appStoreUrl before publish */
 window.XBrowserSite = {
   appStoreUrl: "https://apps.apple.com/us/app/id6804914972?l=en-us",
-  contactEmail: "gaowei85714@gmail.com",
+  /** Public-facing support address (domain identity for trust / EEAT). */
+  contactEmailDisplay: "support@xxxxxbrowser.cc",
+  /** Actual mailbox that receives mail (until domain inbox is fully cut over). */
+  contactEmailMailto: "gaowei85714@gmail.com",
 };
 
 (function () {
@@ -24,9 +27,9 @@ window.XBrowserSite = {
   });
 
   document.querySelectorAll("[data-contact-email]").forEach((el) => {
-    el.textContent = cfg.contactEmail;
+    el.textContent = cfg.contactEmailDisplay;
     if (el.tagName === "A") {
-      el.setAttribute("href", "mailto:" + cfg.contactEmail);
+      el.setAttribute("href", "mailto:" + cfg.contactEmailMailto);
     }
   });
 

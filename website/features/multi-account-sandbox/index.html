@@ -21,12 +21,35 @@
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "XBrowser",
-    "operatingSystem": "iOS, Android",
-    "applicationCategory": "UtilitiesApplication",
-    "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"},
-    "description": "A multi-account sandbox browser with zero-trust Spaces that isolate cookies and logins, plus optional per-Space locks."
+    "@graph": [
+      {
+        "@type": "Organization",
+        "name": "XBrowser International Limited",
+        "url": "https://xxxxxbrowser.cc/",
+        "email": "support@xxxxxbrowser.cc"
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "How does Space isolation work under the hood?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Each Space is backed by its own WebKit website data store—Apple’s WKWebsiteDataStore with a unique identifier. Cookies, HTTP cache, and local storage for that Space live only in that store."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How is that different from Incognito / Private Browsing?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Incognito typically uses a temporary, non-persistent store discarded when you leave. Spaces are persistent sandboxes so multiple long-lived logins can coexist without overwriting each other’s cookies."
+            }
+          }
+        ]
+      }
+    ]
   }
   </script>
 </head>
@@ -116,14 +139,43 @@
           </div>
         </div>
       </section>
+      <section class="section section--how" id="faq">
+        <div class="container">
+          <p class="section__label">How it works</p>
+          <h2 class="section__title">Technical FAQ: Spaces vs Incognito</h2>
+          <p class="section__lead">Plain-language answers about the WebKit isolation that powers XBrowser Spaces.</p>
+          <div class="faq">
+            <details open>
+              <summary>How does Space isolation work under the hood?</summary>
+              <p>Each Space is backed by its own WebKit website data store—Apple’s <code>WKWebsiteDataStore</code> with a unique identifier. Cookies, HTTP cache, and local storage for that Space live only in that store. When you switch Spaces, the web view uses a different store. It is real session isolation, not a label on a shared cookie jar.</p>
+            </details>
+            <details>
+              <summary>How is that different from Incognito / Private Browsing?</summary>
+              <p>Incognito typically uses a temporary, non-persistent store. Close those tabs and the session is discarded. Useful for a one-off visit—but you cannot keep two long-lived logged-in accounts side by side. Spaces are persistent sandboxes: each login stays signed in until you clear that Space, and switching does not overwrite the other Space’s cookies.</p>
+            </details>
+            <details>
+              <summary>Why is that safer and more practical than “clone” apps or constant logouts?</summary>
+              <p>Clone / dual-open helpers often sit outside the App Store trust model and can ask for broad permissions. Constant logout/login is slow and easy to mess up. Spaces keep isolation inside a normal browser: one app, separate WebKit data stores, optional Space Lock—without mixing sessions.</p>
+            </details>
+            <details>
+              <summary>Does isolation change my IP or fingerprint?</summary>
+              <p>No. Spaces isolate cookies and site data on your device. They do not change your network IP or claim anti-detect browser behavior. For honest multi-account browsing, cookie isolation is the core product.</p>
+            </details>
+            <details>
+              <summary>Want a deeper explainer?</summary>
+              <p>Read <a href="../../blog/why-incognito-isnt-enough/">Why Incognito isn’t enough</a>—or browse <a href="../../use-cases/">use-case guides</a> for WhatsApp, shops, and work/personal splits.</p>
+            </details>
+          </div>
+        </div>
+      </section>
     </main>
     <footer class="site-footer">
       <div class="site-footer__inner">
         <div>
           <p class="site-footer__brand">XBrowser</p>
           <p class="site-footer__note">
-            Zero-trust Spaces &amp; multi-account sandboxes. Questions:
-            <a data-contact-email href="mailto:gaowei85714@gmail.com">gaowei85714@gmail.com</a>
+            A product by <span>XBrowser International Limited</span>. Support:
+            <a data-contact-email href="mailto:gaowei85714@gmail.com">support@xxxxxbrowser.cc</a>
           </p>
         </div>
         <ul class="site-footer__links">

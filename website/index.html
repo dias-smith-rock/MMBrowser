@@ -21,16 +21,59 @@
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "XBrowser",
-    "operatingSystem": "iOS, Android",
-    "applicationCategory": "UtilitiesApplication",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    },
-    "description": "A privacy browser with independent multi-account Spaces, tracker blocking, and per-Space locks—without in-app advertising monetization."
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://xxxxxbrowser.cc/#organization",
+        "name": "XBrowser International Limited",
+        "url": "https://xxxxxbrowser.cc/",
+        "email": "support@xxxxxbrowser.cc",
+        "brand": { "@type": "Brand", "name": "XBrowser" },
+        "logo": "https://xxxxxbrowser.cc/assets/logo.webp"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "XBrowser",
+        "operatingSystem": "iOS, Android",
+        "applicationCategory": "UtilitiesApplication",
+        "publisher": { "@id": "https://xxxxxbrowser.cc/#organization" },
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "description": "A privacy browser with independent multi-account Spaces, tracker blocking, and per-Space locks—without in-app advertising monetization."
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "How does Space isolation work under the hood?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Each Space is backed by its own WebKit data store—Apple’s WKWebsiteDataStore with a unique identifier. Cookies, cache, and local storage for that Space live only in that store. Switching Spaces switches which store the web view uses."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How is that better than Incognito / Private Browsing?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Incognito usually means a temporary, non-persistent store that is discarded when you close private tabs. Spaces are persistent sandboxes—each account stays signed in until you clear that Space, and switching does not overwrite the other Space’s cookies."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Who makes XBrowser?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "XBrowser is a product of XBrowser International Limited. Support: support@xxxxxbrowser.cc."
+            }
+          }
+        ]
+      }
+    ]
   }
   </script>
 </head>
@@ -287,6 +330,18 @@
               <p>A Space is an isolated browsing identity. It has its own cookies, site data, history, bookmarks, and tabs—so accounts do not mix.</p>
             </details>
             <details>
+              <summary>How does Space isolation work under the hood?</summary>
+              <p>Each Space is backed by its own WebKit data store—Apple’s <code>WKWebsiteDataStore</code> with a unique identifier. Cookies, cache, and local storage for that Space live only in that store. Switching Spaces switches which store the web view uses. It is real session isolation, not a cosmetic “profile” label on a shared cookie jar.</p>
+            </details>
+            <details>
+              <summary>How is that better than Incognito / Private Browsing?</summary>
+              <p>Incognito usually means a temporary, non-persistent store: close the private tabs and the session is gone. That is great for a one-off visit, but you cannot keep two long-lived logins side by side. Spaces are persistent sandboxes—each account stays signed in until you clear that Space, and switching does not overwrite the other Space’s cookies.</p>
+            </details>
+            <details>
+              <summary>Why prefer Spaces over logging out or using Incognito for multi-account?</summary>
+              <p>Incognito is “forget me when I leave.” Spaces are “remember each identity separately.” That is what dual WhatsApp Web, two Gmail inboxes, or Shop A vs Shop B need—without logging out every time or relying on unsafe third-party “clone” apps.</p>
+            </details>
+            <details>
               <summary>How many Spaces are free?</summary>
               <p>Free includes up to 3 Spaces. Unlimited Spaces and Space Lock need Premium. See <a href="/pricing/">Pricing</a>.</p>
             </details>
@@ -305,6 +360,10 @@
             <details>
               <summary>Can web video play in the background?</summary>
               <p>Yes—for supported streams, the built-in player offers Background Audio, floating playback, and Picture in Picture. See <a href="/features/built-in-player/">Built-in player</a>.</p>
+            </details>
+            <details>
+              <summary>Who makes XBrowser?</summary>
+              <p>XBrowser is a product of <strong>XBrowser International Limited</strong>. Support: <a data-contact-email href="mailto:gaowei85714@gmail.com">support@xxxxxbrowser.cc</a>.</p>
             </details>
           </div>
         </div>
@@ -331,8 +390,8 @@
         <div>
           <p class="site-footer__brand">XBrowser</p>
           <p class="site-footer__note">
-            Privacy browser with independent multi-account Spaces. Questions:
-            <a data-contact-email href="mailto:gaowei85714@gmail.com">gaowei85714@gmail.com</a>
+            A product by <span>XBrowser International Limited</span>. Support:
+            <a data-contact-email href="mailto:gaowei85714@gmail.com">support@xxxxxbrowser.cc</a>
           </p>
         </div>
         <ul class="site-footer__links">

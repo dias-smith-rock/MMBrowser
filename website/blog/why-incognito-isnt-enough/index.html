@@ -56,9 +56,34 @@
 
           <h2>What Incognito solves—and what it does not</h2>
           <p>Private tabs leave fewer local traces when closed, but they do not keep multiple long-lived logins, and they are not network anonymity. A sandbox browser turns identity isolation into switchable Spaces.</p>
+
+          <h2>Under the hood: WebKit data stores</h2>
+          <p>
+            On iOS, XBrowser Spaces map to separate WebKit website data stores—
+            <code>WKWebsiteDataStore(forIdentifier:)</code>—so each Space gets its own cookies, cache, and local storage.
+            Incognito-style private browsing typically uses a <em>non-persistent</em> store that is thrown away when you leave.
+            Spaces keep those stores around: you stay signed in to account A and account B at the same time, without one session overwriting the other.
+          </p>
+          <p>
+            That difference matters for dual WhatsApp Web, two Gmail inboxes, or shop admin panels.
+            Incognito is built to forget. Spaces are built to remember each identity separately.
+          </p>
+
           <h2>Zero-trust mindset</h2>
           <p>Assume accounts should not share cookies. Isolate storage per Space, then add Face ID to sensitive ones for defense in depth.</p>
-          <p><a href="../../features/encrypted-private-browser/">Encryption &amp; privacy</a></p>
+          <p><a href="../../features/encrypted-private-browser/">Encryption &amp; privacy</a> · <a href="../../features/multi-account-sandbox/#faq">Spaces technical FAQ</a></p>
+
+          <h2>FAQ</h2>
+          <div class="faq">
+            <details>
+              <summary>Is Incognito “more private” than a Space?</summary>
+              <p>For a throwaway visit, temporary private mode can leave fewer local traces after you close it. For multi-account work, Spaces are usually the better fit: persistent isolation without constant logout, plus optional Space Lock. Neither mode hides your IP.</p>
+            </details>
+            <details>
+              <summary>Do Spaces share cookies across tabs?</summary>
+              <p>Tabs inside the same Space share that Space’s data store (normal browser behavior). Different Spaces do not share cookies. Isolation is per Space, not per tab inside one Space.</p>
+            </details>
+          </div>
 
         <div class="related">
           <h2>Related</h2>
@@ -80,8 +105,8 @@
         <div>
           <p class="site-footer__brand">XBrowser</p>
           <p class="site-footer__note">
-            Zero-trust Spaces &amp; multi-account sandboxes. Questions:
-            <a data-contact-email href="mailto:gaowei85714@gmail.com">gaowei85714@gmail.com</a>
+            A product by <span>XBrowser International Limited</span>. Support:
+            <a data-contact-email href="mailto:gaowei85714@gmail.com">support@xxxxxbrowser.cc</a>
           </p>
         </div>
         <ul class="site-footer__links">
