@@ -124,7 +124,9 @@ img {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 28px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px 20px;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -132,8 +134,9 @@ img {
 
 .nav-links a {
   color: var(--ink-muted);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .nav-links a:hover,
@@ -358,19 +361,18 @@ img {
   overflow: hidden;
   background: transparent;
   border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   padding: 0;
   min-width: 0;
 }
 
 .feature__media img {
+  display: block;
   width: 100%;
-  max-width: 440px;
+  max-width: 400px;
   margin: 0 auto;
-  aspect-ratio: auto;
   height: auto;
+  aspect-ratio: auto;
   object-fit: contain;
   object-position: center;
   border-radius: 24px;
@@ -378,8 +380,13 @@ img {
 }
 
 .feature__media .space-demo-img {
-  max-width: 360px;
+  max-width: 320px;
   aspect-ratio: 3 / 4;
+}
+
+img[hidden],
+.motion-reduce[hidden] {
+  display: none !important;
 }
 
 .feature__copy h3 {
@@ -445,9 +452,6 @@ img {
   filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.4));
 }
 
-.how-demo__media img[hidden] {
-  display: none !important;
-}
 
 .how-demo__copy {
   min-width: 0;
@@ -519,9 +523,9 @@ img {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .motion-safe { display: none !important; }
-  .motion-reduce { display: block !important; }
-  .hero__plane img.motion-safe { animation: none; }
+  .hero__plane img.motion-safe {
+    animation: none;
+  }
 }
 
 .steps {

@@ -65,27 +65,10 @@ window.XBrowserSite = {
     )
   );
 
-  /* Swap animated demos ↔ static frame for prefers-reduced-motion. */
-  const syncMotionMedia = () => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    document.querySelectorAll(".motion-safe").forEach((el) => {
-      el.hidden = reduce;
-    });
-    document.querySelectorAll(".motion-reduce").forEach((el) => {
-      el.hidden = !reduce;
-    });
-  };
-  syncMotionMedia();
-  const motionMq = window.matchMedia("(prefers-reduced-motion: reduce)");
-  if (motionMq.addEventListener) {
-    motionMq.addEventListener("change", syncMotionMedia);
-  } else if (motionMq.addListener) {
-    motionMq.addListener(syncMotionMedia);
-  }
-
-  /* Space chip demo: swap a single <img> src (no stacked frames / no overlap). */
+  /* Space chip demo: one <img>, swap src only (never stack two images). */
   const startSpaceDemos = () => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) return;
     document.querySelectorAll(".space-demo-img[data-space-frames]").forEach((img) => {
       const frames = img
         .getAttribute("data-space-frames")
@@ -99,6 +82,8 @@ window.XBrowserSite = {
         .filter(Boolean);
       const chipRoot = img.closest(".how-demo");
       let i = Math.max(0, frames.indexOf(img.getAttribute("src")));
+      if (i < 0) i = 0;
+      img.src = frames[i];
       window.setInterval(() => {
         i = (i + 1) % frames.length;
         img.src = frames[i];
