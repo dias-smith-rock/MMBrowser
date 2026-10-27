@@ -1,0 +1,22 @@
+# TODO: Use-case videos
+Replace dashed placeholders on each page with real recordings.
+- [ ] `/use-cases/social/two-whatsapp-accounts-iphone/` — Screen recording: create two Spaces → link two WhatsApp Web accounts → switch chip → Split View dual chats.
+- [ ] `/use-cases/social/multiple-instagram-accounts-one-device/` — Screen recording: three Spaces each signed into a different Instagram web session; switch chip demo.
+- [ ] `/use-cases/social/dual-whatsapp-web-iphone-browser/` — Screen recording: Split View dual WhatsApp Web with Personal/Work chips visible.
+- [ ] `/use-cases/social/two-facebook-accounts-iphone-no-clone/` — Screen recording: two Spaces signed into different Facebook accounts; switch demo.
+- [ ] `/use-cases/social/telegram-multiple-web-logins-ios/` — Screen recording: two Telegram Web sessions in two Spaces.
+- [ ] `/use-cases/social/multiple-twitter-x-accounts-same-time/` — Screen recording: two x.com sessions in two Spaces + optional Split View.
+- [ ] `/use-cases/ecommerce/multiple-shopify-stores-mobile/` — Screen recording: Shop-A vs Shop-B Spaces opening different Shopify admins.
+- [ ] `/use-cases/ecommerce/amazon-seller-accounts-iphone/` — Screen recording: two Seller Central Spaces + Space Lock prompt.
+- [ ] `/use-cases/ecommerce/multi-account-browser-dropshipping/` — Screen recording: Space map for dropshipping roles and quick switching.
+- [ ] `/use-cases/ecommerce/multiple-ecommerce-shops-ios/` — Screen recording: Split View two shop admins in two Spaces.
+- [ ] `/use-cases/ecommerce/prevent-cross-site-tracking-seller-accounts/` — Screen recording: shield on + two seller Spaces demonstrating separate logins.
+- [ ] `/use-cases/work-personal/separate-work-personal-browsing-iphone/` — Screen recording: Personal vs Work Space switch with different homes.
+- [ ] `/use-cases/work-personal/switch-work-personal-identities-ios/` — Screen recording: rapid Space chip switching between Work and Personal.
+- [ ] `/use-cases/work-personal/separate-browsing-history-ios/` — Screen recording: show History lists differing between two Spaces.
+- [ ] `/use-cases/work-personal/two-gmail-accounts-mobile-browser/` — Screen recording: two Gmail inboxes in two Spaces / Split View.
+- [ ] `/use-cases/work-personal/iphone-browser-separate-profiles-cookies/` — Screen recording: Space hub showing multiple profiles and cookie isolation explanation UI if available.
+- [ ] `/use-cases/privacy/best-session-isolation-browser-iphone/` — Screen recording: Space isolation overview + lock + shield.
+- [ ] `/use-cases/privacy/sandbox-browser-ios-multi-login/` — Screen recording: sandbox/Space creation + multi-login demo.
+- [ ] `/use-cases/privacy/separate-cookies-different-tabs-iphone/` — Screen recording: diagram-style UI showing Space = cookie jar; two Spaces two logins.
+- [ ] `/use-cases/privacy/multiple-independent-web-sessions-ios/` — Screen recording: three live independent sessions switched via Space chip.
