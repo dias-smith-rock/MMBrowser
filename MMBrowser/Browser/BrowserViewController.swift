@@ -35,6 +35,9 @@ final class BrowserViewController: UIViewController {
     private var isAdjustingChromeLayout = false
     /// Space Hub NTP hides the bottom address bar + toolbar entirely.
     private var isBrowserChromeHiddenForHub = false
+    /// H5 games / fixed pages: hide address + toolbar; restore via floating chip.
+    private var isImmersiveBrowsing = false
+    private let immersiveRestoreButton = UIButton(type: .system)
     private var isPageLoading = false
     private var pageLoadProgress: Double = 0
     /// Keyboard overlap with this view (from bottom), in view coordinates.
@@ -647,6 +650,8 @@ final class BrowserViewController: UIViewController {
         view.addSubview(chromeHost)
         view.addSubview(addressSuggestions)
         view.addSubview(collapsedProgressView)
+        configureImmersiveRestoreButton()
+        view.addSubview(immersiveRestoreButton)
 
         collapsedProgressView.progressTintColor = BrowserTheme.chromeBlue
         collapsedProgressView.trackTintColor = .clear
@@ -696,6 +701,74 @@ final class BrowserViewController: UIViewController {
             make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
             make.height.equalTo(2)
         }
+        immersiveRestoreButton.snp.makeConstraints { make in
+            make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing).offset(-12)
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).offset(8)
+            make.height.equalTo(34)
+            make.width.greaterThanOrEqualTo(118)
+        }
+    }
+
+    private func configureImmersiveRestoreButton() {
+        immersiveRestoreButton.isHidden = true
+        immersiveRestoreButton.setTitle("Exit Immersive", for: .normal)
+        immersiveRestoreButton.setImage(
+            UIImage(systemName: "rectangle.bottomthird.inset.filled", withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)),
+            for: .normal
+        )
+        immersiveRestoreButton.tintColor = .white
+        immersiveRestoreButton.setTitleColor(.white, for: .normal)
+        immersiveRestoreButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        immersiveRestoreButton.backgroundColor = UIColor.black.withAlphaComponent(0.62)
+        immersiveRestoreButton.layer.cornerRadius = 17
+        immersiveRestoreButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 12, bottom: 0, right: 14)
+        immersiveRestoreButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -3, bottom: 0, right: 3)
+        immersiveRestoreButton.accessibilityLabel = "Exit immersive mode and show toolbar"
+        immersiveRestoreButton.addTarget(self, action: #selector(immersiveRestoreTapped), for: .touchUpInside)
+    }
+
+    @objc private func immersiveRestoreTapped() {
+        setImmersiveBrowsing(false, animated: true)
+    }
+
+    /// Fully hide address bar + toolbar so H5 games / fixed pages can use the whole screen.
+    private func setImmersiveBrowsing(_ enabled: Bool, animated: Bool, announce: Bool = false) {
+        if enabled {
+            guard tabManager.selectedTab?.isNewTabPage != true else { return }
+            guard !isBrowserChromeHiddenForHub else { return }
+        }
+        guard enabled != isImmersiveBrowsing else { return }
+        isImmersiveBrowsing = enabled
+        if enabled {
+            isChromeCollapsed = false
+            addressBar.endEditing(true)
+            addressBar.hideCleanerMenu()
+        }
+        let apply = {
+            let hideChrome = enabled || self.isBrowserChromeHiddenForHub
+            self.chromeHost.isHidden = hideChrome
+            self.chromeHost.isUserInteractionEnabled = !hideChrome
+            self.addressBar.isHidden = hideChrome
+            self.immersiveRestoreButton.isHidden = !enabled
+            self.immersiveRestoreButton.alpha = enabled ? 1 : 0
+            if enabled {
+                self.view.bringSubviewToFront(self.immersiveRestoreButton)
+            }
+            self.updateWebChromeContentInset()
+            self.view.layoutIfNeeded()
+            // Let fixed-layout H5 games remeasure after chrome removal.
+            self.tabManager.selectedTab?.webController?.webView?.setNeedsLayout()
+            self.tabManager.selectedTab?.webController?.webView?.layoutIfNeeded()
+        }
+        if animated {
+            UIView.animate(withDuration: 0.25, animations: apply)
+        } else {
+            apply()
+        }
+        setNeedsStatusBarAppearanceUpdate()
+        if enabled, announce {
+            Toast.show("Immersive on — tap Exit Immersive to restore", from: self)
+        }
     }
 
     /// Scroll-down: shrink address into a bottom domain pill and hide the toolbar.
@@ -703,7 +776,7 @@ final class BrowserViewController: UIViewController {
     private func setChromeCollapsed(_ collapsed: Bool, animated: Bool) {
         if collapsed {
             guard tabManager.selectedTab?.isNewTabPage != true else { return }
-            guard !isBrowserChromeHiddenForHub else { return }
+            guard !isBrowserChromeHiddenForHub, !isImmersiveBrowsing else { return }
             guard !addressBar.isHidden else { return }
             // Don't collapse chrome while the keyboard is up — address field would stay covered.
             guard keyboardOverlap < 1 else { return }
@@ -712,7 +785,7 @@ final class BrowserViewController: UIViewController {
                 addressBar.hideCleanerMenu()
             }
         }
-        guard !isBrowserChromeHiddenForHub else { return }
+        guard !isBrowserChromeHiddenForHub, !isImmersiveBrowsing else { return }
         guard collapsed != isChromeCollapsed else { return }
 
         let heightBefore = tabManager.selectedTab?.webController?.webView?.bounds.height ?? 0
@@ -952,7 +1025,10 @@ final class BrowserViewController: UIViewController {
     }
 
     private func updateCollapsedProgressVisibility() {
-        let shouldShow = isChromeCollapsed && isPageLoading && !(tabManager.selectedTab?.isNewTabPage ?? true)
+        let shouldShow = isChromeCollapsed
+            && !isImmersiveBrowsing
+            && isPageLoading
+            && !(tabManager.selectedTab?.isNewTabPage ?? true)
         collapsedProgressView.isHidden = !shouldShow
         if shouldShow {
             collapsedProgressView.setProgress(Float(pageLoadProgress), animated: true)
@@ -968,7 +1044,7 @@ final class BrowserViewController: UIViewController {
         let activelyLoading = isLoading && progress < 1
         isPageLoading = activelyLoading
         pageLoadProgress = progress
-        addressBar.setProgress(progress, isLoading: activelyLoading && !isChromeCollapsed)
+        addressBar.setProgress(progress, isLoading: activelyLoading && !isChromeCollapsed && !isImmersiveBrowsing)
         if activelyLoading {
             collapsedProgressView.setProgress(Float(max(progress, 0.02)), animated: true)
         } else {
@@ -979,6 +1055,9 @@ final class BrowserViewController: UIViewController {
 
     private func resetChromeForCurrentTab() {
         scrollAccumulator = 0
+        if isImmersiveBrowsing {
+            setImmersiveBrowsing(false, animated: false)
+        }
         setChromeCollapsed(false, animated: false)
         applyLoadingProgress(0, isLoading: false)
     }
@@ -986,10 +1065,13 @@ final class BrowserViewController: UIViewController {
     /// Hides address bar + toolbar for Space Hub; restores them for web / private NTP.
     private func setBrowserChromeHiddenForHub(_ hidden: Bool) {
         guard hidden != isBrowserChromeHiddenForHub else { return }
+        if hidden, isImmersiveBrowsing {
+            setImmersiveBrowsing(false, animated: false)
+        }
         isBrowserChromeHiddenForHub = hidden
-        chromeHost.isHidden = hidden
-        chromeHost.isUserInteractionEnabled = !hidden
-        addressBar.isHidden = hidden
+        chromeHost.isHidden = hidden || isImmersiveBrowsing
+        chromeHost.isUserInteractionEnabled = !(hidden || isImmersiveBrowsing)
+        addressBar.isHidden = hidden || isImmersiveBrowsing
         if !hidden {
             isChromeCollapsed = false
             updateChromeBottomOffset(animated: false)
@@ -1008,7 +1090,7 @@ final class BrowserViewController: UIViewController {
     private func updateWebChromeContentInset() {
         let safeBottom = view.safeAreaInsets.bottom
         let chromeBottom: CGFloat
-        if isBrowserChromeHiddenForHub || chromeHost.isHidden {
+        if isBrowserChromeHiddenForHub || isImmersiveBrowsing || chromeHost.isHidden {
             chromeBottom = 0
         } else if isChromeCollapsed {
             // Pill floats in/near the home-indicator band — don't double-count safe area.
@@ -1031,7 +1113,7 @@ final class BrowserViewController: UIViewController {
         // Account hub content sits above the floating chrome (system safe area already
         // excludes the home indicator).
         accountHubController?.additionalSafeAreaInsets.bottom =
-            (isBrowserChromeHiddenForHub || chromeHost.isHidden) ? 0 : BrowserTheme.chromeHeight
+            (isBrowserChromeHiddenForHub || isImmersiveBrowsing || chromeHost.isHidden) ? 0 : BrowserTheme.chromeHeight
     }
 
     private func showSelectedTab() {
@@ -1995,6 +2077,11 @@ extension BrowserViewController: AddressBarViewDelegate {
         tabManager.selectedTab?.webController?.reload()
     }
 
+    func addressBarDidTapHideToolbar() {
+        addressSuggestions.hide()
+        setImmersiveBrowsing(true, animated: true, announce: true)
+    }
+
     func addressBarDidTapBack() {
         addressSuggestions.hide()
         tabManager.selectedTab?.webController?.goBack()
@@ -2860,6 +2947,8 @@ extension BrowserViewController: MenuViewControllerDelegate {
             tabManager.selectedTab?.webController?.longScreenshot()
         case .pageCleaner:
             enterWebCleanerMode()
+        case .hideToolbar:
+            setImmersiveBrowsing(true, animated: true, announce: true)
         case .copyURL:
             guard let url = tabManager.selectedTab?.url else {
                 Toast.show("No URL to copy", from: self)

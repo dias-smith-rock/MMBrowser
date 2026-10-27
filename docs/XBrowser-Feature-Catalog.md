@@ -98,6 +98,7 @@ Native player used for supported streams (alongside system PiP where applicable)
 | **Volume gesture (floating)** | Adjust volume from the floating player chrome. |
 | **Expand to fullscreen player** | Open the shared AVPlayer in an in-app fullscreen player. |
 | **Fullscreen controls** | Fullscreen overlay: close, play/pause, ±10s, speed, scrubber, elapsed/remaining time. |
+| **Hide Toolbar (immersive)** | Manually hide address bar + toolbar for H5 games / fixed pages (address-bar icon or page menu); restore via top-right “Exit Immersive”. |
 | **Fullscreen brightness / volume gestures** | Vertical drag on left/right regions to adjust brightness (where supported) or system volume. |
 | **Fullscreen controls lock** | Side lock button to block accidental taps; only unlock remains available until unlocked. |
 | **Sleep Timer** | Pause playback automatically after 10 / 15 / 30 / 45 / 60 minutes or a custom duration; available on floating and fullscreen players (middle-right control). |

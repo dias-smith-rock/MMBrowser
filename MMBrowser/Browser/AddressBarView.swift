@@ -7,6 +7,8 @@ protocol AddressBarViewDelegate: AnyObject {
     func addressBarDidEndEditing()
     func addressBarTextDidChange(_ text: String)
     func addressBarDidTapReload()
+    /// Hide address bar + toolbar for immersive / H5 game browsing.
+    func addressBarDidTapHideToolbar()
     func addressBarDidTapBack()
     func addressBarDidTapForward()
     func addressBarDidTapRichMenu()
@@ -35,6 +37,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private let backButton = UIButton(type: .system)
     private let forwardButton = UIButton(type: .system)
     private let reloadButton = UIButton(type: .system)
+    private let hideToolbarButton = UIButton(type: .system)
     private let richMenuButton = UIButton(type: .system)
     private let clearButton = UIButton(type: .system)
     private let shieldButton = UIButton(type: .custom)
@@ -103,6 +106,8 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
         reloadButton.accessibilityLabel = "Reload"
         reloadButton.addTarget(self, action: #selector(reloadTapped), for: .touchUpInside)
+        hideToolbarButton.accessibilityLabel = "Enter immersive"
+        hideToolbarButton.addTarget(self, action: #selector(hideToolbarTapped), for: .touchUpInside)
 
         richMenuButton.isHidden = true
         richMenuButton.isUserInteractionEnabled = false
@@ -176,6 +181,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         addSubview(backButton)
         addSubview(forwardButton)
         container.addSubview(reloadButton)
+        container.addSubview(hideToolbarButton)
         container.addSubview(privateBadge)
         container.addSubview(swipeClip)
         swipeClip.addSubview(textField)
@@ -237,6 +243,11 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         }
         reloadButton.snp.makeConstraints { make in
             make.trailing.equalToSuperview().offset(-10)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(Self.chromeIconButtonSize)
+        }
+        hideToolbarButton.snp.makeConstraints { make in
+            make.trailing.equalTo(reloadButton.snp.leading).offset(-2)
             make.centerY.equalToSuperview()
             make.size.equalTo(Self.chromeIconButtonSize)
         }
@@ -458,6 +469,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         hostLabel.isHidden = !compact
         swipeClip.isHidden = compact
         reloadButton.isHidden = compact
+        hideToolbarButton.isHidden = compact
         clearButton.isHidden = true
         privateBadge.isHidden = compact || !isPrivateMode
         textField.isUserInteractionEnabled = !compact
@@ -564,6 +576,12 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         )
         reloadButton.tintColor = BrowserTheme.textSecondary
         reloadButton.setPreferredSymbolConfiguration(iconConfig, forImageIn: .normal)
+        hideToolbarButton.setImage(
+            UIImage(systemName: "rectangle.inset.filled", withConfiguration: iconConfig),
+            for: .normal
+        )
+        hideToolbarButton.tintColor = BrowserTheme.textSecondary
+        hideToolbarButton.setPreferredSymbolConfiguration(iconConfig, forImageIn: .normal)
         clearButton.setImage(UIImage(systemName: "xmark.circle.fill", withConfiguration: iconConfig), for: .normal)
         clearButton.tintColor = BrowserTheme.textSecondary
         clearButton.setPreferredSymbolConfiguration(iconConfig, forImageIn: .normal)
@@ -719,7 +737,9 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     private func refreshTextFieldConstraints() {
-        let trailingTarget = reloadButton.snp.leading
+        let trailingTarget = hideToolbarButton.isHidden
+            ? reloadButton.snp.leading
+            : hideToolbarButton.snp.leading
 
         // Collapse the leading shield when hidden so the field doesn't keep a gap.
         shieldButton.snp.remakeConstraints { make in
@@ -938,6 +958,12 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         textField.resignFirstResponder()
         hideCleanerMenu()
         delegate?.addressBarDidTapReload()
+    }
+
+    @objc private func hideToolbarTapped() {
+        textField.resignFirstResponder()
+        hideCleanerMenu()
+        delegate?.addressBarDidTapHideToolbar()
     }
 
     /// Navigation lives in the bottom toolbar row; keep field chrome full-width.
