@@ -65,7 +65,7 @@ window.XBrowserSite = {
     )
   );
 
-  /* Swap GIF ↔ static frame for prefers-reduced-motion (and late OS changes). */
+  /* Swap animated demos ↔ static frame for prefers-reduced-motion. */
   const syncMotionMedia = () => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     document.querySelectorAll(".motion-safe").forEach((el) => {
@@ -82,4 +82,36 @@ window.XBrowserSite = {
   } else if (motionMq.addListener) {
     motionMq.addListener(syncMotionMedia);
   }
+
+  /* Space chip demo: swap a single <img> src (no stacked frames / no overlap). */
+  const startSpaceDemos = () => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    document.querySelectorAll(".space-demo-img[data-space-frames]").forEach((img) => {
+      const frames = img
+        .getAttribute("data-space-frames")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (frames.length < 2) return;
+      const chipNames = (img.getAttribute("data-space-chips") || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const chipRoot = img.closest(".how-demo");
+      let i = Math.max(0, frames.indexOf(img.getAttribute("src")));
+      window.setInterval(() => {
+        i = (i + 1) % frames.length;
+        img.src = frames[i];
+        if (chipRoot && chipNames.length) {
+          chipRoot.querySelectorAll(".how-demo__chip").forEach((chip) => {
+            chip.classList.toggle(
+              "is-active",
+              chip.getAttribute("data-chip") === chipNames[i]
+            );
+          });
+        }
+      }, 1600);
+    });
+  };
+  startSpaceDemos();
 })();

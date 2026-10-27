@@ -141,13 +141,14 @@
       <section class="hero" aria-label="Introduction">
         <div class="hero__plane">
           <img
-            class="hero__demo motion-safe"
-            src="assets/demos/space-chip-switch.webp"
+            class="hero__demo space-demo-img motion-safe"
+            src="assets/demos/space-switch-01.webp"
             alt="Animated demo of XBrowser Space chip switching Personal Work and Shop identities on iPhone"
             width="720"
             height="960"
             fetchpriority="high"
             decoding="async"
+            data-space-frames="assets/demos/space-switch-01.webp,assets/demos/space-switch-02.webp,assets/demos/space-switch-03.webp"
           />
           <img
             class="hero__demo motion-reduce"
@@ -231,7 +232,16 @@
               </p>
             </div>
             <div class="feature__media">
-              <img class="motion-safe" src="assets/demos/space-chip-switch.webp" alt="Animated demo of XBrowser Space chip switching Personal Work and Shop identities on iPhone" width="720" height="960" loading="lazy" />
+              <img
+                class="space-demo-img motion-safe"
+                src="assets/demos/space-switch-01.webp"
+                alt="Animated demo of XBrowser Space chip switching Personal Work and Shop identities on iPhone"
+                width="720"
+                height="960"
+                loading="lazy"
+                decoding="async"
+                data-space-frames="assets/demos/space-switch-01.webp,assets/demos/space-switch-02.webp,assets/demos/space-switch-03.webp"
+              />
               <img class="motion-reduce" src="assets/demos/space-switch-01.webp" alt="XBrowser Space chip selected on Personal identity on iPhone" width="720" height="960" loading="lazy" hidden />
             </div>
           </article>
@@ -261,17 +271,20 @@
           <div class="how-demo reveal-on-scroll">
             <div class="how-demo__media">
               <img
-                class="motion-safe"
-                src="assets/demos/space-chip-switch.webp"
-                alt="Animated demo of XBrowser Space chip switching Personal Work and Shop identities on iPhone"
+                class="space-demo-img motion-safe"
+                src="assets/demos/space-switch-01.webp"
+                alt="XBrowser Space chip switching between Personal, Work, and Shop on iPhone"
                 width="720"
                 height="960"
                 loading="lazy"
+                decoding="async"
+                data-space-frames="assets/demos/space-switch-01.webp,assets/demos/space-switch-02.webp,assets/demos/space-switch-03.webp"
+                data-space-chips="personal,work,shop"
               />
               <img
                 class="motion-reduce"
-                src="assets/demos/space-switch-02.webp"
-                alt="XBrowser Space chip selected on Work identity on iPhone"
+                src="assets/demos/space-switch-01.webp"
+                alt="XBrowser Space chip selected on Personal identity on iPhone"
                 width="720"
                 height="960"
                 loading="lazy"
@@ -284,10 +297,10 @@
               <p>
                 Watch Personal → Work → Shop in a loop. Each Space keeps its own cookies and logins—no logout, no clone app, no mixed history.
               </p>
-              <ul class="how-demo__chips" aria-hidden="true">
-                <li class="how-demo__chip how-demo__chip--personal">Personal</li>
-                <li class="how-demo__chip how-demo__chip--work">Work</li>
-                <li class="how-demo__chip how-demo__chip--shop">Shop</li>
+              <ul class="how-demo__chips" aria-label="Active Space in the demo">
+                <li class="how-demo__chip how-demo__chip--personal is-active" data-chip="personal">Personal</li>
+                <li class="how-demo__chip how-demo__chip--work" data-chip="work">Work</li>
+                <li class="how-demo__chip how-demo__chip--shop" data-chip="shop">Shop</li>
               </ul>
               <a class="btn btn--ghost" href="/features/multi-account-sandbox/">How Spaces isolate accounts →</a>
             </div>

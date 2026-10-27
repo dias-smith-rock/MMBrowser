@@ -231,10 +231,10 @@ img {
   width: min(100% - 40px, var(--max));
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(240px, 0.85fr);
+  grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
   gap: clamp(28px, 5vw, 64px);
   align-items: center;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .hero__plane {
@@ -247,6 +247,7 @@ img {
   justify-content: center;
   min-width: 0;
   padding: 48px 0;
+  overflow: visible;
 }
 
 .hero__plane img,
@@ -355,22 +356,30 @@ img {
 .feature__media {
   border-radius: 28px;
   overflow: hidden;
-  background:
-    radial-gradient(ellipse at 50% 30%, rgba(62, 207, 207, 0.1), transparent 60%),
-    var(--bg-elevated);
-  border: 1px solid var(--line);
+  background: transparent;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px 16px;
+  padding: 0;
+  min-width: 0;
 }
 
 .feature__media img {
-  width: min(100%, 320px);
+  width: 100%;
+  max-width: 440px;
   margin: 0 auto;
-  aspect-ratio: 9 / 16;
+  aspect-ratio: auto;
+  height: auto;
   object-fit: contain;
   object-position: center;
+  border-radius: 24px;
+  filter: drop-shadow(0 18px 36px rgba(0, 0, 0, 0.35));
+}
+
+.feature__media .space-demo-img {
+  max-width: 360px;
+  aspect-ratio: 3 / 4;
 }
 
 .feature__copy h3 {
@@ -404,8 +413,8 @@ img {
 
 .how-demo {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: clamp(28px, 5vw, 56px);
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+  gap: clamp(28px, 5vw, 48px);
   align-items: center;
   margin: 40px 0 8px;
   opacity: 0;
@@ -421,15 +430,29 @@ img {
 .how-demo__media {
   display: flex;
   justify-content: center;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .how-demo__media img {
-  width: min(100%, 320px);
+  display: block;
+  width: min(100%, 260px);
   height: auto;
   aspect-ratio: 3 / 4;
-  object-fit: cover;
-  border-radius: 28px;
+  object-fit: contain;
+  border-radius: 24px;
   filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.4));
+}
+
+.how-demo__media img[hidden] {
+  display: none !important;
+}
+
+.how-demo__copy {
+  min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .how-demo__eyebrow {
@@ -446,7 +469,7 @@ img {
   font-weight: 600;
   letter-spacing: -0.02em;
   margin: 0 0 14px;
-  max-width: 18ch;
+  max-width: 22ch;
 }
 
 .how-demo__copy p {
@@ -489,30 +512,15 @@ img {
 .how-demo__chip--work { color: #5fd4a4; }
 .how-demo__chip--shop { color: #f0a46a; }
 
-.how-demo__chip {
-  animation: chip-pulse 3.6s var(--ease) infinite;
-}
-
-.how-demo__chip--work { animation-delay: 1.2s; }
-.how-demo__chip--shop { animation-delay: 2.4s; }
-
-@keyframes chip-pulse {
-  0%, 28%, 100% {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: var(--line);
-    transform: scale(1);
-  }
-  8%, 20% {
-    background: rgba(255, 255, 255, 0.14);
-    border-color: currentColor;
-    transform: scale(1.04);
-  }
+.how-demo__chip.is-active {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: currentColor;
+  transform: scale(1.04);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .motion-safe { display: none !important; }
   .motion-reduce { display: block !important; }
-  .how-demo__chip { animation: none; }
   .hero__plane img.motion-safe { animation: none; }
 }
 
@@ -770,7 +778,7 @@ img {
   }
 
   .how-demo__media img {
-    width: min(100%, 280px);
+    width: min(100%, 240px);
   }
 
   .hero__content {
@@ -793,7 +801,8 @@ img {
   }
 
   .feature__media img {
-    width: min(100%, 260px);
+    width: min(100%, 320px);
+    max-width: 100%;
   }
 
   .steps {
