@@ -12,6 +12,11 @@ final class FeatureHighlightsViewController: UIViewController {
 
     private let items: [(image: String, title: String, body: String)] = [
         (
+            "highlight_ads",
+            "Private by default",
+            "Ads and trackers are blocked, HTTPS is preferred, and Global Privacy Control is on. Protections are best-effort—not anonymity, and not a VPN."
+        ),
+        (
             "highlight_spaces",
             "Multi-account isolation",
             "Spaces keep separate cookies, history, and logins—so WhatsApp, Instagram, and shopping accounts never mix."
@@ -20,11 +25,6 @@ final class FeatureHighlightsViewController: UIViewController {
             "highlight_locks",
             "App Lock & Space Lock",
             "Protect the whole app with App Lock. Each Space stays isolated, and Space Lock (Premium) can PIN-protect a single identity."
-        ),
-        (
-            "highlight_ads",
-            "Fewer pop-ups & video ads",
-            "Block Ads & Trackers cuts network ads, trackers, and common pop-up banners. Fewer YouTube video ads is best-effort and may change when the site updates."
         ),
         (
             "highlight_playback",
@@ -47,14 +47,14 @@ final class FeatureHighlightsViewController: UIViewController {
         presentationController?.delegate = self
 
         let titleLabel = UILabel()
-        titleLabel.text = "Built for how you browse"
+        titleLabel.text = "Private by default. Isolated by Space."
         titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
         titleLabel.textColor = BrowserTheme.textPrimary
         titleLabel.textAlignment = .center
         titleLabel.numberOfLines = 0
 
         let subtitle = UILabel()
-        subtitle.text = "A quick look at protections and playback—beyond multiple logins."
+        subtitle.text = "Ads and trackers blocked, accounts never mix—plus playback when you leave the app."
         subtitle.font = .systemFont(ofSize: 15)
         subtitle.textColor = BrowserTheme.textSecondary
         subtitle.textAlignment = .center

@@ -286,6 +286,10 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         pageMediaProbe.bestCandidate
     }
     private var httpsFallbackAttempted = false
+    /// One-shot bypass after the user chooses Continue on a dangerous-site warning.
+    private var allowedDangerousURLString: String?
+    /// Stops a Sec-GPC rewrite from looping if WebKit drops the header.
+    private var gpcRewriteInFlightURL: String?
     private var tabUserAgentSettings = TabUserAgentSettings(userAgentMode: .automatic, customUserAgent: nil)
 
     /// Current per-tab look settings (Automatic / Mobile / Computer / Custom).
@@ -413,6 +417,9 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         // (UIScrollView.ignoresViewportScaleLimits is unavailable in this SDK).
         // YouTube / Bilibili are excluded inside the script — unlocking breaks sticky players.
         config.userContentController.addUserScript(Self.viewportZoomUnlockScript)
+        if AppSettings.globalPrivacyControlEnabled {
+            config.userContentController.addUserScript(GlobalPrivacyControl.userScript)
+        }
         // Generic video/overlay/popunder ad reduction (site-agnostic).
         if AppSettings.trackerProtectionEnabled {
             config.userContentController.addUserScript(VideoAdShield.userScript)
@@ -822,6 +829,7 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
     private func loadPrepared(url: URL, in webView: WKWebView) {
         if DangerousSiteGuard.isDangerous(url) {
             delegate?.webViewController(self, warnDangerous: url) { [weak self] in
+                self?.allowedDangerousURLString = url.absoluteString
                 self?.actuallyLoad(url, in: webView)
             }
             return
@@ -848,7 +856,7 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         if YouTubeDarkMode.isYouTube(url) {
             YouTubeDarkMode.ensureDarkCookie(in: webView.configuration.websiteDataStore) {}
         }
-        webView.load(URLRequest(url: url))
+        webView.load(GlobalPrivacyControl.applying(to: URLRequest(url: url)))
         if promoted, let site = DesktopUAHint.site(matching: url) {
             notifyAutoComputerUAApplied(siteName: site.displayName)
         }
@@ -2525,12 +2533,17 @@ extension WebViewController: WKNavigationDelegate {
                 beginDownload(url: url, suggestedName: url.lastPathComponent)
                 return
             }
-            if DangerousSiteGuard.isDangerous(url), navigationAction.navigationType == .linkActivated {
-                decisionHandler(.cancel)
-                delegate?.webViewController(self, warnDangerous: url) { [weak webView] in
-                    webView?.load(URLRequest(url: url))
+            if isMainFrame, DangerousSiteGuard.isDangerous(url) {
+                if allowedDangerousURLString == url.absoluteString {
+                    allowedDangerousURLString = nil
+                } else {
+                    decisionHandler(.cancel)
+                    delegate?.webViewController(self, warnDangerous: url) { [weak self, weak webView] in
+                        self?.allowedDangerousURLString = url.absoluteString
+                        webView?.load(GlobalPrivacyControl.applying(to: URLRequest(url: url)))
+                    }
+                    return
                 }
-                return
             }
 
             // Optimistic address-bar update for main-frame navigations (links / typed URL / redirects).
@@ -2539,6 +2552,16 @@ extension WebViewController: WKNavigationDelegate {
                     $0.delegate?.webViewController($0, didUpdateURL: url)
                 }
             }
+        }
+        if GlobalPrivacyControl.shouldRewriteMainFrame(navigationAction),
+           let frameURL = navigationAction.request.url {
+            if gpcRewriteInFlightURL != frameURL.absoluteString {
+                gpcRewriteInFlightURL = frameURL.absoluteString
+                decisionHandler(.cancel)
+                webView.load(GlobalPrivacyControl.applying(to: navigationAction.request))
+                return
+            }
+            gpcRewriteInFlightURL = nil
         }
         decisionHandler(.allow)
     }
@@ -4082,7 +4105,44 @@ final class AuthPopupViewController: UIViewController, WKUIDelegate, WKNavigatio
                 "main": navigationAction.targetFrame?.isMainFrame ?? true
             ])
         }
+        let isMain = navigationAction.targetFrame?.isMainFrame ?? true
+        if isMain, DangerousSiteGuard.isDangerous(url) {
+            if allowedPopupDangerousURL == url.absoluteString {
+                allowedPopupDangerousURL = nil
+            } else {
+                decisionHandler(.cancel)
+                presentDangerousSiteWarning(for: url)
+                return
+            }
+        }
+        if GlobalPrivacyControl.shouldRewriteMainFrame(navigationAction) {
+            if popupGPCRewriteInFlightURL != url.absoluteString {
+                popupGPCRewriteInFlightURL = url.absoluteString
+                decisionHandler(.cancel)
+                webView.load(GlobalPrivacyControl.applying(to: navigationAction.request))
+                return
+            }
+            popupGPCRewriteInFlightURL = nil
+        }
         decisionHandler(.allow)
+    }
+
+    private var allowedPopupDangerousURL: String?
+    private var popupGPCRewriteInFlightURL: String?
+
+    private func presentDangerousSiteWarning(for url: URL) {
+        let alert = UIAlertController(
+            title: "This site may be dangerous",
+            message: "XBrowser blocked this page because it matches a known lookalike or phishing pattern. Go Back is recommended.\n\n\(url.host ?? url.absoluteString)",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Go Back", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Continue", style: .destructive) { [weak self] _ in
+            guard let self else { return }
+            self.allowedPopupDangerousURL = url.absoluteString
+            self.popupWebView.load(GlobalPrivacyControl.applying(to: URLRequest(url: url)))
+        })
+        present(alert, animated: true)
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

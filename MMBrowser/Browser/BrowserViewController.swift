@@ -65,6 +65,7 @@ final class BrowserViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .mediaPlaybackSettingsChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(contentRulesChanged), name: .filterManifestUpdated, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .locationPrivacyChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .globalPrivacyControlChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSessionCleanup), name: .clearOptionSessionCleanup, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSettingsChanged), name: .clearOptionSettingsChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeDidChange, object: nil)
@@ -2255,36 +2256,70 @@ extension BrowserViewController: AddressBarViewDelegate {
 
     func addressBarDidTapShield(blockCount: Int) {
         let tpOn = AppSettings.trackerProtectionEnabled
-        let shortsOn = AppSettings.hideShortsEnabled
-        let ytOn = AppSettings.youtubeAdShieldEnabled
-
-        var lines: [String] = []
+        let filters = FilterUpdateManager.shared
+        let version = filters.manifestVersion > 0 ? "v\(filters.manifestVersion)" : "Bundled"
+        let headline: String
         if blockCount > 0 {
-            lines.append("Blocked \(blockCount) ads & trackers on this page.")
-        } else if tpOn, !AppSettings.accurateBlockCountEnabled {
-            lines.append("Ads & trackers are blocked. Turn on Accurate Block Count in Settings for a page badge.")
+            headline = "\(blockCount) blocked on this page"
+        } else if tpOn {
+            headline = "Protection is on"
         } else {
-            lines.append("No ads or trackers blocked on this page yet.")
+            headline = "Protection is off"
         }
-        lines.append("")
-        lines.append("Block Ads & Trackers: \(tpOn ? "On" : "Off")")
-        lines.append("Hide Shorts: \(shortsOn ? "On" : "Off")")
-        lines.append("Fewer YouTube Ads: \(ytOn ? "On" : "Off")")
+        let adsDetail = (tpOn && !AppSettings.accurateBlockCountEnabled)
+            ? "Turn on Accurate Block Count for a page total"
+            : nil
+        let filterDetail = filters.health == .ok ? nil : filters.health.rawValue
+        let footnote: String
+        if tabManager.selectedTab?.isIncognito == true {
+            footnote = "Private tabs drop history and cookies when you close them. Your IP stays visible."
+        } else if let tab = tabManager.selectedTab {
+            footnote = "Space “\(tabManager.containerName(for: tab))” keeps cookies and history separate."
+        } else {
+            footnote = "Spaces keep cookies and history separate."
+        }
 
-        let alert = UIAlertController(
-            title: "Privacy Protection",
-            message: lines.joined(separator: "\n"),
-            preferredStyle: .actionSheet
+        let report = PrivacyReportViewController(
+            headline: headline,
+            rows: [
+                ("Block Ads & Trackers", adsDetail, tpOn ? "On" : "Off", tpOn),
+                ("HTTPS First", nil, AppSettings.httpsOnly ? "On" : "Off", AppSettings.httpsOnly),
+                ("Global Privacy Control", nil, AppSettings.globalPrivacyControlEnabled ? "On" : "Off", AppSettings.globalPrivacyControlEnabled),
+                ("Fewer YouTube ads", "Best-effort", AppSettings.youtubeAdShieldEnabled ? "On" : "Off", AppSettings.youtubeAdShieldEnabled),
+                ("Filters", filterDetail, version, filters.health != .degraded)
+            ],
+            footnote: footnote
         )
-        alert.addAction(UIAlertAction(title: "Settings", style: .default) { [weak self] _ in
-            self?.openSettings()
-        })
-        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
-        if let pop = alert.popoverPresentationController {
-            pop.sourceView = addressBar
-            pop.sourceRect = addressBar.bounds
+        report.onOpenSettings = { [weak self] in self?.openSettings() }
+        report.onOpenExplained = { [weak self] in self?.presentPrivacyExplained() }
+        let nav = UINavigationController(rootViewController: report)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        if let sheet = nav.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+            if #available(iOS 16.0, *) {
+                sheet.selectedDetentIdentifier = .medium
+            }
         }
-        present(alert, animated: true)
+        present(nav, animated: true)
+    }
+
+    private func presentPrivacyExplained() {
+        let info = PrivacyInfoViewController()
+        let nav = UINavigationController(rootViewController: info)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        info.navigationItem.rightBarButtonItem = UIBarButtonItem(
+            barButtonSystemItem: .done,
+            target: self,
+            action: #selector(dismissPrivacyExplained)
+        )
+        present(nav, animated: true)
+    }
+
+    @objc private func dismissPrivacyExplained() {
+        dismiss(animated: true)
     }
 }
 
@@ -2785,8 +2820,8 @@ extension BrowserViewController: WebViewControllerDelegate {
 
     func webViewController(_ controller: WebViewController, warnDangerous url: URL, proceed: @escaping () -> Void) {
         let alert = UIAlertController(
-            title: "Dangerous site",
-            message: "This site looks suspicious and may be used for phishing.\n\n" + (url.host ?? url.absoluteString),
+            title: "This site may be dangerous",
+            message: "XBrowser blocked this page because it matches a known lookalike or phishing pattern. Go Back is recommended.\n\n" + (url.host ?? url.absoluteString),
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Go Back", style: .cancel))

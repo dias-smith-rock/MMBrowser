@@ -25,7 +25,7 @@ final class PrivateNewTabViewController: UIViewController {
         titleLabel.font = .systemFont(ofSize: 28, weight: .bold)
         titleLabel.textAlignment = .center
 
-        subtitleLabel.text = "History, cookies, and site data from this session won’t be kept after you close all private tabs. Bookmarks, reading list, and downloads stay blocked."
+        subtitleLabel.text = "Private tabs do not keep history, cookies, or site data after you close them. Downloads are off. This does not hide your network IP."
         subtitleLabel.font = .systemFont(ofSize: 14)
         subtitleLabel.numberOfLines = 0
         subtitleLabel.textAlignment = .center

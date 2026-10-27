@@ -69,6 +69,15 @@ enum AppSettings {
         set { d.set(newValue, forKey: "https.only") }
     }
 
+    /// Sec-GPC / navigator.globalPrivacyControl. Default on for new installs.
+    static var globalPrivacyControlEnabled: Bool {
+        get { d.object(forKey: "gpc.enabled") == nil ? true : d.bool(forKey: "gpc.enabled") }
+        set {
+            d.set(newValue, forKey: "gpc.enabled")
+            NotificationCenter.default.post(name: .globalPrivacyControlChanged, object: nil)
+        }
+    }
+
     static var noImagesEnabled: Bool {
         get { d.bool(forKey: "no.images.enabled") }
         set {
@@ -314,6 +323,7 @@ extension Notification.Name {
     static let youtubeAdShieldChanged = Notification.Name("mmbrowser.yt.adshield.changed")
     static let mediaPlaybackSettingsChanged = Notification.Name("mmbrowser.media.changed")
     static let locationPrivacyChanged = Notification.Name("mmbrowser.location.changed")
+    static let globalPrivacyControlChanged = Notification.Name("mmbrowser.gpc.changed")
     static let clearOptionSettingsChanged = Notification.Name("mmbrowser.clearOption.changed")
     /// Posted after scheduled clear so the browser can close tabs if configured.
     static let clearOptionSessionCleanup = Notification.Name("mmbrowser.clearOption.sessionCleanup")

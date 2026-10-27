@@ -121,6 +121,9 @@
 		F28EBB0D872F4A6EB7433B72 /* LibraryMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = F17DE8DD2FBC45E0B1982714 /* LibraryMigration.swift */; };
 		F28F14D6142F47C884D1BE09 /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2647202205AE48D0A2EE427F /* DownloadManager.swift */; };
 		F2B1B57129974773A3C8B6AF /* PrivacyInfoViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8CC67E16AD54E6D8184917D /* PrivacyInfoViewController.swift */; };
+		PRPTBLD0A1B2C3D4E5F60718 /* PrivacyReportViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PRPTFR0A1B2C3D4E5F607180 /* PrivacyReportViewController.swift */; };
+		GPCBLD01A2B3C4D5E6F70819 /* GlobalPrivacyControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = GPCFR01A2B3C4D5E6F708190 /* GlobalPrivacyControl.swift */; };
+		PRBLD01A2B3C4D5E6F708191 /* PrivacyRecommendedViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PRFR01A2B3C4D5E6F7081910 /* PrivacyRecommendedViewController.swift */; };
 		F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B4BFF2E376570F7159D72FDE /* Pods_MMBrowser.framework */; };
 		F5FAA4028A4D495EA2A0FB69 /* BookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD046D8ACFAE4B96AF0715F6 /* BookmarkStore.swift */; };
 		FBASEBF01010101010101 /* FirebaseBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBASEFR01010101010101 /* FirebaseBootstrap.swift */; };
@@ -303,6 +306,9 @@
 		E0348F54E284419696A84A8F /* ReadingListStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingListStore.swift; sourceTree = "<group>"; };
 		E248C7687DE44E8C99A7001F /* ReaderViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderViewController.swift; sourceTree = "<group>"; };
 		E8CC67E16AD54E6D8184917D /* PrivacyInfoViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyInfoViewController.swift; sourceTree = "<group>"; };
+		PRPTFR0A1B2C3D4E5F607180 /* PrivacyReportViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyReportViewController.swift; sourceTree = "<group>"; };
+		GPCFR01A2B3C4D5E6F708190 /* GlobalPrivacyControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalPrivacyControl.swift; sourceTree = "<group>"; };
+		PRFR01A2B3C4D5E6F7081910 /* PrivacyRecommendedViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyRecommendedViewController.swift; sourceTree = "<group>"; };
 		ED5EF1A8CF7C4FDF9609AC37 /* DownloadsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsViewController.swift; sourceTree = "<group>"; };
 		F17DE8DD2FBC45E0B1982714 /* LibraryMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryMigration.swift; sourceTree = "<group>"; };
 		F1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotPerf.swift; sourceTree = "<group>"; };
@@ -421,6 +427,7 @@
 			isa = PBXGroup;
 			children = (
 				8DD96938CCB3479484E2D530 /* SettingsViewController.swift */,
+				PRFR01A2B3C4D5E6F7081910 /* PrivacyRecommendedViewController.swift */,
 				8BB059B320F13DD5C0933643 /* IsolatedVsSharedViewController.swift */,
 				A1B2C3D4E5F6020202020263 /* AppearanceSettingsViewController.swift */,
 				A1B2C3D4E5F6020202020231 /* LocationSettingsViewController.swift */,
@@ -610,6 +617,8 @@
 				A1B2C3D4E5F6020202020250 /* AutoClearManager.swift */,
 				456119D548A6467F851BB6EE /* DangerousSiteGuard.swift */,
 				E8CC67E16AD54E6D8184917D /* PrivacyInfoViewController.swift */,
+				PRPTFR0A1B2C3D4E5F607180 /* PrivacyReportViewController.swift */,
+				GPCFR01A2B3C4D5E6F708190 /* GlobalPrivacyControl.swift */,
 			);
 			path = Privacy;
 			sourceTree = "<group>";
@@ -999,6 +1008,9 @@
 				81FD47C9E67B4DE0B05CED50 /* ClearBrowsingDataViewController.swift in Sources */,
 				72902D8D6B914EADAB7C35DF /* DangerousSiteGuard.swift in Sources */,
 				F2B1B57129974773A3C8B6AF /* PrivacyInfoViewController.swift in Sources */,
+				PRPTBLD0A1B2C3D4E5F60718 /* PrivacyReportViewController.swift in Sources */,
+				GPCBLD01A2B3C4D5E6F70819 /* GlobalPrivacyControl.swift in Sources */,
+				PRBLD01A2B3C4D5E6F708191 /* PrivacyRecommendedViewController.swift in Sources */,
 				A4153472FE2745C1842E61D9 /* FindInPageBar.swift in Sources */,
 				511134C2A659495F886AAE3C /* FindInPageScript.swift in Sources */,
 				09129B1EA0E24FB4AFE10189 /* ReaderViewController.swift in Sources */,

@@ -31,6 +31,8 @@ final class TabSwitcherViewController: UIViewController {
     private let addButton = UIButton(type: .system)
     private let mainScroll = UIScrollView()
     private let contentStack = UIStackView()
+    private let privateHintLabel = UILabel()
+    private let privateHintWrap = UIView()
     private let bookmarksSection = UIStackView()
     private let historySection = UIStackView()
     private let bookmarksTable = UITableView(frame: .zero, style: .plain)
@@ -234,6 +236,19 @@ final class TabSwitcherViewController: UIViewController {
         contentStack.alignment = .fill
         mainScroll.addSubview(contentStack)
 
+        privateHintLabel.text = "Private Browsing does not keep history or cookies after you close these tabs. Downloads are off. This does not hide your IP."
+        privateHintLabel.font = .systemFont(ofSize: 13)
+        privateHintLabel.textColor = BrowserTheme.textSecondary
+        privateHintLabel.numberOfLines = 0
+        privateHintLabel.textAlignment = .center
+        privateHintWrap.isHidden = true
+        privateHintWrap.addSubview(privateHintLabel)
+        privateHintLabel.snp.makeConstraints { make in
+            make.top.equalToSuperview().offset(12)
+            make.leading.trailing.equalToSuperview().inset(20)
+            make.bottom.equalToSuperview()
+        }
+
         let layout = UICollectionViewFlowLayout()
         layout.minimumLineSpacing = 12
         layout.minimumInteritemSpacing = 12
@@ -252,6 +267,7 @@ final class TabSwitcherViewController: UIViewController {
         configureListSection(bookmarksSection, title: "Bookmarks", table: bookmarksTable, kind: .bookmarks)
         configureListSection(historySection, title: "History", table: historyTable, kind: .history)
 
+        contentStack.addArrangedSubview(privateHintWrap)
         contentStack.addArrangedSubview(collectionView)
         contentStack.addArrangedSubview(spaceLockOverlay)
         contentStack.addArrangedSubview(bookmarksSection)
@@ -423,7 +439,8 @@ final class TabSwitcherViewController: UIViewController {
         privateButton.setTitle(" Private", for: .normal)
         privateButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
         privateButton.contentHorizontalAlignment = .leading
-        privateButton.accessibilityLabel = "Private"
+        privateButton.accessibilityLabel = "Private Browsing"
+        privateButton.accessibilityHint = "No lasting history or cookies. Downloads are off. Does not hide your IP."
         privateButton.addTarget(self, action: #selector(privateTapped), for: .touchUpInside)
 
         addButton.setImage(
@@ -494,6 +511,7 @@ final class TabSwitcherViewController: UIViewController {
         let topHeight: CGFloat = showingIncognito ? 0 : 52
         topBar.snp.updateConstraints { $0.height.equalTo(topHeight) }
         topBar.isHidden = showingIncognito
+        privateHintWrap.isHidden = !showingIncognito
         privateButton.accessibilityValue = showingIncognito ? "On" : "Off"
     }
 

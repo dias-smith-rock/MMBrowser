@@ -4,7 +4,9 @@ import SafariServices
 
 final class SettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
-    private enum Section: Int, CaseIterable { case premium, privacy, accounts, clearOption, tools, youtube, media, search, home, about }
+    private enum Section: Int, CaseIterable {
+        case premium, privacyProtections, privacyData, privacyAccess, privacyLearn, accounts, tools, youtube, media, search, home, about
+    }
 
     private enum AboutLinks {
         static let privacy = URL(string: "https://xxxxxbrowser.cc/privacy.html")!
@@ -42,7 +44,10 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     }
 
     @objc private func filterStatusChanged() {
-        tableView.reloadSections(IndexSet(integer: Section.about.rawValue), with: .none)
+        tableView.reloadSections(
+            IndexSet([Section.privacyProtections.rawValue, Section.about.rawValue]),
+            with: .none
+        )
     }
 
     @objc private func themeChanged() {
@@ -64,9 +69,11 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
         case .premium: return 1
-        case .privacy: return 8
+        case .privacyProtections: return 6
+        case .privacyData: return 3
+        case .privacyAccess: return 2
+        case .privacyLearn: return 1
         case .accounts: return 2
-        case .clearOption: return 1
         case .tools: return 1
         case .youtube: return 2
         case .media: return 2
@@ -79,9 +86,11 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .premium: return "Premium"
-        case .privacy: return "Privacy & Security"
+        case .privacyProtections: return "Protections"
+        case .privacyData: return "Data"
+        case .privacyAccess: return "Access"
+        case .privacyLearn: return "Learn more"
         case .accounts: return "Spaces"
-        case .clearOption: return "Clear Option"
         case .tools: return "Tools"
         case .youtube: return "Focus & Video"
         case .media: return "Media"
@@ -95,12 +104,14 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         switch Section(rawValue: section)! {
         case .premium:
             return "Free includes \(PremiumStore.freeSpaceLimit) Spaces. Premium unlocks unlimited Spaces and Space Lock."
-        case .privacy:
+        case .privacyProtections:
+            return "Ads and trackers are blocked by default. Filters: \(FilterUpdateManager.shared.statusSummary). YouTube video ads stay best-effort."
+        case .privacyData:
+            return "Auto-clear when you leave can wipe site data for every space. It stays off so logins remain signed in. To remove one identity only, delete that space under Manage Spaces."
+        case .privacyAccess:
             return "Location Deny/Spoof only affects GPS-like browser APIs—not your network IP."
         case .accounts:
             return "Spaces keep separate cookies, history, bookmarks, Watch Later, Reading List, home shortcuts, and passwords. Downloaded files are Shared across Spaces."
-        case .clearOption:
-            return "Auto-clear when you leave can wipe site data for every space. To remove one identity only, delete that space under Manage Spaces. History listed here is still recorded during the session unless History auto-clear is on."
         case .tools:
             return "Hide page elements and save rules for sites you visit often."
         case .youtube:
@@ -136,9 +147,13 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             cell.textLabel?.text = "XBrowser Premium"
             cell.detailTextLabel?.text = PremiumStore.shared.isPremiumActive ? "Active" : "Spaces & Space Lock"
             cell.accessoryType = .disclosureIndicator
-        case .privacy:
+        case .privacyProtections:
             switch indexPath.row {
             case 0:
+                cell.textLabel?.text = "Recommended for privacy"
+                cell.detailTextLabel?.text = "Checklist · does not wipe logins"
+                cell.accessoryType = .disclosureIndicator
+            case 1:
                 cell.textLabel?.text = "Block Ads & Trackers"
                 cell.detailTextLabel?.text = "Network ads, trackers, and page banners"
                 cell.selectionStyle = .none
@@ -146,7 +161,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.isOn = AppSettings.trackerProtectionEnabled
                 sw.addTarget(self, action: #selector(tpChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
-            case 1:
+            case 2:
                 cell.textLabel?.text = "Accurate Block Count"
                 cell.detailTextLabel?.text = "Shield badge via page scan · uses more CPU"
                 cell.selectionStyle = .none
@@ -155,7 +170,30 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.isEnabled = AppSettings.trackerProtectionEnabled
                 sw.addTarget(self, action: #selector(accurateBlockCountChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
-            case 2:
+            case 3:
+                cell.textLabel?.text = "HTTPS First"
+                cell.detailTextLabel?.text = "Prefer secure connections"
+                cell.selectionStyle = .none
+                let sw = UISwitch()
+                sw.isOn = AppSettings.httpsOnly
+                sw.addTarget(self, action: #selector(httpsChanged(_:)), for: .valueChanged)
+                cell.accessoryView = sw
+            case 4:
+                cell.textLabel?.text = "Global Privacy Control"
+                cell.detailTextLabel?.text = "Sec-GPC opt-out signal"
+                cell.selectionStyle = .none
+                let sw = UISwitch()
+                sw.isOn = AppSettings.globalPrivacyControlEnabled
+                sw.addTarget(self, action: #selector(gpcChanged(_:)), for: .valueChanged)
+                cell.accessoryView = sw
+            default:
+                cell.textLabel?.text = "Filter updates"
+                cell.detailTextLabel?.text = FilterUpdateManager.shared.statusSummary
+                cell.accessoryType = .disclosureIndicator
+            }
+        case .privacyData:
+            switch indexPath.row {
+            case 0:
                 cell.textLabel?.text = "Block Images"
                 cell.detailTextLabel?.text = "No-image mode for all tabs"
                 cell.selectionStyle = .none
@@ -163,7 +201,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.isOn = AppSettings.noImagesEnabled
                 sw.addTarget(self, action: #selector(noImagesChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
-            case 3:
+            case 1:
                 cell.textLabel?.text = "Aggressive Image Block"
                 cell.detailTextLabel?.text = "Also scrub images inside iframes"
                 cell.selectionStyle = .none
@@ -172,28 +210,27 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.isEnabled = AppSettings.noImagesEnabled
                 sw.addTarget(self, action: #selector(aggressiveNoImagesChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
-            case 4:
-                cell.textLabel?.text = "HTTPS First"
-                cell.selectionStyle = .none
-                let sw = UISwitch()
-                sw.isOn = AppSettings.httpsOnly
-                sw.addTarget(self, action: #selector(httpsChanged(_:)), for: .valueChanged)
-                cell.accessoryView = sw
-            case 5:
+            default:
+                cell.textLabel?.text = "Clear Option"
+                cell.detailTextLabel?.text = AppSettings.clearOptionSummary
+                cell.accessoryType = .disclosureIndicator
+            }
+        case .privacyAccess:
+            if indexPath.row == 0 {
                 cell.textLabel?.text = "Location"
                 cell.detailTextLabel?.text = AppSettings.locationSummary
                 cell.accessoryType = .disclosureIndicator
-            case 6:
+            } else {
                 cell.textLabel?.text = "App Lock"
                 cell.detailTextLabel?.text = AppLockSettings.isEnabled
                     ? "On · whole-app PIN / pattern"
                     : "Off · protect the whole app"
                 cell.accessoryType = .disclosureIndicator
-            default:
-                cell.textLabel?.text = "Privacy Explained"
-                cell.detailTextLabel?.text = "Spaces, locks, ads, and background play"
-                cell.accessoryType = .disclosureIndicator
             }
+        case .privacyLearn:
+            cell.textLabel?.text = "Privacy Explained"
+            cell.detailTextLabel?.text = "Private by default, Spaces, and limits"
+            cell.accessoryType = .disclosureIndicator
         case .accounts:
             if indexPath.row == 0 {
                 cell.textLabel?.text = "Spaces"
@@ -204,10 +241,6 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 cell.detailTextLabel?.text = "What stays per space"
                 cell.accessoryType = .disclosureIndicator
             }
-        case .clearOption:
-            cell.textLabel?.text = "Clear Option"
-            cell.detailTextLabel?.text = AppSettings.clearOptionSummary
-            cell.accessoryType = .disclosureIndicator
         case .tools:
             cell.textLabel?.text = "Web Editor"
             cell.detailTextLabel?.text = "Manage hidden element rules"
@@ -291,19 +324,33 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         switch Section(rawValue: indexPath.section)! {
         case .premium:
             PremiumCoordinator.presentPaywall(from: self, source: "settings")
-        case .privacy:
-            if indexPath.row == 5 {
+        case .privacyProtections:
+            if indexPath.row == 0 {
+                let recommended = PrivacyRecommendedViewController()
+                recommended.onRequestRebuildWebViews = { [weak self] in
+                    self?.onRequestRebuildWebViews?()
+                }
+                navigationController?.pushViewController(recommended, animated: true)
+            } else if indexPath.row == 5 {
+                presentFilterUpdateAlert()
+            }
+        case .privacyData:
+            if indexPath.row == 2 {
+                navigationController?.pushViewController(ClearOptionSettingsViewController(), animated: true)
+            }
+        case .privacyAccess:
+            if indexPath.row == 0 {
                 let location = LocationSettingsViewController()
                 location.onChanged = { [weak self] in
                     self?.onRequestRebuildWebViews?()
                     self?.tableView.reloadData()
                 }
                 navigationController?.pushViewController(location, animated: true)
-            } else if indexPath.row == 6 {
+            } else {
                 navigationController?.pushViewController(AppLockSettingsViewController(), animated: true)
-            } else if indexPath.row == 7 {
-                navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
             }
+        case .privacyLearn:
+            navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
         case .accounts:
             if indexPath.row == 1 {
                 navigationController?.pushViewController(IsolatedVsSharedViewController(), animated: true)
@@ -316,8 +363,6 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 self?.onAccountsChanged?()
             }
             navigationController?.pushViewController(manage, animated: true)
-        case .clearOption:
-            navigationController?.pushViewController(ClearOptionSettingsViewController(), animated: true)
         case .tools:
             navigationController?.pushViewController(PageCleanerRulesViewController(), animated: true)
         case .search:
@@ -328,26 +373,11 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .about:
             switch indexPath.row {
             case 1:
-                let alert = UIAlertController(
-                    title: "Filters",
-                    message: "Status: \(FilterUpdateManager.shared.statusSummary)\n\nFilters block page ads and trackers. YouTube video filters are updated when available so the app can recover after site changes.",
-                    preferredStyle: .alert
-                )
-                alert.addAction(UIAlertAction(title: "Check for Updates", style: .default) { [weak self] _ in
-                    FilterUpdateManager.shared.refresh(force: true) { ok in
-                        self?.tableView.reloadSections(IndexSet(integer: Section.about.rawValue), with: .none)
-                        if let self = self {
-                            Toast.show(ok ? "Filters updated" : "Using cached / bundled filters", from: self)
-                        }
-                        // Content-rule hot refresh is driven by `.filterManifestUpdated`.
-                    }
-                })
-                alert.addAction(UIAlertAction(title: "OK", style: .cancel))
-                present(alert, animated: true)
+                presentFilterUpdateAlert()
             case 2:
                 let alert = UIAlertController(
                     title: "What's New",
-                    message: "Spaces: separate logins with a switcher in the address bar, plus lock, clear, and tracker blocking. Web Editor, Reader Mode, Reading List, Downloads, and a home page you control.",
+                    message: "Private by default and isolated by Space. Ads and trackers are blocked, HTTPS First and Global Privacy Control are on, and each Space keeps its own cookies and logins. Not a VPN. YouTube video ads stay best-effort.",
                     preferredStyle: .alert
                 )
                 alert.addAction(UIAlertAction(title: "OK", style: .default))
@@ -368,6 +398,24 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         }
     }
 
+    private func presentFilterUpdateAlert() {
+        let alert = UIAlertController(
+            title: "Filter updates",
+            message: "Status: \(FilterUpdateManager.shared.statusSummary)\n\nFilters block page ads and trackers. Refresh them after sites change. YouTube video filters stay best-effort.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Check for Updates", style: .default) { [weak self] _ in
+            FilterUpdateManager.shared.refresh(force: true) { ok in
+                self?.tableView.reloadData()
+                if let self = self {
+                    Toast.show(ok ? "Filters updated" : "Using cached / bundled filters", from: self)
+                }
+            }
+        })
+        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+        present(alert, animated: true)
+    }
+
     private func openLegalURL(_ url: URL) {
         let safari = SFSafariViewController(url: url)
         safari.preferredControlTintColor = BrowserTheme.chromeBlue
@@ -380,7 +428,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         if !sw.isOn, AppSettings.accurateBlockCountEnabled {
             AppSettings.accurateBlockCountEnabled = false
         }
-        tableView.reloadSections(IndexSet(integer: Section.privacy.rawValue), with: .none)
+        tableView.reloadSections(IndexSet(integer: Section.privacyProtections.rawValue), with: .none)
         Toast.show(sw.isOn ? "Ads & trackers blocked" : "Ads & trackers allowed", from: self)
     }
     @objc private func accurateBlockCountChanged(_ sw: UISwitch) {
@@ -411,7 +459,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     @objc private func noImagesChanged(_ sw: UISwitch) {
         AppSettings.noImagesEnabled = sw.isOn
         AppAnalytics.logSettingsToggle(setting: "no_images", enabled: sw.isOn)
-        tableView.reloadSections(IndexSet(integer: Section.privacy.rawValue), with: .none)
+        tableView.reloadSections(IndexSet(integer: Section.privacyData.rawValue), with: .none)
         Toast.show(sw.isOn ? "Block images on" : "Block images off", from: self)
     }
     @objc private func aggressiveNoImagesChanged(_ sw: UISwitch) {
@@ -422,6 +470,13 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     @objc private func httpsChanged(_ sw: UISwitch) {
         AppSettings.httpsOnly = sw.isOn
         AppAnalytics.logSettingsToggle(setting: "https_only", enabled: sw.isOn)
+    }
+
+    @objc private func gpcChanged(_ sw: UISwitch) {
+        AppSettings.globalPrivacyControlEnabled = sw.isOn
+        AppAnalytics.logSettingsToggle(setting: "global_privacy_control", enabled: sw.isOn)
+        onRequestRebuildWebViews?()
+        Toast.show(sw.isOn ? "Global Privacy Control on" : "Global Privacy Control off", from: self)
     }
 
     @objc private func close() { dismiss(animated: true) }

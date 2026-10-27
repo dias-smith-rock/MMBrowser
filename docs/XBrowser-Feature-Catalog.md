@@ -1,7 +1,8 @@
 # XBrowser Feature Catalog
 
-Product positioning: **multi-identity / multi-account browser** (login isolation, no cookie mixing).  
-YouTube experience, ad blocking, and the built-in player are **important product capabilities** and strong **acquisition hooks**, but they are not the primary brand identity.
+Product positioning: **dual primary** — a **private browser** and a **multi-account browser**. Ads and trackers are blocked by default; Spaces keep logins from mixing.  
+YouTube experience and the built-in player remain strong acquisition hooks, not a third brand identity.  
+Honest boundary: isolation, blocking, and local locks — not a VPN, not IP anonymity, and not “blocks all trackers.”
 
 This document lists **core** vs **non-core** features. Each row is one user-facing capability with a short description.  
 Premium (current): unlimited Spaces + Space Lock. Free tier includes up to **3** Spaces.
@@ -23,7 +24,7 @@ Capabilities that define XBrowser’s identity, or that are essential to being a
 | **Manage Spaces** | Create, rename, and delete Spaces. Creating beyond the free cap requires Premium. |
 | **Isolated vs Shared explanation** | In-product education: what is isolated per Space vs shared app-wide (e.g. Downloads). |
 | **Split View (dual Space)** | Two panes at once, each bound to a different Space—useful for dual WhatsApp/IG or comparing two logins. |
-| **Private Browsing** | Incognito tabs that do not use normal Space libraries the same way; downloads disabled in Private. |
+| **Private Browsing** | Incognito tabs that do not keep history, cookies, or site data after they are closed; downloads off. Does not hide network IP. |
 
 ### 1.2 Protection for identities (locks)
 
@@ -44,7 +45,7 @@ Capabilities that define XBrowser’s identity, or that are essential to being a
 | **History** | Browsing history (isolated per Space). |
 | **Default browser** | Promote / open system settings to set XBrowser as the default browser app. |
 | **Search engines** | Choose Google, DuckDuckGo, Bing, Amazon, TikTok, YouTube, ChatGPT, Gemini, and similar. |
-| **HTTPS First** | Prefer HTTPS navigation by default. |
+| **HTTPS First** | Prefer HTTPS navigation by default; no automatic HTTP fallback. |
 | **Downloads** | App-wide shared download list (not per Space); unavailable in Private Browsing. |
 | **Home ↔ page Back restore** | After leaving a webpage via Home (or Back-to-Home), Back on the home screen can return to that page tab. |
 
@@ -140,6 +141,10 @@ Native player used for supported streams (alongside system PiP where applicable)
 
 | Feature | Description |
 | --- | --- |
+| **Privacy Report** | Address-bar shield opens protection status (ads/trackers, HTTPS First, Global Privacy Control, filter version, Space or Private note) with shortcuts to Settings and Privacy Explained. |
+| **Global Privacy Control** | Sends Sec-GPC and `navigator.globalPrivacyControl` so sites can treat the visit as opted out of sale or sharing. On by default; toggle in Settings. |
+| **Dangerous site warning** | Blocks lookalike / phishing-style hosts on main-frame and popup loads. Go Back is recommended; Continue is explicit. |
+| **Recommended for privacy** | Settings checklist for private-friendly toggles. Does not turn on Clear Option or wipe logins. |
 | **Location privacy** | When sites ask for location: deny, use current, or spoof a virtual/custom city (GPS-like APIs only—not network IP). Global and per-Space. |
 | **Block Images** | Browse without loading images. |
 | **Aggressive image block** | Also scrub images inside iframes (heavier). |
@@ -157,7 +162,7 @@ Native player used for supported streams (alongside system PiP where applicable)
 | **Themes** | Theme packs (e.g. Default, Minimal, Cute, Steady, Feminine). |
 | **Home wallpaper** | Home background colors / wallpaper options. |
 | **Background gallery** | Additional background choices. |
-| **Onboarding (Feature Highlights)** | First-run full-screen Highlights: multi-account isolation, App Lock + Space Lock, ads/pop-up blocking, background / lock-screen playback. Split View Wow waits until the first toolbar page-menu tap. No auto VIP paywall (and home crown hidden) on the install calendar day. |
+| **Onboarding (Feature Highlights)** | First-run Highlights lead with private-by-default protections, then Spaces, locks, and background playback. Split View Wow waits until the first toolbar page-menu tap. No auto VIP paywall (and home crown hidden) on the install calendar day. |
 | **Tips** | Lightweight UX tips (address-bar tab swipe; post-onboarding ads shield and Background Audio toasts for new users). |
 | **What's New / about copy** | In-app feature summary strings for releases and settings. |
 
@@ -167,7 +172,7 @@ Native player used for supported streams (alongside system PiP where applicable)
 
 | Tier | Role in product/marketing |
 | --- | --- |
-| **Core — Spaces & locks** | Primary identity and Premium story |
+| **Core — Private + Spaces** | Dual primary: blocked-by-default browsing and isolated accounts |
 | **Core — Essential browsing** | Table stakes so XBrowser feels like a real browser |
 | **Non-core — Ads / YouTube / Player / Web Editor** | Strong hooks and retention; list explicitly in store & content |
 | **Non-core — Libraries & tools** | Completeness and power-user depth |
@@ -192,8 +197,8 @@ When describing YouTube ad reduction / auto-skip publicly:
 
 When describing the product as ad-free:
 
-- Prefer: *no in-app ads*, *we don’t monetize with advertising*, *built-in web ad & tracker blocking (best-effort)*.
-- Keep clear: product chrome is ad-free; websites may still show ads that blocking does not catch.
+- Prefer: *private by default*, *ads and trackers blocked*, *accounts never mix*, *no in-app ads*, *HTTPS First*, *not a VPN*.
+- Keep clear: product chrome is ad-free; website blocking is best-effort; Spaces do not change your IP; YouTube video ads may still appear.
 
 ---
 
