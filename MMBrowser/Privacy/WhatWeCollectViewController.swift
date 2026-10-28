@@ -59,12 +59,16 @@ final class WhatWeCollectViewController: UIViewController {
         view.addSubview(footer)
         view.addSubview(policy)
 
-        text.snp.makeConstraints { make in
-            make.top.leading.trailing.equalTo(view.safeAreaLayoutGuide).inset(16)
-            make.height.equalTo(280)
+        policy.snp.makeConstraints { make in
+            make.bottom.equalTo(view.safeAreaLayoutGuide).offset(-12)
+            make.centerX.equalToSuperview()
+        }
+        footer.snp.makeConstraints { make in
+            make.bottom.equalTo(policy.snp.top).offset(-16)
+            make.leading.trailing.equalToSuperview().inset(20)
         }
         row.snp.makeConstraints { make in
-            make.top.equalTo(text.snp.bottom).offset(8)
+            make.bottom.equalTo(footer.snp.top).offset(-8)
             make.leading.trailing.equalToSuperview().inset(16)
         }
         label.snp.makeConstraints { make in
@@ -76,13 +80,9 @@ final class WhatWeCollectViewController: UIViewController {
             make.trailing.equalToSuperview().offset(-14)
             make.centerY.equalToSuperview()
         }
-        footer.snp.makeConstraints { make in
-            make.top.equalTo(row.snp.bottom).offset(8)
-            make.leading.trailing.equalToSuperview().inset(20)
-        }
-        policy.snp.makeConstraints { make in
-            make.top.equalTo(footer.snp.bottom).offset(20)
-            make.centerX.equalToSuperview()
+        text.snp.makeConstraints { make in
+            make.top.leading.trailing.equalTo(view.safeAreaLayoutGuide).inset(16)
+            make.bottom.equalTo(row.snp.top).offset(-12)
         }
     }
 

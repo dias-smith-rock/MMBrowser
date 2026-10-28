@@ -39,7 +39,7 @@ final class PrivacyInfoViewController: UIViewController {
         Removes history and/or website cookies, storage, and caches from this device.
 
         Clear Option
-        Optionally auto-clears cache, cookies, history, and/or local storage when you leave the app. These stay off by default so logins remain signed in; turn items on only if you want them wiped on exit.
+        Cache, cookies, history, and local storage clear when you leave the app. Close All Tabs on Exit is also on, so you return to one fresh New Tab. Turn any of these off in Clear Option to keep that data.
 
         Background Audio & Picture in Picture
         When enabled, supported web video and audio can keep playing after you leave the app or lock the screen. Results depend on the site and iOS media rules.

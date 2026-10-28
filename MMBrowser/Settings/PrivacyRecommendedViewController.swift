@@ -1,7 +1,7 @@
 import UIKit
 import SnapKit
 
-/// Checklist of private-friendly defaults. Does not wipe logins or turn on Clear Option.
+/// Checklist of private-friendly defaults. Clear Option is already on and wipes selected data when you leave the app.
 final class PrivacyRecommendedViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     var onRequestRebuildWebViews: (() -> Void)?
 
@@ -39,7 +39,7 @@ final class PrivacyRecommendedViewController: UIViewController, UITableViewDataS
     }
 
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-        "These match a private-browser default. Clear Option stays off so site logins are not wiped when you leave the app."
+        "These match a private-browser default. Clear Option is on, so cache, cookies, history, and local storage clear when you leave the app."
     }
 
     func tableView(_ tableView: UITableView, willDisplayFooterView view: UIView, forSection section: Int) {
@@ -75,7 +75,7 @@ final class PrivacyRecommendedViewController: UIViewController, UITableViewDataS
             cell.accessoryView = makeSwitch(on: AppSettings.youtubeAdShieldEnabled, action: #selector(ytChanged(_:)))
         case .clearNote:
             cell.textLabel?.text = "Clear Option"
-            cell.detailTextLabel?.text = "Stays off so logins stay signed in. Choose what to wipe—nothing is cleared from this list."
+            cell.detailTextLabel?.text = "On by default. Cache, cookies, history, and local storage clear when you leave the app."
             cell.accessoryType = .disclosureIndicator
             cell.selectionStyle = .default
         case .appLock:

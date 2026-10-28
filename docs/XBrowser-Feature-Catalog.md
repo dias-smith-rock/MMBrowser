@@ -21,7 +21,7 @@ Capabilities that define XBrowser’s identity, or that are essential to being a
 | **Space switcher** | Quick switch between Spaces from browser chrome (space chip / account UI) without losing isolation. |
 | **Space Hub / home per Space** | Per-Space home surface with favorites and space-oriented entry points. |
 | **Favorites (per Space)** | Home shortcuts (e.g. WhatsApp, Instagram, Facebook) scoped to the active Space. |
-| **Manage Spaces** | Create, rename, and delete Spaces. Creating beyond the free cap requires Premium. |
+| **Manage Spaces** | Create, rename, and delete Spaces. Deleting a Space plays the same full-page burn for about 1.5s, then the Space is removed. Creating beyond the free cap requires Premium. |
 | **Isolated vs Shared explanation** | In-product education: what is isolated per Space vs shared app-wide (e.g. Downloads). |
 | **Split View (dual Space)** | Two panes at once, each bound to a different Space—useful for dual WhatsApp/IG or comparing two logins. |
 | **Private Browsing** | Incognito tabs that do not keep history, cookies, or site data after they are closed; downloads off. Does not hide network IP. |
@@ -38,7 +38,7 @@ Capabilities that define XBrowser’s identity, or that are essential to being a
 
 | Feature | Description |
 | --- | --- |
-| **Tabs** | Open, switch, and manage tabs (including address-bar swipe between page tabs). |
+| **Tabs** | Open, switch, and manage tabs (including address-bar swipe between page tabs). The tab switcher has a Settings button to the right of Add Space. |
 | **Address bar (search / URL)** | Search with the selected engine or open a URL; supports keyboard shortcut chips (e.g. `https://`, `.com`). |
 | **History suggestions** | Address-bar suggestions from recent visits (deduped by site for autocomplete). |
 | **Bookmarks** | Save and open bookmarks (isolated per Space). |
@@ -149,12 +149,12 @@ Native player used for supported streams (alongside system PiP where applicable)
 | **Filter list recovery** | Settings shows Up to date or Last updated, with Update now. |
 | **Global Privacy Control** | Sends Sec-GPC and `navigator.globalPrivacyControl` so sites can treat the visit as opted out of sale or sharing. On by default; toggle in Settings. |
 | **Dangerous site warning** | Blocks lookalike / phishing-style hosts on main-frame and popup loads. Go Back is recommended; Continue is explicit. |
-| **Recommended for privacy** | Settings checklist for private-friendly toggles. Does not turn on Clear Option or wipe logins. |
+| **Recommended for privacy** | Settings checklist for private-friendly toggles. Clear Option is already on by default. |
 | **Location privacy** | When sites ask for location: deny, use current, or spoof a virtual/custom city (GPS-like APIs only—not network IP). Global and per-Space. |
 | **Block Images** | Browse without loading images. |
 | **Aggressive image block** | Also scrub images inside iframes (heavier). |
-| **Clear Option** | Auto-clear selected data (cache, cookies, history, local storage, etc.) when leaving the app. |
-| **Close All Tabs on Exit** | Optional reset to a fresh New Tab when leaving the app. |
+| **Clear Option** | Auto-clear when leaving the app. Cache, cookies, history, and local storage are on by default; each can be turned off. |
+| **Close All Tabs on Exit** | On by default. Leaving the app resets to one fresh New Tab. |
 | **Tab preview images** | Optional thumbnails in the tab switcher. |
 | **Active Background Tabs limit** | Cap how many recently used tabs keep a live WebView in memory (LRU unload of the rest). |
 | **Clear browsing data** | Manual clear flows for stored browsing data. |

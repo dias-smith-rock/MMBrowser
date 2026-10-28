@@ -125,9 +125,9 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .autoClear:
-            return "Only selected items are removed when you leave the app. Cache, Cookies, History, and Local Storage all default off so browsing sessions stay intact. Enabling Cookies or Local Storage will clear them for every space immediately."
+            return "Cache, Cookies, History, and Local Storage are on by default. Only selected items are removed when you leave the app. Turning Cookies or Local Storage on clears them for every Space immediately."
         case .session:
-            return "Close All Tabs on Exit resets to a single New Tab when you background the app. Active Background Tabs keeps WebViews only for the most recently used tabs (default 3); older tabs stay listed and reload when you open them again."
+            return "Close All Tabs on Exit is on by default and resets to a single New Tab when you background the app. Active Background Tabs keeps WebViews only for the most recently used tabs (default 3); older tabs stay listed and reload when you open them again."
         }
     }
 

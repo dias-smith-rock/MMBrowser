@@ -12,6 +12,8 @@ protocol TabSwitcherViewControllerDelegate: AnyObject {
 
 final class TabSwitcherViewController: UIViewController {
     weak var delegate: TabSwitcherViewControllerDelegate?
+    var onAccountsChanged: (() -> Void)?
+    var onRequestRebuildWebViews: (() -> Void)?
 
     private enum Surface {
         case spaces
@@ -25,6 +27,7 @@ final class TabSwitcherViewController: UIViewController {
     private let spacesScroll = UIScrollView()
     private let spacesStack = UIStackView()
     private let addSpaceButton = UIButton(type: .system)
+    private let settingsButton = UIButton(type: .system)
     private let bottomBar = UIView()
     private let privateButton = UIButton(type: .system)
     private let doneButton = UIButton(type: .system)
@@ -170,6 +173,7 @@ final class TabSwitcherViewController: UIViewController {
         privateButton.setTitleColor(showingIncognito ? accent : BrowserTheme.textPrimary, for: .normal)
         topBar.isHidden = showingIncognito
         addSpaceButton.tintColor = BrowserTheme.textPrimary
+        settingsButton.tintColor = BrowserTheme.textPrimary
     }
 
     override func viewDidLayoutSubviews() {
@@ -202,13 +206,29 @@ final class TabSwitcherViewController: UIViewController {
         addSpaceButton.addTarget(self, action: #selector(addSpaceTapped), for: .touchUpInside)
         topBar.addSubview(addSpaceButton)
 
+        settingsButton.setImage(
+            UIImage(systemName: "gearshape", withConfiguration: UIImage.SymbolConfiguration(pointSize: 15, weight: .semibold)),
+            for: .normal
+        )
+        settingsButton.backgroundColor = BrowserTheme.secondaryCard
+        settingsButton.tintColor = BrowserTheme.textPrimary
+        settingsButton.layer.cornerRadius = 16
+        settingsButton.accessibilityLabel = "Settings"
+        settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
+        topBar.addSubview(settingsButton)
+
         topBar.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
             make.leading.trailing.equalToSuperview()
             make.height.equalTo(52)
         }
-        addSpaceButton.snp.makeConstraints { make in
+        settingsButton.snp.makeConstraints { make in
             make.trailing.equalToSuperview().offset(-14)
+            make.centerY.equalToSuperview()
+            make.size.equalTo(32)
+        }
+        addSpaceButton.snp.makeConstraints { make in
+            make.trailing.equalTo(settingsButton.snp.leading).offset(-8)
             make.centerY.equalToSuperview()
             make.size.equalTo(32)
         }
@@ -774,19 +794,23 @@ final class TabSwitcherViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive, handler: { [weak self] _ in
             guard let self else { return }
-            let tabIDs = self.tabManager.normalTabs
-                .filter { $0.containerID == container.id }
-                .map(\.id)
-            for id in tabIDs {
-                self.tabManager.closeTab(id: id)
+            let host = self.view.window ?? self.view!
+            EraseFireOverlayView.play(on: host) { [weak self] in
+                guard let self else { return }
+                let tabIDs = self.tabManager.normalTabs
+                    .filter { $0.containerID == container.id }
+                    .map(\.id)
+                for id in tabIDs {
+                    self.tabManager.closeTab(id: id)
+                }
+                let deletedFocused = self.focusedSpaceID == container.id
+                _ = self.tabManager.deleteContainer(id: container.id)
+                if deletedFocused {
+                    self.focusedSpaceID = self.tabManager.resolvedLastActiveContainerID
+                    _ = self.tabManager.switchToAccount(self.focusedSpaceID)
+                }
+                self.reload()
             }
-            let deletedFocused = self.focusedSpaceID == container.id
-            _ = self.tabManager.deleteContainer(id: container.id)
-            if deletedFocused {
-                self.focusedSpaceID = self.tabManager.resolvedLastActiveContainerID
-                _ = self.tabManager.switchToAccount(self.focusedSpaceID)
-            }
-            self.reload()
         }))
         present(alert, animated: true)
     }
@@ -968,6 +992,22 @@ final class TabSwitcherViewController: UIViewController {
 
     @objc private func addSpaceTapped() {
         presentNewAccount()
+    }
+
+    @objc private func settingsTapped() {
+        let settings = SettingsViewController()
+        settings.tabManager = tabManager
+        settings.onAccountsChanged = { [weak self] in
+            self?.reload()
+            self?.onAccountsChanged?()
+        }
+        settings.onRequestRebuildWebViews = { [weak self] in
+            self?.onRequestRebuildWebViews?()
+        }
+        let nav = UINavigationController(rootViewController: settings)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        present(nav, animated: true)
     }
 
     private var preferredContainerIDForNewTab: UUID? {

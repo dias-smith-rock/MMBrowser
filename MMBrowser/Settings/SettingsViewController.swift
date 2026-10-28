@@ -109,7 +109,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .privacyProtections:
             return "Filter lists can update when sites change. Protection is best-effort."
         case .privacyData:
-            return "Cookies, cache, history, and bookmarks are stored per Space. Tabs in the same Space share that Space’s data. Auto-clear stays off so logins remain signed in."
+            return "Cookies, cache, history, and bookmarks are stored per Space. Tabs in the same Space share that Space’s data. Cache, cookies, history, and local storage clear when you leave the app unless you turn them off in Clear Option."
         case .searchGeneral:
             return "Used for address-bar search."
         case .privacyAccess:
@@ -155,7 +155,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             switch indexPath.row {
             case 0:
                 cell.textLabel?.text = "Recommended for privacy"
-                cell.detailTextLabel?.text = "Checklist · does not wipe logins"
+                cell.detailTextLabel?.text = "Private-browser defaults"
                 cell.accessoryType = .disclosureIndicator
             case 1:
                 cell.textLabel?.text = "Block Ads & Trackers"

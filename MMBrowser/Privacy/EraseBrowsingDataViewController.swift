@@ -288,8 +288,24 @@ enum BrowsingDataEraser {
 }
 
 /// Full-page burn played over the erase sheet before the cleared page appears.
-private final class EraseFireOverlayView: UIView {
+final class EraseFireOverlayView: UIView {
     static let duration: TimeInterval = 1.5
+
+    /// Covers `host` for about 1.5s, then runs `completion` on the main queue.
+    static func play(on host: UIView, then completion: @escaping () -> Void) {
+        if UIAccessibility.isReduceMotionEnabled {
+            completion()
+            return
+        }
+        let fire = EraseFireOverlayView(frame: host.bounds)
+        fire.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        host.addSubview(fire)
+        fire.play()
+        DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+            fire.removeFromSuperview()
+            completion()
+        }
+    }
 
     private let ash = UIView()
     private let glow = CAGradientLayer()

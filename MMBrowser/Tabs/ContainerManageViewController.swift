@@ -101,10 +101,14 @@ final class ContainerManageViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         alert.addAction(UIAlertAction(title: "Delete", style: .destructive, handler: { [weak self] _ in
             guard let self else { return }
-            _ = self.tabManager.deleteContainer(id: container.id)
-            self.reload()
-            self.delegate?.containerManageDidChange()
-            self.onChanged?()
+            let host = self.view.window ?? self.view!
+            EraseFireOverlayView.play(on: host) { [weak self] in
+                guard let self else { return }
+                _ = self.tabManager.deleteContainer(id: container.id)
+                self.reload()
+                self.delegate?.containerManageDidChange()
+                self.onChanged?()
+            }
         }))
         present(alert, animated: true)
     }

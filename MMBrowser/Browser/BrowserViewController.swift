@@ -1789,6 +1789,12 @@ final class BrowserViewController: UIViewController {
 
         let switcher = TabSwitcherViewController(tabManager: tabManager)
         switcher.delegate = self
+        switcher.onAccountsChanged = { [weak self] in
+            self?.refreshAccountChip()
+        }
+        switcher.onRequestRebuildWebViews = { [weak self] in
+            self?.scheduleFullWebViewRebuild()
+        }
         // Keep the browser (and WKWebView) in the window so HTML5 / YouTube audio keeps playing.
         switcher.modalPresentationStyle = .overFullScreen
         switcher.modalTransitionStyle = .coverVertical

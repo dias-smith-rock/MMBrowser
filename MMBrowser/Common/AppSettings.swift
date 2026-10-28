@@ -256,7 +256,7 @@ enum AppSettings {
     }
 
     // MARK: - Clear Option (auto-clear on exit).
-    // All categories default off so logins and site data persist; users opt in for privacy clears.
+    // Cache, cookies, history, local storage, and close-tabs default on. Turn a switch off to keep that data.
 
     private static func setClearOption(_ value: Bool, forKey key: String) {
         d.set(value, forKey: key)
@@ -265,28 +265,28 @@ enum AppSettings {
         NotificationCenter.default.post(name: .clearOptionSettingsChanged, object: nil)
     }
 
-    /// Default off — opt in under Clear Option if you want caches wiped on exit.
+    /// Default on — caches are wiped when leaving the app.
     static var autoClearCache: Bool {
-        get { d.object(forKey: "clear.auto.cache") == nil ? false : d.bool(forKey: "clear.auto.cache") }
+        get { d.object(forKey: "clear.auto.cache") == nil ? true : d.bool(forKey: "clear.auto.cache") }
         set { setClearOption(newValue, forKey: "clear.auto.cache") }
     }
 
-    /// Default off — clearing cookies on every background forced re-login.
+    /// Default on — cookies clear on every leave, so sites ask you to sign in again.
     static var autoClearCookies: Bool {
-        get { d.object(forKey: "clear.auto.cookies") == nil ? false : d.bool(forKey: "clear.auto.cookies") }
+        get { d.object(forKey: "clear.auto.cookies") == nil ? true : d.bool(forKey: "clear.auto.cookies") }
         set { setClearOption(newValue, forKey: "clear.auto.cookies") }
     }
 
     /// When true, browsing history is cleared when leaving the app / on next launch.
-    /// History is still recorded during the current session. Default off so History works out of the box.
+    /// History is still recorded during the current session. Default on.
     static var autoClearHistory: Bool {
-        get { d.object(forKey: "clear.auto.history") == nil ? false : d.bool(forKey: "clear.auto.history") }
+        get { d.object(forKey: "clear.auto.history") == nil ? true : d.bool(forKey: "clear.auto.history") }
         set { setClearOption(newValue, forKey: "clear.auto.history") }
     }
 
-    /// Default off — WhatsApp Web and many sites keep sessions in IndexedDB / localStorage.
+    /// Default on. WhatsApp Web and many sites keep sessions in IndexedDB / localStorage.
     static var autoClearLocalStorage: Bool {
-        get { d.object(forKey: "clear.auto.localStorage") == nil ? false : d.bool(forKey: "clear.auto.localStorage") }
+        get { d.object(forKey: "clear.auto.localStorage") == nil ? true : d.bool(forKey: "clear.auto.localStorage") }
         set { setClearOption(newValue, forKey: "clear.auto.localStorage") }
     }
 
@@ -300,10 +300,9 @@ enum AppSettings {
         return parts.joined(separator: " · ")
     }
 
-    /// Close every tab when leaving the app (leave one fresh New Tab). Default off so
-    /// container tabs survive relaunch / force-quit; enable for stronger session privacy.
+    /// Close every tab when leaving the app (leave one fresh New Tab). Default on.
     static var closeAllTabsOnExit: Bool {
-        get { d.object(forKey: "clear.closeTabsOnExit") == nil ? false : d.bool(forKey: "clear.closeTabsOnExit") }
+        get { d.object(forKey: "clear.closeTabsOnExit") == nil ? true : d.bool(forKey: "clear.closeTabsOnExit") }
         set { setClearOption(newValue, forKey: "clear.closeTabsOnExit") }
     }
 
