@@ -541,6 +541,10 @@ final class DownloadManager: NSObject {
         }
     }
 
+    func removeAll() {
+        items.map(\.id).forEach { remove(id: $0) }
+    }
+
     func remove(id: UUID) {
         if let item = items.first(where: { $0.id == id }) {
             if item.status == .downloading {

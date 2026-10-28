@@ -5,7 +5,7 @@ import SafariServices
 final class SettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private enum Section: Int, CaseIterable {
-        case premium, privacyProtections, privacyData, privacyAccess, privacyLearn, accounts, tools, youtube, media, search, home, about
+        case premium, privacyProtections, privacyData, privacyAccess, privacyLearn, accounts, tools, youtube, media, searchPrivacy, searchGeneral, home, about
     }
 
     private enum AboutLinks {
@@ -70,14 +70,15 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         switch Section(rawValue: section)! {
         case .premium: return 1
         case .privacyProtections: return 6
-        case .privacyData: return 3
-        case .privacyAccess: return 2
-        case .privacyLearn: return 1
+        case .privacyData: return 4
+        case .privacyAccess: return 3
+        case .privacyLearn: return 2
         case .accounts: return 2
         case .tools: return 1
         case .youtube: return 2
         case .media: return 2
-        case .search: return SearchEngine.all.count
+        case .searchPrivacy: return SearchEngine.privacyFriendly.count
+        case .searchGeneral: return SearchEngine.general.count
         case .home: return 1
         case .about: return 7
         }
@@ -94,7 +95,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .tools: return "Tools"
         case .youtube: return "Focus & Video"
         case .media: return "Media"
-        case .search: return "Search Engine"
+        case .searchPrivacy: return "Privacy-friendly"
+        case .searchGeneral: return "General"
         case .home: return "Appearance"
         case .about: return "About"
         }
@@ -105,9 +107,11 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .premium:
             return "Free includes \(PremiumStore.freeSpaceLimit) Spaces. Premium unlocks unlimited Spaces and Space Lock."
         case .privacyProtections:
-            return "Ads and trackers are blocked by default. Filters: \(FilterUpdateManager.shared.statusSummary). YouTube video ads stay best-effort."
+            return "Filter lists can update when sites change. Protection is best-effort."
         case .privacyData:
-            return "Auto-clear when you leave can wipe site data for every space. It stays off so logins remain signed in. To remove one identity only, delete that space under Manage Spaces."
+            return "Cookies, cache, history, and bookmarks are stored per Space. Tabs in the same Space share that Space’s data. Auto-clear stays off so logins remain signed in."
+        case .searchGeneral:
+            return "Used for address-bar search."
         case .privacyAccess:
             return "Location Deny/Spoof only affects GPS-like browser APIs—not your network IP."
         case .accounts:
@@ -187,8 +191,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.addTarget(self, action: #selector(gpcChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
             default:
-                cell.textLabel?.text = "Filter updates"
-                cell.detailTextLabel?.text = FilterUpdateManager.shared.statusSummary
+                cell.textLabel?.text = "Filter lists"
+                cell.detailTextLabel?.text = FilterUpdateManager.shared.filterStatusLine
                 cell.accessoryType = .disclosureIndicator
             }
         case .privacyData:
@@ -210,27 +214,42 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.isEnabled = AppSettings.noImagesEnabled
                 sw.addTarget(self, action: #selector(aggressiveNoImagesChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
-            default:
+            case 2:
                 cell.textLabel?.text = "Clear Option"
                 cell.detailTextLabel?.text = AppSettings.clearOptionSummary
                 cell.accessoryType = .disclosureIndicator
+            default:
+                cell.textLabel?.text = "Erase browsing data"
+                cell.detailTextLabel?.text = "This Space or all Spaces"
+                cell.accessoryType = .disclosureIndicator
             }
         case .privacyAccess:
-            if indexPath.row == 0 {
+            switch indexPath.row {
+            case 0:
                 cell.textLabel?.text = "Location"
                 cell.detailTextLabel?.text = AppSettings.locationSummary
                 cell.accessoryType = .disclosureIndicator
-            } else {
+            case 1:
                 cell.textLabel?.text = "App Lock"
                 cell.detailTextLabel?.text = AppLockSettings.isEnabled
                     ? "On · whole-app PIN / pattern"
                     : "Off · protect the whole app"
                 cell.accessoryType = .disclosureIndicator
+            default:
+                cell.textLabel?.text = "Default browser"
+                cell.detailTextLabel?.text = "Off — links may open in Safari"
+                cell.accessoryType = .disclosureIndicator
             }
         case .privacyLearn:
-            cell.textLabel?.text = "Privacy Explained"
-            cell.detailTextLabel?.text = "Private by default, Spaces, and limits"
-            cell.accessoryType = .disclosureIndicator
+            if indexPath.row == 0 {
+                cell.textLabel?.text = "Privacy Explained"
+                cell.detailTextLabel?.text = "Private by default, Spaces, and limits"
+                cell.accessoryType = .disclosureIndicator
+            } else {
+                cell.textLabel?.text = "What we collect"
+                cell.detailTextLabel?.text = "On-device data and diagnostics"
+                cell.accessoryType = .disclosureIndicator
+            }
         case .accounts:
             if indexPath.row == 0 {
                 cell.textLabel?.text = "Spaces"
@@ -281,9 +300,13 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 sw.addTarget(self, action: #selector(pipChanged(_:)), for: .valueChanged)
                 cell.accessoryView = sw
             }
-        case .search:
-            let engine = SearchEngine.all[indexPath.row]
-            cell.textLabel?.text = engine.name
+        case .searchPrivacy, .searchGeneral:
+            let engines = indexPath.section == Section.searchPrivacy.rawValue
+                ? SearchEngine.privacyFriendly
+                : SearchEngine.general
+            let engine = engines[indexPath.row]
+            let recommended = engine.id == SearchEngine.duckDuckGo.id
+            cell.textLabel?.text = recommended ? "\(engine.name) · Recommended" : engine.name
             cell.accessoryType = engine.id == AppSettings.searchEngineID ? .checkmark : .none
             cell.tintColor = BrowserTheme.chromeBlue
         case .home:
@@ -337,6 +360,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .privacyData:
             if indexPath.row == 2 {
                 navigationController?.pushViewController(ClearOptionSettingsViewController(), animated: true)
+            } else if indexPath.row == 3 {
+                presentEraseBrowsingData()
             }
         case .privacyAccess:
             if indexPath.row == 0 {
@@ -346,11 +371,17 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                     self?.tableView.reloadData()
                 }
                 navigationController?.pushViewController(location, animated: true)
-            } else {
+            } else if indexPath.row == 1 {
                 navigationController?.pushViewController(AppLockSettingsViewController(), animated: true)
+            } else {
+                presentDefaultBrowserHelp()
             }
         case .privacyLearn:
-            navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
+            if indexPath.row == 0 {
+                navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
+            } else {
+                navigationController?.pushViewController(WhatWeCollectViewController(), animated: true)
+            }
         case .accounts:
             if indexPath.row == 1 {
                 navigationController?.pushViewController(IsolatedVsSharedViewController(), animated: true)
@@ -365,9 +396,12 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             navigationController?.pushViewController(manage, animated: true)
         case .tools:
             navigationController?.pushViewController(PageCleanerRulesViewController(), animated: true)
-        case .search:
-            SearchEngineManager.setCurrent(SearchEngine.all[indexPath.row])
-            tableView.reloadSections(IndexSet(integer: indexPath.section), with: .none)
+        case .searchPrivacy, .searchGeneral:
+            let engines = indexPath.section == Section.searchPrivacy.rawValue
+                ? SearchEngine.privacyFriendly
+                : SearchEngine.general
+            SearchEngineManager.setCurrent(engines[indexPath.row])
+            tableView.reloadData()
         case .home:
             navigationController?.pushViewController(AppearanceSettingsViewController(), animated: true)
         case .about:
@@ -398,13 +432,60 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         }
     }
 
-    private func presentFilterUpdateAlert() {
+    private func presentEraseBrowsingData() {
+        guard let tabManager else { return }
+        let tab = tabManager.selectedTab
+        let container = tab.flatMap { tabManager.container(id: $0.containerID) } ?? tabManager.sortedContainers.first
+        guard let container else { return }
+        let erase = EraseBrowsingDataViewController(
+            mode: .space(name: container.name, containerID: container.id, sessionID: container.sessionID),
+            allSpaces: tabManager.sortedContainers.map { ($0.id, $0.sessionID) }
+        )
+        erase.onFinished = { [weak self] outcome in
+            guard let self else { return }
+            if case .erasedSpaces(let ids) = outcome {
+                for containerID in ids {
+                    let tabIDs = tabManager.normalTabs.filter { $0.containerID == containerID }.map(\.id)
+                    tabIDs.forEach { tabManager.closeTab(id: $0) }
+                    _ = tabManager.addTab(incognito: false, select: true, containerID: containerID)
+                }
+            }
+            Toast.show("Browsing data erased", from: self)
+            self.onRequestRebuildWebViews?()
+        }
+        let nav = UINavigationController(rootViewController: erase)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        present(nav, animated: true)
+    }
+
+    private func presentDefaultBrowserHelp() {
         let alert = UIAlertController(
-            title: "Filter updates",
-            message: "Status: \(FilterUpdateManager.shared.statusSummary)\n\nFilters block page ads and trackers. Refresh them after sites change. YouTube video filters stay best-effort.",
+            title: "Default browser",
+            message: "Off — links may open in Safari.\n\nSettings → Apps → XBrowser → Default Browser App → XBrowser",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Check for Updates", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Open iPhone Settings", style: .default) { _ in
+            if #available(iOS 18.3, *),
+               let url = URL(string: UIApplication.openDefaultApplicationsSettingsURLString) {
+                UIApplication.shared.open(url)
+                return
+            }
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
+            }
+        })
+        present(alert, animated: true)
+    }
+
+    private func presentFilterUpdateAlert() {
+        let alert = UIAlertController(
+            title: "Filter lists",
+            message: "\(FilterUpdateManager.shared.filterStatusLine)\n\nFilters block page ads and trackers. Protection is best-effort.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Update now", style: .default) { [weak self] _ in
             FilterUpdateManager.shared.refresh(force: true) { ok in
                 self?.tableView.reloadData()
                 if let self = self {

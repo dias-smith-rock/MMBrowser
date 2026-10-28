@@ -1,19 +1,26 @@
 import UIKit
 import SnapKit
 
-/// Readable shield report. Status sits on the trailing edge so labels do not wrap into the value.
+/// Shield sheet for the current page. Counts are only shown when the app actually measured them.
 final class PrivacyReportViewController: UIViewController {
-    var onOpenSettings: (() -> Void)?
-    var onOpenExplained: (() -> Void)?
+    var onBlockingSettings: (() -> Void)?
+    var onErase: (() -> Void)?
+    var onClearSite: (() -> Void)?
+    var onTurnOnBlocking: (() -> Void)?
+    var onPageBlockingChanged: ((Bool) -> Void)?
 
-    private let headline: String
-    private let rows: [(title: String, detail: String?, value: String, on: Bool)]
-    private let footnote: String
+    private let protectionOn: Bool
+    private let blockedCount: Int?
+    private let countIsMeasured: Bool
+    private let pageHost: String?
+    private let pageBlockingOn: Bool
 
-    init(headline: String, rows: [(title: String, detail: String?, value: String, on: Bool)], footnote: String) {
-        self.headline = headline
-        self.rows = rows
-        self.footnote = footnote
+    init(protectionOn: Bool, blockedCount: Int?, countIsMeasured: Bool, pageHost: String?, pageBlockingOn: Bool) {
+        self.protectionOn = protectionOn
+        self.blockedCount = blockedCount
+        self.countIsMeasured = countIsMeasured
+        self.pageHost = pageHost
+        self.pageBlockingOn = pageBlockingOn
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -21,163 +28,176 @@ final class PrivacyReportViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Privacy Report"
+        title = "Privacy report"
         BrowserTheme.applyScreenChrome(to: self)
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .done,
-            target: self,
-            action: #selector(close)
-        )
+        navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(close))
 
         let scroll = UIScrollView()
-        scroll.alwaysBounceVertical = true
         let stack = UIStackView()
         stack.axis = .vertical
-        stack.spacing = 16
-        stack.alignment = .fill
-
-        let headlineLabel = UILabel()
-        headlineLabel.text = headline
-        headlineLabel.font = .systemFont(ofSize: 22, weight: .bold)
-        headlineLabel.textColor = BrowserTheme.textPrimary
-        headlineLabel.numberOfLines = 0
-
-        let card = UIStackView()
-        card.axis = .vertical
-        card.spacing = 0
-        card.backgroundColor = BrowserTheme.card
-        card.layer.cornerRadius = 14
-        card.clipsToBounds = true
-        for (index, row) in rows.enumerated() {
-            card.addArrangedSubview(makeRow(row, showsSeparator: index < rows.count - 1))
-        }
-
-        let footnoteLabel = UILabel()
-        footnoteLabel.text = footnote
-        footnoteLabel.font = .systemFont(ofSize: 15)
-        footnoteLabel.textColor = BrowserTheme.textSecondary
-        footnoteLabel.numberOfLines = 0
-
-        let settings = makeButton(title: "Settings", filled: true, action: #selector(settingsTapped))
-        let explained = makeButton(title: "Privacy Explained", filled: false, action: #selector(explainedTapped))
-
+        stack.spacing = 14
         view.addSubview(scroll)
         scroll.addSubview(stack)
-        stack.addArrangedSubview(headlineLabel)
-        stack.addArrangedSubview(card)
-        stack.addArrangedSubview(footnoteLabel)
-        stack.addArrangedSubview(settings)
-        stack.addArrangedSubview(explained)
-        stack.setCustomSpacing(28, after: footnoteLabel)
-
-        scroll.snp.makeConstraints { make in
-            make.edges.equalTo(view.safeAreaLayoutGuide)
-        }
+        scroll.snp.makeConstraints { $0.edges.equalTo(view.safeAreaLayoutGuide) }
         stack.snp.makeConstraints { make in
             make.edges.equalToSuperview().inset(UIEdgeInsets(top: 8, left: 20, bottom: 24, right: 20))
             make.width.equalTo(scroll).offset(-40)
         }
-        settings.snp.makeConstraints { $0.height.equalTo(48) }
-        explained.snp.makeConstraints { $0.height.equalTo(48) }
-    }
 
-    private func makeRow(
-        _ row: (title: String, detail: String?, value: String, on: Bool),
-        showsSeparator: Bool
-    ) -> UIView {
-        let wrap = UIView()
-        let title = UILabel()
-        title.text = row.title
-        title.font = .systemFont(ofSize: 17, weight: .semibold)
-        title.textColor = BrowserTheme.textPrimary
-        title.numberOfLines = 1
-        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        let subtitle = UILabel()
+        subtitle.numberOfLines = 0
+        subtitle.font = .systemFont(ofSize: 15)
+        subtitle.textColor = BrowserTheme.textSecondary
+        subtitle.text = protectionOn
+            ? "What XBrowser blocked on this page"
+            : "Blocking is off for this page. Turn it on to reduce trackers and ads."
+        stack.addArrangedSubview(subtitle)
 
-        let value = UILabel()
-        value.text = row.value
-        value.font = .systemFont(ofSize: 17, weight: .semibold)
-        value.textColor = row.on ? BrowserTheme.chromeBlue : BrowserTheme.textSecondary
-        value.textAlignment = .right
-        value.setContentCompressionResistancePriority(.required, for: .horizontal)
-        value.setContentHuggingPriority(.required, for: .horizontal)
-
-        wrap.addSubview(title)
-        wrap.addSubview(value)
-
-        if let detailText = row.detail, !detailText.isEmpty {
-            let detail = UILabel()
-            detail.text = detailText
-            detail.font = .systemFont(ofSize: 13)
-            detail.textColor = BrowserTheme.textSecondary
-            detail.numberOfLines = 2
-            wrap.addSubview(detail)
-            title.snp.makeConstraints { make in
-                make.top.equalToSuperview().offset(12)
-                make.leading.equalToSuperview().offset(16)
-                make.trailing.lessThanOrEqualTo(value.snp.leading).offset(-12)
-            }
-            value.snp.makeConstraints { make in
-                make.centerY.equalTo(title)
-                make.trailing.equalToSuperview().offset(-16)
-            }
-            detail.snp.makeConstraints { make in
-                make.top.equalTo(title.snp.bottom).offset(2)
-                make.leading.equalTo(title)
-                make.trailing.equalToSuperview().offset(-16)
-                make.bottom.equalToSuperview().offset(-12)
+        if protectionOn {
+            stack.addArrangedSubview(statCard())
+            if let blockedCount, countIsMeasured, blockedCount > 0 {
+                stack.addArrangedSubview(categoryCard(count: blockedCount))
             }
         } else {
-            title.snp.makeConstraints { make in
-                make.top.bottom.equalToSuperview().inset(14)
-                make.leading.equalToSuperview().offset(16)
-                make.trailing.lessThanOrEqualTo(value.snp.leading).offset(-12)
-            }
-            value.snp.makeConstraints { make in
-                make.centerY.equalToSuperview()
-                make.trailing.equalToSuperview().offset(-16)
-            }
+            stack.addArrangedSubview(linkButton("Turn on blocking", action: #selector(turnOnTapped)))
         }
 
-        if showsSeparator {
-            let line = UIView()
-            line.backgroundColor = BrowserTheme.textSecondary.withAlphaComponent(0.2)
-            wrap.addSubview(line)
-            line.snp.makeConstraints { make in
-                make.leading.equalToSuperview().offset(16)
-                make.trailing.bottom.equalToSuperview()
-                make.height.equalTo(1.0 / UIScreen.main.scale)
-            }
+        if pageHost != nil {
+            stack.addArrangedSubview(toggleCard())
         }
-        return wrap
+        stack.addArrangedSubview(linkButton("Blocking settings", action: #selector(settingsTapped)))
+        stack.addArrangedSubview(linkButton("Erase browsing data…", action: #selector(eraseTapped)))
+        if pageHost != nil {
+            stack.addArrangedSubview(linkButton("Clear data for this site", action: #selector(clearSiteTapped)))
+        }
+
+        let footer = UILabel()
+        footer.numberOfLines = 0
+        footer.font = .systemFont(ofSize: 13)
+        footer.textColor = BrowserTheme.textSecondary
+        footer.text = "Blocking reduces many ads and trackers. It does not change your IP or make you anonymous."
+        stack.addArrangedSubview(footer)
     }
 
-    private func makeButton(title: String, filled: Bool, action: Selector) -> UIButton {
+    private func statCard() -> UIView {
+        let value: String
+        let detail: String
+        if countIsMeasured, let blockedCount {
+            value = "\(blockedCount)"
+            detail = "Hidden page elements"
+        } else {
+            value = "—"
+            detail = "Network blocks aren’t counted on this page"
+        }
+        return labeledCard(title: "Blocked requests", value: value, detail: detail)
+    }
+
+    private func categoryCard(count: Int) -> UIView {
+        labeledCard(title: "Categories", value: "Ads \(count)", detail: nil)
+    }
+
+    private func labeledCard(title: String, value: String, detail: String?) -> UIView {
+        let box = UIView()
+        box.backgroundColor = BrowserTheme.card
+        box.layer.cornerRadius = 14
+        let titleLabel = UILabel()
+        titleLabel.text = title
+        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
+        titleLabel.textColor = BrowserTheme.textSecondary
+        let valueLabel = UILabel()
+        valueLabel.text = value
+        valueLabel.font = .systemFont(ofSize: 22, weight: .bold)
+        valueLabel.textColor = BrowserTheme.textPrimary
+        valueLabel.numberOfLines = 0
+        box.addSubview(titleLabel)
+        box.addSubview(valueLabel)
+        titleLabel.snp.makeConstraints { make in
+            make.top.leading.trailing.equalToSuperview().inset(16)
+        }
+        if let detail {
+            let detailLabel = UILabel()
+            detailLabel.text = detail
+            detailLabel.font = .systemFont(ofSize: 13)
+            detailLabel.textColor = BrowserTheme.textSecondary
+            detailLabel.numberOfLines = 0
+            box.addSubview(detailLabel)
+            valueLabel.snp.makeConstraints { make in
+                make.top.equalTo(titleLabel.snp.bottom).offset(4)
+                make.leading.trailing.equalToSuperview().inset(16)
+            }
+            detailLabel.snp.makeConstraints { make in
+                make.top.equalTo(valueLabel.snp.bottom).offset(2)
+                make.leading.trailing.bottom.equalToSuperview().inset(16)
+            }
+        } else {
+            valueLabel.snp.makeConstraints { make in
+                make.top.equalTo(titleLabel.snp.bottom).offset(4)
+                make.leading.trailing.bottom.equalToSuperview().inset(16)
+            }
+        }
+        return box
+    }
+
+    private func toggleCard() -> UIView {
+        let box = UIView()
+        box.backgroundColor = BrowserTheme.card
+        box.layer.cornerRadius = 14
+        let label = UILabel()
+        label.text = "Block ads & trackers on this page"
+        label.font = .systemFont(ofSize: 16, weight: .semibold)
+        label.textColor = BrowserTheme.textPrimary
+        label.numberOfLines = 0
+        let toggle = UISwitch()
+        toggle.isOn = pageBlockingOn
+        toggle.addTarget(self, action: #selector(pageToggleChanged(_:)), for: .valueChanged)
+        box.addSubview(label)
+        box.addSubview(toggle)
+        label.snp.makeConstraints { make in
+            make.leading.equalToSuperview().offset(16)
+            make.trailing.lessThanOrEqualTo(toggle.snp.leading).offset(-12)
+            make.top.bottom.equalToSuperview().inset(14)
+        }
+        toggle.snp.makeConstraints { make in
+            make.trailing.equalToSuperview().offset(-16)
+            make.centerY.equalToSuperview()
+        }
+        return box
+    }
+
+    private func linkButton(_ title: String, action: Selector) -> UIButton {
         let button = UIButton(type: .system)
         button.setTitle(title, for: .normal)
+        button.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
-        button.layer.cornerRadius = 12
-        if filled {
-            button.backgroundColor = BrowserTheme.chromeBlue
-            button.setTitleColor(.white, for: .normal)
-        } else {
-            button.backgroundColor = BrowserTheme.card
-            button.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
-        }
+        button.contentHorizontalAlignment = .leading
         button.addTarget(self, action: action, for: .touchUpInside)
+        button.snp.makeConstraints { $0.height.equalTo(44) }
         return button
     }
 
-    @objc private func close() {
-        dismiss(animated: true)
-    }
+    @objc private func close() { dismiss(animated: true) }
 
     @objc private func settingsTapped() {
-        let open = onOpenSettings
+        let open = onBlockingSettings
         dismiss(animated: true) { open?() }
     }
 
-    @objc private func explainedTapped() {
-        let open = onOpenExplained
+    @objc private func eraseTapped() {
+        let open = onErase
         dismiss(animated: true) { open?() }
+    }
+
+    @objc private func clearSiteTapped() {
+        let open = onClearSite
+        dismiss(animated: true) { open?() }
+    }
+
+    @objc private func turnOnTapped() {
+        let open = onTurnOnBlocking
+        dismiss(animated: true) { open?() }
+    }
+
+    @objc private func pageToggleChanged(_ toggle: UISwitch) {
+        onPageBlockingChanged?(toggle.isOn)
     }
 }

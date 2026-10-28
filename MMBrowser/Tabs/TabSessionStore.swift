@@ -21,6 +21,44 @@ enum TabSessionStore {
         }
     }
 
+    /// Clears data types in the given Space session stores only.
+    static func clear(types: Set<String>, sessionIDs: [UUID], completion: (() -> Void)? = nil) {
+        guard !types.isEmpty else {
+            DispatchQueue.main.async { completion?() }
+            return
+        }
+        let start = {
+            let stores = sessionIDs.map { WKWebsiteDataStore(forIdentifier: $0) }
+            clearSequentially(types: types, stores: stores, index: 0) {
+                DispatchQueue.main.async { completion?() }
+            }
+        }
+        if Thread.isMainThread { start() } else { DispatchQueue.main.async(execute: start) }
+    }
+
+    static func removeRecords(matchingHost host: String, types: Set<String>, sessionID: UUID, completion: @escaping () -> Void) {
+        let normalized = host.lowercased()
+        let work = {
+            let store = WKWebsiteDataStore(forIdentifier: sessionID)
+            store.fetchDataRecords(ofTypes: types) { records in
+                let matched = records.filter { record in
+                    let name = record.displayName.lowercased()
+                    return name == normalized || name.hasSuffix("." + normalized) || normalized.hasSuffix("." + name)
+                }
+                DispatchQueue.main.async {
+                    guard !matched.isEmpty else {
+                        completion()
+                        return
+                    }
+                    store.removeData(ofTypes: types, for: matched) {
+                        DispatchQueue.main.async { completion() }
+                    }
+                }
+            }
+        }
+        if Thread.isMainThread { work() } else { DispatchQueue.main.async(execute: work) }
+    }
+
     /// Clears the given data types from every identifier store plus `default()`.
     /// WebKit data-store APIs must run on the main thread and are safer when serialized.
     static func clear(types: Set<String>, completion: (() -> Void)? = nil) {

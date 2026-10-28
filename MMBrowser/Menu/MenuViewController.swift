@@ -11,6 +11,7 @@ enum MenuAction: Equatable {
     case pictureInPicture
     case hideToolbar
     case setDefaultBrowser, passwords, backgroundGallery, theme, feedback
+    case allowSiteBlocking, blockSiteBlocking, clearSiteData, reportBrokenSite, eraseBrowsingData
     case placeholder(String)
 }
 

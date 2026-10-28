@@ -69,6 +69,11 @@ struct SearchEngine: Equatable {
     )
 
     static let all: [SearchEngine] = [.google, .duckDuckGo, .bing, .amazon, .tiktok, .youTube, .chatGPT, .gemini]
+    /// Engines that avoid a signed-in search profile. Brave Search is not in the shipped list.
+    static let privacyFriendly: [SearchEngine] = [.duckDuckGo]
+    static var general: [SearchEngine] {
+        all.filter { engine in !privacyFriendly.contains(where: { $0.id == engine.id }) }
+    }
 
     init(
         id: String,

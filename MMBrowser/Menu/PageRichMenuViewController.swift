@@ -72,6 +72,17 @@ final class PageRichMenuViewController: UIViewController {
         // Two matching horizontally scrollable shortcut rows.
         stack.addArrangedSubview(makeAppScrollRowCard(items: pageToolItems()))
         stack.addArrangedSubview(makeAppScrollRowCard(items: appLibraryItems()))
+        let siteAllowed = SiteBlockingStore.isAllowed(context.host)
+        stack.addArrangedSubview(makeRowsCard([
+            row(
+                siteAllowed ? "Block on this site" : "Allow ads & trackers on this site",
+                symbol: "hand.raised.slash",
+                action: siteAllowed ? .blockSiteBlocking : .allowSiteBlocking,
+                enabled: context.hasLoadablePage
+            ),
+            row("Clear data for this site", symbol: "trash", action: .clearSiteData, enabled: context.hasLoadablePage && !context.isIncognito),
+            row("Report a broken site…", symbol: "exclamationmark.bubble", action: .reportBrokenSite, enabled: context.hasLoadablePage)
+        ]))
         stack.addArrangedSubview(makeRowsCard([
             row("Add to Bookmarks", symbol: "bookmark", action: .addBookmark, enabled: context.hasLoadablePage && !context.isIncognito),
             row("Add to Watch Later", symbol: "clock", action: .addReadingList, enabled: context.hasLoadablePage && !context.isIncognito),

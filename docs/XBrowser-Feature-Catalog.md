@@ -43,8 +43,8 @@ Capabilities that define XBrowser’s identity, or that are essential to being a
 | **History suggestions** | Address-bar suggestions from recent visits (deduped by site for autocomplete). |
 | **Bookmarks** | Save and open bookmarks (isolated per Space). |
 | **History** | Browsing history (isolated per Space). |
-| **Default browser** | Promote / open system settings to set XBrowser as the default browser app. |
-| **Search engines** | Choose Google, DuckDuckGo, Bing, Amazon, TikTok, YouTube, ChatGPT, Gemini, and similar. |
+| **Default browser** | Settings row with best-effort Off status (iOS does not report the default browser), iPhone Settings instructions, and one dismissible prompt after day 1–3 or a second Space. |
+| **Search engines** | Privacy-friendly (DuckDuckGo) and General groups. One-time picker does not change an existing engine until Continue. |
 | **HTTPS First** | Prefer HTTPS navigation by default; no automatic HTTP fallback. |
 | **Downloads** | App-wide shared download list (not per Space); unavailable in Private Browsing. |
 | **Home ↔ page Back restore** | After leaving a webpage via Home (or Back-to-Home), Back on the home screen can return to that page tab. |
@@ -141,7 +141,12 @@ Native player used for supported streams (alongside system PiP where applicable)
 
 | Feature | Description |
 | --- | --- |
-| **Privacy Report** | Address-bar shield opens protection status (ads/trackers, HTTPS First, Global Privacy Control, filter version, Space or Private note) with shortcuts to Settings and Privacy Explained. |
+| **Privacy Report** | Shield sheet for the current page: protection on/off, measured block count when Accurate Block Count is on, Blocking settings, Erase, and clear-this-site. Best-effort; does not hide IP. |
+| **Erase browsing data** | One-tap erase for This Space (default) or All Spaces, from the tab switcher (fire icon), Privacy report, and Settings. A full-page burn plays for about 1.5s, then the cleared page opens. Optional bookmarks and shared Downloads. Private mode closes private tabs. Does not erase App Lock or Space Lock. |
+| **Clear data for this site** | Page menu and Privacy report clear one site’s cookies and site data in the current Space only. |
+| **Per-site blocking exception** | Allow or block ads and trackers for the current site without changing the global switch. Reversible. Report a broken site opens mail to support. |
+| **What we collect** | Settings page and xxxxxbrowser.cc/privacy-data/ describe on-device data, optional Firebase crash/analytics (on by default), and what is not sent. |
+| **Filter list recovery** | Settings shows Up to date or Last updated, with Update now. |
 | **Global Privacy Control** | Sends Sec-GPC and `navigator.globalPrivacyControl` so sites can treat the visit as opted out of sale or sharing. On by default; toggle in Settings. |
 | **Dangerous site warning** | Blocks lookalike / phishing-style hosts on main-frame and popup loads. Go Back is recommended; Continue is explicit. |
 | **Recommended for privacy** | Settings checklist for private-friendly toggles. Does not turn on Clear Option or wipe logins. |

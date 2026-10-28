@@ -17,6 +17,10 @@ final class IsolatedVsSharedViewController: UIViewController {
         stack.layoutMargins = UIEdgeInsets(top: 20, left: 20, bottom: 32, right: 20)
 
         stack.addArrangedSubview(makeBlock(
+            title: "How Spaces isolate data",
+            body: "Each Space has its own cookies and site data—like separate browser profiles on one phone."
+        ))
+        stack.addArrangedSubview(makeBlock(
             title: "Zero-trust-inspired isolation",
             body: "XBrowser keeps browsing identities separate on this device. It does not change your network IP, and no browser can fully prevent fingerprinting on the open web."
         ))

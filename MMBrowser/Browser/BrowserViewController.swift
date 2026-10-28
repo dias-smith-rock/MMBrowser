@@ -1,6 +1,7 @@
 import UIKit
 import SnapKit
 import AVKit
+import MessageUI
 
 final class BrowserViewController: UIViewController {
     let tabManager = TabManager()
@@ -66,6 +67,7 @@ final class BrowserViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(contentRulesChanged), name: .filterManifestUpdated, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .locationPrivacyChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(rebuildWebViews), name: .globalPrivacyControlChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(contentRulesChanged), name: SiteBlockingStore.changed, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSessionCleanup), name: .clearOptionSessionCleanup, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSettingsChanged), name: .clearOptionSettingsChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeDidChange, object: nil)
@@ -380,6 +382,7 @@ final class BrowserViewController: UIViewController {
             presentOnboarding()
         } else {
             PremiumCoordinator.presentColdStartIfNeeded(from: self)
+            scheduleCompetitivePrompts()
         }
         #endif
     }
@@ -539,6 +542,47 @@ final class BrowserViewController: UIViewController {
     /// After Feature Highlights — no VIP pitch on install day.
     private func continueAfterFirstRun() {
         PremiumCoordinator.presentColdStartIfNeeded(from: self)
+        scheduleCompetitivePrompts()
+    }
+
+    private func scheduleCompetitivePrompts() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            self?.maybePresentCompetitivePrompts()
+        }
+    }
+
+    private func maybePresentCompetitivePrompts() {
+        guard presentedViewController == nil else { return }
+        guard AppSettings.didShowFeatureHighlights else { return }
+        guard !AppSettings.didShowSearchPrivacyPrompt else {
+            maybePresentDefaultBrowserPrompt()
+            return
+        }
+        let prompt = SearchPrivacyPromptViewController(currentEngineID: AppSettings.searchEngineID)
+        prompt.onFinished = { [weak self] in
+            self?.maybePresentDefaultBrowserPrompt()
+        }
+        present(prompt, animated: true)
+    }
+
+    private func maybePresentDefaultBrowserPrompt() {
+        guard presentedViewController == nil else { return }
+        guard DefaultBrowserFeature.isEnabled, !AppSettings.didShowDefaultBrowserPrompt else { return }
+        let days = Date().timeIntervalSince(AppSettings.firstLaunchDate) / 86_400
+        let inWindow = days >= 1 && days <= 3
+        let hasSecondSpace = tabManager.sortedContainers.count >= 2
+        guard inWindow || hasSecondSpace else { return }
+        AppSettings.didShowDefaultBrowserPrompt = true
+        let alert = UIAlertController(
+            title: "Open links in XBrowser",
+            message: "Keep Spaces, blocking, and locks when you tap links from Mail or Messages.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Not now", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Open Settings", style: .default) { [weak self] _ in
+            self?.openDefaultBrowserSettings()
+        })
+        present(alert, animated: true)
     }
 
     private func maybeShowAccountChipTip() {
@@ -2255,44 +2299,41 @@ extension BrowserViewController: AddressBarViewDelegate {
     }
 
     func addressBarDidTapShield(blockCount: Int) {
-        let tpOn = AppSettings.trackerProtectionEnabled
-        let filters = FilterUpdateManager.shared
-        let version = filters.manifestVersion > 0 ? "v\(filters.manifestVersion)" : "Bundled"
-        let headline: String
-        if blockCount > 0 {
-            headline = "\(blockCount) blocked on this page"
-        } else if tpOn {
-            headline = "Protection is on"
-        } else {
-            headline = "Protection is off"
-        }
-        let adsDetail = (tpOn && !AppSettings.accurateBlockCountEnabled)
-            ? "Turn on Accurate Block Count for a page total"
-            : nil
-        let filterDetail = filters.health == .ok ? nil : filters.health.rawValue
-        let footnote: String
-        if tabManager.selectedTab?.isIncognito == true {
-            footnote = "Private tabs drop history and cookies when you close them. Your IP stays visible."
-        } else if let tab = tabManager.selectedTab {
-            footnote = "Space “\(tabManager.containerName(for: tab))” keeps cookies and history separate."
-        } else {
-            footnote = "Spaces keep cookies and history separate."
-        }
-
+        let url = tabManager.selectedTab?.url
+        let protectionOn = SiteBlockingStore.isProtectionOn(for: url)
+        let measured = AppSettings.trackerProtectionEnabled && AppSettings.accurateBlockCountEnabled
         let report = PrivacyReportViewController(
-            headline: headline,
-            rows: [
-                ("Block Ads & Trackers", adsDetail, tpOn ? "On" : "Off", tpOn),
-                ("HTTPS First", nil, AppSettings.httpsOnly ? "On" : "Off", AppSettings.httpsOnly),
-                ("Global Privacy Control", nil, AppSettings.globalPrivacyControlEnabled ? "On" : "Off", AppSettings.globalPrivacyControlEnabled),
-                ("Fewer YouTube ads", "Best-effort", AppSettings.youtubeAdShieldEnabled ? "On" : "Off", AppSettings.youtubeAdShieldEnabled),
-                ("Filters", filterDetail, version, filters.health != .degraded)
-            ],
-            footnote: footnote
+            protectionOn: protectionOn,
+            blockedCount: measured ? blockCount : nil,
+            countIsMeasured: measured,
+            pageHost: SiteBlockingStore.hostKey(for: url),
+            pageBlockingOn: protectionOn
         )
-        report.onOpenSettings = { [weak self] in self?.openSettings() }
-        report.onOpenExplained = { [weak self] in self?.presentPrivacyExplained() }
-        let nav = UINavigationController(rootViewController: report)
+        report.onBlockingSettings = { [weak self] in self?.openSettings() }
+        report.onErase = { [weak self] in self?.presentEraseBrowsingData() }
+        report.onClearSite = { [weak self] in self?.confirmClearSiteData() }
+        report.onTurnOnBlocking = { [weak self] in
+            AppSettings.trackerProtectionEnabled = true
+            if let host = SiteBlockingStore.hostKey(for: self?.tabManager.selectedTab?.url) {
+                SiteBlockingStore.setAllowed(host, allowed: false)
+            }
+        }
+        report.onPageBlockingChanged = { [weak self] on in
+            guard let host = SiteBlockingStore.hostKey(for: self?.tabManager.selectedTab?.url) else { return }
+            if on {
+                if !AppSettings.trackerProtectionEnabled {
+                    AppSettings.trackerProtectionEnabled = true
+                }
+                SiteBlockingStore.setAllowed(host, allowed: false)
+            } else {
+                SiteBlockingStore.setAllowed(host, allowed: true)
+            }
+        }
+        presentSheet(report)
+    }
+
+    private func presentSheet(_ root: UIViewController) {
+        let nav = UINavigationController(rootViewController: root)
         nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         BrowserTheme.applyNavigationBar(to: nav.navigationBar)
         if let sheet = nav.sheetPresentationController {
@@ -2303,6 +2344,66 @@ extension BrowserViewController: AddressBarViewDelegate {
             }
         }
         present(nav, animated: true)
+    }
+
+    func presentEraseBrowsingData() {
+        let mode: EraseBrowsingDataViewController.Mode
+        if tabManager.selectedTab?.isIncognito == true {
+            mode = .privateTabs
+        } else if let tab = tabManager.selectedTab {
+            let container = tabManager.container(id: tab.containerID) ?? tabManager.sortedContainers.first
+            let name = container?.name ?? tabManager.containerName(for: tab)
+            let sessionID = container?.sessionID ?? tabManager.sessionID(for: tab)
+            mode = .space(name: name, containerID: tab.containerID, sessionID: sessionID)
+        } else {
+            return
+        }
+        let spaces = tabManager.sortedContainers.map { ($0.id, $0.sessionID) }
+        let erase = EraseBrowsingDataViewController(mode: mode, allSpaces: spaces)
+        erase.onFinished = { [weak self] outcome in
+            guard let self else { return }
+            switch outcome {
+            case .closedPrivateTabs:
+                self.tabManager.closeAllIncognitoTabs()
+                self.showSelectedTab()
+                Toast.show("Browsing data erased", from: self)
+            case .erasedSpaces(let ids):
+                self.resetSpacesAfterErase(ids)
+                Toast.show("Browsing data erased", from: self)
+            }
+        }
+        presentSheet(erase)
+    }
+
+    private func resetSpacesAfterErase(_ ids: [UUID]) {
+        for containerID in ids {
+            let tabIDs = tabManager.normalTabs.filter { $0.containerID == containerID }.map(\.id)
+            for tabID in tabIDs {
+                tabManager.closeTab(id: tabID)
+            }
+            _ = tabManager.addTab(incognito: false, select: true, containerID: containerID)
+        }
+        showSelectedTab()
+    }
+
+    private func confirmClearSiteData() {
+        guard let tab = tabManager.selectedTab, !tab.isIncognito,
+              let host = SiteBlockingStore.hostKey(for: tab.url) else { return }
+        let sessionID = tabManager.sessionID(for: tab)
+        let alert = UIAlertController(
+            title: "Clear data for this site",
+            message: "Clear cookies and site data for \(host) in this Space?",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Clear data for this site", style: .destructive) { [weak self] _ in
+            BrowsingDataEraser.clearSiteData(host: host, sessionID: sessionID) {
+                guard let self else { return }
+                self.tabManager.selectedTab?.webController?.reload()
+                Toast.show("Site data cleared", from: self)
+            }
+        })
+        present(alert, animated: true)
     }
 
     private func presentPrivacyExplained() {
@@ -3031,6 +3132,20 @@ extension BrowserViewController: MenuViewControllerDelegate {
             AppSettings.trackerProtectionEnabled.toggle()
             let on = AppSettings.trackerProtectionEnabled
             Toast.show(on ? "Ad blocker on" : "Ad blocker off", from: self)
+        case .allowSiteBlocking:
+            guard let host = SiteBlockingStore.hostKey(for: tabManager.selectedTab?.url) else { return }
+            SiteBlockingStore.setAllowed(host, allowed: true)
+            Toast.show("Ads & trackers allowed on this site", from: self)
+        case .blockSiteBlocking:
+            guard let host = SiteBlockingStore.hostKey(for: tabManager.selectedTab?.url) else { return }
+            SiteBlockingStore.setAllowed(host, allowed: false)
+            Toast.show("Blocking on for this site", from: self)
+        case .clearSiteData:
+            confirmClearSiteData()
+        case .reportBrokenSite:
+            reportBrokenSite()
+        case .eraseBrowsingData:
+            presentEraseBrowsingData()
         case .placeholder(let name):
             Toast.show("\(name) coming soon", from: self)
         }
@@ -3163,6 +3278,60 @@ extension BrowserViewController: MenuViewControllerDelegate {
         Toast.show("Set XBrowser as Default Browser App in Settings", from: self)
     }
 
+    private func reportBrokenSite() {
+        let host = SiteBlockingStore.hostKey(for: tabManager.selectedTab?.url) ?? "unknown"
+        let address = "support@xxxxxbrowser.cc"
+        let subject = "Broken site with blocking: \(host)"
+        let page = tabManager.selectedTab?.url?.absoluteString ?? ""
+        if MFMailComposeViewController.canSendMail() {
+            let mail = MFMailComposeViewController()
+            mail.mailComposeDelegate = self
+            mail.setToRecipients([address])
+            mail.setSubject(subject)
+            if !page.isEmpty {
+                mail.setMessageBody(page, isHTML: false)
+            }
+            present(mail, animated: true)
+            return
+        }
+        presentBrokenSiteMailFallback(address: address, subject: subject, page: page)
+    }
+
+    /// Simulator and devices without a Mail account cannot open `mailto:` — show the note instead of failing silently.
+    private func presentBrokenSiteMailFallback(address: String, subject: String, page: String) {
+        let note = [subject, page].filter { !$0.isEmpty }.joined(separator: "\n")
+        let alert = UIAlertController(
+            title: "Report a broken site",
+            message: "Mail isn’t set up on this device. Send this note to \(address).\n\n\(note)",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Copy", style: .default) { [weak self] _ in
+            UIPasteboard.general.string = "\(address)\n\(note)"
+            guard let self else { return }
+            Toast.show("Report copied", from: self)
+        })
+        alert.addAction(UIAlertAction(title: "Open Mail", style: .default) { [weak self] _ in
+            self?.openBrokenSiteMailto(address: address, subject: subject, page: page)
+        })
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(alert, animated: true)
+    }
+
+    private func openBrokenSiteMailto(address: String, subject: String, page: String) {
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
+        let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: allowed) ?? subject
+        let encodedBody = page.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+        guard let url = URL(string: "mailto:\(address)?subject=\(encodedSubject)&body=\(encodedBody)") else { return }
+        UIApplication.shared.open(url, options: [:]) { [weak self] success in
+            DispatchQueue.main.async {
+                guard let self, !success else { return }
+                UIPasteboard.general.string = "\(address)\n\(subject)\n\(page)"
+                Toast.show("Report copied", from: self)
+            }
+        }
+    }
+
     private func openFeedback() {
         let address = "feedback@mmbrowser.app"
         var components = URLComponents()
@@ -3240,6 +3409,16 @@ extension BrowserViewController: TabUserAgentPickerDelegate {
         picker.dismiss(animated: true) {
             Toast.show("This tab looks like: \(settings.userAgentMode.displayName)", from: self)
         }
+    }
+}
+
+extension BrowserViewController: MFMailComposeViewControllerDelegate {
+    func mailComposeController(
+        _ controller: MFMailComposeViewController,
+        didFinishWith result: MFMailComposeResult,
+        error: Error?
+    ) {
+        controller.dismiss(animated: true)
     }
 }
 

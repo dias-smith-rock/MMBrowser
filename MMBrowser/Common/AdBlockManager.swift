@@ -90,8 +90,11 @@ final class AdBlockManager {
             for webView in webViews {
                 let ucc = webView.configuration.userContentController
                 ucc.removeAllContentRuleLists()
-                if let network { ucc.add(network) }
-                if let cosmetic { ucc.add(cosmetic) }
+                let blockTrackers = SiteBlockingStore.isProtectionOn(for: webView.url)
+                if blockTrackers {
+                    if let network { ucc.add(network) }
+                    if let cosmetic { ucc.add(cosmetic) }
+                }
                 if let image { ucc.add(image) }
             }
             completion()

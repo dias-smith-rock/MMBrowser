@@ -122,6 +122,10 @@
 		F28F14D6142F47C884D1BE09 /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2647202205AE48D0A2EE427F /* DownloadManager.swift */; };
 		F2B1B57129974773A3C8B6AF /* PrivacyInfoViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8CC67E16AD54E6D8184917D /* PrivacyInfoViewController.swift */; };
 		PRPTBLD0A1B2C3D4E5F60718 /* PrivacyReportViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PRPTFR0A1B2C3D4E5F607180 /* PrivacyReportViewController.swift */; };
+		SITEBLD0A1B2C3D4E5F60719 /* SiteBlockingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = SITEFR0A1B2C3D4E5F607190 /* SiteBlockingStore.swift */; };
+		ERASBLD0A1B2C3D4E5F60720 /* EraseBrowsingDataViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ERASFR0A1B2C3D4E5F607200 /* EraseBrowsingDataViewController.swift */; };
+		WHATBLD0A1B2C3D4E5F60721 /* WhatWeCollectViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = WHATFR0A1B2C3D4E5F607210 /* WhatWeCollectViewController.swift */; };
+		SRCHBLD0A1B2C3D4E5F60722 /* SearchPrivacyPromptViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRCHFR0A1B2C3D4E5F607220 /* SearchPrivacyPromptViewController.swift */; };
 		GPCBLD01A2B3C4D5E6F70819 /* GlobalPrivacyControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = GPCFR01A2B3C4D5E6F708190 /* GlobalPrivacyControl.swift */; };
 		PRBLD01A2B3C4D5E6F708191 /* PrivacyRecommendedViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PRFR01A2B3C4D5E6F7081910 /* PrivacyRecommendedViewController.swift */; };
 		F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B4BFF2E376570F7159D72FDE /* Pods_MMBrowser.framework */; };
@@ -307,6 +311,10 @@
 		E248C7687DE44E8C99A7001F /* ReaderViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderViewController.swift; sourceTree = "<group>"; };
 		E8CC67E16AD54E6D8184917D /* PrivacyInfoViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyInfoViewController.swift; sourceTree = "<group>"; };
 		PRPTFR0A1B2C3D4E5F607180 /* PrivacyReportViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyReportViewController.swift; sourceTree = "<group>"; };
+		SITEFR0A1B2C3D4E5F607190 /* SiteBlockingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiteBlockingStore.swift; sourceTree = "<group>"; };
+		ERASFR0A1B2C3D4E5F607200 /* EraseBrowsingDataViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EraseBrowsingDataViewController.swift; sourceTree = "<group>"; };
+		WHATFR0A1B2C3D4E5F607210 /* WhatWeCollectViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatWeCollectViewController.swift; sourceTree = "<group>"; };
+		SRCHFR0A1B2C3D4E5F607220 /* SearchPrivacyPromptViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchPrivacyPromptViewController.swift; sourceTree = "<group>"; };
 		GPCFR01A2B3C4D5E6F708190 /* GlobalPrivacyControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalPrivacyControl.swift; sourceTree = "<group>"; };
 		PRFR01A2B3C4D5E6F7081910 /* PrivacyRecommendedViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyRecommendedViewController.swift; sourceTree = "<group>"; };
 		ED5EF1A8CF7C4FDF9609AC37 /* DownloadsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsViewController.swift; sourceTree = "<group>"; };
@@ -619,6 +627,9 @@
 				E8CC67E16AD54E6D8184917D /* PrivacyInfoViewController.swift */,
 				PRPTFR0A1B2C3D4E5F607180 /* PrivacyReportViewController.swift */,
 				GPCFR01A2B3C4D5E6F708190 /* GlobalPrivacyControl.swift */,
+				SITEFR0A1B2C3D4E5F607190 /* SiteBlockingStore.swift */,
+				ERASFR0A1B2C3D4E5F607200 /* EraseBrowsingDataViewController.swift */,
+				WHATFR0A1B2C3D4E5F607210 /* WhatWeCollectViewController.swift */,
 			);
 			path = Privacy;
 			sourceTree = "<group>";
@@ -636,6 +647,7 @@
 			isa = PBXGroup;
 			children = (
 				FH00FR01010101010101 /* FeatureHighlightsViewController.swift */,
+				SRCHFR0A1B2C3D4E5F607220 /* SearchPrivacyPromptViewController.swift */,
 				83C808C4483D46408CF5B93A /* AccountOnboardingWowViewController.swift */,
 				D201F70CA9F44BF2B13F17C2 /* OnboardingViewController.swift */,
 			);
@@ -1009,6 +1021,10 @@
 				72902D8D6B914EADAB7C35DF /* DangerousSiteGuard.swift in Sources */,
 				F2B1B57129974773A3C8B6AF /* PrivacyInfoViewController.swift in Sources */,
 				PRPTBLD0A1B2C3D4E5F60718 /* PrivacyReportViewController.swift in Sources */,
+				SITEBLD0A1B2C3D4E5F60719 /* SiteBlockingStore.swift in Sources */,
+				ERASBLD0A1B2C3D4E5F60720 /* EraseBrowsingDataViewController.swift in Sources */,
+				WHATBLD0A1B2C3D4E5F60721 /* WhatWeCollectViewController.swift in Sources */,
+				SRCHBLD0A1B2C3D4E5F60722 /* SearchPrivacyPromptViewController.swift in Sources */,
 				GPCBLD01A2B3C4D5E6F70819 /* GlobalPrivacyControl.swift in Sources */,
 				PRBLD01A2B3C4D5E6F708191 /* PrivacyRecommendedViewController.swift in Sources */,
 				A4153472FE2745C1842E61D9 /* FindInPageBar.swift in Sources */,

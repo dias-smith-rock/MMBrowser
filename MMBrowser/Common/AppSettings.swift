@@ -96,6 +96,25 @@ enum AppSettings {
         }
     }
 
+    /// Crashlytics + Analytics. Default on, matching the previous always-on Firebase setup.
+    static var shareDiagnostics: Bool {
+        get { d.object(forKey: "privacy.shareDiagnostics") == nil ? true : d.bool(forKey: "privacy.shareDiagnostics") }
+        set {
+            d.set(newValue, forKey: "privacy.shareDiagnostics")
+            NotificationCenter.default.post(name: .shareDiagnosticsChanged, object: nil)
+        }
+    }
+
+    static var didShowSearchPrivacyPrompt: Bool {
+        get { d.bool(forKey: "search.privacyPrompt.done") }
+        set { d.set(newValue, forKey: "search.privacyPrompt.done") }
+    }
+
+    static var didShowDefaultBrowserPrompt: Bool {
+        get { d.bool(forKey: "defaultBrowser.prompt.done") }
+        set { d.set(newValue, forKey: "defaultBrowser.prompt.done") }
+    }
+
     static var searchEngineID: String {
         get { d.string(forKey: "search.engine") ?? SearchEngine.youTube.id }
         set { d.set(newValue, forKey: "search.engine") }
@@ -324,6 +343,7 @@ extension Notification.Name {
     static let mediaPlaybackSettingsChanged = Notification.Name("mmbrowser.media.changed")
     static let locationPrivacyChanged = Notification.Name("mmbrowser.location.changed")
     static let globalPrivacyControlChanged = Notification.Name("mmbrowser.gpc.changed")
+    static let shareDiagnosticsChanged = Notification.Name("mmbrowser.diagnostics.changed")
     static let clearOptionSettingsChanged = Notification.Name("mmbrowser.clearOption.changed")
     /// Posted after scheduled clear so the browser can close tabs if configured.
     static let clearOptionSessionCleanup = Notification.Name("mmbrowser.clearOption.sessionCleanup")

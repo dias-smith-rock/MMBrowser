@@ -18,6 +18,7 @@ final class FilterUpdateManager {
     private let defaults = UserDefaults.standard
     private let cacheFileName = "mmbrowser_filter_manifest.json"
     private(set) var health: Health = .offline
+    private(set) var lastRemoteUpdate: Date?
     private(set) var manifestVersion: Int = 0
     private(set) var remoteAllowsYouTubeAdShield: Bool = true
     private(set) var youtubeAdShieldScript: String = ""
@@ -27,6 +28,7 @@ final class FilterUpdateManager {
     private var isRefreshing = false
 
     private init() {
+        lastRemoteUpdate = defaults.object(forKey: "filters.lastRemoteUpdate") as? Date
         shortsCSSSelectors = Self.sanitizedShortsSelectors(Self.defaultShortsSelectors)
         networkDomains = Self.mergedUnique(Self.defaultNetworkDomains + Self.videoAdNetworkDomains)
         cosmeticSelectors = Self.mergedUnique(Self.defaultCosmeticSelectors + Self.videoAdCosmeticSelectors)
@@ -48,6 +50,17 @@ final class FilterUpdateManager {
             health = manifestVersion > 0 ? .ok : .offline
             NotificationCenter.default.post(name: .filterStatusChanged, object: nil)
         }
+    }
+
+    var filterStatusLine: String {
+        if health == .ok, lastRemoteUpdate != nil {
+            return "Up to date"
+        }
+        if let lastRemoteUpdate {
+            let formatted = DateFormatter.localizedString(from: lastRemoteUpdate, dateStyle: .medium, timeStyle: .short)
+            return "Last updated: \(formatted)"
+        }
+        return statusSummary
     }
 
     var statusSummary: String {
@@ -152,6 +165,8 @@ final class FilterUpdateManager {
             cosmeticSelectors = Self.mergedUnique(cosmetics + Self.videoAdCosmeticSelectors)
         }
         if fromRemote {
+            lastRemoteUpdate = Date()
+            defaults.set(lastRemoteUpdate, forKey: "filters.lastRemoteUpdate")
             try? rawData.write(to: cacheURL, options: .atomic)
             health = version > previous ? .updateAvailable : .ok
             // After applying a fresh remote config, treat as OK.

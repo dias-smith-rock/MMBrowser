@@ -22,8 +22,9 @@ enum FirebaseBootstrap {
             FirebaseApp.configure()
         }
         didConfigure = true
-        Crashlytics.crashlytics().setCrashlyticsCollectionEnabled(true)
-        Analytics.setAnalyticsCollectionEnabled(true)
+        let diagnostics = AppSettings.shareDiagnostics
+        Crashlytics.crashlytics().setCrashlyticsCollectionEnabled(diagnostics)
+        Analytics.setAnalyticsCollectionEnabled(diagnostics)
         RemoteConfigManager.shared.start()
         AppAnalytics.logAppOpen()
     }

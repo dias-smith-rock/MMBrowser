@@ -290,6 +290,8 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
     private var allowedDangerousURLString: String?
     /// Stops a Sec-GPC rewrite from looping if WebKit drops the header.
     private var gpcRewriteInFlightURL: String?
+    /// Whether ad/tracker content rules currently match this web view's host.
+    private var contentRulesMatchProtection = AppSettings.trackerProtectionEnabled
     private var tabUserAgentSettings = TabUserAgentSettings(userAgentMode: .automatic, customUserAgent: nil)
 
     /// Current per-tab look settings (Automatic / Mobile / Computer / Custom).
@@ -2551,6 +2553,15 @@ extension WebViewController: WKNavigationDelegate {
                 notifyDelegateOnMain {
                     $0.delegate?.webViewController($0, didUpdateURL: url)
                 }
+            }
+            if isMainFrame, SiteBlockingStore.isProtectionOn(for: url) != contentRulesMatchProtection {
+                let next = SiteBlockingStore.isProtectionOn(for: url)
+                decisionHandler(.cancel)
+                AdBlockManager.shared.refreshContentRuleLists(on: [webView]) { [weak self, weak webView] in
+                    self?.contentRulesMatchProtection = next
+                    webView?.load(GlobalPrivacyControl.applying(to: URLRequest(url: url)))
+                }
+                return
             }
         }
         if GlobalPrivacyControl.shouldRewriteMainFrame(navigationAction),

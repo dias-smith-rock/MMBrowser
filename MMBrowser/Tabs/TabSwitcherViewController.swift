@@ -33,6 +33,7 @@ final class TabSwitcherViewController: UIViewController {
     private let contentStack = UIStackView()
     private let privateHintLabel = UILabel()
     private let privateHintWrap = UIView()
+    private let eraseButton = UIButton(type: .custom)
     private let bookmarksSection = UIStackView()
     private let historySection = UIStackView()
     private let bookmarksTable = UITableView(frame: .zero, style: .plain)
@@ -443,6 +444,11 @@ final class TabSwitcherViewController: UIViewController {
         privateButton.accessibilityHint = "No lasting history or cookies. Downloads are off. Does not hide your IP."
         privateButton.addTarget(self, action: #selector(privateTapped), for: .touchUpInside)
 
+        eraseButton.setTitle("🔥", for: .normal)
+        eraseButton.titleLabel?.font = .systemFont(ofSize: 22)
+        eraseButton.accessibilityLabel = "Erase browsing data"
+        eraseButton.addTarget(self, action: #selector(eraseTapped), for: .touchUpInside)
+
         addButton.setImage(
             UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)),
             for: .normal
@@ -455,6 +461,7 @@ final class TabSwitcherViewController: UIViewController {
         doneButton.addTarget(self, action: #selector(doneTapped), for: .touchUpInside)
 
         bottomBar.addSubview(privateButton)
+        bottomBar.addSubview(eraseButton)
         bottomBar.addSubview(addButton)
         bottomBar.addSubview(doneButton)
 
@@ -464,9 +471,14 @@ final class TabSwitcherViewController: UIViewController {
             make.height.equalTo(56)
         }
         privateButton.snp.makeConstraints { make in
-            make.leading.equalToSuperview().offset(20)
+            make.leading.equalToSuperview().offset(16)
             make.centerY.equalToSuperview()
             make.height.equalTo(44)
+        }
+        eraseButton.snp.makeConstraints { make in
+            make.leading.equalTo(privateButton.snp.trailing).offset(4)
+            make.centerY.equalToSuperview()
+            make.width.height.equalTo(44)
         }
         addButton.snp.makeConstraints { make in
             make.center.equalToSuperview()
@@ -817,6 +829,40 @@ final class TabSwitcherViewController: UIViewController {
         }
         presentedAccountPopup = popup
         present(popup, animated: true)
+    }
+
+    @objc private func eraseTapped() {
+        let mode: EraseBrowsingDataViewController.Mode
+        if showingIncognito {
+            mode = .privateTabs
+        } else if let container = tabManager.container(id: focusedSpaceID) {
+            mode = .space(name: container.name, containerID: container.id, sessionID: container.sessionID)
+        } else {
+            return
+        }
+        let erase = EraseBrowsingDataViewController(
+            mode: mode,
+            allSpaces: tabManager.sortedContainers.map { ($0.id, $0.sessionID) }
+        )
+        erase.onFinished = { [weak self] outcome in
+            guard let self else { return }
+            switch outcome {
+            case .closedPrivateTabs:
+                self.tabManager.closeAllIncognitoTabs()
+            case .erasedSpaces(let ids):
+                for containerID in ids {
+                    let tabIDs = self.tabManager.normalTabs.filter { $0.containerID == containerID }.map(\.id)
+                    tabIDs.forEach { self.tabManager.closeTab(id: $0) }
+                    _ = self.tabManager.addTab(incognito: false, select: true, containerID: containerID)
+                }
+            }
+            self.reload()
+            Toast.show("Browsing data erased", from: self)
+        }
+        let nav = UINavigationController(rootViewController: erase)
+        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
+        present(nav, animated: true)
     }
 
     @objc private func privateTapped() {
