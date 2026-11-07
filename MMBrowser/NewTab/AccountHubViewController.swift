@@ -26,6 +26,7 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
 
     private let pagingScrollView = UIScrollView()
     private let pagesContainer = UIView()
+    private let settingsButton = UIButton(type: .system)
     private let premiumButton = UIButton(type: .system)
     private let closeButton = UIButton(type: .system)
 
@@ -134,6 +135,14 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
             make.height.equalTo(pagingScrollView.frameLayoutGuide)
         }
 
+        configureSettingsButton()
+        view.addSubview(settingsButton)
+        settingsButton.snp.makeConstraints { make in
+            make.top.equalTo(view.safeAreaLayoutGuide).offset(8)
+            make.leading.equalTo(view.safeAreaLayoutGuide).inset(16)
+            make.size.equalTo(32)
+        }
+
         configurePremiumButton()
         view.addSubview(premiumButton)
         premiumButton.snp.makeConstraints { make in
@@ -151,6 +160,18 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
                 make.trailing.equalTo(view.safeAreaLayoutGuide).inset(16)
             }
         }
+    }
+
+    private func configureSettingsButton() {
+        settingsButton.setImage(
+            UIImage(systemName: "gearshape.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)),
+            for: .normal
+        )
+        settingsButton.tintColor = .white
+        settingsButton.backgroundColor = UIColor.black.withAlphaComponent(0.28)
+        settingsButton.layer.cornerRadius = 16
+        settingsButton.accessibilityLabel = "Settings"
+        settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
     }
 
     private func configurePremiumButton() {
@@ -393,6 +414,10 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
 
     @objc private func closeTapped() {
         delegate?.accountHubDidRequestClose(self)
+    }
+
+    @objc private func settingsTapped() {
+        delegate?.accountHubDidRequestSettings(self)
     }
 
     @objc private func premiumTapped() {
