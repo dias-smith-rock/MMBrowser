@@ -24,6 +24,7 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
     private weak var tabManager: TabManager?
     private(set) var previewAccountID: UUID?
 
+    private let wallpaperView = HomeWallpaperBackdropView()
     private let pagingScrollView = UIScrollView()
     private let pagesContainer = UIView()
     private let settingsButton = UIButton(type: .system)
@@ -68,6 +69,7 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
 
     func reloadFromExternalChange() {
         guard isViewLoaded else { return }
+        applyResolvedSpaceChrome()
         rebuildPages(scrollToCurrent: true, animated: false)
         updatePremiumButtonVisibility()
     }
@@ -75,12 +77,14 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         updatePremiumButtonVisibility()
+        applyResolvedSpaceChrome()
     }
 
     func applySpaceChrome(spaceColor: UIColor?) {
         spaceTintColor = spaceColor
         guard isViewLoaded else { return }
         view.backgroundColor = BrowserTheme.spaceHomeColor(spaceColor: spaceColor)
+        wallpaperView.applyCurrent()
         pageViews.forEach { $0.applyAccent(spaceColor ?? BrowserTheme.chromeBlue) }
     }
 
@@ -110,6 +114,9 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
     // MARK: - Layout
 
     private func setupChrome() {
+        view.addSubview(wallpaperView)
+        wallpaperView.snp.makeConstraints { $0.edges.equalToSuperview() }
+
         pagingScrollView.isPagingEnabled = true
         pagingScrollView.isDirectionalLockEnabled = true
         pagingScrollView.showsHorizontalScrollIndicator = false
@@ -121,9 +128,11 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         pagingScrollView.contentInsetAdjustmentBehavior = .never
         pagingScrollView.delaysContentTouches = false
         pagingScrollView.decelerationRate = .fast
+        pagingScrollView.backgroundColor = .clear
 
         view.addSubview(pagingScrollView)
         pagingScrollView.addSubview(pagesContainer)
+        pagesContainer.backgroundColor = .clear
 
         pagingScrollView.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide)
@@ -518,6 +527,9 @@ private final class SpaceHomePageView: UIView {
     }
 
     private func setup() {
+        backgroundColor = .clear
+        scrollView.backgroundColor = .clear
+        contentView.backgroundColor = .clear
         scrollView.alwaysBounceVertical = true
         scrollView.isDirectionalLockEnabled = true
         scrollView.showsVerticalScrollIndicator = false

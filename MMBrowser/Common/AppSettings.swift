@@ -125,6 +125,36 @@ enum AppSettings {
         set { d.set(newValue, forKey: "home.wallpaper"); NotificationCenter.default.post(name: .homeSettingsChanged, object: nil) }
     }
 
+    /// `HomeWallpaper.FitMode.rawValue` — Fit / Tile / Stretch / Fill.
+    static var homeWallpaperFitMode: Int {
+        get {
+            if d.object(forKey: "home.wallpaper.fitMode") == nil {
+                return HomeWallpaper.FitMode.fill.rawValue
+            }
+            return d.integer(forKey: "home.wallpaper.fitMode")
+        }
+        set {
+            d.set(newValue, forKey: "home.wallpaper.fitMode")
+            NotificationCenter.default.post(name: .homeSettingsChanged, object: nil)
+        }
+    }
+
+    /// Dark overlay strength over wallpaper photos (0…0.8). Default 0.40.
+    static var homeWallpaperOverlayOpacity: Double {
+        get {
+            if d.object(forKey: "home.wallpaper.overlay") == nil { return 0.40 }
+            return min(max(d.double(forKey: "home.wallpaper.overlay"), 0), 0.8)
+        }
+        set { setHomeWallpaperOverlayOpacity(newValue, notify: true) }
+    }
+
+    static func setHomeWallpaperOverlayOpacity(_ value: Double, notify: Bool) {
+        d.set(min(max(value, 0), 0.8), forKey: "home.wallpaper.overlay")
+        if notify {
+            NotificationCenter.default.post(name: .homeSettingsChanged, object: nil)
+        }
+    }
+
     static var themePackID: String {
         get { d.string(forKey: "theme.pack.id") ?? "default" }
         set { d.set(newValue, forKey: "theme.pack.id") }

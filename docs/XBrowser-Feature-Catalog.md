@@ -165,8 +165,8 @@ Native player used for supported streams (alongside system PiP where applicable)
 | Feature | Description |
 | --- | --- |
 | **Themes** | Theme packs (e.g. Default, Minimal, Cute, Steady, Feminine). |
-| **Home wallpaper** | Home background colors / wallpaper options. |
-| **Background gallery** | Additional background choices. |
+| **Home wallpaper** | Space home / New Tab wallpapers: Default, Deep Blue, Forest & Midnight photos, plus Custom photo upload. Display modes Fit / Tile / Stretch / Fill, with adjustable dark overlay mask for readability. |
+| **Background gallery** | Menu shortcut into Appearance → Wallpaper. |
 | **Onboarding (Feature Highlights)** | First-run Highlights lead with private-by-default protections, then Spaces, locks, and background playback. Split View Wow waits until the first toolbar page-menu tap. No auto VIP paywall (and home crown hidden) on the install calendar day. |
 | **Tips** | Lightweight UX tips (address-bar tab swipe; post-onboarding ads shield and Background Audio toasts for new users). |
 | **What's New / about copy** | In-app feature summary strings for releases and settings. |

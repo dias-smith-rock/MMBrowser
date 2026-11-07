@@ -20,6 +20,7 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
     private var accountColor: UIColor = BrowserTheme.chromeBlue
     private var accountCount = 1
     private var pinnedSites: [NavigationSite] = []
+    private let wallpaperView = HomeWallpaperBackdropView()
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let logoView = GoogleLogoView()
@@ -62,6 +63,7 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
 
     @objc func applyHomeSettings() {
         view.backgroundColor = BrowserTheme.homeWallpaperColor()
+        wallpaperView.applyCurrent()
         styleHeaderChip(editButton)
         styleHeaderChip(settingsButton)
         logoView.applyTheme()
@@ -112,11 +114,16 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
     }
 
     private func setupLayout() {
+        view.addSubview(wallpaperView)
+        wallpaperView.snp.makeConstraints { $0.edges.equalToSuperview() }
+
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
         scrollView.alwaysBounceVertical = true
         scrollView.keyboardDismissMode = .onDrag
         scrollView.showsVerticalScrollIndicator = false
+        scrollView.backgroundColor = .clear
+        contentView.backgroundColor = .clear
 
         scrollView.snp.makeConstraints { $0.edges.equalToSuperview() }
         contentView.snp.makeConstraints { make in

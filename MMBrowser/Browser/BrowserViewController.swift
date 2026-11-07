@@ -71,6 +71,7 @@ final class BrowserViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSessionCleanup), name: .clearOptionSessionCleanup, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(handleClearOptionSettingsChanged), name: .clearOptionSettingsChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeDidChange, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(homeSettingsChanged), name: .homeSettingsChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillChange(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)), name: UIResponder.keyboardWillHideNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
@@ -359,6 +360,13 @@ final class BrowserViewController: UIViewController {
 
     @objc private func themeChanged() {
         overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
+        let isPrivate = tabManager.selectedTab?.isIncognito == true
+        applyPrivateChrome(isPrivate)
+        accountHubController?.reloadFromExternalChange()
+        privateNewTabController?.applyTheme()
+    }
+
+    @objc private func homeSettingsChanged() {
         let isPrivate = tabManager.selectedTab?.isIncognito == true
         applyPrivateChrome(isPrivate)
         accountHubController?.reloadFromExternalChange()

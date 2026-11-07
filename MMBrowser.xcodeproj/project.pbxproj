@@ -25,6 +25,8 @@
 		3E002237DEF54CE88D630EE4 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12BD4B168F4A48569EA59EC0 /* ViewController.swift */; };
 		43CD2A8A285048089F27FA41 /* ContainerSiteDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4948D0B6E24B56857954CC /* ContainerSiteDataService.swift */; };
 		47C017E84DF14D329312A9B6 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1779FCB4C5AF48C29F8F9FFA /* Theme.swift */; };
+		HWP00BF01010101010101 /* HomeWallpaper.swift in Sources */ = {isa = PBXBuildFile; fileRef = HWP00FR01010101010101 /* HomeWallpaper.swift */; };
+		HWP00BF01010101010102 /* HomeWallpaperBackdropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = HWP00FR01010101010102 /* HomeWallpaperBackdropView.swift */; };
 		48C0A4946FCF422DB594031C /* ReadingListStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0348F54E284419696A84A8F /* ReadingListStore.swift */; };
 		507CD547382648B78025B3EB /* VideoAdShield.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EBAB3820B56436C9BF269A0 /* VideoAdShield.swift */; };
 		511134C2A659495F886AAE3C /* FindInPageScript.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D72133D7604D248E81F8DE /* FindInPageScript.swift */; };
@@ -207,6 +209,8 @@
 		12BD4B168F4A48569EA59EC0 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		148219CAF76C4E93AD37C016 /* DefaultFilterManifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = DefaultFilterManifest.json; sourceTree = "<group>"; };
 		1779FCB4C5AF48C29F8F9FFA /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		HWP00FR01010101010101 /* HomeWallpaper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeWallpaper.swift; sourceTree = "<group>"; };
+		HWP00FR01010101010102 /* HomeWallpaperBackdropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeWallpaperBackdropView.swift; sourceTree = "<group>"; };
 		1BEF9DC2EA4A4FECB9B302B7 /* HistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryStore.swift; sourceTree = "<group>"; };
 		227B279F47CA4EFE986E5EC9 /* AccountSwitcherViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSwitcherViewController.swift; sourceTree = "<group>"; };
 		2647202205AE48D0A2EE427F /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManager.swift; sourceTree = "<group>"; };
@@ -674,6 +678,8 @@
 				A1B2C3D4E5F6020202020233 /* LocationPermissionHelper.swift */,
 				3979F26B75FD439E9108F7A7 /* LetterAvatarView.swift */,
 				1779FCB4C5AF48C29F8F9FFA /* Theme.swift */,
+				HWP00FR01010101010101 /* HomeWallpaper.swift */,
+				HWP00FR01010101010102 /* HomeWallpaperBackdropView.swift */,
 				37FC46822386450BA067F7F5 /* Toast.swift */,
 				A1B2C3D4E5F60202020202L1 /* AppL10n.swift */,
 				TIP0SWIPEA1B2C3D4E5F60002 /* AddressBarSwipeTipView.swift */,
@@ -965,6 +971,8 @@
 				A1B2C3D4E5F6010101010133 /* LocationPermissionHelper.swift in Sources */,
 				5F551AC16CAD4143A1593E53 /* LetterAvatarView.swift in Sources */,
 				47C017E84DF14D329312A9B6 /* Theme.swift in Sources */,
+				HWP00BF01010101010101 /* HomeWallpaper.swift in Sources */,
+				HWP00BF01010101010102 /* HomeWallpaperBackdropView.swift in Sources */,
 				A1B2C3D4E5F6010101010160 /* ThemePack.swift in Sources */,
 				A1B2C3D4E5F6010101010161 /* BuiltinThemePacks.swift in Sources */,
 				A1B2C3D4E5F6010101010162 /* ThemeManager.swift in Sources */,

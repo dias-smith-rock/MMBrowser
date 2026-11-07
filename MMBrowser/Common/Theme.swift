@@ -39,16 +39,16 @@ enum BrowserTheme {
         if isLight {
             return [
                 base,
-                blend(base, ThemeHex.color("6B8FD4"), amount: 0.22),
-                blend(base, ThemeHex.color("5FA86E"), amount: 0.18),
-                blend(base, ThemeHex.color("6B5A78"), amount: 0.16)
+                blend(base, ThemeHex.color("6B8FD4"), amount: 0.32),
+                blend(base, ThemeHex.color("5FA86E"), amount: 0.28),
+                blend(base, ThemeHex.color("6B5A78"), amount: 0.26)
             ]
         }
         return [
             base,
-            blend(base, ThemeHex.color("1A2A4A"), amount: 0.55),
-            blend(base, ThemeHex.color("152818"), amount: 0.55),
-            blend(base, ThemeHex.color("0C0C14"), amount: 0.70)
+            blend(base, ThemeHex.color("1A2A4A"), amount: 0.72),
+            blend(base, ThemeHex.color("152818"), amount: 0.72),
+            blend(base, ThemeHex.color("0C0C14"), amount: 0.85)
         ]
     }
 
@@ -66,10 +66,11 @@ enum BrowserTheme {
     }
 
     /// Home wallpaper blended with the active Space accent.
+    /// Keep wallpaper dominant so Appearance → Wallpaper choices stay visible on Space home.
     static func spaceHomeColor(spaceColor: UIColor?, wallpaperIndex: Int = AppSettings.homeWallpaperIndex) -> UIColor {
         let base = homeWallpaperColor(at: wallpaperIndex)
         guard let spaceColor else { return base }
-        let amount: CGFloat = ThemeManager.shared.current.isLight ? 0.18 : 0.36
+        let amount: CGFloat = ThemeManager.shared.current.isLight ? 0.12 : 0.20
         return blend(base, spaceColor, amount: amount)
     }
 
