@@ -1073,8 +1073,17 @@ final class BrowserViewController: UIViewController {
     }
 
     override var preferredStatusBarStyle: UIStatusBarStyle {
-        // Content stays below the status bar fill even when chrome is collapsed.
-        .default
+        // Space home wallpaper bleeds under the status bar; prefer light icons over photos.
+        if isShowingSpaceHome, HomeWallpaper.selected != .default {
+            return .lightContent
+        }
+        return .default
+    }
+
+    /// Non-private Space home (Account Hub) — wallpaper should edge-to-edge under the status bar.
+    private var isShowingSpaceHome: Bool {
+        guard let tab = tabManager.selectedTab else { return false }
+        return tab.isNewTabPage && !tab.isIncognito
     }
 
     private func updateCollapsedProgressVisibility() {
@@ -1129,14 +1138,29 @@ final class BrowserViewController: UIViewController {
             isChromeCollapsed = false
             updateChromeBottomOffset(animated: false)
         }
-        contentClipView.snp.remakeConstraints { make in
-            contentTopConstraint = make.top.equalTo(view.safeAreaLayoutGuide.snp.top).constraint
-            make.leading.trailing.equalToSuperview()
-            make.bottom.equalToSuperview()
-        }
+        updateHomeFullBleedLayout()
         updateWebChromeContentInset()
         view.layoutIfNeeded()
         setNeedsStatusBarAppearanceUpdate()
+    }
+
+    /// Pin Space home under the status bar so wallpaper is truly full-screen at the top.
+    private func updateHomeFullBleedLayout() {
+        let fullBleed = isShowingSpaceHome
+        statusBarFill.isHidden = fullBleed
+        if !fullBleed {
+            statusBarFill.alpha = 1
+            statusBarFill.backgroundColor = view.backgroundColor
+        }
+        contentClipView.snp.remakeConstraints { make in
+            if fullBleed {
+                contentTopConstraint = make.top.equalToSuperview().constraint
+            } else {
+                contentTopConstraint = make.top.equalTo(view.safeAreaLayoutGuide.snp.top).constraint
+            }
+            make.leading.trailing.equalToSuperview()
+            make.bottom.equalToSuperview()
+        }
     }
 
     /// Keep page content scrollable above the floating chrome; page paints through the home-indicator band.
@@ -1425,9 +1449,8 @@ final class BrowserViewController: UIViewController {
                 ? BrowserTheme.spaceHomeColor(spaceColor: spaceColor)
                 : BrowserTheme.spaceSurfaceColor(spaceColor: spaceColor))
         view.backgroundColor = bg
-        statusBarFill.backgroundColor = bg
         contentClipView.backgroundColor = bg
-        contentContainer.backgroundColor = bg
+        contentContainer.backgroundColor = onHome ? .clear : bg
         chromeHost.backgroundColor = .clear
         // Shared floating card (same on home and web). Home-indicator band stays clear of this fill.
         if !isChromeCollapsed {
@@ -1445,6 +1468,8 @@ final class BrowserViewController: UIViewController {
             collapsedProgressView.progressTintColor = spaceColor ?? BrowserTheme.chromeBlue
         }
         accountHubController?.applySpaceChrome(spaceColor: spaceColor)
+        updateHomeFullBleedLayout()
+        setNeedsStatusBarAppearanceUpdate()
     }
 
     /// Floating address+toolbar card fill — Space accent when not Private.

@@ -2,18 +2,54 @@ import UIKit
 import SnapKit
 import SafariServices
 
+/// Root Settings — Brave-style VIP card + categorized hubs.
 final class SettingsViewController: UIViewController, UITableViewDataSource, UITableViewDelegate {
-    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private enum Section: Int, CaseIterable {
-        case premium, privacyProtections, privacyData, privacyAccess, privacyLearn, accounts, tools, youtube, media, searchPrivacy, searchGeneral, home, about
+        case premium
+        case features
+        case general
+        case display
+        case spaces
+        case support
+        case about
     }
 
-    private enum AboutLinks {
+    private enum FeatureRow: Int, CaseIterable {
+        case privacy, playback, webEditor
+    }
+
+    private enum GeneralRow: Int, CaseIterable {
+        case search, appLock, location, clearOption, defaultBrowser
+
+        static var visible: [GeneralRow] {
+            allCases.filter { $0 != .defaultBrowser || DefaultBrowserFeature.isEnabled }
+        }
+    }
+
+    private enum DisplayRow: Int, CaseIterable {
+        case appearance
+    }
+
+    private enum SpacesRow: Int, CaseIterable {
+        case manage, isolated
+    }
+
+    private enum SupportRow: Int, CaseIterable {
+        case whatsNew, rateUs, contact
+    }
+
+    private enum AboutRow: Int, CaseIterable {
+        case version, filters, privacyPolicy, terms
+    }
+
+    private enum Legal {
         static let privacy = URL(string: "https://xxxxxbrowser.cc/privacy.html")!
         static let terms = URL(string: "https://xxxxxbrowser.cc/terms.html")!
         static let rateUs = URL(string: "https://apps.apple.com/app/id6804914972?action=write-review")!
         static let contactUs = URL(string: "mailto:gaowei85714@gmail.com")!
     }
+
+    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
 
     var onRequestRebuildWebViews: (() -> Void)?
     var onAccountsChanged: (() -> Void)?
@@ -28,11 +64,16 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        tableView.register(SettingsPremiumCardCell.self, forCellReuseIdentifier: SettingsPremiumCardCell.reuseID)
+        tableView.separatorInset = UIEdgeInsets(top: 0, left: 52, bottom: 0, right: 0)
         view.addSubview(tableView)
         tableView.snp.makeConstraints { $0.edges.equalToSuperview() }
 
-        NotificationCenter.default.addObserver(self, selector: #selector(filterStatusChanged), name: .filterStatusChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(themeChanged), name: .themeDidChange, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(homeChanged), name: .homeSettingsChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(searchChanged), name: .searchEngineChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(premiumChanged), name: .premiumStatusDidChange, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(filterStatusChanged), name: .filterStatusChanged, object: nil)
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
@@ -43,17 +84,15 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         tableView.reloadData()
     }
 
-    @objc private func filterStatusChanged() {
-        tableView.reloadSections(
-            IndexSet([Section.privacyProtections.rawValue, Section.about.rawValue]),
-            with: .none
-        )
-    }
-
     @objc private func themeChanged() {
         applyChrome()
         tableView.reloadData()
     }
+
+    @objc private func homeChanged() { tableView.reloadData() }
+    @objc private func searchChanged() { tableView.reloadData() }
+    @objc private func premiumChanged() { tableView.reloadData() }
+    @objc private func filterStatusChanged() { tableView.reloadData() }
 
     private func applyChrome() {
         view.backgroundColor = BrowserTheme.background
@@ -65,281 +104,116 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         }
     }
 
+    // MARK: - Table
+
     func numberOfSections(in tableView: UITableView) -> Int { Section.allCases.count }
+
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         switch Section(rawValue: section)! {
         case .premium: return 1
-        case .privacyProtections: return 6
-        case .privacyData: return 4
-        case .privacyAccess: return DefaultBrowserFeature.isEnabled ? 3 : 2
-        case .privacyLearn: return 2
-        case .accounts: return 2
-        case .tools: return 1
-        case .youtube: return 2
-        case .media: return 2
-        case .searchPrivacy: return SearchEngine.privacyFriendly.count
-        case .searchGeneral: return SearchEngine.general.count
-        case .home: return 1
-        case .about: return 7
+        case .features: return FeatureRow.allCases.count
+        case .general: return GeneralRow.visible.count
+        case .display: return DisplayRow.allCases.count
+        case .spaces: return SpacesRow.allCases.count
+        case .support: return SupportRow.allCases.count
+        case .about: return AboutRow.allCases.count
         }
     }
 
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
-        case .premium: return "Premium"
-        case .privacyProtections: return "Protections"
-        case .privacyData: return "Data"
-        case .privacyAccess: return "Access"
-        case .privacyLearn: return "Learn more"
-        case .accounts: return "Spaces"
-        case .tools: return "Tools"
-        case .youtube: return "Focus & Video"
-        case .media: return "Media"
-        case .searchPrivacy: return "Privacy-friendly"
-        case .searchGeneral: return "General"
-        case .home: return "Appearance"
+        case .premium: return nil
+        case .features: return "Features"
+        case .general: return "General"
+        case .display: return "Display"
+        case .spaces: return "Spaces"
+        case .support: return "Support"
         case .about: return "About"
         }
     }
 
-    func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
-        switch Section(rawValue: section)! {
-        case .premium:
-            return "Free includes \(PremiumStore.freeSpaceLimit) Spaces. Premium unlocks unlimited Spaces and Space Lock."
-        case .privacyProtections:
-            return "Filter lists can update when sites change. Protection is best-effort."
-        case .privacyData:
-            return "Cookies, cache, history, and bookmarks are stored per Space. Tabs in the same Space share that Space’s data. Cache, cookies, history, and local storage clear when you leave the app unless you turn them off in Clear Option."
-        case .searchGeneral:
-            return "Used for address-bar search."
-        case .privacyAccess:
-            return "Location Deny/Spoof only affects GPS-like browser APIs—not your network IP."
-        case .accounts:
-            return "Spaces keep separate cookies, history, bookmarks, Watch Later, Reading List, home shortcuts, and passwords. Downloaded files are Shared across Spaces."
-        case .tools:
-            return "Hide page elements and save rules for sites you visit often."
-        case .youtube:
-            return "Fewer YouTube interruptions is best-effort and may stop working when the site changes. Shorts Focus hides Shorts shelves and redirects Shorts links."
-        case .media:
-            return "Background audio keeps supported video sites playing when you leave the app. Picture in Picture requires system support."
-        default:
-            return nil
-        }
-    }
+    func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? { nil }
 
-    
     func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
         BrowserTheme.styleSectionHeaderFooter(view)
     }
 
-    func tableView(_ tableView: UITableView, willDisplayFooterView view: UIView, forSection section: Int) {
-        BrowserTheme.styleSectionHeaderFooter(view)
+    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        Section(rawValue: indexPath.section) == .premium ? UITableView.automaticDimension : 52
+    }
+
+    func tableView(_ tableView: UITableView, estimatedHeightForRowAt indexPath: IndexPath) -> CGFloat {
+        Section(rawValue: indexPath.section) == .premium ? 168 : 52
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "cell") ?? UITableViewCell(style: .subtitle, reuseIdentifier: "cell")
-        cell.backgroundColor = BrowserTheme.card
-        cell.textLabel?.textColor = BrowserTheme.textPrimary
-        cell.detailTextLabel?.textColor = BrowserTheme.textSecondary
-        cell.detailTextLabel?.text = nil
-        cell.accessoryView = nil
-        cell.accessoryType = .none
-        cell.selectionStyle = .default
-
         switch Section(rawValue: indexPath.section)! {
         case .premium:
-            cell.textLabel?.text = "XBrowser Premium"
-            cell.detailTextLabel?.text = PremiumStore.shared.isPremiumActive ? "Active" : "Spaces & Space Lock"
-            cell.accessoryType = .disclosureIndicator
-        case .privacyProtections:
-            switch indexPath.row {
-            case 0:
-                cell.textLabel?.text = "Recommended for privacy"
-                cell.detailTextLabel?.text = "Private-browser defaults"
-                cell.accessoryType = .disclosureIndicator
-            case 1:
-                cell.textLabel?.text = "Block Ads & Trackers"
-                cell.detailTextLabel?.text = "Network ads, trackers, and page banners"
-                cell.selectionStyle = .none
-                let sw = UISwitch()
-                sw.isOn = AppSettings.trackerProtectionEnabled
-                sw.addTarget(self, action: #selector(tpChanged(_:)), for: .valueChanged)
-                cell.accessoryView = sw
-            case 2:
-                cell.textLabel?.text = "Accurate Block Count"
-                cell.detailTextLabel?.text = "Shield badge via page scan · uses more CPU"
-                cell.selectionStyle = .none
-                let sw = UISwitch()
-                sw.isOn = AppSettings.accurateBlockCountEnabled
-                sw.isEnabled = AppSettings.trackerProtectionEnabled
-                sw.addTarget(self, action: #selector(accurateBlockCountChanged(_:)), for: .valueChanged)
-                cell.accessoryView = sw
-            case 3:
-                cell.textLabel?.text = "HTTPS First"
-                cell.detailTextLabel?.text = "Prefer secure connections"
-                cell.selectionStyle = .none
-                let sw = UISwitch()
-                sw.isOn = AppSettings.httpsOnly
-                sw.addTarget(self, action: #selector(httpsChanged(_:)), for: .valueChanged)
-                cell.accessoryView = sw
-            case 4:
-                cell.textLabel?.text = "Global Privacy Control"
-                cell.detailTextLabel?.text = "Sec-GPC opt-out signal"
-                cell.selectionStyle = .none
-                let sw = UISwitch()
-                sw.isOn = AppSettings.globalPrivacyControlEnabled
-                sw.addTarget(self, action: #selector(gpcChanged(_:)), for: .valueChanged)
-                cell.accessoryView = sw
-            default:
-                cell.textLabel?.text = "Filter lists"
-                cell.detailTextLabel?.text = FilterUpdateManager.shared.filterStatusLine
-                cell.accessoryType = .disclosureIndicator
+            let cell = tableView.dequeueReusableCell(withIdentifier: SettingsPremiumCardCell.reuseID, for: indexPath) as! SettingsPremiumCardCell
+            cell.configure(isActive: PremiumStore.shared.isPremiumActive) { [weak self] in
+                guard let self else { return }
+                PremiumCoordinator.presentPaywall(from: self, source: "settings")
             }
-        case .privacyData:
-            switch indexPath.row {
-            case 0:
-                cell.textLabel?.text = "Block Images"
-                cell.detailTextLabel?.text = "No-image mode for all tabs"
-                cell.selectionStyle = .none
-                let sw = UISwitch()
-                sw.isOn = AppSettings.noImagesEnabled
-                sw.addTarget(self, action: #selector(noImagesChanged(_:)), for: .valueChanged)
-                cell.accessoryView = sw
-            case 1:
-                cell.textLabel?.text = "Aggressive Image Block"
-                cell.detailTextLabel?.text = "Also scrub images inside iframes"
-                cell.selectionStyle = .none
-                let sw = UISwitch()
-                sw.isOn = AppSettings.aggressiveNoImagesEnabled
-                sw.isEnabled = AppSettings.noImagesEnabled
-                sw.addTarget(self, action: #selector(aggressiveNoImagesChanged(_:)), for: .valueChanged)
-                cell.accessoryView = sw
-            case 2:
-                cell.textLabel?.text = "Clear Option"
-                cell.detailTextLabel?.text = AppSettings.clearOptionSummary
-                cell.accessoryType = .disclosureIndicator
-            default:
-                cell.textLabel?.text = "Erase browsing data"
-                cell.detailTextLabel?.text = "This Space or all Spaces"
-                cell.accessoryType = .disclosureIndicator
+            return cell
+        case .features:
+            switch FeatureRow(rawValue: indexPath.row)! {
+            case .privacy:
+                return hubCell(tableView, title: "Privacy & Security", detail: privacySummary, symbol: "shield.lefthalf.filled")
+            case .playback:
+                return hubCell(tableView, title: "Playback & Focus", detail: playbackSummary, symbol: "play.rectangle.on.rectangle")
+            case .webEditor:
+                return hubCell(tableView, title: "Web Editor", detail: "Hide page elements", symbol: "wand.and.stars")
             }
-        case .privacyAccess:
-            switch indexPath.row {
-            case 0:
-                cell.textLabel?.text = "Location"
-                cell.detailTextLabel?.text = AppSettings.locationSummary
-                cell.accessoryType = .disclosureIndicator
-            case 1:
-                cell.textLabel?.text = "App Lock"
-                cell.detailTextLabel?.text = AppLockSettings.isEnabled
-                    ? "On · whole-app PIN / pattern"
-                    : "Off · protect the whole app"
-                cell.accessoryType = .disclosureIndicator
-            default:
-                cell.textLabel?.text = "Default browser"
-                cell.detailTextLabel?.text = "Off — links may open in Safari"
-                cell.accessoryType = .disclosureIndicator
+        case .general:
+            switch GeneralRow.visible[indexPath.row] {
+            case .search:
+                return hubCell(tableView, title: "Search Engine", detail: SearchEngineManager.current.name, symbol: "magnifyingglass")
+            case .appLock:
+                return hubCell(
+                    tableView,
+                    title: "App Lock",
+                    detail: AppLockSettings.isEnabled ? "On" : "Off",
+                    symbol: "lock.fill"
+                )
+            case .location:
+                return hubCell(tableView, title: "Location", detail: AppSettings.locationSummary, symbol: "location.fill")
+            case .clearOption:
+                return hubCell(tableView, title: "Clear Option", detail: AppSettings.clearOptionSummary, symbol: "trash")
+            case .defaultBrowser:
+                return hubCell(tableView, title: "Default Browser", detail: "System settings", symbol: "compass.drawing")
             }
-        case .privacyLearn:
-            if indexPath.row == 0 {
-                cell.textLabel?.text = "Privacy Explained"
-                cell.detailTextLabel?.text = "Private by default, Spaces, and limits"
-                cell.accessoryType = .disclosureIndicator
-            } else {
-                cell.textLabel?.text = "What we collect"
-                cell.detailTextLabel?.text = "On-device data and diagnostics"
-                cell.accessoryType = .disclosureIndicator
+        case .display:
+            return hubCell(tableView, title: "Appearance", detail: appearanceSummary, symbol: "paintpalette.fill")
+        case .spaces:
+            switch SpacesRow(rawValue: indexPath.row)! {
+            case .manage:
+                let count = tabManager?.visibleContainers.count ?? 0
+                let detail = count == 1 ? "1 Space" : "\(count) Spaces"
+                return hubCell(tableView, title: "Manage Spaces", detail: detail, symbol: "person.2.fill")
+            case .isolated:
+                return hubCell(tableView, title: "Isolated vs Shared", detail: "What stays per Space", symbol: "square.split.2x1")
             }
-        case .accounts:
-            if indexPath.row == 0 {
-                cell.textLabel?.text = "Spaces"
-                cell.detailTextLabel?.text = "Separate logins and cookies"
-                cell.accessoryType = .disclosureIndicator
-            } else {
-                cell.textLabel?.text = "Isolated vs Shared"
-                cell.detailTextLabel?.text = "What stays per space"
-                cell.accessoryType = .disclosureIndicator
+        case .support:
+            switch SupportRow(rawValue: indexPath.row)! {
+            case .whatsNew:
+                return hubCell(tableView, title: "What's New", detail: nil, symbol: "sparkles")
+            case .rateUs:
+                return hubCell(tableView, title: "Rate Us", detail: nil, symbol: "star.fill")
+            case .contact:
+                return hubCell(tableView, title: "Contact Us", detail: nil, symbol: "envelope.fill")
             }
-        case .tools:
-            cell.textLabel?.text = "Web Editor"
-            cell.detailTextLabel?.text = "Manage hidden element rules"
-            cell.accessoryType = .disclosureIndicator
-        case .youtube:
-            if indexPath.row == 0 {
-                cell.textLabel?.text = "Hide Shorts"
-                cell.detailTextLabel?.text = "Focus Mode — hide shelves and redirect Shorts"
-                cell.selectionStyle = .none
-                let sw = UISwitch()
-                sw.isOn = AppSettings.hideShortsEnabled
-                sw.addTarget(self, action: #selector(shortsChanged(_:)), for: .valueChanged)
-                cell.accessoryView = sw
-            } else {
-                cell.textLabel?.text = "Fewer YouTube Video Ads"
-                cell.detailTextLabel?.text = "Experimental · best-effort"
-                cell.selectionStyle = .none
-                let sw = UISwitch()
-                sw.isOn = AppSettings.youtubeAdShieldEnabled
-                sw.addTarget(self, action: #selector(ytShieldChanged(_:)), for: .valueChanged)
-                cell.accessoryView = sw
-            }
-        case .media:
-            if indexPath.row == 0 {
-                cell.textLabel?.text = "Background Audio"
-                cell.detailTextLabel?.text = "Keep playing after leave / lock screen"
-                cell.selectionStyle = .none
-                let sw = UISwitch()
-                sw.isOn = AppSettings.backgroundAudioEnabled
-                sw.addTarget(self, action: #selector(bgAudioChanged(_:)), for: .valueChanged)
-                cell.accessoryView = sw
-            } else {
-                cell.textLabel?.text = "Picture in Picture"
-                cell.detailTextLabel?.text = "Floating system video window"
-                cell.selectionStyle = .none
-                let sw = UISwitch()
-                sw.isOn = AppSettings.pictureInPictureEnabled
-                sw.addTarget(self, action: #selector(pipChanged(_:)), for: .valueChanged)
-                cell.accessoryView = sw
-            }
-        case .searchPrivacy, .searchGeneral:
-            let engines = indexPath.section == Section.searchPrivacy.rawValue
-                ? SearchEngine.privacyFriendly
-                : SearchEngine.general
-            let engine = engines[indexPath.row]
-            let recommended = engine.id == SearchEngine.duckDuckGo.id
-            cell.textLabel?.text = recommended ? "\(engine.name) · Recommended" : engine.name
-            cell.accessoryType = engine.id == AppSettings.searchEngineID ? .checkmark : .none
-            cell.tintColor = BrowserTheme.chromeBlue
-        case .home:
-            cell.textLabel?.text = "Appearance"
-            cell.detailTextLabel?.text = ThemeManager.shared.current.name
-            cell.accessoryType = .disclosureIndicator
         case .about:
-            switch indexPath.row {
-            case 0:
-                cell.textLabel?.text = "XBrowser 1.0"
-                cell.selectionStyle = .none
-            case 1:
-                cell.textLabel?.text = "Filters"
-                cell.detailTextLabel?.text = FilterUpdateManager.shared.statusSummary
-                cell.accessoryType = .disclosureIndicator
-            case 2:
-                cell.textLabel?.text = "What's New"
-                cell.accessoryType = .disclosureIndicator
-            case 3:
-                cell.textLabel?.text = "Privacy Policy"
-                cell.accessoryType = .disclosureIndicator
-            case 4:
-                cell.textLabel?.text = "Terms of Use"
-                cell.accessoryType = .disclosureIndicator
-            case 5:
-                cell.textLabel?.text = "Rate Us"
-                cell.accessoryType = .disclosureIndicator
-            default:
-                cell.textLabel?.text = "Contact Us"
-                cell.accessoryType = .disclosureIndicator
+            switch AboutRow(rawValue: indexPath.row)! {
+            case .version:
+                return hubCell(tableView, title: "XBrowser", detail: "1.0", symbol: "info.circle", disclosure: false)
+            case .filters:
+                return hubCell(tableView, title: "Filters", detail: FilterUpdateManager.shared.statusSummary, symbol: "line.3.horizontal.decrease.circle")
+            case .privacyPolicy:
+                return hubCell(tableView, title: "Privacy Policy", detail: nil, symbol: "hand.raised.fill")
+            case .terms:
+                return hubCell(tableView, title: "Terms of Use", detail: nil, symbol: "doc.text")
             }
         }
-        return cell
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -347,68 +221,55 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         switch Section(rawValue: indexPath.section)! {
         case .premium:
             PremiumCoordinator.presentPaywall(from: self, source: "settings")
-        case .privacyProtections:
-            if indexPath.row == 0 {
-                let recommended = PrivacyRecommendedViewController()
-                recommended.onRequestRebuildWebViews = { [weak self] in
-                    self?.onRequestRebuildWebViews?()
-                }
-                navigationController?.pushViewController(recommended, animated: true)
-            } else if indexPath.row == 5 {
-                presentFilterUpdateAlert()
+        case .features:
+            switch FeatureRow(rawValue: indexPath.row)! {
+            case .privacy:
+                let privacy = PrivacySettingsViewController()
+                privacy.onRequestRebuildWebViews = { [weak self] in self?.onRequestRebuildWebViews?() }
+                privacy.tabManager = tabManager
+                navigationController?.pushViewController(privacy, animated: true)
+            case .playback:
+                navigationController?.pushViewController(PlaybackFocusSettingsViewController(), animated: true)
+            case .webEditor:
+                navigationController?.pushViewController(PageCleanerRulesViewController(), animated: true)
             }
-        case .privacyData:
-            if indexPath.row == 2 {
-                navigationController?.pushViewController(ClearOptionSettingsViewController(), animated: true)
-            } else if indexPath.row == 3 {
-                presentEraseBrowsingData()
-            }
-        case .privacyAccess:
-            if indexPath.row == 0 {
+        case .general:
+            switch GeneralRow.visible[indexPath.row] {
+            case .search:
+                navigationController?.pushViewController(SearchEngineSettingsViewController(), animated: true)
+            case .appLock:
+                navigationController?.pushViewController(AppLockSettingsViewController(), animated: true)
+            case .location:
                 let location = LocationSettingsViewController()
                 location.onChanged = { [weak self] in
                     self?.onRequestRebuildWebViews?()
                     self?.tableView.reloadData()
                 }
                 navigationController?.pushViewController(location, animated: true)
-            } else if indexPath.row == 1 {
-                navigationController?.pushViewController(AppLockSettingsViewController(), animated: true)
-            } else if DefaultBrowserFeature.isEnabled {
+            case .clearOption:
+                navigationController?.pushViewController(ClearOptionSettingsViewController(), animated: true)
+            case .defaultBrowser:
                 presentDefaultBrowserHelp()
             }
-        case .privacyLearn:
-            if indexPath.row == 0 {
-                navigationController?.pushViewController(PrivacyInfoViewController(), animated: true)
-            } else {
-                navigationController?.pushViewController(WhatWeCollectViewController(), animated: true)
-            }
-        case .accounts:
-            if indexPath.row == 1 {
-                navigationController?.pushViewController(IsolatedVsSharedViewController(), animated: true)
-                return
-            }
-            guard let tabManager else { return }
-            let manage = ContainerManageViewController(tabManager: tabManager)
-            manage.showsDoneButton = false
-            manage.onChanged = { [weak self] in
-                self?.onAccountsChanged?()
-            }
-            navigationController?.pushViewController(manage, animated: true)
-        case .tools:
-            navigationController?.pushViewController(PageCleanerRulesViewController(), animated: true)
-        case .searchPrivacy, .searchGeneral:
-            let engines = indexPath.section == Section.searchPrivacy.rawValue
-                ? SearchEngine.privacyFriendly
-                : SearchEngine.general
-            SearchEngineManager.setCurrent(engines[indexPath.row])
-            tableView.reloadData()
-        case .home:
+        case .display:
             navigationController?.pushViewController(AppearanceSettingsViewController(), animated: true)
-        case .about:
-            switch indexPath.row {
-            case 1:
-                presentFilterUpdateAlert()
-            case 2:
+        case .spaces:
+            switch SpacesRow(rawValue: indexPath.row)! {
+            case .manage:
+                guard let tabManager else { return }
+                let manage = ContainerManageViewController(tabManager: tabManager)
+                manage.showsDoneButton = false
+                manage.onChanged = { [weak self] in
+                    self?.onAccountsChanged?()
+                    self?.tableView.reloadData()
+                }
+                navigationController?.pushViewController(manage, animated: true)
+            case .isolated:
+                navigationController?.pushViewController(IsolatedVsSharedViewController(), animated: true)
+            }
+        case .support:
+            switch SupportRow(rawValue: indexPath.row)! {
+            case .whatsNew:
                 let alert = UIAlertController(
                     title: "What's New",
                     message: "Private by default and isolated by Space. Ads and trackers are blocked, HTTPS First and Global Privacy Control are on, and each Space keeps its own cookies and logins. Not a VPN. YouTube video ads stay best-effort.",
@@ -416,47 +277,70 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 )
                 alert.addAction(UIAlertAction(title: "OK", style: .default))
                 present(alert, animated: true)
-            case 3:
-                openLegalURL(AboutLinks.privacy)
-            case 4:
-                openLegalURL(AboutLinks.terms)
-            case 5:
-                UIApplication.shared.open(AboutLinks.rateUs)
-            case 6:
-                UIApplication.shared.open(AboutLinks.contactUs)
-            default:
-                break
+            case .rateUs:
+                UIApplication.shared.open(Legal.rateUs)
+            case .contact:
+                UIApplication.shared.open(Legal.contactUs)
             }
-        default:
-            break
+        case .about:
+            switch AboutRow(rawValue: indexPath.row)! {
+            case .version:
+                break
+            case .filters:
+                presentFilterUpdateAlert()
+            case .privacyPolicy:
+                openLegalURL(Legal.privacy)
+            case .terms:
+                openLegalURL(Legal.terms)
+            }
         }
     }
 
-    private func presentEraseBrowsingData() {
-        guard let tabManager else { return }
-        let tab = tabManager.selectedTab
-        let container = tab.flatMap { tabManager.container(id: $0.containerID) } ?? tabManager.sortedContainers.first
-        guard let container else { return }
-        let erase = EraseBrowsingDataViewController(
-            mode: .space(name: container.name, containerID: container.id, sessionID: container.sessionID),
-            allSpaces: tabManager.sortedContainers.map { ($0.id, $0.sessionID) }
-        )
-        erase.onFinished = { [weak self] outcome in
-            guard let self else { return }
-            if case .erasedSpaces(let ids) = outcome {
-                for containerID in ids {
-                    let tabIDs = tabManager.normalTabs.filter { $0.containerID == containerID }.map(\.id)
-                    tabIDs.forEach { tabManager.closeTab(id: $0) }
-                    _ = tabManager.addTab(incognito: false, select: true, containerID: containerID)
-                }
-            }
-            Toast.show("Browsing data erased", from: self)
-            self.onRequestRebuildWebViews?()
-        }
-        let nav = UINavigationController(rootViewController: erase)
-        nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
-        BrowserTheme.applyNavigationBar(to: nav.navigationBar)
-        present(nav, animated: true)
+    // MARK: - Helpers
+
+    private func hubCell(
+        _ tableView: UITableView,
+        title: String,
+        detail: String?,
+        symbol: String,
+        disclosure: Bool = true
+    ) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "cell")
+            ?? UITableViewCell(style: .subtitle, reuseIdentifier: "cell")
+        cell.backgroundColor = BrowserTheme.card
+        cell.textLabel?.text = title
+        cell.textLabel?.textColor = BrowserTheme.textPrimary
+        cell.detailTextLabel?.text = detail
+        cell.detailTextLabel?.textColor = BrowserTheme.textSecondary
+        cell.accessoryView = nil
+        cell.accessoryType = disclosure ? .disclosureIndicator : .none
+        cell.selectionStyle = disclosure ? .default : .none
+        let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
+        cell.imageView?.image = UIImage(systemName: symbol, withConfiguration: config)
+        cell.imageView?.tintColor = BrowserTheme.chromeBlue
+        return cell
+    }
+
+    private var privacySummary: String {
+        var parts: [String] = []
+        if AppSettings.trackerProtectionEnabled { parts.append("Trackers") }
+        if AppSettings.httpsOnly { parts.append("HTTPS") }
+        if AppSettings.globalPrivacyControlEnabled { parts.append("GPC") }
+        return parts.isEmpty ? "Off" : parts.joined(separator: " · ")
+    }
+
+    private var appearanceSummary: String {
+        let theme = ThemeManager.shared.current.name
+        if HomeWallpaper.selected == .default { return theme }
+        return "\(theme) · \(HomeWallpaper.selected.title)"
+    }
+
+    private var playbackSummary: String {
+        var parts: [String] = []
+        if AppSettings.hideShortsEnabled { parts.append("Shorts") }
+        if AppSettings.backgroundAudioEnabled { parts.append("Audio") }
+        if AppSettings.pictureInPictureEnabled { parts.append("PiP") }
+        return parts.isEmpty ? "Off" : parts.joined(separator: " · ")
     }
 
     private func presentDefaultBrowserHelp() {
@@ -488,7 +372,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         alert.addAction(UIAlertAction(title: "Update now", style: .default) { [weak self] _ in
             FilterUpdateManager.shared.refresh(force: true) { ok in
                 self?.tableView.reloadData()
-                if let self = self {
+                if let self {
                     Toast.show(ok ? "Filters updated" : "Using cached / bundled filters", from: self)
                 }
             }
@@ -503,62 +387,87 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         present(safari, animated: true)
     }
 
-    @objc private func tpChanged(_ sw: UISwitch) {
-        AppSettings.trackerProtectionEnabled = sw.isOn
-        AppAnalytics.logSettingsToggle(setting: "tracker_protection", enabled: sw.isOn)
-        if !sw.isOn, AppSettings.accurateBlockCountEnabled {
-            AppSettings.accurateBlockCountEnabled = false
-        }
-        tableView.reloadSections(IndexSet(integer: Section.privacyProtections.rawValue), with: .none)
-        Toast.show(sw.isOn ? "Ads & trackers blocked" : "Ads & trackers allowed", from: self)
-    }
-    @objc private func accurateBlockCountChanged(_ sw: UISwitch) {
-        AppSettings.accurateBlockCountEnabled = sw.isOn
-        AppAnalytics.logSettingsToggle(setting: "accurate_block_count", enabled: sw.isOn)
-        Toast.show(sw.isOn ? "Accurate block count on" : "Accurate block count off", from: self)
-    }
-    @objc private func shortsChanged(_ sw: UISwitch) {
-        AppSettings.hideShortsEnabled = sw.isOn
-        AppAnalytics.logSettingsToggle(setting: "hide_shorts", enabled: sw.isOn)
-        Toast.show(sw.isOn ? "Shorts Focus on" : "Shorts Focus off", from: self)
-    }
-    @objc private func ytShieldChanged(_ sw: UISwitch) {
-        AppSettings.youtubeAdShieldEnabled = sw.isOn
-        AppAnalytics.logSettingsToggle(setting: "youtube_ad_shield", enabled: sw.isOn)
-        Toast.show(sw.isOn ? "YouTube video filter on" : "YouTube video filter off", from: self)
-    }
-    @objc private func bgAudioChanged(_ sw: UISwitch) {
-        AppSettings.backgroundAudioEnabled = sw.isOn
-        AppAnalytics.logSettingsToggle(setting: "background_audio", enabled: sw.isOn)
-        Toast.show(sw.isOn ? "Background audio on" : "Background audio off", from: self)
-    }
-    @objc private func pipChanged(_ sw: UISwitch) {
-        AppSettings.pictureInPictureEnabled = sw.isOn
-        AppAnalytics.logSettingsToggle(setting: "picture_in_picture", enabled: sw.isOn)
-        Toast.show(sw.isOn ? "Picture in Picture on" : "Picture in Picture off", from: self)
-    }
-    @objc private func noImagesChanged(_ sw: UISwitch) {
-        AppSettings.noImagesEnabled = sw.isOn
-        AppAnalytics.logSettingsToggle(setting: "no_images", enabled: sw.isOn)
-        tableView.reloadSections(IndexSet(integer: Section.privacyData.rawValue), with: .none)
-        Toast.show(sw.isOn ? "Block images on" : "Block images off", from: self)
-    }
-    @objc private func aggressiveNoImagesChanged(_ sw: UISwitch) {
-        AppSettings.aggressiveNoImagesEnabled = sw.isOn
-        AppAnalytics.logSettingsToggle(setting: "aggressive_no_images", enabled: sw.isOn)
-        Toast.show(sw.isOn ? "Aggressive image block on" : "Aggressive image block off", from: self)
-    }
-    @objc private func httpsChanged(_ sw: UISwitch) {
-        AppSettings.httpsOnly = sw.isOn
-        AppAnalytics.logSettingsToggle(setting: "https_only", enabled: sw.isOn)
-    }
-
-    @objc private func gpcChanged(_ sw: UISwitch) {
-        AppSettings.globalPrivacyControlEnabled = sw.isOn
-        AppAnalytics.logSettingsToggle(setting: "global_privacy_control", enabled: sw.isOn)
-        onRequestRebuildWebViews?()
-        Toast.show(sw.isOn ? "Global Privacy Control on" : "Global Privacy Control off", from: self)
-    }
-
     @objc private func close() { dismiss(animated: true) }
+}
+
+// MARK: - Premium VIP card
+
+private final class SettingsPremiumCardCell: UITableViewCell {
+    static let reuseID = "SettingsPremiumCardCell"
+
+    private let card = UIView()
+    private let titleLabel = UILabel()
+    private let bodyLabel = UILabel()
+    private let ctaButton = UIButton(type: .system)
+    private var onTap: (() -> Void)?
+
+    override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
+        super.init(style: style, reuseIdentifier: reuseIdentifier)
+        selectionStyle = .none
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
+
+        card.backgroundColor = BrowserTheme.card
+        card.layer.cornerRadius = 16
+        card.layer.cornerCurve = .continuous
+        card.clipsToBounds = true
+
+        titleLabel.font = .systemFont(ofSize: 20, weight: .bold)
+        titleLabel.textColor = BrowserTheme.textPrimary
+
+        bodyLabel.font = .systemFont(ofSize: 14, weight: .regular)
+        bodyLabel.textColor = BrowserTheme.textSecondary
+        bodyLabel.numberOfLines = 0
+
+        ctaButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        ctaButton.setTitleColor(.white, for: .normal)
+        ctaButton.backgroundColor = BrowserTheme.chromeBlue
+        ctaButton.layer.cornerRadius = 22
+        ctaButton.layer.cornerCurve = .continuous
+        ctaButton.addTarget(self, action: #selector(ctaTapped), for: .touchUpInside)
+
+        contentView.addSubview(card)
+        card.addSubview(titleLabel)
+        card.addSubview(bodyLabel)
+        card.addSubview(ctaButton)
+
+        card.snp.makeConstraints { make in
+            make.edges.equalToSuperview().inset(UIEdgeInsets(top: 4, left: 0, bottom: 4, right: 0))
+        }
+        titleLabel.snp.makeConstraints { make in
+            make.top.leading.trailing.equalToSuperview().inset(18)
+        }
+        bodyLabel.snp.makeConstraints { make in
+            make.top.equalTo(titleLabel.snp.bottom).offset(8)
+            make.leading.trailing.equalToSuperview().inset(18)
+        }
+        ctaButton.snp.makeConstraints { make in
+            make.top.equalTo(bodyLabel.snp.bottom).offset(16)
+            make.leading.trailing.equalToSuperview().inset(18)
+            make.bottom.equalToSuperview().inset(18)
+            make.height.equalTo(44)
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func configure(isActive: Bool, onTap: @escaping () -> Void) {
+        self.onTap = onTap
+        card.backgroundColor = BrowserTheme.card
+        titleLabel.textColor = BrowserTheme.textPrimary
+        bodyLabel.textColor = BrowserTheme.textSecondary
+        ctaButton.backgroundColor = BrowserTheme.chromeBlue
+
+        if isActive {
+            titleLabel.text = "XBrowser Premium"
+            bodyLabel.text = "Unlimited Spaces and Space Lock are unlocked on this device."
+            ctaButton.setTitle("Manage Subscription", for: .normal)
+        } else {
+            titleLabel.text = "XBrowser Premium"
+            bodyLabel.text = "Unlock unlimited Spaces and Space Lock. Free includes \(PremiumStore.freeSpaceLimit) Spaces."
+            ctaButton.setTitle("View Plans", for: .normal)
+        }
+    }
+
+    @objc private func ctaTapped() { onTap?() }
 }

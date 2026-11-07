@@ -114,6 +114,11 @@
 		DAC6847DF1C5402ABCCBABC5 /* BottomToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54722AEC801542858ECEB795 /* BottomToolbarView.swift */; };
 		DBB117AB06114DC1B248B14A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E02C1618E34EE4A38D4E1C /* AppDelegate.swift */; };
 		DDC66117ECB14AA7AB16EF37 /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DD96938CCB3479484E2D530 /* SettingsViewController.swift */; };
+		SETIA01BF01010101010101 /* PrivacySettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010101 /* PrivacySettingsViewController.swift */; };
+		SETIA01BF01010101010102 /* SearchEngineSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010102 /* SearchEngineSettingsViewController.swift */; };
+		SETIA01BF01010101010103 /* PlaybackFocusSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010103 /* PlaybackFocusSettingsViewController.swift */; };
+		SETIA01BF01010101010104 /* AboutSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010104 /* AboutSettingsViewController.swift */; };
+		SETIA01BF01010101010105 /* SpacesSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010105 /* SpacesSettingsViewController.swift */; };
 		DLN000A1B2C3D4E5F6071829 /* DownloadLocalNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = DLN000B1B2C3D4E5F6071829 /* DownloadLocalNotifications.swift */; };
 		E1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift */; };
 		E275E26CE7D145A49D4259E8 /* TabSwitcherViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B67A0C2C8812465E960FEC7A /* TabSwitcherViewController.swift */; };
@@ -246,6 +251,11 @@
 		857CEEC48A6442E486F25CB1 /* LongScreenshotCapturer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LongScreenshotCapturer.swift; sourceTree = "<group>"; };
 		8BB059B320F13DD5C0933643 /* IsolatedVsSharedViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IsolatedVsSharedViewController.swift; sourceTree = "<group>"; };
 		8DD96938CCB3479484E2D530 /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
+		SETIA01FR01010101010101 /* PrivacySettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsViewController.swift; sourceTree = "<group>"; };
+		SETIA01FR01010101010102 /* SearchEngineSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchEngineSettingsViewController.swift; sourceTree = "<group>"; };
+		SETIA01FR01010101010103 /* PlaybackFocusSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackFocusSettingsViewController.swift; sourceTree = "<group>"; };
+		SETIA01FR01010101010104 /* AboutSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSettingsViewController.swift; sourceTree = "<group>"; };
+		SETIA01FR01010101010105 /* SpacesSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacesSettingsViewController.swift; sourceTree = "<group>"; };
 		92B3D348CEA04C5189003BC8 /* WebViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewController.swift; sourceTree = "<group>"; };
 		9BEFF87E8CE24C4584724613 /* SearchEngineManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchEngineManager.swift; sourceTree = "<group>"; };
 		A11F1BEBA5E1000000000012 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
@@ -439,6 +449,11 @@
 			isa = PBXGroup;
 			children = (
 				8DD96938CCB3479484E2D530 /* SettingsViewController.swift */,
+				SETIA01FR01010101010101 /* PrivacySettingsViewController.swift */,
+				SETIA01FR01010101010105 /* SpacesSettingsViewController.swift */,
+				SETIA01FR01010101010102 /* SearchEngineSettingsViewController.swift */,
+				SETIA01FR01010101010103 /* PlaybackFocusSettingsViewController.swift */,
+				SETIA01FR01010101010104 /* AboutSettingsViewController.swift */,
 				PRFR01A2B3C4D5E6F7081910 /* PrivacyRecommendedViewController.swift */,
 				8BB059B320F13DD5C0933643 /* IsolatedVsSharedViewController.swift */,
 				A1B2C3D4E5F6020202020263 /* AppearanceSettingsViewController.swift */,
@@ -1043,6 +1058,11 @@
 				5F0B0037046543C181F800BC /* SceneDelegate.swift in Sources */,
 				1F1ED11741F74753815644DF /* SearchEngineManager.swift in Sources */,
 				DDC66117ECB14AA7AB16EF37 /* SettingsViewController.swift in Sources */,
+				SETIA01BF01010101010101 /* PrivacySettingsViewController.swift in Sources */,
+				SETIA01BF01010101010105 /* SpacesSettingsViewController.swift in Sources */,
+				SETIA01BF01010101010102 /* SearchEngineSettingsViewController.swift in Sources */,
+				SETIA01BF01010101010103 /* PlaybackFocusSettingsViewController.swift in Sources */,
+				SETIA01BF01010101010104 /* AboutSettingsViewController.swift in Sources */,
 				A1B2C3D4E5F6010101010131 /* LocationSettingsViewController.swift in Sources */,
 				A1B2C3D4E5F6010101010132 /* LocationMapPickerViewController.swift in Sources */,
 				A1B2C3D4E5F6010101010150 /* AutoClearManager.swift in Sources */,

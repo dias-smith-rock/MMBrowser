@@ -170,6 +170,7 @@ Native player used for supported streams (alongside system PiP where applicable)
 | **Onboarding (Feature Highlights)** | First-run Highlights lead with private-by-default protections, then Spaces, locks, and background playback. Split View Wow waits until the first toolbar page-menu tap. No auto VIP paywall (and home crown hidden) on the install calendar day. |
 | **Tips** | Lightweight UX tips (address-bar tab swipe; post-onboarding ads shield and Background Audio toasts for new users). |
 | **What's New / about copy** | In-app feature summary strings for releases and settings. |
+| **Settings (hub IA)** | Root Settings uses a Brave-style layout: Premium VIP card, then Features / General / Display / Spaces / Support / About. Detail toggles live on secondary pages. |
 
 ---
 
