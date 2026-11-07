@@ -133,7 +133,7 @@ final class PageRichMenuViewController: UIViewController {
 
     private func appLibraryItems() -> [(String, String, MenuAction, Bool)] {
         [
-            ("Settings", "gearshape", .settings, true),
+            ("Clear", "🔥", .eraseBrowsingData, true),
             ("Watch Later (Isolated)", "clock.badge.checkmark", .watchLater, !context.isIncognito),
             ("Bookmarks (Isolated)", "bookmark", .bookmarks, !context.isIncognito),
             ("History (Isolated)", "clock", .history, !context.isIncognito),
@@ -190,9 +190,23 @@ final class PageRichMenuViewController: UIViewController {
         box.backgroundColor = BrowserTheme.secondaryCard
         box.layer.cornerRadius = 14
 
-        let image = UIImageView(image: UIImage(systemName: symbol))
+        let image = UIImageView()
         image.tintColor = context.isIncognito ? BrowserTheme.privateAccent : BrowserTheme.textPrimary
         image.contentMode = .scaleAspectFit
+
+        let emoji = UILabel()
+        emoji.textAlignment = .center
+        emoji.font = .systemFont(ofSize: 22)
+
+        if let sfImage = UIImage(systemName: symbol) {
+            image.image = sfImage
+            image.isHidden = false
+            emoji.isHidden = true
+        } else {
+            emoji.text = symbol
+            emoji.isHidden = false
+            image.isHidden = true
+        }
 
         let label = UILabel()
         label.text = title
@@ -205,10 +219,11 @@ final class PageRichMenuViewController: UIViewController {
         button.isEnabled = enabled
         button.alpha = enabled ? 1 : 0.38
         button.addTarget(self, action: #selector(rowTapped(_:)), for: .touchUpInside)
-        button.accessibilityLabel = title
+        button.accessibilityLabel = title == "Clear" ? "Erase browsing data" : title
 
         container.addSubview(box)
         box.addSubview(image)
+        box.addSubview(emoji)
         container.addSubview(label)
         container.addSubview(button)
 
@@ -219,6 +234,9 @@ final class PageRichMenuViewController: UIViewController {
         image.snp.makeConstraints { make in
             make.center.equalToSuperview()
             make.size.equalTo(22)
+        }
+        emoji.snp.makeConstraints { make in
+            make.center.equalToSuperview()
         }
         label.snp.makeConstraints { make in
             make.top.equalTo(box.snp.bottom).offset(6)

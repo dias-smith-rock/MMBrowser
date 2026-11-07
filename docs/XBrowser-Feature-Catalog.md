@@ -142,7 +142,7 @@ Native player used for supported streams (alongside system PiP where applicable)
 | Feature | Description |
 | --- | --- |
 | **Privacy Report** | Shield sheet for the current page: protection on/off, measured block count when Accurate Block Count is on, Blocking settings, Erase, and clear-this-site. Best-effort; does not hide IP. |
-| **Erase browsing data** | One-tap erase for This Space (default) or All Spaces, from the tab switcher (fire icon), Privacy report, and Settings. A full-page burn plays for about 1.5s, then the cleared page opens. Optional bookmarks and shared Downloads. Private mode closes private tabs. Does not erase App Lock or Space Lock. |
+| **Erase browsing data** | One-tap erase for This Space (default) or All Spaces, from the tab switcher (🔥), page menu Clear (🔥), Privacy report, and Settings. A full-page burn plays for about 1.5s, then the cleared page opens. Optional bookmarks and shared Downloads. Private mode closes private tabs. Does not erase App Lock or Space Lock. |
 | **Clear data for this site** | Page menu and Privacy report clear one site’s cookies and site data in the current Space only. |
 | **Per-site blocking exception** | Allow or block ads and trackers for the current site without changing the global switch. Reversible. Report a broken site opens mail to support. |
 | **What we collect** | Settings page and xxxxxbrowser.cc/privacy-data/ describe on-device data, optional Firebase crash/analytics (on by default), and what is not sent. |

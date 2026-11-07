@@ -18,15 +18,12 @@
 		225CD882697F4D4E83068A67 /* BrowserTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 094FFB3CDC234AA8BFFC8140 /* BrowserTab.swift */; };
 		2407C85515E24617A4EF10BA /* YouTubeShortsFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80B4B9A76DFE4E32A1FD3ADD /* YouTubeShortsFocus.swift */; };
 		3482941CAE41470B96988EF9 /* AccountSwitcherViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 227B279F47CA4EFE986E5EC9 /* AccountSwitcherViewController.swift */; };
-		FH00BF01010101010101 /* FeatureHighlightsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FH00FR01010101010101 /* FeatureHighlightsViewController.swift */; };
 		37AA62CE9A0C431B894137F8 /* AccountOnboardingWowViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83C808C4483D46408CF5B93A /* AccountOnboardingWowViewController.swift */; };
 		39B5B31AA5B34064830D0554 /* DownloadsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED5EF1A8CF7C4FDF9609AC37 /* DownloadsViewController.swift */; };
 		3B0B5010105C7BB485B89CD7 /* IsolatedVsSharedViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BB059B320F13DD5C0933643 /* IsolatedVsSharedViewController.swift */; };
 		3E002237DEF54CE88D630EE4 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12BD4B168F4A48569EA59EC0 /* ViewController.swift */; };
 		43CD2A8A285048089F27FA41 /* ContainerSiteDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4948D0B6E24B56857954CC /* ContainerSiteDataService.swift */; };
 		47C017E84DF14D329312A9B6 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1779FCB4C5AF48C29F8F9FFA /* Theme.swift */; };
-		HWP00BF01010101010101 /* HomeWallpaper.swift in Sources */ = {isa = PBXBuildFile; fileRef = HWP00FR01010101010101 /* HomeWallpaper.swift */; };
-		HWP00BF01010101010102 /* HomeWallpaperBackdropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = HWP00FR01010101010102 /* HomeWallpaperBackdropView.swift */; };
 		48C0A4946FCF422DB594031C /* ReadingListStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0348F54E284419696A84A8F /* ReadingListStore.swift */; };
 		507CD547382648B78025B3EB /* VideoAdShield.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EBAB3820B56436C9BF269A0 /* VideoAdShield.swift */; };
 		511134C2A659495F886AAE3C /* FindInPageScript.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50D72133D7604D248E81F8DE /* FindInPageScript.swift */; };
@@ -53,12 +50,9 @@
 		8EC5967C66A941389E277E88 /* ContainerScope.swift in Sources */ = {isa = PBXBuildFile; fileRef = C675306059D24454A0DD680F /* ContainerScope.swift */; };
 		90F8BD6BD7DB43AF80342259 /* Toast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37FC46822386450BA067F7F5 /* Toast.swift */; };
 		954C5137A7144B8C9E795785 /* AddressBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3A9332F6F8349D1B899F2EF /* AddressBarView.swift */; };
-		C7D8E9F0A1B2020304050601 /* AddressBarSuggestionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7D8E9F0A1B2020304050602 /* AddressBarSuggestionsView.swift */; };
 		A11F1BEBA5E1000000000011 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A11F1BEBA5E1000000000012 /* GoogleService-Info.plist */; };
 		A1B2C3D4E5F6010101010101 /* AppLockSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020201 /* AppLockSettings.swift */; };
 		A1B2C3D4E5F6010101010102 /* AppLockSecretStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020202 /* AppLockSecretStore.swift */; };
-		C1A2B3C4D5E6010203040502 /* SpaceLockStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6010203040501 /* SpaceLockStore.swift */; };
-		C1A2B3C4D5E6010203040504 /* SpaceLockSetupBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6010203040503 /* SpaceLockSetupBridge.swift */; };
 		A1B2C3D4E5F6010101010103 /* AppLockBiometrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020203 /* AppLockBiometrics.swift */; };
 		A1B2C3D4E5F6010101010104 /* AppLockCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020204 /* AppLockCoordinator.swift */; };
 		A1B2C3D4E5F6010101010105 /* AppLockViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6020202020205 /* AppLockViewController.swift */; };
@@ -101,10 +95,13 @@
 		B1C2D3E4F5A64789B0C1D2E6 /* PageCleanerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A64789B0C1D2E5 /* PageCleanerManager.swift */; };
 		B1C2D3E4F5A64789B0C1D2EA /* PageCleanerRulesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A64789B0C1D2E9 /* PageCleanerRulesViewController.swift */; };
 		B2BA9449476846B08EE4A1BD /* GoogleLogoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CFD381780DE41D3B96A4B5A /* GoogleLogoView.swift */; };
+		C1A2B3C4D5E6010203040502 /* SpaceLockStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6010203040501 /* SpaceLockStore.swift */; };
+		C1A2B3C4D5E6010203040504 /* SpaceLockSetupBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6010203040503 /* SpaceLockSetupBridge.swift */; };
 		C58A1413B374481F93E6D824 /* URLInputResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72957411D4864AC0B8541064 /* URLInputResolver.swift */; };
 		C5CC3025D67544A09B52DB05 /* OnboardingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D201F70CA9F44BF2B13F17C2 /* OnboardingViewController.swift */; };
 		C6FE3A5ACA2542BD8010DE3F /* HistoryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00A238E7FC51408BA0111F44 /* HistoryViewController.swift */; };
 		C718289B0C194FE69766C497 /* YouTubeAdShield.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */; };
+		C7D8E9F0A1B2020304050601 /* AddressBarSuggestionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7D8E9F0A1B2020304050602 /* AddressBarSuggestionsView.swift */; };
 		C8E41A2B7F6D4A1E9B3C5D70 /* ScreenshotEditorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7D30F1A6E5C492D8A2B4C61 /* ScreenshotEditorViewController.swift */; };
 		CPIP00BF01010101010101 /* CustomPipController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CPIP00FR01010101010101 /* CustomPipController.swift */; };
 		CPIP00BF01010101010102 /* CustomPipFloatingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CPIP00FR01010101010102 /* CustomPipFloatingView.swift */; };
@@ -114,36 +111,31 @@
 		DAC6847DF1C5402ABCCBABC5 /* BottomToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54722AEC801542858ECEB795 /* BottomToolbarView.swift */; };
 		DBB117AB06114DC1B248B14A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E02C1618E34EE4A38D4E1C /* AppDelegate.swift */; };
 		DDC66117ECB14AA7AB16EF37 /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DD96938CCB3479484E2D530 /* SettingsViewController.swift */; };
-		SETIA01BF01010101010101 /* PrivacySettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010101 /* PrivacySettingsViewController.swift */; };
-		SETIA01BF01010101010102 /* SearchEngineSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010102 /* SearchEngineSettingsViewController.swift */; };
-		SETIA01BF01010101010103 /* PlaybackFocusSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010103 /* PlaybackFocusSettingsViewController.swift */; };
-		SETIA01BF01010101010104 /* AboutSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010104 /* AboutSettingsViewController.swift */; };
-		SETIA01BF01010101010105 /* SpacesSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010105 /* SpacesSettingsViewController.swift */; };
 		DLN000A1B2C3D4E5F6071829 /* DownloadLocalNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = DLN000B1B2C3D4E5F6071829 /* DownloadLocalNotifications.swift */; };
 		E1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift */; };
 		E275E26CE7D145A49D4259E8 /* TabSwitcherViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B67A0C2C8812465E960FEC7A /* TabSwitcherViewController.swift */; };
 		E465FC0279854A2096A2DF80 /* AdBlockManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD4B7DF4CC5F48C390C9325C /* AdBlockManager.swift */; };
 		E926465A783245B4904A71AD /* YouTubeDarkMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1EE201BBF964C068F934786 /* YouTubeDarkMode.swift */; };
 		ECAB86D81CA54BE5A278C28B /* URLTrackingCleaner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3FDC13DE80C4373B1FAB0A5 /* URLTrackingCleaner.swift */; };
+		ERASBLD0A1B2C3D4E5F60720 /* EraseBrowsingDataViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ERASFR0A1B2C3D4E5F607200 /* EraseBrowsingDataViewController.swift */; };
 		F28EBB0D872F4A6EB7433B72 /* LibraryMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = F17DE8DD2FBC45E0B1982714 /* LibraryMigration.swift */; };
 		F28F14D6142F47C884D1BE09 /* DownloadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2647202205AE48D0A2EE427F /* DownloadManager.swift */; };
 		F2B1B57129974773A3C8B6AF /* PrivacyInfoViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8CC67E16AD54E6D8184917D /* PrivacyInfoViewController.swift */; };
-		PRPTBLD0A1B2C3D4E5F60718 /* PrivacyReportViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PRPTFR0A1B2C3D4E5F607180 /* PrivacyReportViewController.swift */; };
-		SITEBLD0A1B2C3D4E5F60719 /* SiteBlockingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = SITEFR0A1B2C3D4E5F607190 /* SiteBlockingStore.swift */; };
-		ERASBLD0A1B2C3D4E5F60720 /* EraseBrowsingDataViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = ERASFR0A1B2C3D4E5F607200 /* EraseBrowsingDataViewController.swift */; };
-		WHATBLD0A1B2C3D4E5F60721 /* WhatWeCollectViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = WHATFR0A1B2C3D4E5F607210 /* WhatWeCollectViewController.swift */; };
-		SRCHBLD0A1B2C3D4E5F60722 /* SearchPrivacyPromptViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRCHFR0A1B2C3D4E5F607220 /* SearchPrivacyPromptViewController.swift */; };
-		GPCBLD01A2B3C4D5E6F70819 /* GlobalPrivacyControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = GPCFR01A2B3C4D5E6F708190 /* GlobalPrivacyControl.swift */; };
-		PRBLD01A2B3C4D5E6F708191 /* PrivacyRecommendedViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PRFR01A2B3C4D5E6F7081910 /* PrivacyRecommendedViewController.swift */; };
 		F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B4BFF2E376570F7159D72FDE /* Pods_MMBrowser.framework */; };
 		F5FAA4028A4D495EA2A0FB69 /* BookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD046D8ACFAE4B96AF0715F6 /* BookmarkStore.swift */; };
 		FBASEBF01010101010101 /* FirebaseBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBASEFR01010101010101 /* FirebaseBootstrap.swift */; };
 		FBASEBF01010101010102 /* AppAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBASEFR01010101010102 /* AppAnalytics.swift */; };
 		FBASEBF01010101010103 /* RemoteConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBASEFR01010101010103 /* RemoteConfigManager.swift */; };
+		FH00BF01010101010101 /* FeatureHighlightsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FH00FR01010101010101 /* FeatureHighlightsViewController.swift */; };
+		GPCBLD01A2B3C4D5E6F70819 /* GlobalPrivacyControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = GPCFR01A2B3C4D5E6F708190 /* GlobalPrivacyControl.swift */; };
+		HWP00BF01010101010101 /* HomeWallpaper.swift in Sources */ = {isa = PBXBuildFile; fileRef = HWP00FR01010101010101 /* HomeWallpaper.swift */; };
+		HWP00BF01010101010102 /* HomeWallpaperBackdropView.swift in Sources */ = {isa = PBXBuildFile; fileRef = HWP00FR01010101010102 /* HomeWallpaperBackdropView.swift */; };
 		PIP0000101010101010101 /* PipProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = PIP0000202020202020202 /* PipProbe.swift */; };
+		PRBLD01A2B3C4D5E6F708191 /* PrivacyRecommendedViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PRFR01A2B3C4D5E6F7081910 /* PrivacyRecommendedViewController.swift */; };
 		PREM00BF01010101010101 /* PremiumStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010101 /* PremiumStore.swift */; };
 		PREM00BF01010101010102 /* PremiumCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010102 /* PremiumCoordinator.swift */; };
 		PREM00BF01010101010103 /* PremiumPaywallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010103 /* PremiumPaywallViewController.swift */; };
+		PRPTBLD0A1B2C3D4E5F60718 /* PrivacyReportViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PRPTFR0A1B2C3D4E5F607180 /* PrivacyReportViewController.swift */; };
 		PWD0000077F415072B01A /* PasswordVaultGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000425FA6C14C5A95C /* PasswordVaultGate.swift */; };
 		PWD0000985731419635E3 /* MasterPasswordSetupViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00066762D6E1CB6128 /* MasterPasswordSetupViewController.swift */; };
 		PWD00014B8688591864B8 /* BankCardStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00047B4C58A4C8E24E /* BankCardStore.swift */; };
@@ -163,17 +155,25 @@
 		PWD000C2F36FB601D0BB0 /* PasswordsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00045F172A9EFBE8F4 /* PasswordsViewController.swift */; };
 		PWD000C4D4F482494D0C9 /* AutofillSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD0001F365462803B334 /* AutofillSettingsViewController.swift */; };
 		PWD000D2DE12EF3CF5CC9 /* VaultKeychain.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000C6D05B5242BACB5 /* VaultKeychain.swift */; };
-		SPMBFCL01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFFA01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFGMA010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFRC01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFUMP010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SETIA01BF01010101010101 /* PrivacySettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010101 /* PrivacySettingsViewController.swift */; };
+		SETIA01BF01010101010102 /* SearchEngineSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010102 /* SearchEngineSettingsViewController.swift */; };
+		SETIA01BF01010101010103 /* PlaybackFocusSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010103 /* PlaybackFocusSettingsViewController.swift */; };
+		SETIA01BF01010101010104 /* AboutSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010104 /* AboutSettingsViewController.swift */; };
+		SETIA01BF01010101010105 /* SpacesSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010105 /* SpacesSettingsViewController.swift */; };
+		SITEBLD0A1B2C3D4E5F60719 /* SiteBlockingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = SITEFR0A1B2C3D4E5F607190 /* SiteBlockingStore.swift */; };
+		SPMBFCL01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFFA01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFGMA010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFRC01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFUMP010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SRCHBLD0A1B2C3D4E5F60722 /* SearchPrivacyPromptViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRCHFR0A1B2C3D4E5F607220 /* SearchPrivacyPromptViewController.swift */; };
 		TIP0SWIPEA1B2C3D4E5F60001 /* AddressBarSwipeTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIP0SWIPEA1B2C3D4E5F60002 /* AddressBarSwipeTipView.swift */; };
 		TSS0000101010101010171 /* TabSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020271 /* TabSnapshotStore.swift */; };
 		TSS0000101010101010172 /* TabSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020272 /* TabSessionStore.swift */; };
 		TSS0000101010101010173 /* BrowserContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020273 /* BrowserContainer.swift */; };
 		TSS0000101010101010174 /* ContainerManageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020274 /* ContainerManageViewController.swift */; };
 		TSS0000101010101010175 /* ContainerEditViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020275 /* ContainerEditViewController.swift */; };
+		WHATBLD0A1B2C3D4E5F60721 /* WhatWeCollectViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = WHATFR0A1B2C3D4E5F607210 /* WhatWeCollectViewController.swift */; };
 		XHL0000101010101010101 /* MediaHLSOfflinePackager.swift in Sources */ = {isa = PBXBuildFile; fileRef = XHL0000202020202020202 /* MediaHLSOfflinePackager.swift */; };
 		XSP0000101010101010101 /* XSiteProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = XSP0000202020202020202 /* XSiteProbe.swift */; };
 		XVO0000101010101010101 /* PageMediaProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = XVO0000202020202020202 /* PageMediaProbe.swift */; };
@@ -214,8 +214,6 @@
 		12BD4B168F4A48569EA59EC0 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
 		148219CAF76C4E93AD37C016 /* DefaultFilterManifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = DefaultFilterManifest.json; sourceTree = "<group>"; };
 		1779FCB4C5AF48C29F8F9FFA /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		HWP00FR01010101010101 /* HomeWallpaper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeWallpaper.swift; sourceTree = "<group>"; };
-		HWP00FR01010101010102 /* HomeWallpaperBackdropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeWallpaperBackdropView.swift; sourceTree = "<group>"; };
 		1BEF9DC2EA4A4FECB9B302B7 /* HistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryStore.swift; sourceTree = "<group>"; };
 		227B279F47CA4EFE986E5EC9 /* AccountSwitcherViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSwitcherViewController.swift; sourceTree = "<group>"; };
 		2647202205AE48D0A2EE427F /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManager.swift; sourceTree = "<group>"; };
@@ -239,7 +237,6 @@
 		816144A277FA4A77BF09DA4E /* AccountColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountColor.swift; sourceTree = "<group>"; };
 		81A1B2C3D4E54678A9B0C1D3 /* PrivateNewTabViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateNewTabViewController.swift; sourceTree = "<group>"; };
 		82A1B2C3D4E54678A9B0C1D3 /* ImageBlockManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageBlockManager.swift; sourceTree = "<group>"; };
-		FH00FR01010101010101 /* FeatureHighlightsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureHighlightsViewController.swift; sourceTree = "<group>"; };
 		83C808C4483D46408CF5B93A /* AccountOnboardingWowViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountOnboardingWowViewController.swift; sourceTree = "<group>"; };
 		84CA640C99484A4C865E5912 /* FindInPageBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindInPageBar.swift; sourceTree = "<group>"; };
 		84E02C1618E34EE4A38D4E1C /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -251,18 +248,11 @@
 		857CEEC48A6442E486F25CB1 /* LongScreenshotCapturer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LongScreenshotCapturer.swift; sourceTree = "<group>"; };
 		8BB059B320F13DD5C0933643 /* IsolatedVsSharedViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IsolatedVsSharedViewController.swift; sourceTree = "<group>"; };
 		8DD96938CCB3479484E2D530 /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
-		SETIA01FR01010101010101 /* PrivacySettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsViewController.swift; sourceTree = "<group>"; };
-		SETIA01FR01010101010102 /* SearchEngineSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchEngineSettingsViewController.swift; sourceTree = "<group>"; };
-		SETIA01FR01010101010103 /* PlaybackFocusSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackFocusSettingsViewController.swift; sourceTree = "<group>"; };
-		SETIA01FR01010101010104 /* AboutSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSettingsViewController.swift; sourceTree = "<group>"; };
-		SETIA01FR01010101010105 /* SpacesSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacesSettingsViewController.swift; sourceTree = "<group>"; };
 		92B3D348CEA04C5189003BC8 /* WebViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewController.swift; sourceTree = "<group>"; };
 		9BEFF87E8CE24C4584724613 /* SearchEngineManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchEngineManager.swift; sourceTree = "<group>"; };
 		A11F1BEBA5E1000000000012 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020201 /* AppLockSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockSettings.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020202 /* AppLockSecretStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockSecretStore.swift; sourceTree = "<group>"; };
-		C1A2B3C4D5E6010203040501 /* SpaceLockStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLockStore.swift; sourceTree = "<group>"; };
-		C1A2B3C4D5E6010203040503 /* SpaceLockSetupBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLockSetupBridge.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020203 /* AppLockBiometrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockBiometrics.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020204 /* AppLockCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockCoordinator.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6020202020205 /* AppLockViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockViewController.swift; sourceTree = "<group>"; };
@@ -295,7 +285,6 @@
 		A1B2C3D4E5F6090909090978 /* DesktopUAHint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopUAHint.swift; sourceTree = "<group>"; };
 		A2B3C4D5E6F7010203040505 /* PlatformSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformSupport.swift; sourceTree = "<group>"; };
 		A3A9332F6F8349D1B899F2EF /* AddressBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressBarView.swift; sourceTree = "<group>"; };
-		C7D8E9F0A1B2020304050602 /* AddressBarSuggestionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressBarSuggestionsView.swift; sourceTree = "<group>"; };
 		A3FDC13DE80C4373B1FAB0A5 /* URLTrackingCleaner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLTrackingCleaner.swift; sourceTree = "<group>"; };
 		A7C1E2D3B4A5466788990011 /* AccountTabsPopupViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountTabsPopupViewController.swift; sourceTree = "<group>"; };
 		A7C1E4B29D1046F8A3B1C002 /* WatchLaterStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLaterStore.swift; sourceTree = "<group>"; };
@@ -308,7 +297,10 @@
 		B67A0C2C8812465E960FEC7A /* TabSwitcherViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabSwitcherViewController.swift; sourceTree = "<group>"; };
 		B7D30F1A6E5C492D8A2B4C61 /* ScreenshotEditorViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotEditorViewController.swift; sourceTree = "<group>"; };
 		BFE04E67D090450B987F05FB /* TabManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabManager.swift; sourceTree = "<group>"; };
+		C1A2B3C4D5E6010203040501 /* SpaceLockStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLockStore.swift; sourceTree = "<group>"; };
+		C1A2B3C4D5E6010203040503 /* SpaceLockSetupBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLockSetupBridge.swift; sourceTree = "<group>"; };
 		C675306059D24454A0DD680F /* ContainerScope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerScope.swift; sourceTree = "<group>"; };
+		C7D8E9F0A1B2020304050602 /* AddressBarSuggestionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressBarSuggestionsView.swift; sourceTree = "<group>"; };
 		CC9060F5CC154E999671AEF7 /* TabNavigationHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabNavigationHistory.swift; sourceTree = "<group>"; };
 		CPIP00FR01010101010101 /* CustomPipController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPipController.swift; sourceTree = "<group>"; };
 		CPIP00FR01010101010102 /* CustomPipFloatingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPipFloatingView.swift; sourceTree = "<group>"; };
@@ -324,14 +316,8 @@
 		E0348F54E284419696A84A8F /* ReadingListStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingListStore.swift; sourceTree = "<group>"; };
 		E248C7687DE44E8C99A7001F /* ReaderViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderViewController.swift; sourceTree = "<group>"; };
 		E8CC67E16AD54E6D8184917D /* PrivacyInfoViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyInfoViewController.swift; sourceTree = "<group>"; };
-		PRPTFR0A1B2C3D4E5F607180 /* PrivacyReportViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyReportViewController.swift; sourceTree = "<group>"; };
-		SITEFR0A1B2C3D4E5F607190 /* SiteBlockingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiteBlockingStore.swift; sourceTree = "<group>"; };
-		ERASFR0A1B2C3D4E5F607200 /* EraseBrowsingDataViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EraseBrowsingDataViewController.swift; sourceTree = "<group>"; };
-		WHATFR0A1B2C3D4E5F607210 /* WhatWeCollectViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatWeCollectViewController.swift; sourceTree = "<group>"; };
-		SRCHFR0A1B2C3D4E5F607220 /* SearchPrivacyPromptViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchPrivacyPromptViewController.swift; sourceTree = "<group>"; };
-		GPCFR01A2B3C4D5E6F708190 /* GlobalPrivacyControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalPrivacyControl.swift; sourceTree = "<group>"; };
-		PRFR01A2B3C4D5E6F7081910 /* PrivacyRecommendedViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyRecommendedViewController.swift; sourceTree = "<group>"; };
 		ED5EF1A8CF7C4FDF9609AC37 /* DownloadsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadsViewController.swift; sourceTree = "<group>"; };
+		ERASFR0A1B2C3D4E5F607200 /* EraseBrowsingDataViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EraseBrowsingDataViewController.swift; sourceTree = "<group>"; };
 		F17DE8DD2FBC45E0B1982714 /* LibraryMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryMigration.swift; sourceTree = "<group>"; };
 		F1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotPerf.swift; sourceTree = "<group>"; };
 		F1EE201BBF964C068F934786 /* YouTubeDarkMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeDarkMode.swift; sourceTree = "<group>"; };
@@ -341,10 +327,16 @@
 		FBASEFR01010101010103 /* RemoteConfigManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteConfigManager.swift; sourceTree = "<group>"; };
 		FD4948D0B6E24B56857954CC /* ContainerSiteDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerSiteDataService.swift; sourceTree = "<group>"; };
 		FE55FD77142842FAB1482D62 /* BookmarksViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarksViewController.swift; sourceTree = "<group>"; };
+		FH00FR01010101010101 /* FeatureHighlightsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureHighlightsViewController.swift; sourceTree = "<group>"; };
+		GPCFR01A2B3C4D5E6F708190 /* GlobalPrivacyControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalPrivacyControl.swift; sourceTree = "<group>"; };
+		HWP00FR01010101010101 /* HomeWallpaper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeWallpaper.swift; sourceTree = "<group>"; };
+		HWP00FR01010101010102 /* HomeWallpaperBackdropView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeWallpaperBackdropView.swift; sourceTree = "<group>"; };
 		PIP0000202020202020202 /* PipProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PipProbe.swift; sourceTree = "<group>"; };
 		PREM00FR01010101010101 /* PremiumStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumStore.swift; sourceTree = "<group>"; };
 		PREM00FR01010101010102 /* PremiumCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumCoordinator.swift; sourceTree = "<group>"; };
 		PREM00FR01010101010103 /* PremiumPaywallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumPaywallViewController.swift; sourceTree = "<group>"; };
+		PRFR01A2B3C4D5E6F7081910 /* PrivacyRecommendedViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyRecommendedViewController.swift; sourceTree = "<group>"; };
+		PRPTFR0A1B2C3D4E5F607180 /* PrivacyReportViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyReportViewController.swift; sourceTree = "<group>"; };
 		PWD0000177186C24076BD /* MMBrowserCredentialProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MMBrowserCredentialProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		PWD00009064676E784F66 /* VaultCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultCrypto.swift; sourceTree = "<group>"; };
 		PWD000107214DC0A060D3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -365,12 +357,20 @@
 		PWD000C6D05B5242BACB5 /* VaultKeychain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultKeychain.swift; sourceTree = "<group>"; };
 		PWD000C8986B4EC6ACCF7 /* PasswordDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasswordDetailViewController.swift; sourceTree = "<group>"; };
 		PWD000D5AB90268A2500C /* FormProfileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormProfileStore.swift; sourceTree = "<group>"; };
+		SETIA01FR01010101010101 /* PrivacySettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacySettingsViewController.swift; sourceTree = "<group>"; };
+		SETIA01FR01010101010102 /* SearchEngineSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchEngineSettingsViewController.swift; sourceTree = "<group>"; };
+		SETIA01FR01010101010103 /* PlaybackFocusSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackFocusSettingsViewController.swift; sourceTree = "<group>"; };
+		SETIA01FR01010101010104 /* AboutSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutSettingsViewController.swift; sourceTree = "<group>"; };
+		SETIA01FR01010101010105 /* SpacesSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpacesSettingsViewController.swift; sourceTree = "<group>"; };
+		SITEFR0A1B2C3D4E5F607190 /* SiteBlockingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiteBlockingStore.swift; sourceTree = "<group>"; };
+		SRCHFR0A1B2C3D4E5F607220 /* SearchPrivacyPromptViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchPrivacyPromptViewController.swift; sourceTree = "<group>"; };
 		TIP0SWIPEA1B2C3D4E5F60002 /* AddressBarSwipeTipView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressBarSwipeTipView.swift; sourceTree = "<group>"; };
 		TSS0000202020202020271 /* TabSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabSnapshotStore.swift; sourceTree = "<group>"; };
 		TSS0000202020202020272 /* TabSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabSessionStore.swift; sourceTree = "<group>"; };
 		TSS0000202020202020273 /* BrowserContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserContainer.swift; sourceTree = "<group>"; };
 		TSS0000202020202020274 /* ContainerManageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerManageViewController.swift; sourceTree = "<group>"; };
 		TSS0000202020202020275 /* ContainerEditViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerEditViewController.swift; sourceTree = "<group>"; };
+		WHATFR0A1B2C3D4E5F607210 /* WhatWeCollectViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatWeCollectViewController.swift; sourceTree = "<group>"; };
 		XHL0000202020202020202 /* MediaHLSOfflinePackager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaHLSOfflinePackager.swift; sourceTree = "<group>"; };
 		XSP0000202020202020202 /* XSiteProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XSiteProbe.swift; sourceTree = "<group>"; };
 		XVO0000202020202020202 /* PageMediaProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageMediaProbe.swift; sourceTree = "<group>"; };
@@ -381,11 +381,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				SPMBFFA01010101010101 /* BuildFile in Frameworks */,
-				SPMBFRC01010101010101 /* BuildFile in Frameworks */,
-				SPMBFCL01010101010101 /* BuildFile in Frameworks */,
-				SPMBFGMA010101010101 /* BuildFile in Frameworks */,
-				SPMBFUMP010101010101 /* BuildFile in Frameworks */,
+				SPMBFFA01010101010101 /* (null) in Frameworks */,
+				SPMBFRC01010101010101 /* (null) in Frameworks */,
+				SPMBFCL01010101010101 /* (null) in Frameworks */,
+				SPMBFGMA010101010101 /* (null) in Frameworks */,
+				SPMBFUMP010101010101 /* (null) in Frameworks */,
 				F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -877,9 +877,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1251,7 +1255,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1275,7 +1279,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.3.0;
+				MARKETING_VERSION = 1.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -1297,7 +1301,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
@@ -1316,7 +1320,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.3.0;
+				MARKETING_VERSION = 1.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
