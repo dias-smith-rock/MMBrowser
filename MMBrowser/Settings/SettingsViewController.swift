@@ -71,7 +71,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .premium: return 1
         case .privacyProtections: return 6
         case .privacyData: return 4
-        case .privacyAccess: return 3
+        case .privacyAccess: return DefaultBrowserFeature.isEnabled ? 3 : 2
         case .privacyLearn: return 2
         case .accounts: return 2
         case .tools: return 1
@@ -373,7 +373,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 navigationController?.pushViewController(location, animated: true)
             } else if indexPath.row == 1 {
                 navigationController?.pushViewController(AppLockSettingsViewController(), animated: true)
-            } else {
+            } else if DefaultBrowserFeature.isEnabled {
                 presentDefaultBrowserHelp()
             }
         case .privacyLearn:

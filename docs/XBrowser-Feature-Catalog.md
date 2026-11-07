@@ -43,7 +43,7 @@ Capabilities that define XBrowser’s identity, or that are essential to being a
 | **History suggestions** | Address-bar suggestions from recent visits (deduped by site for autocomplete). |
 | **Bookmarks** | Save and open bookmarks (isolated per Space). |
 | **History** | Browsing history (isolated per Space). |
-| **Default browser** | Settings row with best-effort Off status (iOS does not report the default browser), iPhone Settings instructions, and one dismissible prompt after day 1–3 or a second Space. |
+| **Default browser** | Hidden until Apple grants `com.apple.developer.web-browser`. When enabled: Settings row, menu/home promo, and a dismissible prompt that opens iPhone Default Apps / app Settings. |
 | **Search engines** | Privacy-friendly (DuckDuckGo) and General groups. One-time picker does not change an existing engine until Continue. |
 | **HTTPS First** | Prefer HTTPS navigation by default; no automatic HTTP fallback. |
 | **Downloads** | App-wide shared download list (not per Space); unavailable in Private Browsing. |

@@ -3,8 +3,10 @@ import UIKit
 
 /// Gate for “set as default browser”.
 /// Requires Apple-approved `com.apple.developer.web-browser` in entitlements + provisioning.
+/// Keep `false` until Apple grants the managed entitlement; then set `true` and restore
+/// `com.apple.developer.web-browser` in `MMBrowser.entitlements`.
 enum DefaultBrowserFeature {
-    static let isEnabled = true
+    static let isEnabled = false
 }
 
 enum AppSettings {
