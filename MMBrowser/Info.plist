@@ -8,11 +8,10 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.goodcraft.browser.web</string>
+			<string>com.goodcraft.browser</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>http</string>
-				<string>https</string>
+				<string>xbrowser</string>
 			</array>
 		</dict>
 	</array>

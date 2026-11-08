@@ -64,10 +64,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     private func openIncomingURLs(_ urls: [URL]) {
-        let webURLs = urls.filter { url in
-            let scheme = url.scheme?.lowercased() ?? ""
-            return scheme == "http" || scheme == "https"
-        }
+        let webURLs = urls.compactMap(Self.webURL(from:))
         guard !webURLs.isEmpty else { return }
 
         guard let browser = window?.rootViewController as? BrowserViewController else {
@@ -120,5 +117,37 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             browser.persistSessionForBackground()
         }
         AutoClearManager.performScheduledClear()
+    }
+
+    /// Maps an incoming URL to a browsable `http`/`https` URL.
+    /// Supports direct web schemes (when default-browser entitlement is restored)
+    /// and `xbrowser://open?url=` / `xbrowser:https://…` deep links.
+    private static func webURL(from url: URL) -> URL? {
+        let scheme = url.scheme?.lowercased() ?? ""
+        if scheme == "http" || scheme == "https" {
+            return url
+        }
+        guard scheme == "xbrowser" else { return nil }
+
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           let queryURL = components.queryItems?.first(where: { $0.name == "url" })?.value,
+           let nested = URL(string: queryURL),
+           let nestedScheme = nested.scheme?.lowercased(),
+           nestedScheme == "http" || nestedScheme == "https" {
+            return nested
+        }
+
+        // xbrowser:https://example.com  or  xbrowser://https://example.com
+        var residual = url.absoluteString
+        if residual.lowercased().hasPrefix("xbrowser:") {
+            residual = String(residual.dropFirst("xbrowser:".count))
+        }
+        while residual.hasPrefix("/") { residual = String(residual.dropFirst()) }
+        guard let nested = URL(string: residual),
+              let nestedScheme = nested.scheme?.lowercased(),
+              nestedScheme == "http" || nestedScheme == "https" else {
+            return nil
+        }
+        return nested
     }
 }
