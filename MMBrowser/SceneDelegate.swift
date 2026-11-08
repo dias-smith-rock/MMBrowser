@@ -8,7 +8,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
-        configureMacWindowIfNeeded(windowScene)
+        configureWindowSceneSizing(windowScene)
         let window = UIWindow(windowScene: windowScene)
         window.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
         window.rootViewController = BrowserViewController()
@@ -31,13 +31,28 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window?.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
     }
 
-    private func configureMacWindowIfNeeded(_ windowScene: UIWindowScene) {
-        guard PlatformSupport.isMacInterface else { return }
+    /// Prefer compact window controls so top-leading chrome (Settings) is not covered on iPadOS 26+.
+    @available(iOS 26.0, *)
+    func preferredWindowingControlStyle(for windowScene: UIWindowScene) -> UIWindowScene.WindowingControlStyle {
+        .minimal
+    }
+
+    private func configureWindowSceneSizing(_ windowScene: UIWindowScene) {
         if let restrictions = windowScene.sizeRestrictions {
-            restrictions.minimumSize = CGSize(width: 900, height: 600)
+            if PlatformSupport.isMacInterface {
+                restrictions.minimumSize = CGSize(width: 900, height: 600)
+            } else if UIDevice.current.userInterfaceIdiom == .pad {
+                // Prefer a large window when iPadOS windowing is enabled (system may clamp).
+                let screen = windowScene.screen.bounds.size
+                restrictions.minimumSize = CGSize(
+                    width: max(520, floor(screen.width * 0.72)),
+                    height: max(640, floor(screen.height * 0.72))
+                )
+            }
             restrictions.maximumSize = CGSize(width: 10_000, height: 10_000)
         }
         #if targetEnvironment(macCatalyst)
+        guard PlatformSupport.isMacInterface else { return }
         let preferred = PlatformSupport.preferredMacWindowSize
         let frame = CGRect(origin: .zero, size: preferred)
         windowScene.requestGeometryUpdate(UIWindowScene.GeometryPreferences.Mac(systemFrame: frame)) { _ in }

@@ -144,19 +144,21 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
             make.height.equalTo(pagingScrollView.frameLayoutGuide)
         }
 
+        let topChrome = LayoutSupport.topChromeLayoutGuide(in: view)
+
         configureSettingsButton()
         view.addSubview(settingsButton)
         settingsButton.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide).offset(8)
-            make.leading.equalTo(view.safeAreaLayoutGuide).inset(16)
+            make.top.equalTo(topChrome).offset(8)
+            make.leading.equalTo(topChrome).inset(16)
             make.size.equalTo(32)
         }
 
         configurePremiumButton()
         view.addSubview(premiumButton)
         premiumButton.snp.makeConstraints { make in
-            make.top.equalTo(view.safeAreaLayoutGuide).offset(8)
-            make.trailing.equalTo(view.safeAreaLayoutGuide).inset(isOverlay ? 56 : 16)
+            make.top.equalTo(topChrome).offset(8)
+            make.trailing.equalTo(topChrome).inset(isOverlay ? 56 : 16)
             make.size.equalTo(32)
         }
         updatePremiumButtonVisibility()
@@ -165,8 +167,8 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
             configureCloseButton()
             view.addSubview(closeButton)
             closeButton.snp.makeConstraints { make in
-                make.top.equalTo(view.safeAreaLayoutGuide).offset(8)
-                make.trailing.equalTo(view.safeAreaLayoutGuide).inset(16)
+                make.top.equalTo(topChrome).offset(8)
+                make.trailing.equalTo(topChrome).inset(16)
             }
         }
     }

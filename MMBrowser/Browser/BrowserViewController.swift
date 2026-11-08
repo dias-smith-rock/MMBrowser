@@ -754,9 +754,10 @@ final class BrowserViewController: UIViewController {
             make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
             make.height.equalTo(2)
         }
+        let topChrome = LayoutSupport.topChromeLayoutGuide(in: view)
         immersiveRestoreButton.snp.makeConstraints { make in
-            make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing).offset(-12)
-            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).offset(8)
+            make.trailing.equalTo(topChrome.snp.trailing).offset(-12)
+            make.top.equalTo(topChrome.snp.top).offset(8)
             make.height.equalTo(34)
             make.width.greaterThanOrEqualTo(118)
         }

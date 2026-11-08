@@ -37,4 +37,12 @@ enum LayoutSupport {
         if traits.horizontalSizeClass == .regular { return true }
         return bounds.width >= 600
     }
+
+    /// Top chrome guide that clears iPadOS / macOS window controls (traffic lights).
+    static func topChromeLayoutGuide(in view: UIView) -> UILayoutGuide {
+        if #available(iOS 26.0, *) {
+            return view.layoutGuide(for: .safeArea(cornerAdaptation: .horizontal))
+        }
+        return view.safeAreaLayoutGuide
+    }
 }
