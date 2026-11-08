@@ -135,6 +135,7 @@
 		PREM00BF01010101010101 /* PremiumStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010101 /* PremiumStore.swift */; };
 		PREM00BF01010101010102 /* PremiumCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010102 /* PremiumCoordinator.swift */; };
 		PREM00BF01010101010103 /* PremiumPaywallViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PREM00FR01010101010103 /* PremiumPaywallViewController.swift */; };
+		PRIV00BF01010101010101 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = PRIV00FR01010101010101 /* PrivacyInfo.xcprivacy */; };
 		PRPTBLD0A1B2C3D4E5F60718 /* PrivacyReportViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PRPTFR0A1B2C3D4E5F607180 /* PrivacyReportViewController.swift */; };
 		PWD0000077F415072B01A /* PasswordVaultGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD000425FA6C14C5A95C /* PasswordVaultGate.swift */; };
 		PWD0000985731419635E3 /* MasterPasswordSetupViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = PWD00066762D6E1CB6128 /* MasterPasswordSetupViewController.swift */; };
@@ -161,11 +162,11 @@
 		SETIA01BF01010101010104 /* AboutSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010104 /* AboutSettingsViewController.swift */; };
 		SETIA01BF01010101010105 /* SpacesSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010105 /* SpacesSettingsViewController.swift */; };
 		SITEBLD0A1B2C3D4E5F60719 /* SiteBlockingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = SITEFR0A1B2C3D4E5F607190 /* SiteBlockingStore.swift */; };
-		SPMBFCL01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFFA01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFGMA010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFRC01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFUMP010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFCL01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFFA01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFGMA010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFRC01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFUMP010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
 		SRCHBLD0A1B2C3D4E5F60722 /* SearchPrivacyPromptViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRCHFR0A1B2C3D4E5F607220 /* SearchPrivacyPromptViewController.swift */; };
 		TIP0SWIPEA1B2C3D4E5F60001 /* AddressBarSwipeTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIP0SWIPEA1B2C3D4E5F60002 /* AddressBarSwipeTipView.swift */; };
 		TSS0000101010101010171 /* TabSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020271 /* TabSnapshotStore.swift */; };
@@ -336,6 +337,7 @@
 		PREM00FR01010101010102 /* PremiumCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumCoordinator.swift; sourceTree = "<group>"; };
 		PREM00FR01010101010103 /* PremiumPaywallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumPaywallViewController.swift; sourceTree = "<group>"; };
 		PRFR01A2B3C4D5E6F7081910 /* PrivacyRecommendedViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyRecommendedViewController.swift; sourceTree = "<group>"; };
+		PRIV00FR01010101010101 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		PRPTFR0A1B2C3D4E5F607180 /* PrivacyReportViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyReportViewController.swift; sourceTree = "<group>"; };
 		PWD0000177186C24076BD /* MMBrowserCredentialProvider.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MMBrowserCredentialProvider.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		PWD00009064676E784F66 /* VaultCrypto.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultCrypto.swift; sourceTree = "<group>"; };
@@ -381,11 +383,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				SPMBFFA01010101010101 /* (null) in Frameworks */,
-				SPMBFRC01010101010101 /* (null) in Frameworks */,
-				SPMBFCL01010101010101 /* (null) in Frameworks */,
-				SPMBFGMA010101010101 /* (null) in Frameworks */,
-				SPMBFUMP010101010101 /* (null) in Frameworks */,
+				SPMBFFA01010101010101 /* BuildFile in Frameworks */,
+				SPMBFRC01010101010101 /* BuildFile in Frameworks */,
+				SPMBFCL01010101010101 /* BuildFile in Frameworks */,
+				SPMBFGMA010101010101 /* BuildFile in Frameworks */,
+				SPMBFUMP010101010101 /* BuildFile in Frameworks */,
 				F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -554,6 +556,7 @@
 				84E6B61E29CD5680001723AE /* LaunchScreen.storyboard */,
 				84E6B62129CD5680001723AE /* Info.plist */,
 				A11F1BEBA5E1000000000012 /* GoogleService-Info.plist */,
+				PRIV00FR01010101010101 /* PrivacyInfo.xcprivacy */,
 			);
 			path = MMBrowser;
 			sourceTree = "<group>";
@@ -856,6 +859,7 @@
 				857A72CB4CB84D79A56A5CAE /* DefaultFilterManifest.json in Resources */,
 				84E6B61D29CD5680001723AE /* Assets.xcassets in Resources */,
 				A11F1BEBA5E1000000000011 /* GoogleService-Info.plist in Resources */,
+				PRIV00BF01010101010101 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -877,13 +881,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1255,7 +1255,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1269,6 +1269,7 @@
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "XBrowser uses Face ID to unlock the app.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "XBrowser uses your location only when Location is set to Current Location and a website requests GPS-like coordinates.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XBrowser needs access to save screenshots to your photo library.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "XBrowser needs access to your photo library so you can choose a custom home wallpaper.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
@@ -1302,7 +1303,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
@@ -1311,6 +1312,7 @@
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "XBrowser uses Face ID to unlock the app.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "XBrowser uses your location only when Location is set to Current Location and a website requests GPS-like coordinates.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XBrowser needs access to save screenshots to your photo library.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "XBrowser needs access to your photo library so you can choose a custom home wallpaper.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
@@ -1339,7 +1341,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = MMBrowserCredentialProvider/MMBrowserCredentialProvider.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MMBrowserCredentialProvider/Info.plist;
@@ -1366,7 +1368,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = MMBrowserCredentialProvider/MMBrowserCredentialProvider.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MMBrowserCredentialProvider/Info.plist;
