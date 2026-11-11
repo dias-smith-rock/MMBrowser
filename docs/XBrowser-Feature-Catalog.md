@@ -40,6 +40,7 @@ Capabilities that define XBrowser’s identity, or that are essential to being a
 | --- | --- |
 | **Tabs** | Open, switch, and manage tabs (including address-bar swipe between page tabs). The tab switcher has a Settings button to the right of Add Space. |
 | **Address bar (search / URL)** | Search with the selected engine or open a URL; supports keyboard shortcut chips (e.g. `https://`, `.com`). Page-load progress follows the address-bar / compact-pill border instead of a full-width bar. |
+| **App Tracking Transparency** | On first launch (while authorization is still undecided), shows the system ATT prompt so the user can allow or deny use of the advertising identifier. |
 | **History suggestions** | Address-bar suggestions from recent visits (deduped by site for autocomplete). |
 | **Bookmarks** | Save and open bookmarks (isolated per Space). |
 | **History** | Browsing history (isolated per Space). |
@@ -145,7 +146,7 @@ Native player used for supported streams (alongside system PiP where applicable)
 | **Erase browsing data** | One-tap erase for This Space (default) or All Spaces, from the tab switcher (🔥), page menu Clear (🔥), Privacy report, and Settings. A full-page burn plays for about 1.5s, then the cleared page opens. Optional bookmarks and shared Downloads. Private mode closes private tabs. Does not erase App Lock or Space Lock. |
 | **Clear data for this site** | Page menu and Privacy report clear one site’s cookies and site data in the current Space only. |
 | **Per-site blocking exception** | Allow or block ads and trackers for the current site without changing the global switch. Reversible. Report a broken site opens mail to support. |
-| **What we collect** | Settings page and xxxxxbrowser.cc/privacy-data/ describe on-device data, optional Firebase crash reports (on by default; no Firebase Analytics / IDFA), and what is not sent. |
+| **What we collect** | Settings page and xxxxxbrowser.cc/privacy-data/ describe on-device data, optional Firebase crash/analytics (on by default), and App Tracking Transparency on launch for the advertising identifier when permission is not yet decided. |
 | **Filter list recovery** | Settings shows Up to date or Last updated, with Update now. |
 | **Global Privacy Control** | Sends Sec-GPC and `navigator.globalPrivacyControl` so sites can treat the visit as opted out of sale or sharing. On by default; toggle in Settings. |
 | **Dangerous site warning** | Blocks lookalike / phishing-style hosts on main-frame and popup loads. Go Back is recommended; Continue is explicit. |

@@ -98,7 +98,7 @@ enum AppSettings {
         }
     }
 
-    /// Crashlytics collection. Default on, matching the previous always-on Firebase setup.
+    /// Crashlytics + Analytics. Default on, matching the previous always-on Firebase setup.
     static var shareDiagnostics: Bool {
         get { d.object(forKey: "privacy.shareDiagnostics") == nil ? true : d.bool(forKey: "privacy.shareDiagnostics") }
         set {

@@ -91,6 +91,7 @@
 		A7C1E4B29D1046F8A3B1C001 /* WatchLaterStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1E4B29D1046F8A3B1C002 /* WatchLaterStore.swift */; };
 		A7C1E4B29D1046F8A3B1C003 /* WatchLaterViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C1E4B29D1046F8A3B1C004 /* WatchLaterViewController.swift */; };
 		AFEE84C5C4BE4F95BAF48813 /* TabNavigationHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC9060F5CC154E999671AEF7 /* TabNavigationHistory.swift */; };
+		ATT00BF01010101010101 /* AppTrackingAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = ATT00FR01010101010101 /* AppTrackingAuthorization.swift */; };
 		B1C2D3E4F5A64789B0C1D2E4 /* PageCleanerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A64789B0C1D2E3 /* PageCleanerStore.swift */; };
 		B1C2D3E4F5A64789B0C1D2E6 /* PageCleanerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A64789B0C1D2E5 /* PageCleanerManager.swift */; };
 		B1C2D3E4F5A64789B0C1D2EA /* PageCleanerRulesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A64789B0C1D2E9 /* PageCleanerRulesViewController.swift */; };
@@ -162,11 +163,11 @@
 		SETIA01BF01010101010104 /* AboutSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010104 /* AboutSettingsViewController.swift */; };
 		SETIA01BF01010101010105 /* SpacesSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010105 /* SpacesSettingsViewController.swift */; };
 		SITEBLD0A1B2C3D4E5F60719 /* SiteBlockingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = SITEFR0A1B2C3D4E5F607190 /* SiteBlockingStore.swift */; };
-		SPMBFCL01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFFA01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFGMA010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFRC01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFUMP010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFCL01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFFA01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFGMA010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFRC01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFUMP010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
 		SRCHBLD0A1B2C3D4E5F60722 /* SearchPrivacyPromptViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRCHFR0A1B2C3D4E5F607220 /* SearchPrivacyPromptViewController.swift */; };
 		TIP0SWIPEA1B2C3D4E5F60001 /* AddressBarSwipeTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIP0SWIPEA1B2C3D4E5F60002 /* AddressBarSwipeTipView.swift */; };
 		TSS0000101010101010171 /* TabSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020271 /* TabSnapshotStore.swift */; };
@@ -291,6 +292,7 @@
 		A7C1E4B29D1046F8A3B1C002 /* WatchLaterStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLaterStore.swift; sourceTree = "<group>"; };
 		A7C1E4B29D1046F8A3B1C004 /* WatchLaterViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLaterViewController.swift; sourceTree = "<group>"; };
 		A8F39F6791D34673BFA63E0B /* ReadingListViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadingListViewController.swift; sourceTree = "<group>"; };
+		ATT00FR01010101010101 /* AppTrackingAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTrackingAuthorization.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5A64789B0C1D2E3 /* PageCleanerStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageCleanerStore.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5A64789B0C1D2E5 /* PageCleanerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageCleanerManager.swift; sourceTree = "<group>"; };
 		B1C2D3E4F5A64789B0C1D2E9 /* PageCleanerRulesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageCleanerRulesViewController.swift; sourceTree = "<group>"; };
@@ -383,11 +385,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				SPMBFFA01010101010101 /* (null) in Frameworks */,
-				SPMBFRC01010101010101 /* (null) in Frameworks */,
-				SPMBFCL01010101010101 /* (null) in Frameworks */,
-				SPMBFGMA010101010101 /* (null) in Frameworks */,
-				SPMBFUMP010101010101 /* (null) in Frameworks */,
+				SPMBFFA01010101010101 /* BuildFile in Frameworks */,
+				SPMBFRC01010101010101 /* BuildFile in Frameworks */,
+				SPMBFCL01010101010101 /* BuildFile in Frameworks */,
+				SPMBFGMA010101010101 /* BuildFile in Frameworks */,
+				SPMBFUMP010101010101 /* BuildFile in Frameworks */,
 				F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -652,6 +654,7 @@
 				SITEFR0A1B2C3D4E5F607190 /* SiteBlockingStore.swift */,
 				ERASFR0A1B2C3D4E5F607200 /* EraseBrowsingDataViewController.swift */,
 				WHATFR0A1B2C3D4E5F607210 /* WhatWeCollectViewController.swift */,
+				ATT00FR01010101010101 /* AppTrackingAuthorization.swift */,
 			);
 			path = Privacy;
 			sourceTree = "<group>";
@@ -881,13 +884,9 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
-			inputPaths = (
-			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1055,6 +1054,7 @@
 				SITEBLD0A1B2C3D4E5F60719 /* SiteBlockingStore.swift in Sources */,
 				ERASBLD0A1B2C3D4E5F60720 /* EraseBrowsingDataViewController.swift in Sources */,
 				WHATBLD0A1B2C3D4E5F60721 /* WhatWeCollectViewController.swift in Sources */,
+				ATT00BF01010101010101 /* AppTrackingAuthorization.swift in Sources */,
 				SRCHBLD0A1B2C3D4E5F60722 /* SearchPrivacyPromptViewController.swift in Sources */,
 				GPCBLD01A2B3C4D5E6F70819 /* GlobalPrivacyControl.swift in Sources */,
 				PRBLD01A2B3C4D5E6F708191 /* PrivacyRecommendedViewController.swift in Sources */,
@@ -1259,7 +1259,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1274,6 +1274,7 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "XBrowser uses your location only when Location is set to Current Location and a website requests GPS-like coordinates.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XBrowser needs access to save screenshots to your photo library.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "XBrowser needs access to your photo library so you can choose a custom home wallpaper.";
+				INFOPLIST_KEY_NSUserTrackingUsageDescription = "We use your device’s advertising identifier to measure product analytics and improve XBrowser features.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
@@ -1285,7 +1286,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 1.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -1307,7 +1308,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 9;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
@@ -1317,6 +1318,7 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "XBrowser uses your location only when Location is set to Current Location and a website requests GPS-like coordinates.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XBrowser needs access to save screenshots to your photo library.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "XBrowser needs access to your photo library so you can choose a custom home wallpaper.";
+				INFOPLIST_KEY_NSUserTrackingUsageDescription = "We use your device’s advertising identifier to measure product analytics and improve XBrowser features.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
@@ -1328,7 +1330,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 1.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

@@ -9,7 +9,8 @@ target 'MMBrowser' do
   # Layout (5.7+ ships PrivacyInfo.xcprivacy required by App Store)
   pod 'SnapKit', '~> 5.7.1'
 
-  # Firebase without GoogleAppMeasurement (no IDFA / ATT / AdSupport residual strings).
+  # Firebase (Analytics includes GoogleAppMeasurement / IDFA paths; gated by ATT + shareDiagnostics)
+  pod 'FirebaseAnalytics', '~> 11.15.0'
   pod 'FirebaseRemoteConfig', '~> 11.15.0'
   pod 'FirebaseCrashlytics', '~> 11.15.0'
 end

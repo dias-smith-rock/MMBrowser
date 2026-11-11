@@ -99,6 +99,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 browser.handleIncomingURL(url)
             }
         }
+        // ATT system prompt — requires active UI; only shows while status is notDetermined.
+        AppTrackingAuthorization.requestIfNeeded()
     }
 
     func sceneWillResignActive(_ scene: UIScene) {}

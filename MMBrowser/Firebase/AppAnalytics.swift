@@ -1,15 +1,15 @@
 import Foundation
+import FirebaseAnalytics
 
-/// Product analytics facade. Firebase Analytics / GoogleAppMeasurement were removed to keep
-/// App Store binaries free of IDFA / ATT residual symbols. Events are currently no-ops.
-/// DEBUG probes (PipProbe / XSiteProbe / PageMediaProbe) stay console-only.
+/// Product analytics facade (Firebase Analytics). Collection follows `AppSettings.shareDiagnostics`
+/// and ATT for advertising-identifier access. DEBUG probes stay console-only.
 enum AppAnalytics {
 
     // MARK: - Event names (snake_case, ≤40 chars)
 
     enum Event {
-        static let appOpen = "app_open"
-        static let screenView = "screen_view"
+        static let appOpen = AnalyticsEventAppOpen
+        static let screenView = AnalyticsEventScreenView
 
         static let tabOpen = "tab_open"
         static let tabClose = "tab_close"
@@ -86,9 +86,9 @@ enum AppAnalytics {
     }
 
     static func logScreen(_ name: String, class className: String? = nil) {
-        var params: [String: Any] = ["screen_name": sanitize(name, limit: 100)]
+        var params: [String: Any] = [AnalyticsParameterScreenName: sanitize(name, limit: 100)]
         if let className {
-            params["screen_class"] = sanitize(className, limit: 100)
+            params[AnalyticsParameterScreenClass] = sanitize(className, limit: 100)
         }
         log(Event.screenView, parameters: params)
     }
@@ -388,11 +388,35 @@ enum AppAnalytics {
     // MARK: - Internals
 
     private static func log(_ name: String, parameters: [String: Any]?) {
-        // Intentionally no Firebase Analytics / GoogleAppMeasurement linkage.
-        #if DEBUG
-        _ = name
-        _ = parameters
-        #endif
+        guard Gate.isReady else { return }
+        let trimmedName = String(name.prefix(40))
+        guard let parameters else {
+            Analytics.logEvent(trimmedName, parameters: nil)
+            return
+        }
+        var safe: [String: Any] = [:]
+        safe.reserveCapacity(min(parameters.count, 25))
+        for (key, value) in parameters {
+            guard safe.count < 25 else { break }
+            let k = String(key.prefix(40))
+            switch value {
+            case let s as String:
+                safe[k] = String(s.prefix(100))
+            case let b as Bool:
+                safe[k] = b
+            case let i as Int:
+                safe[k] = i
+            case let i64 as Int64:
+                safe[k] = i64
+            case let d as Double:
+                safe[k] = d
+            case let n as NSNumber:
+                safe[k] = n
+            default:
+                safe[k] = String(describing: value).prefix(100)
+            }
+        }
+        Analytics.logEvent(trimmedName, parameters: safe)
     }
 
     private static func sanitize(_ value: String, limit: Int = 40) -> String {
@@ -401,6 +425,12 @@ enum AppAnalytics {
             .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "unknown" }
         return String(trimmed.prefix(limit))
+    }
+
+    private enum Gate {
+        static var isReady: Bool {
+            FirebaseBootstrap.isConfigured && AppSettings.shareDiagnostics
+        }
     }
 
     /// In-process debounce for high-churn events (SPA redirects, error storms).
