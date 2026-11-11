@@ -164,11 +164,6 @@
 		SETIA01BF01010101010104 /* AboutSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010104 /* AboutSettingsViewController.swift */; };
 		SETIA01BF01010101010105 /* SpacesSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010105 /* SpacesSettingsViewController.swift */; };
 		SITEBLD0A1B2C3D4E5F60719 /* SiteBlockingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = SITEFR0A1B2C3D4E5F607190 /* SiteBlockingStore.swift */; };
-		SPMBFCL01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFFA01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFGMA010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFRC01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFUMP010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		SRCHBLD0A1B2C3D4E5F60722 /* SearchPrivacyPromptViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRCHFR0A1B2C3D4E5F607220 /* SearchPrivacyPromptViewController.swift */; };
 		TIP0SWIPEA1B2C3D4E5F60001 /* AddressBarSwipeTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIP0SWIPEA1B2C3D4E5F60002 /* AddressBarSwipeTipView.swift */; };
 		TSS0000101010101010171 /* TabSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020271 /* TabSnapshotStore.swift */; };
@@ -387,11 +382,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				SPMBFFA01010101010101 /* (null) in Frameworks */,
-				SPMBFRC01010101010101 /* (null) in Frameworks */,
-				SPMBFCL01010101010101 /* (null) in Frameworks */,
-				SPMBFGMA010101010101 /* (null) in Frameworks */,
-				SPMBFUMP010101010101 /* (null) in Frameworks */,
 				F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1267,7 +1257,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1316,7 +1306,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
@@ -1355,7 +1345,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = MMBrowserCredentialProvider/MMBrowserCredentialProvider.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MMBrowserCredentialProvider/Info.plist;
@@ -1365,7 +1355,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 1.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser.credentialprovider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -1382,7 +1372,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = MMBrowserCredentialProvider/MMBrowserCredentialProvider.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MMBrowserCredentialProvider/Info.plist;
@@ -1392,7 +1382,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.4.0;
+				MARKETING_VERSION = 1.4.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser.credentialprovider;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
