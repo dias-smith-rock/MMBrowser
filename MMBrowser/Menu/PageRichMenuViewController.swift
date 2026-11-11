@@ -118,7 +118,7 @@ final class PageRichMenuViewController: UIViewController {
     private func pageToolItems() -> [(String, String, MenuAction, Bool)] {
         [
             ("PiP", "pip.enter", .pictureInPicture, context.hasLoadablePage && AppSettings.pictureInPictureEnabled),
-            ("Hide Toolbar", "rectangle.inset.filled", .hideToolbar, context.hasLoadablePage),
+            ("Hide Toolbar", "smallcircle.filled.circle", .hideToolbar, context.hasLoadablePage),
             ("Web Editor", "wand.and.stars", .pageCleaner, context.hasLoadablePage),
             ("Screenshot", "camera", .screenshot, context.hasLoadablePage),
             ("Split View", "rectangle.split.1x2", .compareAccounts, true),
@@ -133,6 +133,7 @@ final class PageRichMenuViewController: UIViewController {
 
     private func appLibraryItems() -> [(String, String, MenuAction, Bool)] {
         [
+            ("Settings", "gearshape", .settings, true),
             ("Clear", "🔥", .eraseBrowsingData, true),
             ("Watch Later (Isolated)", "clock.badge.checkmark", .watchLater, !context.isIncognito),
             ("Bookmarks (Isolated)", "bookmark", .bookmarks, !context.isIncognito),

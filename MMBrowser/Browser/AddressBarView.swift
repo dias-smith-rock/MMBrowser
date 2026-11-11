@@ -113,7 +113,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
         reloadButton.accessibilityLabel = "Reload"
         reloadButton.addTarget(self, action: #selector(reloadTapped), for: .touchUpInside)
-        hideToolbarButton.accessibilityLabel = "Enter immersive"
+        hideToolbarButton.accessibilityLabel = "Minimize address bar"
         hideToolbarButton.addTarget(self, action: #selector(hideToolbarTapped), for: .touchUpInside)
 
         richMenuButton.isHidden = true
@@ -682,8 +682,9 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         )
         reloadButton.tintColor = BrowserTheme.textSecondary
         reloadButton.setPreferredSymbolConfiguration(iconConfig, forImageIn: .normal)
+        // Circle with a center dot — collapses chrome into a floating AssistiveTouch-style bubble.
         hideToolbarButton.setImage(
-            UIImage(systemName: "rectangle.inset.filled", withConfiguration: iconConfig),
+            UIImage(systemName: "smallcircle.filled.circle", withConfiguration: iconConfig),
             for: .normal
         )
         hideToolbarButton.tintColor = BrowserTheme.textSecondary
@@ -1092,6 +1093,15 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         textField.resignFirstResponder()
         hideCleanerMenu()
         delegate?.addressBarDidTapHideToolbar()
+    }
+
+    /// Center of the circle-dot control in another view’s coordinate space (morph animation anchor).
+    func hideToolbarAnchorCenter(in host: UIView) -> CGPoint? {
+        guard window != nil, !hideToolbarButton.isHidden, hideToolbarButton.bounds.width > 1 else { return nil }
+        return hideToolbarButton.convert(
+            CGPoint(x: hideToolbarButton.bounds.midX, y: hideToolbarButton.bounds.midY),
+            to: host
+        )
     }
 
     /// Navigation lives in the bottom toolbar row; keep field chrome full-width.

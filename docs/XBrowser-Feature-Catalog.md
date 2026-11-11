@@ -38,7 +38,7 @@ Capabilities that define XBrowser’s identity, or that are essential to being a
 
 | Feature | Description |
 | --- | --- |
-| **Tabs** | Open, switch, and manage tabs (including address-bar swipe between page tabs). The tab switcher has a Settings button to the right of Add Space. |
+| **Tabs** | Open, switch, and manage tabs (including address-bar swipe between page tabs). Distinct page URLs open as separate tabs even on the same domain; an exact URL already open is selected instead. The tab switcher has a Settings button to the right of Add Space. |
 | **Address bar (search / URL)** | Search with the selected engine or open a URL; supports keyboard shortcut chips (e.g. `https://`, `.com`). Page-load progress follows the address-bar / compact-pill border instead of a full-width bar. |
 | **App Tracking Transparency** | On first launch (while authorization is still undecided), shows the system ATT prompt so the user can allow or deny use of the advertising identifier. |
 | **History suggestions** | Address-bar suggestions from recent visits (deduped by site for autocomplete). |
@@ -100,7 +100,7 @@ Native player used for supported streams (alongside system PiP where applicable)
 | **Volume gesture (floating)** | Adjust volume from the floating player chrome. |
 | **Expand to fullscreen player** | Open the shared AVPlayer in an in-app fullscreen player. |
 | **Fullscreen controls** | Fullscreen overlay: close, play/pause, ±10s, speed, scrubber, elapsed/remaining time. |
-| **Hide Toolbar (immersive)** | Manually hide address bar + toolbar for H5 games / fixed pages (address-bar icon or page menu); restore via top-right “Exit Immersive”. |
+| **Hide Toolbar (chrome bubble)** | Manually hide address bar + toolbar for H5 games / fixed pages (circle-dot address-bar icon or page menu); restores via a draggable AssistiveTouch-style floating circle. |
 | **Fullscreen brightness / volume gestures** | Vertical drag on left/right regions to adjust brightness (where supported) or system volume. |
 | **Fullscreen controls lock** | Side lock button to block accidental taps; only unlock remains available until unlocked. |
 | **Sleep Timer** | Pause playback automatically after 10 / 15 / 30 / 45 / 60 minutes or a custom duration; available on floating and fullscreen players (middle-right control). |
@@ -171,7 +171,7 @@ Native player used for supported streams (alongside system PiP where applicable)
 | **Onboarding (Feature Highlights)** | First-run Highlights lead with private-by-default protections, then Spaces, locks, and background playback. Split View Wow waits until the first toolbar page-menu tap. No auto VIP paywall (and home crown hidden) on the install calendar day. |
 | **Tips** | Lightweight UX tips (address-bar tab swipe; post-onboarding ads shield and Background Audio toasts for new users). |
 | **What's New / about copy** | In-app feature summary strings for releases and settings. |
-| **Settings (hub IA)** | Root Settings uses a Brave-style layout: Premium VIP card, then Features / General / Display / Spaces / Support / About. Detail toggles live on secondary pages. |
+| **Settings (hub IA)** | Root Settings uses a Brave-style layout: Premium VIP card, then Features / General / Display / Spaces / Support / About. Detail toggles live on secondary pages. Open from the toolbar menu, tab switcher, or the page menu Settings shortcut (before Clear). |
 
 ---
 

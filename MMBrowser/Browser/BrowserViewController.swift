@@ -37,7 +37,10 @@ final class BrowserViewController: UIViewController {
     private var isBrowserChromeHiddenForHub = false
     /// H5 games / fixed pages: hide address + toolbar; restore via floating chip.
     private var isImmersiveBrowsing = false
-    private let immersiveRestoreButton = UIButton(type: .system)
+    private let chromeBubble = ChromeBubbleView()
+    private var chromeBubbleCenter: CGPoint?
+    private static let chromeBubbleCenterXKey = "browser.chromeBubble.centerX"
+    private static let chromeBubbleCenterYKey = "browser.chromeBubble.centerY"
     private var isPageLoading = false
     private var pageLoadProgress: Double = 0
     /// Keyboard overlap with this view (from bottom), in view coordinates.
@@ -107,6 +110,7 @@ final class BrowserViewController: UIViewController {
         guard size != lastPipHostLayoutSize else { return }
         lastPipHostLayoutSize = size
         CustomPipController.shared.relayoutForHostBoundsChange()
+        layoutChromeBubbleIfNeeded()
     }
 
     override func viewWillTransition(
@@ -707,8 +711,8 @@ final class BrowserViewController: UIViewController {
         contentClipView.addSubview(adjacentTabPreview)
         view.addSubview(chromeHost)
         view.addSubview(addressSuggestions)
-        configureImmersiveRestoreButton()
-        view.addSubview(immersiveRestoreButton)
+        configureChromeBubble()
+        view.addSubview(chromeBubble)
 
         addressBar.snp.makeConstraints { make in
             make.height.equalTo(BrowserTheme.addressBarHeight)
@@ -748,39 +752,51 @@ final class BrowserViewController: UIViewController {
         adjacentTabPreview.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
-        // Use the real safe area (not corner-adapted chrome guide) so Duo / foldable
-        // trailing stays on the outer edge instead of near the hinge.
-        immersiveRestoreButton.snp.makeConstraints { make in
-            make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing).offset(-12)
-            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).offset(8)
-            make.height.equalTo(34)
-            make.width.greaterThanOrEqualTo(118)
+    }
+
+    private func configureChromeBubble() {
+        chromeBubble.isHidden = true
+        chromeBubble.alpha = 0
+        chromeBubble.onTap = { [weak self] in
+            self?.setImmersiveBrowsing(false, animated: true)
+        }
+        chromeBubble.onDragEnded = { [weak self] center in
+            self?.persistChromeBubbleCenter(center)
+        }
+        loadChromeBubbleCenterIfNeeded()
+    }
+
+    private func loadChromeBubbleCenterIfNeeded() {
+        guard chromeBubbleCenter == nil else { return }
+        let defaults = UserDefaults.standard
+        if defaults.object(forKey: Self.chromeBubbleCenterXKey) != nil,
+           defaults.object(forKey: Self.chromeBubbleCenterYKey) != nil {
+            chromeBubbleCenter = CGPoint(
+                x: defaults.double(forKey: Self.chromeBubbleCenterXKey),
+                y: defaults.double(forKey: Self.chromeBubbleCenterYKey)
+            )
         }
     }
 
-    private func configureImmersiveRestoreButton() {
-        immersiveRestoreButton.isHidden = true
-        immersiveRestoreButton.setTitle("Exit Immersive", for: .normal)
-        immersiveRestoreButton.setImage(
-            UIImage(systemName: "rectangle.bottomthird.inset.filled", withConfiguration: UIImage.SymbolConfiguration(pointSize: 12, weight: .semibold)),
-            for: .normal
-        )
-        immersiveRestoreButton.tintColor = .white
-        immersiveRestoreButton.setTitleColor(.white, for: .normal)
-        immersiveRestoreButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
-        immersiveRestoreButton.backgroundColor = UIColor.black.withAlphaComponent(0.62)
-        immersiveRestoreButton.layer.cornerRadius = 17
-        immersiveRestoreButton.contentEdgeInsets = UIEdgeInsets(top: 0, left: 12, bottom: 0, right: 14)
-        immersiveRestoreButton.imageEdgeInsets = UIEdgeInsets(top: 0, left: -3, bottom: 0, right: 3)
-        immersiveRestoreButton.accessibilityLabel = "Exit immersive mode and show toolbar"
-        immersiveRestoreButton.addTarget(self, action: #selector(immersiveRestoreTapped), for: .touchUpInside)
+    private func persistChromeBubbleCenter(_ center: CGPoint) {
+        chromeBubbleCenter = center
+        let defaults = UserDefaults.standard
+        defaults.set(center.x, forKey: Self.chromeBubbleCenterXKey)
+        defaults.set(center.y, forKey: Self.chromeBubbleCenterYKey)
     }
 
-    @objc private func immersiveRestoreTapped() {
-        setImmersiveBrowsing(false, animated: true)
+    private func layoutChromeBubbleIfNeeded() {
+        guard isImmersiveBrowsing, !chromeBubble.isHidden else { return }
+        let size = CGSize(width: ChromeBubbleView.diameter, height: ChromeBubbleView.diameter)
+        let raw = chromeBubbleCenter ?? ChromeBubbleView.defaultCenter(in: view)
+        let center = ChromeBubbleView.clampedCenter(raw, in: view, size: size)
+        chromeBubbleCenter = center
+        chromeBubble.bounds = CGRect(origin: .zero, size: size)
+        chromeBubble.center = center
+        view.bringSubviewToFront(chromeBubble)
     }
 
-    /// Fully hide address bar + toolbar so H5 games / fixed pages can use the whole screen.
+    /// Fully hide address bar + toolbar; restore via the floating AssistiveTouch-style bubble.
     private func setImmersiveBrowsing(_ enabled: Bool, animated: Bool, announce: Bool = false) {
         if enabled {
             guard tabManager.selectedTab?.isNewTabPage != true else { return }
@@ -792,31 +808,155 @@ final class BrowserViewController: UIViewController {
             isChromeCollapsed = false
             addressBar.endEditing(true)
             addressBar.hideCleanerMenu()
-        }
-        let apply = {
-            let hideChrome = enabled || self.isBrowserChromeHiddenForHub
-            self.chromeHost.isHidden = hideChrome
-            self.chromeHost.isUserInteractionEnabled = !hideChrome
-            self.addressBar.isHidden = hideChrome
-            self.immersiveRestoreButton.isHidden = !enabled
-            self.immersiveRestoreButton.alpha = enabled ? 1 : 0
-            if enabled {
-                self.view.bringSubviewToFront(self.immersiveRestoreButton)
+            // Always spawn at bottom-center when collapsing from the address-bar control.
+            chromeBubbleCenter = nil
+            let spaceColor = tabManager.selectedTab.flatMap { tab -> UIColor? in
+                guard !tab.isIncognito, let container = tabManager.container(id: tab.containerID) else { return nil }
+                return AccountColor.color(for: container)
             }
-            self.updateWebChromeContentInset()
-            self.view.layoutIfNeeded()
-            // Let fixed-layout H5 games remeasure after chrome removal.
-            self.tabManager.selectedTab?.webController?.webView?.setNeedsLayout()
-            self.tabManager.selectedTab?.webController?.webView?.layoutIfNeeded()
+            chromeBubble.applyChromeTint(tabManager.selectedTab?.isIncognito == true ? BrowserTheme.privateAccent : spaceColor)
         }
         if animated {
-            UIView.animate(withDuration: 0.25, animations: apply)
+            animateImmersiveBrowsingTransition(enabled: enabled)
         } else {
-            apply()
+            applyImmersiveBrowsingChromeVisibility(enabled: enabled)
+            remountWebLayoutAfterChromeChange()
         }
         setNeedsStatusBarAppearanceUpdate()
         if enabled, announce {
-            Toast.show("Immersive on — tap Exit Immersive to restore", from: self)
+            Toast.show("Toolbar hidden — drag or tap the circle to restore", from: self)
+        }
+    }
+
+    private func chromeBubbleMorphAnchor() -> CGPoint {
+        if let button = addressBar.hideToolbarAnchorCenter(in: view) {
+            return button
+        }
+        // Fallback: top-right of the chrome card (near the circle-dot control).
+        let card = chromeHost.convert(chromeHost.bounds, to: view)
+        return CGPoint(x: card.maxX - 28, y: card.minY + 22)
+    }
+
+    private func applyImmersiveBrowsingChromeVisibility(enabled: Bool) {
+        let hideChrome = enabled || isBrowserChromeHiddenForHub
+        chromeHost.layer.removeAllAnimations()
+        chromeBubble.layer.removeAllAnimations()
+        chromeHost.transform = .identity
+        chromeHost.alpha = 1
+        chromeHost.isHidden = hideChrome
+        chromeHost.isUserInteractionEnabled = !hideChrome
+        addressBar.isHidden = hideChrome
+        chromeBubble.transform = .identity
+        chromeBubble.isHidden = !enabled
+        chromeBubble.alpha = enabled ? 1 : 0
+        chromeBubble.isUserInteractionEnabled = enabled
+        if enabled {
+            layoutChromeBubbleIfNeeded()
+            view.bringSubviewToFront(chromeBubble)
+        }
+        updateWebChromeContentInset()
+        view.layoutIfNeeded()
+    }
+
+    private func remountWebLayoutAfterChromeChange() {
+        tabManager.selectedTab?.webController?.webView?.setNeedsLayout()
+        tabManager.selectedTab?.webController?.webView?.layoutIfNeeded()
+    }
+
+    /// Morph between the address-bar chrome and the AssistiveTouch bubble.
+    private func animateImmersiveBrowsingTransition(enabled: Bool) {
+        let size = CGSize(width: ChromeBubbleView.diameter, height: ChromeBubbleView.diameter)
+        let anchor = chromeBubbleMorphAnchor()
+        let bottomCenter = ChromeBubbleView.clampedCenter(
+            ChromeBubbleView.defaultCenter(in: view),
+            in: view,
+            size: size
+        )
+        chromeHost.layer.removeAllAnimations()
+        chromeBubble.layer.removeAllAnimations()
+        chromeHost.isUserInteractionEnabled = false
+        chromeBubble.isUserInteractionEnabled = false
+
+        if enabled {
+            chromeBubble.bounds = CGRect(origin: .zero, size: size)
+            chromeBubble.center = anchor
+            chromeBubble.transform = CGAffineTransform(scaleX: 0.28, y: 0.28)
+            chromeBubble.alpha = 0.55
+            chromeBubble.isHidden = false
+            view.bringSubviewToFront(chromeBubble)
+
+            chromeHost.isHidden = false
+            addressBar.isHidden = false
+            chromeHost.alpha = 1
+            chromeHost.transform = .identity
+
+            UIView.animate(
+                withDuration: 0.42,
+                delay: 0,
+                usingSpringWithDamping: 0.82,
+                initialSpringVelocity: 0.55,
+                options: [.beginFromCurrentState, .allowUserInteraction]
+            ) {
+                self.chromeHost.alpha = 0
+                self.chromeHost.transform = CGAffineTransform(translationX: 0, y: 18)
+                    .scaledBy(x: 0.92, y: 0.92)
+                self.chromeBubble.center = bottomCenter
+                self.chromeBubble.transform = .identity
+                self.chromeBubble.alpha = 1
+                self.updateWebChromeContentInset()
+                self.view.layoutIfNeeded()
+            } completion: { finished in
+                guard finished, self.isImmersiveBrowsing else { return }
+                self.chromeBubbleCenter = bottomCenter
+                self.chromeHost.isHidden = true
+                self.addressBar.isHidden = true
+                self.chromeHost.alpha = 1
+                self.chromeHost.transform = .identity
+                self.chromeBubble.isUserInteractionEnabled = true
+                self.view.bringSubviewToFront(self.chromeBubble)
+                self.remountWebLayoutAfterChromeChange()
+            }
+        } else {
+            let start = chromeBubble.center
+            chromeBubble.bounds = CGRect(origin: .zero, size: size)
+            chromeBubble.center = start
+            chromeBubble.transform = .identity
+            chromeBubble.alpha = 1
+            chromeBubble.isHidden = false
+            view.bringSubviewToFront(chromeBubble)
+
+            chromeHost.isHidden = false
+            addressBar.isHidden = false
+            chromeHost.alpha = 0
+            chromeHost.transform = CGAffineTransform(translationX: 0, y: 22)
+                .scaledBy(x: 0.94, y: 0.94)
+            view.layoutIfNeeded()
+            let endAnchor = chromeBubbleMorphAnchor()
+            view.bringSubviewToFront(chromeBubble)
+
+            UIView.animate(
+                withDuration: 0.4,
+                delay: 0,
+                usingSpringWithDamping: 0.86,
+                initialSpringVelocity: 0.45,
+                options: [.beginFromCurrentState, .allowUserInteraction]
+            ) {
+                self.chromeBubble.center = endAnchor
+                self.chromeBubble.transform = CGAffineTransform(scaleX: 0.28, y: 0.28)
+                self.chromeBubble.alpha = 0
+                self.chromeHost.alpha = 1
+                self.chromeHost.transform = .identity
+                self.updateWebChromeContentInset()
+                self.view.layoutIfNeeded()
+            } completion: { finished in
+                guard finished, !self.isImmersiveBrowsing else { return }
+                self.chromeBubble.isHidden = true
+                self.chromeBubble.alpha = 0
+                self.chromeBubble.transform = .identity
+                self.chromeHost.isUserInteractionEnabled = true
+                self.view.bringSubviewToFront(self.chromeHost)
+                self.remountWebLayoutAfterChromeChange()
+            }
         }
     }
 
@@ -1563,49 +1703,65 @@ final class BrowserViewController: UIViewController {
         tabManager.persistSessionIfNeeded()
     }
 
-    /// Opens a user-chosen URL: close existing webpage tabs in the same pool, then load in a fresh tab.
-    /// Keeps New Tab placeholders and tabs in other Spaces / the other privacy mode.
+    /// Opens a user-chosen URL without closing sibling webpage tabs.
+    /// Same exact URL in this Space / mode reuses that tab; different URLs (including same host) get their own tab.
     private func openWebpageClosingPreviousTabs(_ url: URL) {
         let selected = tabManager.selectedTab
         let incognito = selected?.isIncognito ?? false
         let containerID = selected.flatMap { $0.isIncognito ? nil : Optional($0.containerID) }
 
-        let previousPageIDs = tabManager.tabs.compactMap { tab -> UUID? in
-            guard tab.isIncognito == incognito else { return nil }
-            guard !tab.isNewTabPage else { return nil }
-            if !incognito, let containerID, tab.containerID != containerID { return nil }
-            return tab.id
-        }
-
         chromeReturnTabID = nil
 
-        if let selected, selected.isNewTabPage {
-            for id in previousPageIDs {
-                tabManager.closeTab(id: id)
+        if let existing = existingWebpageTab(matching: url, incognito: incognito, containerID: containerID) {
+            if tabManager.selectedTab?.id != existing.id {
+                tabManager.selectTab(id: existing.id)
+                showSelectedTab()
+            } else {
+                navigate(to: url, in: existing)
             }
-            if tabManager.selectedTab?.id != selected.id,
-               tabManager.tabs.contains(where: { $0.id == selected.id }) {
-                tabManager.selectTab(id: selected.id)
-            }
-            navigate(to: url, in: tabManager.tabs.first(where: { $0.id == selected.id }) ?? tabManager.selectedTab)
             return
         }
 
-        let newTab = tabManager.addTab(
+        if let selected, selected.isNewTabPage {
+            navigate(to: url, in: selected)
+            return
+        }
+
+        openURLInNewTab(
+            url,
             incognito: incognito,
-            select: true,
-            containerID: containerID,
-            inheritUserAgentFrom: selected
+            inheritContainerFrom: selected,
+            containerID: containerID
         )
-        navigate(to: url, in: newTab)
-        for id in previousPageIDs {
-            tabManager.closeTab(id: id)
+    }
+
+    /// Match webpage tabs by normalized URL so `x.com/a` and `x.com/b` stay separate tabs.
+    private func existingWebpageTab(
+        matching url: URL,
+        incognito: Bool,
+        containerID: UUID?
+    ) -> BrowserTab? {
+        let target = Self.normalizedTabURLKey(url)
+        return tabManager.tabs.first { tab in
+            guard tab.isIncognito == incognito, !tab.isNewTabPage else { return false }
+            if !incognito, let containerID, tab.containerID != containerID { return false }
+            guard let tabURL = tab.url ?? tab.webController?.webView?.url else { return false }
+            return Self.normalizedTabURLKey(tabURL) == target
         }
-        if tabManager.selectedTab?.id != newTab.id,
-           tabManager.tabs.contains(where: { $0.id == newTab.id }) {
-            tabManager.selectTab(id: newTab.id)
-            showSelectedTab()
+    }
+
+    private static func normalizedTabURLKey(_ url: URL) -> String {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return url.absoluteString.lowercased()
         }
+        components.fragment = nil
+        if let host = components.host {
+            components.host = host.lowercased()
+        }
+        if components.path.count > 1, components.path.hasSuffix("/") {
+            components.path.removeLast()
+        }
+        return (components.string ?? url.absoluteString).lowercased()
     }
 
     /// Full page URL for the address bar (empty for about: pages / missing URL).

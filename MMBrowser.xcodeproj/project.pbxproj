@@ -104,6 +104,7 @@
 		C718289B0C194FE69766C497 /* YouTubeAdShield.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */; };
 		C7D8E9F0A1B2020304050601 /* AddressBarSuggestionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7D8E9F0A1B2020304050602 /* AddressBarSuggestionsView.swift */; };
 		C8E41A2B7F6D4A1E9B3C5D70 /* ScreenshotEditorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7D30F1A6E5C492D8A2B4C61 /* ScreenshotEditorViewController.swift */; };
+		CBUB00BF01010101010101 /* ChromeBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBUB00FR01010101010101 /* ChromeBubbleView.swift */; };
 		CPIP00BF01010101010101 /* CustomPipController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CPIP00FR01010101010101 /* CustomPipController.swift */; };
 		CPIP00BF01010101010102 /* CustomPipFloatingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CPIP00FR01010101010102 /* CustomPipFloatingView.swift */; };
 		CPIP00BF01010101010103 /* CustomPipFullscreenViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CPIP00FR01010101010103 /* CustomPipFullscreenViewController.swift */; };
@@ -163,11 +164,11 @@
 		SETIA01BF01010101010104 /* AboutSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010104 /* AboutSettingsViewController.swift */; };
 		SETIA01BF01010101010105 /* SpacesSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SETIA01FR01010101010105 /* SpacesSettingsViewController.swift */; };
 		SITEBLD0A1B2C3D4E5F60719 /* SiteBlockingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = SITEFR0A1B2C3D4E5F607190 /* SiteBlockingStore.swift */; };
-		SPMBFCL01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFFA01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFGMA010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFRC01010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
-		SPMBFUMP010101010101 /* BuildFile in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFCL01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFFA01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFGMA010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFRC01010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
+		SPMBFUMP010101010101 /* (null) in Frameworks */ = {isa = PBXBuildFile; };
 		SRCHBLD0A1B2C3D4E5F60722 /* SearchPrivacyPromptViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRCHFR0A1B2C3D4E5F607220 /* SearchPrivacyPromptViewController.swift */; };
 		TIP0SWIPEA1B2C3D4E5F60001 /* AddressBarSwipeTipView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TIP0SWIPEA1B2C3D4E5F60002 /* AddressBarSwipeTipView.swift */; };
 		TSS0000101010101010171 /* TabSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = TSS0000202020202020271 /* TabSnapshotStore.swift */; };
@@ -304,6 +305,7 @@
 		C1A2B3C4D5E6010203040503 /* SpaceLockSetupBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceLockSetupBridge.swift; sourceTree = "<group>"; };
 		C675306059D24454A0DD680F /* ContainerScope.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContainerScope.swift; sourceTree = "<group>"; };
 		C7D8E9F0A1B2020304050602 /* AddressBarSuggestionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressBarSuggestionsView.swift; sourceTree = "<group>"; };
+		CBUB00FR01010101010101 /* ChromeBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChromeBubbleView.swift; sourceTree = "<group>"; };
 		CC9060F5CC154E999671AEF7 /* TabNavigationHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabNavigationHistory.swift; sourceTree = "<group>"; };
 		CPIP00FR01010101010101 /* CustomPipController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPipController.swift; sourceTree = "<group>"; };
 		CPIP00FR01010101010102 /* CustomPipFloatingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPipFloatingView.swift; sourceTree = "<group>"; };
@@ -385,11 +387,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				SPMBFFA01010101010101 /* BuildFile in Frameworks */,
-				SPMBFRC01010101010101 /* BuildFile in Frameworks */,
-				SPMBFCL01010101010101 /* BuildFile in Frameworks */,
-				SPMBFGMA010101010101 /* BuildFile in Frameworks */,
-				SPMBFUMP010101010101 /* BuildFile in Frameworks */,
+				SPMBFFA01010101010101 /* (null) in Frameworks */,
+				SPMBFRC01010101010101 /* (null) in Frameworks */,
+				SPMBFCL01010101010101 /* (null) in Frameworks */,
+				SPMBFGMA010101010101 /* (null) in Frameworks */,
+				SPMBFUMP010101010101 /* (null) in Frameworks */,
 				F4230E564649AFAEA6DA985E /* Pods_MMBrowser.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -628,6 +630,7 @@
 				CPIP00FR01010101010101 /* CustomPipController.swift */,
 				CPIP00FR01010101010103 /* CustomPipFullscreenViewController.swift */,
 				CPIP00FR01010101010102 /* CustomPipFloatingView.swift */,
+				CBUB00FR01010101010101 /* ChromeBubbleView.swift */,
 				2F17FA7E6B9649618EC381DB /* MediaPlaybackSupport.swift */,
 				PIP0000202020202020202 /* PipProbe.swift */,
 				XSP0000202020202020202 /* XSiteProbe.swift */,
@@ -884,9 +887,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -975,6 +982,7 @@
 				CPIP00BF01010101010101 /* CustomPipController.swift in Sources */,
 				CPIP00BF01010101010103 /* CustomPipFullscreenViewController.swift in Sources */,
 				CPIP00BF01010101010102 /* CustomPipFloatingView.swift in Sources */,
+				CBUB00BF01010101010101 /* ChromeBubbleView.swift in Sources */,
 				09FB7CC9808A4DD0A7C8E3AC /* MediaPlaybackSupport.swift in Sources */,
 				PIP0000101010101010101 /* PipProbe.swift in Sources */,
 				XSP0000101010101010101 /* XSiteProbe.swift in Sources */,
@@ -1259,7 +1267,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1308,7 +1316,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
