@@ -48,7 +48,14 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     private let shieldBadge = UILabel()
     private let privateBadge = UILabel()
     let textField = UITextField()
-    private let progressView = UIProgressView(progressViewStyle: .bar)
+    /// Load progress drawn along the address-field / compact-pill border (not a full-width bar).
+    private let progressTrackLayer = CAShapeLayer()
+    private let progressFillLayer = CAShapeLayer()
+    private let progressLineWidth: CGFloat = 2.5
+    private var progressVisible = false
+    private var progressValue: CGFloat = 0
+    private var lastProgressPathSize: CGSize = .zero
+    private var lastProgressCornerRadius: CGFloat = -1
     private var isPrivateMode = false
     private var isPageCleanerActive = false
     /// `nil` when inactive; `false` = this site; `true` = this page only.
@@ -160,9 +167,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         updateSearchPlaceholder()
         setupKeyboardShortcuts()
 
-        progressView.progressTintColor = BrowserTheme.chromeBlue
-        progressView.trackTintColor = .clear
-        progressView.isHidden = true
+        configureProgressBorderLayers()
 
         swipeClip.clipsToBounds = true
         swipeClip.isUserInteractionEnabled = true
@@ -191,7 +196,6 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         container.addSubview(shieldButton)
         container.addSubview(shieldBadge)
         container.addSubview(richMenuButton)
-        addSubview(progressView)
 
         let expandTap = UITapGestureRecognizer(target: self, action: #selector(compactExpandTapped))
         expandTap.isEnabled = false
@@ -270,16 +274,111 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             make.edges.equalToSuperview()
         }
         refreshTextFieldConstraints()
-        progressView.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview()
-            make.bottom.equalTo(container.snp.top)
-            make.height.equalTo(2)
-        }
     }
 
     required init?(coder: NSCoder) { fatalError() }
 
     deinit { NotificationCenter.default.removeObserver(self) }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        updateProgressBorderPath()
+        if isCompact, container.bounds.width > 1 {
+            container.layer.shadowPath = UIBezierPath(
+                roundedRect: container.bounds,
+                cornerRadius: container.layer.cornerRadius
+            ).cgPath
+        }
+    }
+
+    private func configureProgressBorderLayers() {
+        [progressTrackLayer, progressFillLayer].forEach { layer in
+            layer.fillColor = UIColor.clear.cgColor
+            layer.lineWidth = progressLineWidth
+            layer.lineCap = .round
+            layer.lineJoin = .round
+            layer.contentsScale = LayoutSupport.displayScale(in: self)
+            layer.isHidden = true
+        }
+        progressTrackLayer.strokeEnd = 1
+        progressFillLayer.strokeEnd = 0
+        container.layer.addSublayer(progressTrackLayer)
+        container.layer.addSublayer(progressFillLayer)
+    }
+
+    private func updateProgressBorderPath() {
+        let bounds = container.bounds
+        guard bounds.width > 1, bounds.height > 1 else { return }
+        let size = CGSize(width: bounds.width.rounded(), height: bounds.height.rounded())
+        let corner = container.layer.cornerRadius
+        guard size != lastProgressPathSize || abs(corner - lastProgressCornerRadius) > 0.5 else { return }
+        lastProgressPathSize = size
+        lastProgressCornerRadius = corner
+        let inset = progressLineWidth / 2
+        let rect = bounds.insetBy(dx: inset, dy: inset)
+        let radius = max(0, corner - inset)
+        let path = Self.borderProgressPath(in: rect, cornerRadius: radius).cgPath
+        progressTrackLayer.frame = bounds
+        progressFillLayer.frame = bounds
+        progressTrackLayer.path = path
+        progressFillLayer.path = path
+    }
+
+    /// Rounded-rect path starting at the leading midpoint, going clockwise (fills top edge first).
+    private static func borderProgressPath(in rect: CGRect, cornerRadius: CGFloat) -> UIBezierPath {
+        let r = min(cornerRadius, min(rect.width, rect.height) / 2)
+        let minX = rect.minX
+        let maxX = rect.maxX
+        let minY = rect.minY
+        let maxY = rect.maxY
+        let midY = rect.midY
+        let path = UIBezierPath()
+        path.move(to: CGPoint(x: minX, y: midY))
+        path.addLine(to: CGPoint(x: minX, y: minY + r))
+        path.addArc(
+            withCenter: CGPoint(x: minX + r, y: minY + r),
+            radius: r,
+            startAngle: .pi,
+            endAngle: -.pi / 2,
+            clockwise: true
+        )
+        path.addLine(to: CGPoint(x: maxX - r, y: minY))
+        path.addArc(
+            withCenter: CGPoint(x: maxX - r, y: minY + r),
+            radius: r,
+            startAngle: -.pi / 2,
+            endAngle: 0,
+            clockwise: true
+        )
+        path.addLine(to: CGPoint(x: maxX, y: maxY - r))
+        path.addArc(
+            withCenter: CGPoint(x: maxX - r, y: maxY - r),
+            radius: r,
+            startAngle: 0,
+            endAngle: .pi / 2,
+            clockwise: true
+        )
+        path.addLine(to: CGPoint(x: minX + r, y: maxY))
+        path.addArc(
+            withCenter: CGPoint(x: minX + r, y: maxY - r),
+            radius: r,
+            startAngle: .pi / 2,
+            endAngle: .pi,
+            clockwise: true
+        )
+        path.addLine(to: CGPoint(x: minX, y: midY))
+        return path
+    }
+
+    private func applyProgressBorderColors() {
+        let accent = isPrivateMode ? BrowserTheme.privateAccent : (spaceTintColor ?? BrowserTheme.chromeBlue)
+        progressTrackLayer.strokeColor = accent.withAlphaComponent(0.22).cgColor
+        progressFillLayer.strokeColor = accent.cgColor
+        // While loading, the progress ring replaces the compact pill’s static hairline.
+        if isCompact {
+            container.layer.borderWidth = progressVisible ? 0 : 1
+        }
+    }
 
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         if super.point(inside: point, with: event) { return true }
@@ -483,6 +582,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             pillWidth: pillWidth
         )
         applyTheme()
+        updateProgressBorderPath()
         if !compact {
             updateShieldAppearance()
         } else {
@@ -536,6 +636,11 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             container.layer.shadowOpacity = ThemeManager.shared.current.isLight ? 0.12 : 0.45
             container.layer.shadowRadius = 10
             container.layer.shadowOffset = CGSize(width: 0, height: 2)
+            // Explicit path avoids offscreen shadow re-rasterization on Duo wide layouts.
+            container.layer.shadowPath = UIBezierPath(
+                roundedRect: container.bounds,
+                cornerRadius: container.layer.cornerRadius
+            ).cgPath
             // Shadow needs to escape the pill bounds.
             container.clipsToBounds = false
             layer.masksToBounds = false
@@ -543,6 +648,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
             container.layer.borderWidth = 0
             container.layer.borderColor = UIColor.clear.cgColor
             container.layer.shadowOpacity = 0
+            container.layer.shadowPath = nil
             container.clipsToBounds = true
             if isPrivateMode {
                 container.backgroundColor = BrowserTheme.privateBackground
@@ -594,7 +700,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         textField.textColor = BrowserTheme.textPrimary
         textField.tintColor = accent
         peekLabel.textColor = BrowserTheme.textSecondary
-        progressView.progressTintColor = accent
+        applyProgressBorderColors()
         updateSearchPlaceholder()
         cleanerMenuContainer.backgroundColor = isPrivateMode
             ? BrowserTheme.privateElevated
@@ -620,11 +726,33 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
     }
 
     func setProgress(_ progress: Double, isLoading: Bool) {
-        progressView.isHidden = !isLoading
-        progressView.setProgress(Float(progress), animated: true)
-        if !isLoading {
-            progressView.setProgress(0, animated: false)
+        let show = isLoading
+        let next = show ? CGFloat(max(progress, 0.02)) : 0
+        let wasVisible = progressVisible
+        progressVisible = show
+        progressValue = next
+        applyProgressBorderColors()
+        updateProgressBorderPath()
+
+        progressTrackLayer.isHidden = !show
+        progressFillLayer.isHidden = !show
+
+        CATransaction.begin()
+        if show && !wasVisible {
+            CATransaction.setDisableActions(true)
+            progressFillLayer.strokeEnd = 0
+            CATransaction.commit()
+            CATransaction.begin()
+            CATransaction.setAnimationDuration(0.2)
+            progressFillLayer.strokeEnd = next
+        } else if show {
+            CATransaction.setAnimationDuration(0.15)
+            progressFillLayer.strokeEnd = next
+        } else {
+            CATransaction.setDisableActions(true)
+            progressFillLayer.strokeEnd = 0
         }
+        CATransaction.commit()
     }
 
     func hideCleanerMenu() {

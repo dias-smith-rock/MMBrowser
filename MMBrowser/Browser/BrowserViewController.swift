@@ -18,7 +18,6 @@ final class BrowserViewController: UIViewController {
     private let chromeStack = UIStackView()
     private let addressSuggestions = AddressBarSuggestionsView()
     /// Shown only while loading AND bottom chrome is collapsed.
-    private let collapsedProgressView = UIProgressView(progressViewStyle: .bar)
 
     private var accountHubController: AccountHubViewController?
     private var privateNewTabController: PrivateNewTabViewController?
@@ -98,9 +97,15 @@ final class BrowserViewController: UIViewController {
         updateWebChromeContentInset()
     }
 
+    /// Last host size we used for PiP clamp — skip work when Duo only re-layouts at same size.
+    private var lastPipHostLayoutSize: CGSize = .zero
+
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         // iPhone Duo fold/unfold and Split View resize the scene mid-session.
+        let size = CGSize(width: view.bounds.width.rounded(), height: view.bounds.height.rounded())
+        guard size != lastPipHostLayoutSize else { return }
+        lastPipHostLayoutSize = size
         CustomPipController.shared.relayoutForHostBoundsChange()
     }
 
@@ -702,14 +707,8 @@ final class BrowserViewController: UIViewController {
         contentClipView.addSubview(adjacentTabPreview)
         view.addSubview(chromeHost)
         view.addSubview(addressSuggestions)
-        view.addSubview(collapsedProgressView)
         configureImmersiveRestoreButton()
         view.addSubview(immersiveRestoreButton)
-
-        collapsedProgressView.progressTintColor = BrowserTheme.chromeBlue
-        collapsedProgressView.trackTintColor = .clear
-        collapsedProgressView.isHidden = true
-        collapsedProgressView.progress = 0
 
         addressBar.snp.makeConstraints { make in
             make.height.equalTo(BrowserTheme.addressBarHeight)
@@ -749,15 +748,11 @@ final class BrowserViewController: UIViewController {
         adjacentTabPreview.snp.makeConstraints { make in
             make.edges.equalToSuperview()
         }
-        collapsedProgressView.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview()
-            make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
-            make.height.equalTo(2)
-        }
-        let topChrome = LayoutSupport.topChromeLayoutGuide(in: view)
+        // Use the real safe area (not corner-adapted chrome guide) so Duo / foldable
+        // trailing stays on the outer edge instead of near the hinge.
         immersiveRestoreButton.snp.makeConstraints { make in
-            make.trailing.equalTo(topChrome.snp.trailing).offset(-12)
-            make.top.equalTo(topChrome.snp.top).offset(8)
+            make.trailing.equalTo(view.safeAreaLayoutGuide.snp.trailing).offset(-12)
+            make.top.equalTo(view.safeAreaLayoutGuide.snp.top).offset(8)
             make.height.equalTo(34)
             make.width.greaterThanOrEqualTo(118)
         }
@@ -872,9 +867,8 @@ final class BrowserViewController: UIViewController {
             animations()
             finish()
         }
-        // Keep only one progress UI: address bar when expanded, thin bar when compact.
-        addressBar.setProgress(pageLoadProgress, isLoading: isPageLoading && !collapsed)
-        updateCollapsedProgressVisibility()
+        // Border progress lives on the address pill in both expanded and compact chrome.
+        addressBar.setProgress(pageLoadProgress, isLoading: isPageLoading && !isImmersiveBrowsing)
         updateWebChromeContentInset()
         setNeedsStatusBarAppearanceUpdate()
     }
@@ -1005,18 +999,6 @@ final class BrowserViewController: UIViewController {
             offset = 0
         }
         chromeBottomConstraint?.update(offset: offset)
-        // Keep collapsed progress just above the compact pill / home indicator.
-        collapsedProgressView.snp.remakeConstraints { make in
-            make.leading.trailing.equalToSuperview()
-            make.height.equalTo(2)
-            if liftAboveSafeArea > 0 {
-                make.bottom.equalTo(chromeHost.snp.top)
-            } else if isChromeCollapsed {
-                make.bottom.equalTo(chromeHost.snp.top).offset(-2)
-            } else {
-                make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
-            }
-        }
 
         guard animated else { return }
         UIView.animate(
@@ -1041,7 +1023,6 @@ final class BrowserViewController: UIViewController {
                 contentTopConstraint = make.top.equalTo(view.safeAreaLayoutGuide.snp.top).constraint
             }
             contentTopConstraint?.activate()
-            updateCollapsedProgressVisibility()
         }
         animateChromeWithKeyboard(notification)
     }
@@ -1087,33 +1068,16 @@ final class BrowserViewController: UIViewController {
         return tab.isNewTabPage && !tab.isIncognito
     }
 
-    private func updateCollapsedProgressVisibility() {
-        let shouldShow = isChromeCollapsed
-            && !isImmersiveBrowsing
-            && isPageLoading
-            && !(tabManager.selectedTab?.isNewTabPage ?? true)
-        collapsedProgressView.isHidden = !shouldShow
-        if shouldShow {
-            collapsedProgressView.setProgress(Float(pageLoadProgress), animated: true)
-            view.bringSubviewToFront(collapsedProgressView)
-        } else if !isPageLoading {
-            collapsedProgressView.setProgress(0, animated: false)
-        }
-    }
-
     private func applyLoadingProgress(_ progress: Double, isLoading: Bool) {
         // WKWebView often keeps isLoading=true after estimatedProgress hits 1.0;
         // never keep the bar visible once progress is complete.
         let activelyLoading = isLoading && progress < 1
         isPageLoading = activelyLoading
         pageLoadProgress = progress
-        addressBar.setProgress(progress, isLoading: activelyLoading && !isChromeCollapsed && !isImmersiveBrowsing)
-        if activelyLoading {
-            collapsedProgressView.setProgress(Float(max(progress, 0.02)), animated: true)
-        } else {
-            collapsedProgressView.setProgress(0, animated: false)
-        }
-        updateCollapsedProgressVisibility()
+        let showOnAddressBar = activelyLoading
+            && !isImmersiveBrowsing
+            && !(tabManager.selectedTab?.isNewTabPage ?? true)
+        addressBar.setProgress(progress, isLoading: showOnAddressBar)
     }
 
     private func resetChromeForCurrentTab() {
@@ -1462,11 +1426,9 @@ final class BrowserViewController: UIViewController {
         if isPrivate {
             addressBar.setSpaceChrome(nil)
             toolbar.setSpaceChrome(nil)
-            collapsedProgressView.progressTintColor = BrowserTheme.privateAccent
         } else {
             addressBar.setSpaceChrome(spaceColor)
             toolbar.setSpaceChrome(spaceColor)
-            collapsedProgressView.progressTintColor = spaceColor ?? BrowserTheme.chromeBlue
         }
         accountHubController?.applySpaceChrome(spaceColor: spaceColor)
         updateHomeFullBleedLayout()

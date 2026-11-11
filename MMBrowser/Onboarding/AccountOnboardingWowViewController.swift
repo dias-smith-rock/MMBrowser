@@ -29,7 +29,7 @@ final class AccountOnboardingWowViewController: UIViewController {
         titleLabel.textAlignment = .center
 
         let bodyLabel = UILabel()
-        bodyLabel.text = "We’ll open WhatsApp Web in two spaces, one above the other. Scan or sign in on one side only — the other stays separate."
+        bodyLabel.text = "We’ll open WhatsApp Web in two spaces side by side (or stacked on a narrow phone). Scan or sign in on one side only — the other stays separate."
         bodyLabel.font = .systemFont(ofSize: 16)
         bodyLabel.textColor = BrowserTheme.textSecondary
         bodyLabel.numberOfLines = 0

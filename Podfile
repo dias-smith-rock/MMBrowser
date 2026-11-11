@@ -9,9 +9,7 @@ target 'MMBrowser' do
   # Layout (5.7+ ships PrivacyInfo.xcprivacy required by App Store)
   pod 'SnapKit', '~> 5.7.1'
 
-  # Firebase (binary pods via CocoaPods)
-  # Use /Core (no IDFA / ATT) so App Store Connect does not treat the binary as tracking-capable.
-  pod 'FirebaseAnalytics/Core', '~> 11.15.0'
+  # Firebase without GoogleAppMeasurement (no IDFA / ATT / AdSupport residual strings).
   pod 'FirebaseRemoteConfig', '~> 11.15.0'
   pod 'FirebaseCrashlytics', '~> 11.15.0'
 end
@@ -26,26 +24,5 @@ post_install do |installer|
       config.build_settings['SUPPORTS_MACCATALYST'] = 'YES'
       config.build_settings['MACOSX_DEPLOYMENT_TARGET'] = '14.0'
     end
-  end
-
-  # GoogleAdsOnDeviceConversion has no Mac Catalyst slice (FirebaseAnalytics transitive).
-  # Drop it from the shared OTHER_LDFLAGS and re-add only for iOS device/simulator.
-  # (Xcode concatenates OTHER_LDFLAGS + OTHER_LDFLAGS[sdk=*], so a macosx strip-line is not enough.)
-  Dir.glob(File.join(installer.sandbox.root, 'Target Support Files/Pods-MMBrowser/*.xcconfig')).each do |path|
-    text = File.read(path)
-    next unless text =~ /^OTHER_LDFLAGS = (.*)$/
-    original = Regexp.last_match(1)
-    next unless original.include?('GoogleAdsOnDeviceConversion')
-
-    without = original.gsub(/\s*-framework "GoogleAdsOnDeviceConversion"/, '')
-    text = text.sub(/^OTHER_LDFLAGS = .*$/, "OTHER_LDFLAGS = #{without}")
-    # Drop any previous Catalyst-only override from earlier installs.
-    text = text.gsub(/\nOTHER_LDFLAGS\[sdk=macosx\*\] = .*\n?/, "\n")
-    text = text.gsub(/\nOTHER_LDFLAGS\[sdk=iphoneos\*\] = .*\n?/, "\n")
-    text = text.gsub(/\nOTHER_LDFLAGS\[sdk=iphonesimulator\*\] = .*\n?/, "\n")
-    text = text.rstrip + "\n"
-    text += "OTHER_LDFLAGS[sdk=iphoneos*] = $(inherited) -framework \"GoogleAdsOnDeviceConversion\"\n"
-    text += "OTHER_LDFLAGS[sdk=iphonesimulator*] = $(inherited) -framework \"GoogleAdsOnDeviceConversion\"\n"
-    File.write(path, text)
   end
 end

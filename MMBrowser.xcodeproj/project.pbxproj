@@ -1259,7 +1259,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1307,7 +1307,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
@@ -1345,7 +1345,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = MMBrowserCredentialProvider/MMBrowserCredentialProvider.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MMBrowserCredentialProvider/Info.plist;
@@ -1372,7 +1372,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = MMBrowserCredentialProvider/MMBrowserCredentialProvider.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 7;
+				CURRENT_PROJECT_VERSION = 8;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MMBrowserCredentialProvider/Info.plist;

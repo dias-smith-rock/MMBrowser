@@ -12,7 +12,8 @@ protocol DualAccountCompareViewControllerDelegate: AnyObject {
     )
 }
 
-/// Top/bottom browsing in two spaces (split view).
+/// Dual-Space browsing (split view). Uses top/bottom on narrow phones and left/right
+/// when the scene is wide enough (iPhone Duo unfolded, iPad, landscape).
 final class DualAccountCompareViewController: UIViewController, UITextFieldDelegate {
     weak var delegate: DualAccountCompareViewControllerDelegate?
 
@@ -22,13 +23,22 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
     private let splitContainer = UIView()
     private let divider = UIView()
     private let dividerGrip = UIView()
-    private var topHeightConstraint: Constraint?
-    /// Share of space above the divider (0...1), excluding divider thickness.
+    private var primaryPaneView: UIView?
+    private var secondaryPaneView: UIView?
+    private var primaryExtentConstraint: Constraint?
+    private var dividerThicknessConstraint: Constraint?
+    private var gripWidthConstraint: Constraint?
+    private var gripHeightConstraint: Constraint?
+    /// Share of space for the primary pane (top or left), excluding divider thickness.
     private var splitFraction: CGFloat = 0.5
     private let dividerThickness: CGFloat = 22
-    private let minPaneHeight: CGFloat = 110
+    private let minPaneExtent: CGFloat = 110
     private var dragStartFraction: CGFloat = 0.5
     private var isDraggingDivider = false
+    private var splitAxis: SplitAxis = .vertical
+    /// Skip redundant constraint work during Duo fold / continuous layout.
+    private var lastAppliedPrimaryExtent: CGFloat = -1
+    private var lastLayoutBounds: CGSize = .zero
 
     private var topState: PaneState
     private var bottomState: PaneState
@@ -37,6 +47,11 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
     private var userAgentEditSide: Side?
 
     private enum Side { case top, bottom }
+
+    private enum SplitAxis {
+        case vertical
+        case horizontal
+    }
 
     private final class PaneState {
         var container: BrowserContainer
@@ -101,6 +116,8 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
 
         let topPane = makePane(side: .top)
         let bottomPane = makePane(side: .bottom)
+        primaryPaneView = topPane
+        secondaryPaneView = bottomPane
 
         divider.backgroundColor = BrowserTheme.background
         divider.isUserInteractionEnabled = true
@@ -111,8 +128,8 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         divider.addSubview(dividerGrip)
         dividerGrip.snp.makeConstraints { make in
             make.center.equalToSuperview()
-            make.width.equalTo(40)
-            make.height.equalTo(5)
+            gripWidthConstraint = make.width.equalTo(40).constraint
+            gripHeightConstraint = make.height.equalTo(5).constraint
         }
 
         let pan = UIPanGestureRecognizer(target: self, action: #selector(dividerPanned(_:)))
@@ -122,41 +139,109 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
         splitContainer.addSubview(divider)
         splitContainer.addSubview(bottomPane)
 
-        topPane.snp.makeConstraints { make in
-            make.top.leading.trailing.equalToSuperview()
-            topHeightConstraint = make.height.equalTo(200).constraint
-        }
-        divider.snp.makeConstraints { make in
-            make.top.equalTo(topPane.snp.bottom)
-            make.leading.trailing.equalToSuperview()
-            make.height.equalTo(dividerThickness)
-        }
-        bottomPane.snp.makeConstraints { make in
-            make.top.equalTo(divider.snp.bottom)
-            make.leading.trailing.bottom.equalToSuperview()
-        }
+        splitAxis = preferredSplitAxis(for: view.bounds.size)
+        applySplitAxisConstraints()
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        let bounds = splitContainer.bounds.size
+        guard bounds.width > 1, bounds.height > 1 else { return }
+
+        let preferred = preferredSplitAxis(for: bounds)
+        if preferred != splitAxis {
+            splitAxis = preferred
+            lastAppliedPrimaryExtent = -1
+            applySplitAxisConstraints()
+            lastLayoutBounds = CGSize(width: bounds.width.rounded(), height: bounds.height.rounded())
+            return
+        }
+
+        let rounded = CGSize(width: bounds.width.rounded(), height: bounds.height.rounded())
+        // Same size → nothing to do (Duo fires layout often while scrolling nested web views).
+        if rounded == lastLayoutBounds, !isDraggingDivider { return }
+        lastLayoutBounds = rounded
+
         guard !isDraggingDivider else { return }
         applySplitFraction(animated: false)
     }
 
-    private func usableSplitHeight() -> CGFloat {
-        max(0, splitContainer.bounds.height - dividerThickness)
+    private func preferredSplitAxis(for bounds: CGSize) -> SplitAxis {
+        LayoutSupport.prefersSideBySideSplit(bounds: bounds) ? .horizontal : .vertical
+    }
+
+    private func applySplitAxisConstraints() {
+        guard let primary = primaryPaneView, let secondary = secondaryPaneView else { return }
+
+        primary.snp.remakeConstraints { make in
+            switch splitAxis {
+            case .vertical:
+                make.top.leading.trailing.equalToSuperview()
+                primaryExtentConstraint = make.height.equalTo(200).constraint
+            case .horizontal:
+                make.top.leading.bottom.equalToSuperview()
+                primaryExtentConstraint = make.width.equalTo(200).constraint
+            }
+        }
+        divider.snp.remakeConstraints { make in
+            switch splitAxis {
+            case .vertical:
+                make.top.equalTo(primary.snp.bottom)
+                make.leading.trailing.equalToSuperview()
+                dividerThicknessConstraint = make.height.equalTo(dividerThickness).constraint
+            case .horizontal:
+                make.leading.equalTo(primary.snp.trailing)
+                make.top.bottom.equalToSuperview()
+                dividerThicknessConstraint = make.width.equalTo(dividerThickness).constraint
+            }
+        }
+        secondary.snp.remakeConstraints { make in
+            switch splitAxis {
+            case .vertical:
+                make.top.equalTo(divider.snp.bottom)
+                make.leading.trailing.bottom.equalToSuperview()
+            case .horizontal:
+                make.leading.equalTo(divider.snp.trailing)
+                make.top.trailing.bottom.equalToSuperview()
+            }
+        }
+
+        switch splitAxis {
+        case .vertical:
+            gripWidthConstraint?.update(offset: 40)
+            gripHeightConstraint?.update(offset: 5)
+        case .horizontal:
+            gripWidthConstraint?.update(offset: 5)
+            gripHeightConstraint?.update(offset: 40)
+        }
+        applySplitFraction(animated: false)
+    }
+
+    private func usableSplitExtent() -> CGFloat {
+        switch splitAxis {
+        case .vertical:
+            return max(0, splitContainer.bounds.height - dividerThickness)
+        case .horizontal:
+            return max(0, splitContainer.bounds.width - dividerThickness)
+        }
     }
 
     private func applySplitFraction(animated: Bool) {
-        let usable = usableSplitHeight()
-        guard usable > minPaneHeight * 2 else { return }
-        let minFraction = minPaneHeight / usable
+        let usable = usableSplitExtent()
+        guard usable > minPaneExtent * 2 else { return }
+        let minFraction = minPaneExtent / usable
         let clamped = min(max(splitFraction, minFraction), 1 - minFraction)
         splitFraction = clamped
-        let topHeight = usable * clamped
+        let primaryExtent = (usable * clamped).rounded()
+        // Avoid constraint churn + nested layoutIfNeeded from viewDidLayoutSubviews (Duo jank).
+        guard abs(primaryExtent - lastAppliedPrimaryExtent) >= 0.5 else { return }
+        lastAppliedPrimaryExtent = primaryExtent
         let updates = {
-            self.topHeightConstraint?.update(offset: topHeight)
-            self.splitContainer.layoutIfNeeded()
+            self.primaryExtentConstraint?.update(offset: primaryExtent)
+            // Only force layout while the user is dragging; otherwise let the current pass finish.
+            if self.isDraggingDivider || animated {
+                self.splitContainer.layoutIfNeeded()
+            }
         }
         if animated {
             UIView.animate(withDuration: 0.15, delay: 0, options: .curveEaseOut, animations: updates)
@@ -166,8 +251,8 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
     }
 
     @objc private func dividerPanned(_ gesture: UIPanGestureRecognizer) {
-        let usable = usableSplitHeight()
-        guard usable > minPaneHeight * 2 else { return }
+        let usable = usableSplitExtent()
+        guard usable > minPaneExtent * 2 else { return }
 
         switch gesture.state {
         case .began:
@@ -179,8 +264,15 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
                 self.dividerGrip.transform = CGAffineTransform(scaleX: 1.15, y: 1.15)
             }
         case .changed:
-            let translation = gesture.translation(in: splitContainer).y
-            splitFraction = dragStartFraction + translation / usable
+            let translation = gesture.translation(in: splitContainer)
+            let delta: CGFloat
+            switch splitAxis {
+            case .vertical:
+                delta = translation.y
+            case .horizontal:
+                delta = translation.x
+            }
+            splitFraction = dragStartFraction + delta / usable
             applySplitFraction(animated: false)
         case .ended, .cancelled, .failed:
             isDraggingDivider = false

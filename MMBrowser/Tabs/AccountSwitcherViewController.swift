@@ -238,7 +238,7 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
 
     func tableView(_ tableView: UITableView, titleForFooterInSection section: Int) -> String? {
         comparableSpaces.count >= 2
-            ? "Split View opens the current page in two spaces, one above the other."
+            ? "Split View opens the current page in two spaces side by side on wide displays, or one above the other on phones."
             : "Add another space to enable Split View."
     }
 

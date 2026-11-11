@@ -1,7 +1,6 @@
 import UIKit
 import SnapKit
 import SafariServices
-import FirebaseAnalytics
 import FirebaseCrashlytics
 
 /// Plain-language collection summary. Defaults match shipping Firebase (on until the user turns it off).
@@ -23,19 +22,20 @@ final class WhatWeCollectViewController: UIViewController {
         • History, cookies, and Space data stay local unless you erase them or back up via OS features you control.
 
         Optional / operational
-        • Crash reports and usage analytics (if enabled) help us fix bugs and improve the app.
+        • Crash reports (if enabled) help us fix bugs and improve stability.
         • Remote configuration can update filter and product flags.
         • App Store handles Premium purchases; we don’t see your full payment card details.
 
         We don’t
         • We don’t sell your browsing history.
         • Spaces don’t send your passwords to XBrowser servers for sync.
+        • We don’t use advertising identifiers or App Tracking Transparency.
         """
         let row = UIView()
         row.backgroundColor = BrowserTheme.card
         row.layer.cornerRadius = 12
         let label = UILabel()
-        label.text = "Share crash & analytics data"
+        label.text = "Share crash reports"
         label.textColor = BrowserTheme.textPrimary
         label.font = .systemFont(ofSize: 16, weight: .semibold)
         label.numberOfLines = 0
@@ -89,7 +89,6 @@ final class WhatWeCollectViewController: UIViewController {
     @objc private func diagnosticsChanged(_ toggle: UISwitch) {
         AppSettings.shareDiagnostics = toggle.isOn
         guard FirebaseBootstrap.isConfigured else { return }
-        Analytics.setAnalyticsCollectionEnabled(toggle.isOn)
         Crashlytics.crashlytics().setCrashlyticsCollectionEnabled(toggle.isOn)
     }
 

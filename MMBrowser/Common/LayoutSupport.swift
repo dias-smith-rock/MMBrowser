@@ -38,6 +38,12 @@ enum LayoutSupport {
         return bounds.width >= 600
     }
 
+    /// Prefer left/right Split View when each pane can stay usable (~320pt+).
+    /// Covers iPhone Duo unfolded, iPad, and wide landscape; phone portrait stays top/bottom.
+    static func prefersSideBySideSplit(bounds: CGSize) -> Bool {
+        bounds.width >= 640
+    }
+
     /// Top chrome guide that clears iPadOS / macOS window controls (traffic lights).
     static func topChromeLayoutGuide(in view: UIView) -> UILayoutGuide {
         if #available(iOS 26.0, *) {

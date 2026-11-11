@@ -1431,8 +1431,14 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         )
     }
 
+    private var lastPipEntryLayoutBounds: CGSize = .zero
+
     private func layoutPipEntryButton() {
         guard pipEntryButton.superview != nil, view.bounds.width > 1, view.bounds.height > 1 else { return }
+        let host = CGSize(width: view.bounds.width.rounded(), height: view.bounds.height.rounded())
+        // Duo re-layouts often at the same size; avoid intrinsic-size + frame churn.
+        if host == lastPipEntryLayoutBounds, !pipEntryButton.frame.isEmpty { return }
+        lastPipEntryLayoutBounds = host
         let size = pipEntryButtonSize()
         let raw = pipEntryButtonOrigin ?? defaultPipEntryButtonOrigin()
         let origin = clampPipEntryOrigin(raw, size: size)
@@ -1445,6 +1451,7 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         case .began:
             view.bringSubviewToFront(pipEntryButton)
         case .changed:
+            lastPipEntryLayoutBounds = .zero
             let translation = gesture.translation(in: view)
             gesture.setTranslation(.zero, in: view)
             let size = pipEntryButton.bounds.size

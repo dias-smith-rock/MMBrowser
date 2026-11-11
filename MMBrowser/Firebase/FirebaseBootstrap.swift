@@ -1,7 +1,6 @@
 import Foundation
 import FirebaseCore
 import FirebaseCrashlytics
-import FirebaseAnalytics
 
 enum FirebaseBootstrap {
     private static var didConfigure = false
@@ -24,7 +23,6 @@ enum FirebaseBootstrap {
         didConfigure = true
         let diagnostics = AppSettings.shareDiagnostics
         Crashlytics.crashlytics().setCrashlyticsCollectionEnabled(diagnostics)
-        Analytics.setAnalyticsCollectionEnabled(diagnostics)
         RemoteConfigManager.shared.start()
         AppAnalytics.logAppOpen()
     }

@@ -235,6 +235,8 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         let list = spaces()
         pageViews.forEach { $0.removeFromSuperview() }
         pageViews.removeAll()
+        lastLaidOutPageSize = .zero
+        lastLaidOutPageCount = 0
 
         for container in list {
             let page = SpaceHomePageView(
@@ -298,15 +300,26 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         }
     }
 
+    /// Avoid remaking SnapKit constraints on every Duo / fold layout pass.
+    private var lastLaidOutPageSize: CGSize = .zero
+    private var lastLaidOutPageCount: Int = 0
+
     private func layoutPagesIfNeeded() {
         let width = pagingScrollView.bounds.width
         let height = pagingScrollView.bounds.height
         guard width > 0, height > 0, !pageViews.isEmpty else { return }
 
+        let size = CGSize(width: width.rounded(), height: height.rounded())
+        let count = pageViews.count
+        // Duo fold/unfold and chrome resize fire layout many times with the same size.
+        if size == lastLaidOutPageSize, count == lastLaidOutPageCount { return }
+        lastLaidOutPageSize = size
+        lastLaidOutPageCount = count
+
         pagesContainer.snp.remakeConstraints { make in
             make.edges.equalTo(pagingScrollView.contentLayoutGuide)
             make.height.equalTo(pagingScrollView.frameLayoutGuide)
-            make.width.equalTo(pagingScrollView.frameLayoutGuide).multipliedBy(pageViews.count)
+            make.width.equalTo(pagingScrollView.frameLayoutGuide).multipliedBy(count)
         }
 
         for (index, page) in pageViews.enumerated() {
@@ -319,7 +332,7 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
                 } else {
                     make.leading.equalTo(pageViews[index - 1].snp.trailing)
                 }
-                if index == pageViews.count - 1 {
+                if index == count - 1 {
                     make.trailing.equalToSuperview()
                 }
             }

@@ -219,7 +219,7 @@ final class TabSwitcherViewController: UIViewController {
 
         topBar.snp.makeConstraints { make in
             make.top.equalTo(view.safeAreaLayoutGuide.snp.top)
-            make.leading.trailing.equalToSuperview()
+            make.leading.trailing.equalTo(view.safeAreaLayoutGuide)
             make.height.equalTo(52)
         }
         settingsButton.snp.makeConstraints { make in
@@ -486,7 +486,7 @@ final class TabSwitcherViewController: UIViewController {
         bottomBar.addSubview(doneButton)
 
         bottomBar.snp.makeConstraints { make in
-            make.leading.trailing.equalToSuperview()
+            make.leading.trailing.equalTo(view.safeAreaLayoutGuide)
             make.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
             make.height.equalTo(56)
         }
@@ -547,9 +547,14 @@ final class TabSwitcherViewController: UIViewController {
         privateButton.accessibilityValue = showingIncognito ? "On" : "Off"
     }
 
+    private var lastCollectionLayoutWidth: CGFloat = -1
+    private var lastCollectionLayoutCount: Int = -1
+    private var lastCollectionLayoutHeight: CGFloat = -1
+
     private func updateCollectionHeight() {
         let width = collectionView.bounds.width > 0 ? collectionView.bounds.width : view.bounds.width
         guard width > 0 else { return }
+        let roundedWidth = width.rounded()
         let metrics = TabGridMetrics.layout(forContainerWidth: width)
         let count = max(gridItemCount, 0)
         let height: CGFloat
@@ -561,6 +566,15 @@ final class TabSwitcherViewController: UIViewController {
                 + CGFloat(max(0, rows - 1)) * TabGridMetrics.spacing
                 + TabGridMetrics.sectionInset.top + TabGridMetrics.sectionInset.bottom
         }
+        // Duo wide layouts call viewDidLayoutSubviews often — skip identical work.
+        let unchanged = roundedWidth == lastCollectionLayoutWidth
+            && count == lastCollectionLayoutCount
+            && abs(height - lastCollectionLayoutHeight) < 0.5
+        guard !unchanged else { return }
+        lastCollectionLayoutWidth = roundedWidth
+        lastCollectionLayoutCount = count
+        lastCollectionLayoutHeight = height
+
         collectionHeightConstraint?.update(offset: height)
         if let flow = collectionView.collectionViewLayout as? UICollectionViewFlowLayout {
             let inset = TabGridMetrics.sectionInset
