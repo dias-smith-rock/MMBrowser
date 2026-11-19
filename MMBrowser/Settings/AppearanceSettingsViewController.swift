@@ -236,7 +236,9 @@ final class AppearanceSettingsViewController: UIViewController, UITableViewDataS
     }
 
     private func presentPhotoPicker() {
-        var config = PHPickerConfiguration(photoLibrary: .shared())
+        // Privacy-preserving system picker — no NSPhotoLibraryUsageDescription / full-library access.
+        // Required for default-browser entitlement eligibility (Apple prohibits that usage string).
+        var config = PHPickerConfiguration()
         config.filter = .images
         config.selectionLimit = 1
         config.preferredAssetRepresentationMode = .compatible

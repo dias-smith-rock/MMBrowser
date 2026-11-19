@@ -44,7 +44,7 @@ Capabilities that define XBrowser’s identity, or that are essential to being a
 | **History suggestions** | Address-bar suggestions from recent visits (deduped by site for autocomplete). |
 | **Bookmarks** | Save and open bookmarks (isolated per Space). |
 | **History** | Browsing history (isolated per Space). |
-| **Default browser** | Hidden until Apple grants `com.apple.developer.web-browser`. When enabled: Settings row, menu/home promo, and a dismissible prompt that opens iPhone Default Apps / app Settings. |
+| **Default browser** | Hidden until Apple grants `com.apple.developer.web-browser`. Info.plist registers `http`/`https` (plus `xbrowser`) and opens those links directly in a tab. Custom wallpaper uses the privacy-preserving Photos picker (no `NSPhotoLibraryUsageDescription`); screenshots only use Add-only photo access. When enabled: Settings row, menu/home promo, and a dismissible prompt that opens iPhone Default Apps / app Settings. |
 | **Search engines** | Privacy-friendly (DuckDuckGo) and General groups. One-time picker does not change an existing engine until Continue. |
 | **HTTPS First** | Prefer HTTPS navigation by default; no automatic HTTP fallback. |
 | **Downloads** | App-wide shared download list (not per Space); unavailable in Private Browsing. |
@@ -166,7 +166,7 @@ Native player used for supported streams (alongside system PiP where applicable)
 | Feature | Description |
 | --- | --- |
 | **Themes** | Theme packs (e.g. Default, Minimal, Cute, Steady, Feminine). |
-| **Home wallpaper** | Space home / New Tab wallpapers: Default, Deep Blue, Forest & Midnight photos, plus Custom photo upload. Display modes Fit / Tile / Stretch / Fill, with adjustable dark overlay mask for readability. |
+| **Home wallpaper** | Space home / New Tab wallpapers: Default, Deep Blue, Forest & Midnight photos, plus Custom photo via the system PHPicker (no full Photo Library permission). Display modes Fit / Tile / Stretch / Fill, with adjustable dark overlay mask for readability. |
 | **Background gallery** | Menu shortcut into Appearance → Wallpaper. |
 | **Onboarding (Feature Highlights)** | First-run Highlights lead with private-by-default protections, then Spaces, locks, and background playback. Split View Wow waits until the first toolbar page-menu tap. No auto VIP paywall (and home crown hidden) on the install calendar day. |
 | **Tips** | Lightweight UX tips (address-bar tab swipe; post-onboarding ads shield and Background Audio toasts for new users). |

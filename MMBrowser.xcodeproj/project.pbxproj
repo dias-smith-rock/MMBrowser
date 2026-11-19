@@ -1257,7 +1257,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1271,7 +1271,6 @@
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "XBrowser uses Face ID to unlock the app.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "XBrowser uses your location only when Location is set to Current Location and a website requests GPS-like coordinates.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XBrowser needs access to save screenshots to your photo library.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "XBrowser needs access to your photo library so you can choose a custom home wallpaper.";
 				INFOPLIST_KEY_NSUserTrackingUsageDescription = "We use your device’s advertising identifier to measure product analytics and improve XBrowser features.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -1306,7 +1305,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
@@ -1315,7 +1314,6 @@
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "XBrowser uses Face ID to unlock the app.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "XBrowser uses your location only when Location is set to Current Location and a website requests GPS-like coordinates.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XBrowser needs access to save screenshots to your photo library.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "XBrowser needs access to your photo library so you can choose a custom home wallpaper.";
 				INFOPLIST_KEY_NSUserTrackingUsageDescription = "We use your device’s advertising identifier to measure product analytics and improve XBrowser features.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -1345,7 +1343,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = MMBrowserCredentialProvider/MMBrowserCredentialProvider.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MMBrowserCredentialProvider/Info.plist;
@@ -1372,7 +1370,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = MMBrowserCredentialProvider/MMBrowserCredentialProvider.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MMBrowserCredentialProvider/Info.plist;
