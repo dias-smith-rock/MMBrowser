@@ -937,6 +937,16 @@ img[hidden],
   margin-top: 48px;
 }
 
+.pricing-grid--3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 980px) {
+  .pricing-grid--3 {
+    grid-template-columns: 1fr;
+  }
+}
+
 .price-card {
   padding: 32px 28px;
   border: 1px solid var(--line);
