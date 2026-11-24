@@ -8,7 +8,7 @@ protocol BottomToolbarViewDelegate: AnyObject {
     func toolbarDidTapNewTab()
     func toolbarDidTapTabs()
     func toolbarDidTapMenu()
-    func toolbarDidTapDownloads()
+    func toolbarDidTapPictureInPicture()
     func toolbarDidTapAccount()
     func toolbarDidLongPressAccount()
 }
@@ -21,7 +21,7 @@ final class BottomToolbarView: UIView {
     /// Shows Home normally; swaps to Forward when the page can go forward.
     private let homeOrForwardButton = UIButton(type: .system)
     private let menuButton = UIButton(type: .system)
-    private let downloadsButton = UIButton(type: .system)
+    private let pipButton = UIButton(type: .system)
     private let tabsButton = UIButton(type: .system)
     private let tabsGlyph = UIView()
     private let tabsCountLabel = UILabel()
@@ -48,7 +48,7 @@ final class BottomToolbarView: UIView {
         configure(backButton, action: #selector(backTapped), label: "Back")
         configure(homeOrForwardButton, action: #selector(homeOrForwardTapped), label: "Home")
         configure(menuButton, action: #selector(menuTapped), label: "Menu")
-        configure(downloadsButton, action: #selector(downloadsTapped), label: "Downloads")
+        configure(pipButton, action: #selector(pipTapped), label: "Picture in Picture")
         configure(tabsButton, action: #selector(tabsTapped), label: "Tabs")
 
         tabsGlyph.isUserInteractionEnabled = false
@@ -72,7 +72,7 @@ final class BottomToolbarView: UIView {
         iconStack.axis = .horizontal
         iconStack.distribution = .fillEqually
         iconStack.alignment = .center
-        [backButton, homeOrForwardButton, menuButton, downloadsButton, tabsButton].forEach {
+        [backButton, homeOrForwardButton, menuButton, pipButton, tabsButton].forEach {
             iconStack.addArrangedSubview($0)
         }
         addSubview(iconStack)
@@ -136,10 +136,10 @@ final class BottomToolbarView: UIView {
 
         backButton.setImage(ThemeManager.shared.image(for: .toolbarBack, configuration: config, pointSize: size), for: .normal)
         menuButton.setImage(UIImage(systemName: "line.3.horizontal", withConfiguration: config), for: .normal)
-        downloadsButton.setImage(UIImage(systemName: "arrow.down.to.line", withConfiguration: config), for: .normal)
+        pipButton.setImage(UIImage(systemName: "pip.enter", withConfiguration: config), for: .normal)
         tabsButton.setImage(nil, for: .normal)
 
-        [backButton, homeOrForwardButton, menuButton, downloadsButton, tabsButton].forEach { button in
+        [backButton, homeOrForwardButton, menuButton, pipButton, tabsButton].forEach { button in
             button.tintColor = tint
             button.imageView?.contentMode = .scaleAspectFit
             button.setPreferredSymbolConfiguration(config, forImageIn: .normal)
@@ -196,6 +196,6 @@ final class BottomToolbarView: UIView {
         }
     }
     @objc private func menuTapped() { delegate?.toolbarDidTapMenu() }
-    @objc private func downloadsTapped() { delegate?.toolbarDidTapDownloads() }
+    @objc private func pipTapped() { delegate?.toolbarDidTapPictureInPicture() }
     @objc private func tabsTapped() { delegate?.toolbarDidTapTabs() }
 }

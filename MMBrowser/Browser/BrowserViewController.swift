@@ -823,7 +823,8 @@ final class BrowserViewController: UIViewController {
             remountWebLayoutAfterChromeChange()
         }
         setNeedsStatusBarAppearanceUpdate()
-        if enabled, announce {
+        if enabled, announce, !AppSettings.didShowImmersiveBrowsingTip {
+            AppSettings.didShowImmersiveBrowsingTip = true
             Toast.show("Toolbar hidden — drag or tap the circle to restore", from: self)
         }
     }
@@ -2673,8 +2674,8 @@ extension BrowserViewController: BottomToolbarViewDelegate {
         presentMenu()
     }
 
-    func toolbarDidTapDownloads() {
-        openDownloads()
+    func toolbarDidTapPictureInPicture() {
+        performMenuAction(.pictureInPicture)
     }
 }
 

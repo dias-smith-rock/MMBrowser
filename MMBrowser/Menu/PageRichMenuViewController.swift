@@ -117,7 +117,7 @@ final class PageRichMenuViewController: UIViewController {
 
     private func pageToolItems() -> [(String, String, MenuAction, Bool)] {
         [
-            ("PiP", "pip.enter", .pictureInPicture, context.hasLoadablePage && AppSettings.pictureInPictureEnabled),
+            ("Downloads", "arrow.down.to.line", .downloads, !context.isIncognito),
             ("Hide Toolbar", "smallcircle.filled.circle", .hideToolbar, context.hasLoadablePage),
             ("Web Editor", "wand.and.stars", .pageCleaner, context.hasLoadablePage),
             ("Screenshot", "camera", .screenshot, context.hasLoadablePage),

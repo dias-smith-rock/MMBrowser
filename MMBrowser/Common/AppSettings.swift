@@ -237,6 +237,12 @@ enum AppSettings {
         set { d.set(newValue, forKey: "tip.backgroundAudio.done") }
     }
 
+    /// One-time toast after first Hide Toolbar → chrome bubble collapse.
+    static var didShowImmersiveBrowsingTip: Bool {
+        get { d.bool(forKey: "tip.immersiveBrowsing.done") }
+        set { d.set(newValue, forKey: "tip.immersiveBrowsing.done") }
+    }
+
     /// Default Deny — privacy browser does not expose GPS-like location unless user opts in.
     static var locationPrivacyMode: LocationPrivacyMode {
         get {
