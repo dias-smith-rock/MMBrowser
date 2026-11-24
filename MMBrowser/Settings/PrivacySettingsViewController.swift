@@ -252,7 +252,7 @@ final class PrivacySettingsViewController: UIViewController, UITableViewDataSour
     private func presentDefaultBrowserHelp() {
         let alert = UIAlertController(
             title: "Default browser",
-            message: "Off — links may open in Safari.\n\nSettings → Apps → XBrowser → Default Browser App → XBrowser",
+            message: "Off — links may open in Safari.\n\nSettings → Apps → X Browser → Default Browser App → X Browser",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))

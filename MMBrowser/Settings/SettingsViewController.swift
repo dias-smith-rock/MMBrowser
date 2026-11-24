@@ -205,7 +205,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .about:
             switch AboutRow(rawValue: indexPath.row)! {
             case .version:
-                return hubCell(tableView, title: "XBrowser", detail: "1.0", symbol: "info.circle", disclosure: false)
+                return hubCell(tableView, title: "X Browser", detail: "1.0", symbol: "info.circle", disclosure: false)
             case .filters:
                 return hubCell(tableView, title: "Filters", detail: FilterUpdateManager.shared.statusSummary, symbol: "line.3.horizontal.decrease.circle")
             case .privacyPolicy:
@@ -346,7 +346,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     private func presentDefaultBrowserHelp() {
         let alert = UIAlertController(
             title: "Default browser",
-            message: "Off — links may open in Safari.\n\nSettings → Apps → XBrowser → Default Browser App → XBrowser",
+            message: "Off — links may open in Safari.\n\nSettings → Apps → X Browser → Default Browser App → X Browser",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -459,11 +459,11 @@ private final class SettingsPremiumCardCell: UITableViewCell {
         ctaButton.backgroundColor = BrowserTheme.chromeBlue
 
         if isActive {
-            titleLabel.text = "XBrowser Premium"
+            titleLabel.text = "X Browser Premium"
             bodyLabel.text = "Unlimited Spaces and Space Lock are unlocked on this device."
             ctaButton.setTitle("Manage Subscription", for: .normal)
         } else {
-            titleLabel.text = "XBrowser Premium"
+            titleLabel.text = "X Browser Premium"
             bodyLabel.text = "Unlock unlimited Spaces and Space Lock. Free includes \(PremiumStore.freeSpaceLimit) Spaces."
             ctaButton.setTitle("View Plans", for: .normal)
         }

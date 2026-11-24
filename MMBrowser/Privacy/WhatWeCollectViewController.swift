@@ -17,7 +17,7 @@ final class WhatWeCollectViewController: UIViewController {
         text.font = .systemFont(ofSize: 16)
         text.isEditable = false
         text.text = """
-        XBrowser is built so most browsing data stays on your device. Here’s what leaves the device, if anything.
+        X Browser is built so most browsing data stays on your device. Here’s what leaves the device, if anything.
 
         On your device
         • History, cookies, and Space data stay local unless you erase them or back up via OS features you control.
@@ -30,7 +30,7 @@ final class WhatWeCollectViewController: UIViewController {
 
         We don’t
         • We don’t sell your browsing history.
-        • Spaces don’t send your passwords to XBrowser servers for sync.
+        • Spaces don’t send your passwords to X Browser servers for sync.
         """
         let row = UIView()
         row.backgroundColor = BrowserTheme.card

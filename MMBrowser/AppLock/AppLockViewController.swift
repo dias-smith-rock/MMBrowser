@@ -111,7 +111,7 @@ final class AppLockViewController: UIViewController {
         case .none:
             idleTitle = bio
                 ? "Unlock with \(AppLockBiometrics.biometryDisplayName)"
-                : "XBrowser Locked"
+                : "X Browser Locked"
             titleLabel.text = idleTitle
         }
 
@@ -149,7 +149,7 @@ final class AppLockViewController: UIViewController {
 
     private func attemptBiometrics(auto: Bool) {
         guard AppLockSettings.biometricsEnabled else { return }
-        AppLockBiometrics.authenticate(reason: "Unlock XBrowser") { [weak self] success, message in
+        AppLockBiometrics.authenticate(reason: "Unlock X Browser") { [weak self] success, message in
             guard let self = self else { return }
             if success {
                 // Biometrics always open the full (primary) session.

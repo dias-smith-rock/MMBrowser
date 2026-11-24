@@ -69,7 +69,7 @@ final class AboutSettingsViewController: UIViewController, UITableViewDataSource
 
         switch indexPath.row {
         case 0:
-            cell.textLabel?.text = "XBrowser 1.0"
+            cell.textLabel?.text = "X Browser 1.0"
             cell.selectionStyle = .none
         case 1:
             cell.textLabel?.text = "Filters"

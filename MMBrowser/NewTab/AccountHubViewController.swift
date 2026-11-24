@@ -193,14 +193,12 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         premiumButton.tintColor = UIColor(red: 1.0, green: 0.84, blue: 0.35, alpha: 1)
         premiumButton.backgroundColor = UIColor.black.withAlphaComponent(0.28)
         premiumButton.layer.cornerRadius = 16
-        premiumButton.accessibilityLabel = "XBrowser Premium"
+        premiumButton.accessibilityLabel = "X Browser Premium"
         premiumButton.addTarget(self, action: #selector(premiumTapped), for: .touchUpInside)
     }
 
     private func updatePremiumButtonVisibility() {
-        // No VIP pitch on the install calendar day.
-        premiumButton.isHidden = PremiumPaywallGate.isFirstLaunchCalendarDay
-            || PremiumStore.shared.isPremiumActive
+        premiumButton.isHidden = PremiumStore.shared.isPremiumActive
     }
 
     private func configureCloseButton() {

@@ -335,6 +335,7 @@
 		PREM00FR01010101010101 /* PremiumStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumStore.swift; sourceTree = "<group>"; };
 		PREM00FR01010101010102 /* PremiumCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumCoordinator.swift; sourceTree = "<group>"; };
 		PREM00FR01010101010103 /* PremiumPaywallViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumPaywallViewController.swift; sourceTree = "<group>"; };
+		PREM00FR01010101010104 /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Products.storekit; sourceTree = "<group>"; };
 		PRFR01A2B3C4D5E6F7081910 /* PrivacyRecommendedViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyRecommendedViewController.swift; sourceTree = "<group>"; };
 		PRIV00FR01010101010101 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		PRPTFR0A1B2C3D4E5F607180 /* PrivacyReportViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyReportViewController.swift; sourceTree = "<group>"; };
@@ -731,6 +732,7 @@
 				PREM00FR01010101010101 /* PremiumStore.swift */,
 				PREM00FR01010101010102 /* PremiumCoordinator.swift */,
 				PREM00FR01010101010103 /* PremiumPaywallViewController.swift */,
+				PREM00FR01010101010104 /* Products.storekit */,
 			);
 			path = Premium;
 			sourceTree = "<group>";
@@ -1266,12 +1268,12 @@
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = XBrowser;
+				INFOPLIST_KEY_CFBundleDisplayName = "X Browser";
 				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "XBrowser uses Face ID to unlock the app.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "XBrowser uses your location only when Location is set to Current Location and a website requests GPS-like coordinates.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XBrowser needs access to save screenshots to your photo library.";
-				INFOPLIST_KEY_NSUserTrackingUsageDescription = "We use your device’s advertising identifier to measure product analytics and improve XBrowser features.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "X Browser uses Face ID to unlock the app.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "X Browser uses your location only when Location is set to Current Location and a website requests GPS-like coordinates.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "X Browser needs access to save screenshots to your photo library.";
+				INFOPLIST_KEY_NSUserTrackingUsageDescription = "We use your device’s advertising identifier to measure product analytics and improve X Browser features.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
@@ -1309,12 +1311,12 @@
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = XBrowser;
+				INFOPLIST_KEY_CFBundleDisplayName = "X Browser";
 				INFOPLIST_KEY_LSMinimumSystemVersion = 14.0;
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "XBrowser uses Face ID to unlock the app.";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "XBrowser uses your location only when Location is set to Current Location and a website requests GPS-like coordinates.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "XBrowser needs access to save screenshots to your photo library.";
-				INFOPLIST_KEY_NSUserTrackingUsageDescription = "We use your device’s advertising identifier to measure product analytics and improve XBrowser features.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "X Browser uses Face ID to unlock the app.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "X Browser uses your location only when Location is set to Current Location and a website requests GPS-like coordinates.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "X Browser needs access to save screenshots to your photo library.";
+				INFOPLIST_KEY_NSUserTrackingUsageDescription = "We use your device’s advertising identifier to measure product analytics and improve X Browser features.";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;

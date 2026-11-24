@@ -4151,7 +4151,7 @@ final class AuthPopupViewController: UIViewController, WKUIDelegate, WKNavigatio
     private func presentDangerousSiteWarning(for url: URL) {
         let alert = UIAlertController(
             title: "This site may be dangerous",
-            message: "XBrowser blocked this page because it matches a known lookalike or phishing pattern. Go Back is recommended.\n\n\(url.host ?? url.absoluteString)",
+            message: "X Browser blocked this page because it matches a known lookalike or phishing pattern. Go Back is recommended.\n\n\(url.host ?? url.absoluteString)",
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Go Back", style: .cancel))

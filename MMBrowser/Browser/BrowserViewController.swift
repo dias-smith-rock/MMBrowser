@@ -591,7 +591,7 @@ final class BrowserViewController: UIViewController {
         guard inWindow || hasSecondSpace else { return }
         AppSettings.didShowDefaultBrowserPrompt = true
         let alert = UIAlertController(
-            title: "Open links in XBrowser",
+            title: "Open links in X Browser",
             message: "Keep Spaces, blocking, and locks when you tap links from Mail or Messages.",
             preferredStyle: .alert
         )
@@ -2720,8 +2720,6 @@ extension BrowserViewController: AccountHubViewControllerDelegate {
     }
 
     func accountHubDidRequestPremium(_ hub: AccountHubViewController) {
-        // Soften day-one monetization: crown is hidden, but ignore taps if shown.
-        guard !PremiumPaywallGate.isFirstLaunchCalendarDay else { return }
         PremiumCoordinator.presentPaywall(from: hub, source: "home")
     }
 
@@ -3081,7 +3079,7 @@ extension BrowserViewController: WebViewControllerDelegate {
     func webViewController(_ controller: WebViewController, warnDangerous url: URL, proceed: @escaping () -> Void) {
         let alert = UIAlertController(
             title: "This site may be dangerous",
-            message: "XBrowser blocked this page because it matches a known lookalike or phishing pattern. Go Back is recommended.\n\n" + (url.host ?? url.absoluteString),
+            message: "X Browser blocked this page because it matches a known lookalike or phishing pattern. Go Back is recommended.\n\n" + (url.host ?? url.absoluteString),
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Go Back", style: .cancel))
@@ -3434,7 +3432,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
     private func openAppSettingsForDefaultBrowser() {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)
-        Toast.show("Set XBrowser as Default Browser App in Settings", from: self)
+        Toast.show("Set X Browser as Default Browser App in Settings", from: self)
     }
 
     private func reportBrokenSite() {
@@ -3497,7 +3495,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
         components.scheme = "mailto"
         components.path = address
         components.queryItems = [
-            URLQueryItem(name: "subject", value: "XBrowser Feedback")
+            URLQueryItem(name: "subject", value: "X Browser Feedback")
         ]
         if let url = components.url, UIApplication.shared.canOpenURL(url) {
             UIApplication.shared.open(url)

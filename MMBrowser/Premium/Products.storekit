@@ -4,10 +4,28 @@
 
   ],
   "products" : [
-
+    {
+      "displayPrice" : "29.99",
+      "familyShareable" : false,
+      "internalID" : "A1B2C3D4-E5F6-7890-ABCD-EF1234567890",
+      "localizations" : [
+        {
+          "description" : "Lifetime Premium access with a one-time purchase",
+          "displayName" : "X Browser Lifetime",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "xbrowser.lifetime",
+      "referenceName" : "X Browser Lifetime",
+      "type" : "NonConsumable"
+    }
   ],
   "settings" : {
+    "_applicationInternalID" : "6804914972",
+    "_developerTeamID" : "8S748AQ4H7",
     "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
     "_storeKitErrors" : [
       {
         "current" : null,
@@ -22,11 +40,11 @@
       "localizations" : [
         {
           "description" : "Unlimited Spaces and more",
-          "displayName" : "XBrowser Premium",
+          "displayName" : "X Browser Premium",
           "locale" : "en_US"
         }
       ],
-      "name" : "XBrowser Premium",
+      "name" : "X Browser Premium",
       "subscriptions" : [
         {
           "adHocOffers" : [
@@ -35,7 +53,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "4.99",
+          "displayPrice" : "2.99",
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "xbrowser_monthly_internal",
@@ -49,13 +67,13 @@
           "localizations" : [
             {
               "description" : "Monthly Premium access",
-              "displayName" : "XBrowser Monthly",
+              "displayName" : "X Browser Monthly",
               "locale" : "en_US"
             }
           ],
           "productID" : "xbrowser.monthly",
           "recurringSubscriptionPeriod" : "P1M",
-          "referenceName" : "XBrowser Monthly",
+          "referenceName" : "X Browser Monthly",
           "type" : "RecurringSubscription"
         },
         {
@@ -65,7 +83,7 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "29.99",
+          "displayPrice" : "14.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "xbrowser_yearly_internal",
@@ -79,13 +97,13 @@
           "localizations" : [
             {
               "description" : "Yearly Premium access",
-              "displayName" : "XBrowser Yearly",
+              "displayName" : "X Browser Yearly",
               "locale" : "en_US"
             }
           ],
           "productID" : "xbrowser.yearly",
           "recurringSubscriptionPeriod" : "P1Y",
-          "referenceName" : "XBrowser Yearly",
+          "referenceName" : "X Browser Yearly",
           "type" : "RecurringSubscription"
         }
       ]

@@ -3,8 +3,12 @@ import SnapKit
 import SafariServices
 import StoreKit
 
-/// Dark dual-plan paywall for XBrowser Premium.
+/// Dark paywall for X Browser Premium (yearly / monthly / lifetime).
 final class PremiumPaywallViewController: UIViewController {
+    private enum PlanSelection {
+        case yearly, monthly, lifetime
+    }
+
     private let source: String
 
     private let scrollView = UIScrollView()
@@ -12,6 +16,7 @@ final class PremiumPaywallViewController: UIViewController {
     private let closeButton = UIButton(type: .system)
     private let titleLabel = UILabel()
     private let featureList = PremiumFeatureListView()
+    private let lifetimeCard = PlanCardView()
     private let yearlyCard = PlanCardView()
     private let monthlyCard = PlanCardView()
     private let ctaButton = UIButton(type: .system)
@@ -21,7 +26,7 @@ final class PremiumPaywallViewController: UIViewController {
     private let manageButton = UIButton(type: .system)
     private let spinner = UIActivityIndicatorView(style: .medium)
 
-    private var selectedYearly = true
+    private var selectedPlan: PlanSelection = .yearly
     private var isBusy = false
 
     private enum Legal {
@@ -84,19 +89,23 @@ final class PremiumPaywallViewController: UIViewController {
         closeButton.accessibilityLabel = "Close"
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
 
-        titleLabel.text = "XBrowser Premium"
+        titleLabel.text = "X Browser Premium"
         titleLabel.font = .systemFont(ofSize: 28, weight: .bold)
         titleLabel.textColor = .white
         titleLabel.textAlignment = .center
 
         featureList.configure(items: Self.premiumFeatureItems(subscribed: false))
 
+        lifetimeCard.onTap = { [weak self] in
+            self?.selectedPlan = .lifetime
+            self?.applySelection()
+        }
         yearlyCard.onTap = { [weak self] in
-            self?.selectedYearly = true
+            self?.selectedPlan = .yearly
             self?.applySelection()
         }
         monthlyCard.onTap = { [weak self] in
-            self?.selectedYearly = false
+            self?.selectedPlan = .monthly
             self?.applySelection()
         }
 
@@ -126,7 +135,7 @@ final class PremiumPaywallViewController: UIViewController {
         legalLabel.textAlignment = .center
         legalLabel.numberOfLines = 0
         legalLabel.isUserInteractionEnabled = true
-        legalLabel.attributedText = legalAttributedText()
+        legalLabel.attributedText = legalAttributedText(for: selectedPlan)
         let tap = UITapGestureRecognizer(target: self, action: #selector(legalTapped(_:)))
         legalLabel.addGestureRecognizer(tap)
 
@@ -134,35 +143,41 @@ final class PremiumPaywallViewController: UIViewController {
         spinner.hidesWhenStopped = true
 
         contentStack.axis = .vertical
-        contentStack.spacing = 16
+        contentStack.spacing = 12
         contentStack.alignment = .fill
         contentStack.addArrangedSubview(titleLabel)
-        contentStack.setCustomSpacing(20, after: titleLabel)
+        contentStack.setCustomSpacing(14, after: titleLabel)
         contentStack.addArrangedSubview(featureList)
-        contentStack.setCustomSpacing(24, after: featureList)
+        contentStack.setCustomSpacing(14, after: featureList)
+        contentStack.addArrangedSubview(lifetimeCard)
         contentStack.addArrangedSubview(yearlyCard)
         contentStack.addArrangedSubview(monthlyCard)
-        contentStack.setCustomSpacing(24, after: monthlyCard)
+        contentStack.setCustomSpacing(16, after: monthlyCard)
         contentStack.addArrangedSubview(statusLabel)
         contentStack.addArrangedSubview(ctaButton)
+        contentStack.setCustomSpacing(10, after: ctaButton)
         contentStack.addArrangedSubview(manageButton)
         contentStack.addArrangedSubview(restoreButton)
+        contentStack.setCustomSpacing(10, after: restoreButton)
         contentStack.addArrangedSubview(legalLabel)
 
-        ctaButton.snp.makeConstraints { $0.height.equalTo(52) }
+        ctaButton.snp.makeConstraints { $0.height.equalTo(50) }
 
         view.addSubview(scrollView)
         scrollView.addSubview(contentStack)
         view.addSubview(closeButton)
         view.addSubview(spinner)
 
+        scrollView.alwaysBounceVertical = true
+        scrollView.contentInsetAdjustmentBehavior = .never
         scrollView.snp.makeConstraints { make in
             make.edges.equalTo(view.safeAreaLayoutGuide)
         }
         contentStack.snp.makeConstraints { make in
-            make.top.equalToSuperview().offset(56)
+            // Tighter top inset so Restore + legal clear the sheet bottom.
+            make.top.equalToSuperview().offset(40)
             make.leading.trailing.equalToSuperview().inset(20)
-            make.bottom.equalToSuperview().inset(24)
+            make.bottom.equalToSuperview().inset(36)
             make.width.equalTo(scrollView.frameLayoutGuide).offset(-40)
         }
         closeButton.snp.makeConstraints { make in
@@ -180,6 +195,13 @@ final class PremiumPaywallViewController: UIViewController {
 
         let yearlyTrial = store.trialDays(for: yearly)
         let monthlyTrial = store.trialDays(for: monthly)
+
+        lifetimeCard.configure(
+            title: "Lifetime",
+            price: store.lifetimeDisplayPrice(),
+            detail: "One-time purchase · forever",
+            badge: "Pay once"
+        )
 
         yearlyCard.configure(
             title: "Yearly",
@@ -212,22 +234,27 @@ final class PremiumPaywallViewController: UIViewController {
         )
 
         let subscribed = store.isPremiumActive
+        lifetimeCard.isHidden = subscribed
         yearlyCard.isHidden = subscribed
         monthlyCard.isHidden = subscribed
         ctaButton.isHidden = subscribed
         restoreButton.isHidden = subscribed
-        manageButton.isHidden = !subscribed
+        // Subscription management only applies to auto-renew plans.
+        manageButton.isHidden = !(subscribed && !store.isLifetimePremium)
         statusLabel.isHidden = !subscribed
 
         if subscribed {
             let plan: String = {
                 switch store.activeProductID {
+                case PremiumStore.lifetimeProductID: return "Lifetime"
                 case PremiumStore.yearlyProductID: return "Yearly"
                 case PremiumStore.monthlyProductID: return "Monthly"
                 default: return "Premium"
                 }
             }()
-            if let expiry = store.expirationDate {
+            if store.isLifetimePremium {
+                statusLabel.text = "You’re on Lifetime Premium.\nOne-time purchase — no renewal."
+            } else if let expiry = store.expirationDate {
                 let formatter = DateFormatter()
                 formatter.dateStyle = .medium
                 statusLabel.text = "You’re on \(plan).\nRenews or expires \(formatter.string(from: expiry))."
@@ -238,6 +265,7 @@ final class PremiumPaywallViewController: UIViewController {
         } else {
             featureList.configure(items: Self.premiumFeatureItems(subscribed: false))
             updateCTATitle()
+            updateLegalCopy()
         }
     }
 
@@ -259,23 +287,39 @@ final class PremiumPaywallViewController: UIViewController {
     }
 
     private func applySelection() {
-        yearlyCard.setSelected(selectedYearly)
-        monthlyCard.setSelected(!selectedYearly)
+        lifetimeCard.setSelected(selectedPlan == .lifetime)
+        yearlyCard.setSelected(selectedPlan == .yearly)
+        monthlyCard.setSelected(selectedPlan == .monthly)
         updateCTATitle()
+        updateLegalCopy()
     }
 
     private func updateCTATitle() {
         let store = PremiumStore.shared
-        let product = selectedYearly ? store.yearlyProduct : store.monthlyProduct
-        if let days = store.trialDays(for: product) {
-            ctaButton.setTitle("Start \(days)-Day Free Trial", for: .normal)
-        } else {
-            ctaButton.setTitle("Subscribe", for: .normal)
+        switch selectedPlan {
+        case .lifetime:
+            ctaButton.setTitle("Buy Lifetime", for: .normal)
+        case .yearly, .monthly:
+            let product = selectedProduct()
+            if let days = store.trialDays(for: product) {
+                ctaButton.setTitle("Start \(days)-Day Free Trial", for: .normal)
+            } else {
+                ctaButton.setTitle("Subscribe", for: .normal)
+            }
         }
     }
 
+    private func updateLegalCopy() {
+        legalLabel.attributedText = legalAttributedText(for: selectedPlan)
+    }
+
     private func selectedProduct() -> Product? {
-        selectedYearly ? PremiumStore.shared.yearlyProduct : PremiumStore.shared.monthlyProduct
+        let store = PremiumStore.shared
+        switch selectedPlan {
+        case .lifetime: return store.lifetimeProduct
+        case .yearly: return store.yearlyProduct
+        case .monthly: return store.monthlyProduct
+        }
     }
 
     private func setBusy(_ busy: Bool) {
@@ -328,7 +372,7 @@ final class PremiumPaywallViewController: UIViewController {
                 Toast.show("Premium restored", from: self)
                 reloadFromStore()
             } else {
-                Toast.show("No active subscription found", from: self)
+                Toast.show("No Premium purchase found", from: self)
             }
         }
     }
@@ -338,8 +382,14 @@ final class PremiumPaywallViewController: UIViewController {
         UIApplication.shared.open(url)
     }
 
-    private func legalAttributedText() -> NSAttributedString {
-        let text = "Cancel anytime. Auto-renews until canceled.\nTerms of Use  ·  Privacy Policy"
+    private func legalAttributedText(for plan: PlanSelection) -> NSAttributedString {
+        let text: String
+        switch plan {
+        case .lifetime:
+            text = "One-time purchase. No subscription.\nTerms of Use  ·  Privacy Policy"
+        case .yearly, .monthly:
+            text = "Cancel anytime. Auto-renews until canceled.\nTerms of Use  ·  Privacy Policy"
+        }
         let attr = NSMutableAttributedString(
             string: text,
             attributes: [
@@ -521,7 +571,7 @@ private final class PlanCardView: UIView {
             make.size.equalTo(24)
         }
 
-        snp.makeConstraints { $0.height.greaterThanOrEqualTo(108) }
+        snp.makeConstraints { $0.height.greaterThanOrEqualTo(96) }
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(tapped))
         addGestureRecognizer(tap)

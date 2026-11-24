@@ -22,7 +22,7 @@ final class IsolatedVsSharedViewController: UIViewController {
         ))
         stack.addArrangedSubview(makeBlock(
             title: "Zero-trust-inspired isolation",
-            body: "XBrowser keeps browsing identities separate on this device. It does not change your network IP, and no browser can fully prevent fingerprinting on the open web."
+            body: "X Browser keeps browsing identities separate on this device. It does not change your network IP, and no browser can fully prevent fingerprinting on the open web."
         ))
         stack.addArrangedSubview(makeBlock(
             title: "Isolated per space",

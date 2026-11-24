@@ -229,7 +229,7 @@ enum DefaultBrowserPromoUI {
         button.addAction(UIAction { _ in onTap() }, for: .touchUpInside)
         button.layer.cornerRadius = 14
         button.clipsToBounds = true
-        button.accessibilityLabel = "Make XBrowser the default browser"
+        button.accessibilityLabel = "Make X Browser the default browser"
 
         let icon = UIImageView(image: UIImage(systemName: "safari"))
         icon.tintColor = .white
@@ -237,7 +237,7 @@ enum DefaultBrowserPromoUI {
         icon.isUserInteractionEnabled = false
 
         let label = UILabel()
-        label.text = "Make XBrowser the default browser"
+        label.text = "Make X Browser the default browser"
         label.textColor = .white
         label.font = .systemFont(ofSize: 14, weight: .semibold)
         label.numberOfLines = 2

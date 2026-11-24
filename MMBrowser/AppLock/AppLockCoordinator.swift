@@ -147,7 +147,7 @@ final class AppLockCoordinator {
         blur.frame = cover.view.bounds
         blur.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         let label = UILabel()
-        label.text = "XBrowser"
+        label.text = "X Browser"
         label.textColor = .white
         label.font = .systemFont(ofSize: 22, weight: .semibold)
         label.translatesAutoresizingMaskIntoConstraints = false

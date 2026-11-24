@@ -10,7 +10,7 @@ final class AppLockPromptViewController: UIViewController {
         view.backgroundColor = BrowserTheme.elevated
 
         let title = UILabel()
-        title.text = "Protect XBrowser?"
+        title.text = "Protect X Browser?"
         title.font = .systemFont(ofSize: 22, weight: .bold)
         title.textColor = .white
         title.textAlignment = .center

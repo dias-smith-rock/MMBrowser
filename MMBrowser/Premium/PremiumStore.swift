@@ -5,18 +5,26 @@ extension Notification.Name {
     static let premiumStatusDidChange = Notification.Name("mmbrowser.premium.statusChanged")
 }
 
-/// StoreKit 2 facade for XBrowser Premium subscriptions.
+/// StoreKit 2 facade for X Browser Premium (subscriptions + lifetime).
 @MainActor
 final class PremiumStore {
     static let shared = PremiumStore()
 
     static let monthlyProductID = "xbrowser.monthly"
     static let yearlyProductID = "xbrowser.yearly"
+    static let lifetimeProductID = "xbrowser.lifetime"
+    /// Shown until App Store Connect lists `xbrowser.lifetime` (screenshot / pre-approval).
+    static let lifetimeFallbackPrice = Decimal(string: "29.99")!
     /// Free-tier Space cap; Premium is unlimited.
     static let freeSpaceLimit = 3
 
+    private static let knownProductIDs: Set<String> = [
+        monthlyProductID, yearlyProductID, lifetimeProductID
+    ]
+
     private(set) var monthlyProduct: Product?
     private(set) var yearlyProduct: Product?
+    private(set) var lifetimeProduct: Product?
     private(set) var isPremiumActive = false
     private(set) var activeProductID: String?
     private(set) var expirationDate: Date?
@@ -28,7 +36,11 @@ final class PremiumStore {
     private let cacheExpiryKey = "premium.cache.expiry"
 
     var products: [Product] {
-        [yearlyProduct, monthlyProduct].compactMap { $0 }
+        [lifetimeProduct, yearlyProduct, monthlyProduct].compactMap { $0 }
+    }
+
+    var isLifetimePremium: Bool {
+        isPremiumActive && activeProductID == Self.lifetimeProductID
     }
 
     func canCreateSpace(currentCount: Int) -> Bool {
@@ -38,7 +50,7 @@ final class PremiumStore {
     /// Per-space PIN / pattern lock is a Premium feature.
     var canUseSpaceLock: Bool { isPremiumActive }
 
-    /// Safe from any queue — reads the cached entitlement flag.
+    /// Safe from any thread — reads the cached entitlement flag.
     nonisolated static func canCreateSpaceSync(currentCount: Int) -> Bool {
         UserDefaults.standard.bool(forKey: cacheActiveKey)
             || currentCount < freeSpaceLimit
@@ -74,9 +86,11 @@ final class PremiumStore {
     func loadProducts() async {
         do {
             let list = try await Product.products(for: [
+                Self.lifetimeProductID,
                 Self.yearlyProductID,
                 Self.monthlyProductID
             ])
+            lifetimeProduct = list.first(where: { $0.id == Self.lifetimeProductID })
             yearlyProduct = list.first(where: { $0.id == Self.yearlyProductID })
             monthlyProduct = list.first(where: { $0.id == Self.monthlyProductID })
             lastErrorMessage = nil
@@ -89,13 +103,24 @@ final class PremiumStore {
         var bestProduct: String?
         var bestExpiry: Date?
         var active = false
+        var hasLifetime = false
 
         for await result in Transaction.currentEntitlements {
             guard case .verified(let transaction) = result else { continue }
-            guard transaction.productID == Self.monthlyProductID
-                    || transaction.productID == Self.yearlyProductID else { continue }
+            guard Self.knownProductIDs.contains(transaction.productID) else { continue }
             if transaction.revocationDate != nil { continue }
             active = true
+
+            if transaction.productID == Self.lifetimeProductID {
+                hasLifetime = true
+                bestProduct = Self.lifetimeProductID
+                bestExpiry = nil
+                continue
+            }
+
+            // Prefer lifetime when both a subscription and lifetime are present.
+            if hasLifetime { continue }
+
             let expiry = transaction.expirationDate
             if bestExpiry == nil || (expiry ?? .distantFuture) > (bestExpiry ?? .distantPast) {
                 bestExpiry = expiry
@@ -160,6 +185,21 @@ final class PremiumStore {
 
     func displayPrice(for product: Product?) -> String {
         product?.displayPrice ?? "—"
+    }
+
+    /// Lifetime price from StoreKit, or a fixed fallback for screenshots before ASC approval.
+    func lifetimeDisplayPrice() -> String {
+        if let lifetimeProduct {
+            return lifetimeProduct.displayPrice
+        }
+        // Prefer the same currency formatting as an already-approved subscription.
+        if let yearlyProduct {
+            return yearlyProduct.priceFormatStyle.format(Self.lifetimeFallbackPrice)
+        }
+        if let monthlyProduct {
+            return monthlyProduct.priceFormatStyle.format(Self.lifetimeFallbackPrice)
+        }
+        return "US$29.99"
     }
 
     /// Yearly price ÷ 12 for “Best Value” monthly equivalent copy.

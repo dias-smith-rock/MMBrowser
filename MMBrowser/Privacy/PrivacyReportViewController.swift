@@ -49,7 +49,7 @@ final class PrivacyReportViewController: UIViewController {
         subtitle.font = .systemFont(ofSize: 15)
         subtitle.textColor = BrowserTheme.textSecondary
         subtitle.text = protectionOn
-            ? "What XBrowser blocked on this page"
+            ? "What X Browser blocked on this page"
             : "Blocking is off for this page. Turn it on to reduce trackers and ads."
         stack.addArrangedSubview(subtitle)
 
