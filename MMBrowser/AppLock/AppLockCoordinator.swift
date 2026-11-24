@@ -177,9 +177,16 @@ final class AppLockCoordinator {
 extension AppLockCoordinator: AppLockViewControllerDelegate {
     func appLockDidUnlock(_ controller: AppLockViewController, mode: AppLockSessionMode) {
         unlock(as: mode)
+        switch mode {
+        case .full:
+            AppAnalytics.logLockAction(action: "app_lock_unlock")
+        case .decoy:
+            AppAnalytics.logLockAction(action: "second_lock_unlock")
+        }
     }
 
     func appLockDidDisableLock(_ controller: AppLockViewController) {
         disableLockAndUnlock()
+        AppAnalytics.logLockAction(action: "app_lock_disable")
     }
 }

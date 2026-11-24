@@ -47,6 +47,17 @@ enum AppAnalytics {
         static let sleepTimer = "sleep_timer"
         /// Home button from a page, or Back restoring that page.
         static let homeNav = "home_nav"
+
+        /// Creating a Space (after success).
+        static let spaceCreate = "space_create"
+        /// Split View open / keep / close.
+        static let splitView = "split_view"
+        /// Address-bar shield → Privacy report sheet.
+        static let privacyReport = "privacy_report"
+        /// Discrete product tools not covered by a dedicated event (screenshot, erase, …).
+        static let featureUse = "feature_use"
+        /// App Lock / Space Lock setup or unlock outcomes.
+        static let lockAction = "lock_action"
     }
 
     // MARK: - Parameter keys
@@ -78,6 +89,9 @@ enum AppAnalytics {
         static let locked = "locked"
         static let count = "count"
         static let minutes = "minutes"
+        static let spaceCount = "space_count"
+        static let feature = "feature"
+        static let blocked = "blocked"
     }
 
     // MARK: - Core helpers
@@ -154,10 +168,61 @@ enum AppAnalytics {
         ])
     }
 
-    static func logSpaceSwitch(spaceName: String, source: String) {
-        log(Event.spaceSwitch, parameters: [
+    static func logSpaceSwitch(spaceName: String, source: String, spaceCount: Int? = nil) {
+        var params: [String: Any] = [
             Param.spaceName: sanitize(spaceName),
             Param.source: sanitize(source)
+        ]
+        if let spaceCount {
+            params[Param.spaceCount] = min(max(spaceCount, 0), 50)
+        }
+        log(Event.spaceSwitch, parameters: params)
+    }
+
+    static func logSpaceCreate(spaceCount: Int, source: String) {
+        log(Event.spaceCreate, parameters: [
+            Param.spaceCount: min(max(spaceCount, 0), 50),
+            Param.source: sanitize(source)
+        ])
+    }
+
+    /// - Parameter action: `open` | `keep` | `close`.
+    static func logSplitView(action: String, spaceCount: Int) {
+        log(Event.splitView, parameters: [
+            Param.action: sanitize(action, limit: 16),
+            Param.spaceCount: min(max(spaceCount, 0), 50)
+        ])
+    }
+
+    static func logPrivacyReport(host: String?, blockedCount: Int?, protectionOn: Bool) {
+        var params: [String: Any] = [
+            Param.host: sanitize(host ?? "unknown"),
+            Param.enabled: protectionOn
+        ]
+        if let blockedCount {
+            params[Param.blocked] = min(max(blockedCount, 0), 10_000)
+        }
+        log(Event.privacyReport, parameters: params)
+    }
+
+    /// - Parameter feature: short id e.g. `long_screenshot`, `erase`, `downloads`, `private_tab`.
+    static func logFeatureUse(feature: String, source: String = "menu", host: String? = nil) {
+        var params: [String: Any] = [
+            Param.feature: sanitize(feature, limit: 40),
+            Param.source: sanitize(source)
+        ]
+        if let host {
+            params[Param.host] = sanitize(host)
+        }
+        log(Event.featureUse, parameters: params)
+    }
+
+    /// - Parameter action: `app_lock_enable` | `app_lock_disable` | `app_lock_unlock` |
+    ///   `space_lock_setup` | `space_lock_unlock` | `second_lock_unlock`.
+    static func logLockAction(action: String, success: Bool = true) {
+        log(Event.lockAction, parameters: [
+            Param.action: sanitize(action, limit: 32),
+            Param.success: success
         ])
     }
 

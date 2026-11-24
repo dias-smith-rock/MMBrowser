@@ -183,6 +183,7 @@ final class AppLockSetupViewController: UIViewController {
                 }
                 AppLockSettings.isEnabled = true
                 AppLockSettings.setupPromptCompleted = true
+                AppAnalytics.logLockAction(action: "app_lock_enable")
                 finish(success: true, toast: "Passcode set")
             } else {
                 showError("Passcodes Did Not Match")
@@ -200,6 +201,7 @@ final class AppLockSetupViewController: UIViewController {
                     showError("Could Not Save Passcode")
                     return
                 }
+                AppAnalytics.logLockAction(action: "space_lock_setup")
                 finish(success: true, toast: "Space locked")
             } else {
                 showError("Passcodes Did Not Match")
@@ -274,6 +276,7 @@ final class AppLockSetupViewController: UIViewController {
                 }
                 AppLockSettings.isEnabled = true
                 AppLockSettings.setupPromptCompleted = true
+                AppAnalytics.logLockAction(action: "app_lock_enable")
                 finish(success: true, toast: "Passcode set")
             } else {
                 showError("Patterns Did Not Match")
@@ -292,6 +295,7 @@ final class AppLockSetupViewController: UIViewController {
                     showError("Could Not Save Pattern")
                     return
                 }
+                AppAnalytics.logLockAction(action: "space_lock_setup")
                 finish(success: true, toast: "Space locked")
             } else {
                 showError("Patterns Did Not Match")

@@ -435,6 +435,7 @@ final class TabManager {
         )
         containers.append(container)
         notifyUpdated()
+        AppAnalytics.logSpaceCreate(spaceCount: containers.count, source: "tab_manager")
         return container
     }
 

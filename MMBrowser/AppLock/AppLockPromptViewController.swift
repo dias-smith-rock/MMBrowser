@@ -96,6 +96,7 @@ final class AppLockPromptViewController: UIViewController {
                 AppLockSettings.primaryMethod = .none
                 AppLockSettings.isEnabled = true
                 AppLockSettings.setupPromptCompleted = true
+                AppAnalytics.logLockAction(action: "app_lock_enable")
                 self?.dismissPrompt()
             }
         })

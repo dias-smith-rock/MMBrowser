@@ -650,6 +650,7 @@ final class BrowserViewController: UIViewController {
             Toast.show("Add another space first", from: self)
             return
         }
+        AppAnalytics.logSplitView(action: "open", spaceCount: containers.count)
 
         let currentID = tabManager.selectedTab.flatMap { $0.isIncognito ? nil : $0.containerID }
             ?? tabManager.resolvedLastActiveContainerID
@@ -1380,7 +1381,11 @@ final class BrowserViewController: UIViewController {
         showSelectedTab()
         refreshAccountChip()
         toolbar.pulseAccountChip()
-        AppAnalytics.logSpaceSwitch(spaceName: container.name, source: "chip")
+        AppAnalytics.logSpaceSwitch(
+            spaceName: container.name,
+            source: "chip",
+            spaceCount: tabManager.sortedContainers.count
+        )
         AppReviewPrompt.recordSpaceSwitch()
         let color = AccountColor.color(for: container)
         let detail = subtitle
@@ -2467,6 +2472,11 @@ extension BrowserViewController: AddressBarViewDelegate {
         let url = tabManager.selectedTab?.url
         let protectionOn = SiteBlockingStore.isProtectionOn(for: url)
         let measured = AppSettings.trackerProtectionEnabled && AppSettings.accurateBlockCountEnabled
+        AppAnalytics.logPrivacyReport(
+            host: AppAnalytics.privacyHost(url),
+            blockedCount: measured ? blockCount : nil,
+            protectionOn: protectionOn
+        )
         let report = PrivacyReportViewController(
             protectionOn: protectionOn,
             blockedCount: measured ? blockCount : nil,
@@ -2778,27 +2788,36 @@ extension BrowserViewController: AccountHubViewControllerDelegate {
         }
         let applySwitch = { [weak self] in
             guard let self else { return }
+            let spaceCount = self.tabManager.sortedContainers.count
             if self.tabManager.adoptContainerOnCurrentNewTab(accountID) {
-                AppAnalytics.logSpaceSwitch(spaceName: container.name, source: "hub_swipe")
+                AppAnalytics.logSpaceSwitch(
+                    spaceName: container.name,
+                    source: "hub_swipe",
+                    spaceCount: spaceCount
+                )
                 AppReviewPrompt.recordSpaceSwitch()
                 self.applyPrivateChrome(false)
                 self.refreshAccountChip()
                 AppReviewPrompt.maybeRequest(
                     from: self,
                     trigger: "hub_swipe",
-                    spaceCount: self.tabManager.sortedContainers.count
+                    spaceCount: spaceCount
                 )
                 return
             }
             _ = self.tabManager.switchToAccount(accountID)
-            AppAnalytics.logSpaceSwitch(spaceName: container.name, source: "hub")
+            AppAnalytics.logSpaceSwitch(
+                spaceName: container.name,
+                source: "hub",
+                spaceCount: spaceCount
+            )
             AppReviewPrompt.recordSpaceSwitch()
             self.showSelectedTab()
             self.refreshAccountChip()
             AppReviewPrompt.maybeRequest(
                 from: self,
                 trigger: "hub_switch",
-                spaceCount: self.tabManager.sortedContainers.count
+                spaceCount: spaceCount
             )
         }
         if SpaceLockStore.requiresUnlock(accountID) {
@@ -3144,6 +3163,13 @@ extension BrowserViewController: MenuViewControllerDelegate {
     }
 
     func performMenuAction(_ action: MenuAction) {
+        if let feature = Self.analyticsFeature(for: action) {
+            AppAnalytics.logFeatureUse(
+                feature: feature,
+                source: "menu",
+                host: AppAnalytics.privacyHost(tabManager.selectedTab?.url)
+            )
+        }
         switch action {
         case .bookmarks:
             openLibraryList(isBookmarks: true)
@@ -3323,6 +3349,42 @@ extension BrowserViewController: MenuViewControllerDelegate {
             presentEraseBrowsingData()
         case .placeholder(let name):
             Toast.show("\(name) coming soon", from: self)
+        }
+    }
+
+    /// Maps menu actions to `feature_use` ids. Nil skips logging (noise / already tracked).
+    private static func analyticsFeature(for action: MenuAction) -> String? {
+        switch action {
+        case .bookmarks: return "bookmarks"
+        case .history: return "history"
+        case .watchLater: return "watch_later"
+        case .readingList: return "reading_list"
+        case .downloads: return "downloads"
+        case .accounts: return "spaces_switcher"
+        case .compareAccounts: return nil // logged as split_view
+        case .newIncognitoTab: return "private_tab"
+        case .readerMode: return "reader_mode"
+        case .findInPage: return "find_in_page"
+        case .screenshot: return "screenshot"
+        case .longScreenshot: return "long_screenshot"
+        case .pageCleaner: return nil // web_editor_* events
+        case .pictureInPicture: return nil // pip_enter
+        case .hideToolbar: return "immersive"
+        case .passwords: return "passwords"
+        case .adBlocker: return "ad_blocker_toggle"
+        case .allowSiteBlocking: return "site_allow_ads"
+        case .blockSiteBlocking: return "site_block_ads"
+        case .clearSiteData: return "clear_site_data"
+        case .eraseBrowsingData: return "erase"
+        case .reportBrokenSite: return "report_broken_site"
+        case .addToHomepage: return "add_favorite"
+        case .translate: return "translate"
+        case .share, .sharePDF, .downloadFile: return "share_or_download"
+        case .setDefaultBrowser: return nil
+        case .settings, .reload, .newTab, .addBookmark, .addReadingList,
+             .userAgent, .copyURL, .aboutSite, .printPage, .changeTextSize,
+             .backgroundGallery, .theme, .feedback, .placeholder:
+            return nil
         }
     }
 
@@ -3607,7 +3669,7 @@ extension BrowserViewController: PageRichMenuViewControllerDelegate {
 
 extension BrowserViewController: DualAccountCompareViewControllerDelegate {
     func dualAccountCompareDidClose(_ controller: DualAccountCompareViewController) {
-        // No-op — browser state unchanged when fully closing Split View.
+        AppAnalytics.logSplitView(action: "close", spaceCount: tabManager.sortedContainers.count)
     }
 
     func dualAccountCompare(
@@ -3631,10 +3693,12 @@ extension BrowserViewController: DualAccountCompareViewControllerDelegate {
         let name = tabManager.container(id: accountID)?.name ?? "Space"
         Toast.show("Continued in \(name)", from: self)
         refreshAccountChip()
+        let spaceCount = tabManager.sortedContainers.count
+        AppAnalytics.logSplitView(action: "keep", spaceCount: spaceCount)
         AppReviewPrompt.maybeRequest(
             from: self,
             trigger: "split_view_keep",
-            spaceCount: tabManager.sortedContainers.count
+            spaceCount: spaceCount
         )
     }
 }

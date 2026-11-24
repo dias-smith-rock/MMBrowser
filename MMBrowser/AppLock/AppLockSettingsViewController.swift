@@ -293,6 +293,7 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
                         AppLockSettings.biometricsEnabled = true
                         AppLockSettings.isEnabled = true
                         AppLockSettings.setupPromptCompleted = true
+                        AppAnalytics.logLockAction(action: "app_lock_enable")
                     } else if let message = message {
                         Toast.show(message, from: self)
                     }
@@ -305,6 +306,7 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
                 AppLockSettings.biometricsEnabled = false
                 if AppLockSettings.primaryMethod == .none {
                     AppLockSettings.isEnabled = false
+                    AppAnalytics.logLockAction(action: "app_lock_disable")
                 }
                 self?.tableView.reloadData()
             }
@@ -328,6 +330,7 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
                     AppLockSettings.biometricsEnabled = true
                     AppLockSettings.isEnabled = true
                     AppLockSettings.setupPromptCompleted = true
+                    AppAnalytics.logLockAction(action: "app_lock_enable")
                 } else if let self = self, let message = message {
                     Toast.show(message, from: self)
                 }
