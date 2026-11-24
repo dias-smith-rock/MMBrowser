@@ -99,8 +99,10 @@ enum AppSettings {
     }
 
     /// Crashlytics + Analytics. Default on, matching the previous always-on Firebase setup.
+    /// Crash / usage analytics. Default **off** so “no tracking by default” matches product claims.
+    /// Existing installs that already toggled keep their stored value.
     static var shareDiagnostics: Bool {
-        get { d.object(forKey: "privacy.shareDiagnostics") == nil ? true : d.bool(forKey: "privacy.shareDiagnostics") }
+        get { d.object(forKey: "privacy.shareDiagnostics") == nil ? false : d.bool(forKey: "privacy.shareDiagnostics") }
         set {
             d.set(newValue, forKey: "privacy.shareDiagnostics")
             NotificationCenter.default.post(name: .shareDiagnosticsChanged, object: nil)

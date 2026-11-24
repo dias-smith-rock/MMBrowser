@@ -4,7 +4,7 @@ import SafariServices
 import FirebaseAnalytics
 import FirebaseCrashlytics
 
-/// Plain-language collection summary. Defaults match shipping Firebase (on until the user turns it off).
+/// Plain-language collection summary. Crash/analytics are **opt-in** (off by default).
 final class WhatWeCollectViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -23,13 +23,13 @@ final class WhatWeCollectViewController: UIViewController {
         • History, cookies, and Space data stay local unless you erase them or back up via OS features you control.
 
         Optional / operational
-        • Crash reports and usage analytics (if enabled) help us fix bugs and improve the app.
-        • Remote configuration can update filter and product flags.
-        • With your permission (App Tracking Transparency), we may use the device advertising identifier with analytics.
+        • Crash reports and usage analytics stay off until you turn them on below.
         • App Store handles Premium purchases; we don’t see your full payment card details.
+        • Ad/tracker filter lists may update over the network when blocking is on.
 
         We don’t
-        • We don’t sell your browsing history.
+        • We don’t show in-app ads or monetize your sessions with advertising SDKs.
+        • We don’t sell your browsing history or profile you for advertisers.
         • Spaces don’t send your passwords to X Browser servers for sync.
         """
         let row = UIView()
@@ -41,7 +41,7 @@ final class WhatWeCollectViewController: UIViewController {
         label.font = .systemFont(ofSize: 16, weight: .semibold)
         label.numberOfLines = 0
         let footer = UILabel()
-        footer.text = "Helps improve stability and product quality. Never required for core browsing."
+        footer.text = "Off by default. Optional—helps improve stability. Never required for core browsing."
         footer.textColor = BrowserTheme.textSecondary
         footer.font = .systemFont(ofSize: 13)
         footer.numberOfLines = 0

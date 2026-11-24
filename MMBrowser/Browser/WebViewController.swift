@@ -2103,8 +2103,8 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
             Toast.show(OfflineMediaCopyrightPolicy.saveVideoBlockedNotice, from: self)
             return false
         }
-        if RemoteConfigManager.shared.watchLaterRequiresOnlineMedia(for: webView?.url) {
-            PageMediaProbe.log("download.abort", ["why": "watchLaterBlacklist"])
+        if WatchLaterMediaPolicy.requiresOnlineMedia(for: webView?.url) {
+            PageMediaProbe.log("download.abort", ["why": "onlineMediaRequired"])
             Toast.show(WatchLaterMediaPolicy.onlineMediaRequiredNotice, from: self)
             return false
         }
@@ -3297,7 +3297,7 @@ extension WebViewController: WKUIDelegate {
         guard let item = WatchLaterStore.shared.items(containerID: containerID).first(where: { $0.urlString == url.absoluteString }) else {
             return
         }
-        // Offline media only when Remote Config blacklist + copyright policy both allow it.
+        // Offline media only when local Watch Later policy + copyright policy both allow it.
         let candidate = WatchLaterMediaPolicy.allowsOfflineMedia(on: url)
             ? pageMediaProbe.bestCandidate
             : nil
