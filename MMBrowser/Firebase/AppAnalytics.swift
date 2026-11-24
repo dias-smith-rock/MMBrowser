@@ -22,6 +22,7 @@ enum AppAnalytics {
         static let externalOpen = "external_open"
         static let onboardingComplete = "onboarding_complete"
         static let tipShown = "tip_shown"
+        static let reviewPrompt = "review_prompt"
         static let bookmarkAdd = "bookmark_add"
         static let downloadStart = "download_start"
         static let clearData = "clear_data"
@@ -199,6 +200,12 @@ enum AppAnalytics {
     static func logTipShown(tipID: String) {
         log(Event.tipShown, parameters: [
             Param.tipID: sanitize(tipID)
+        ])
+    }
+
+    static func logReviewPrompt(trigger: String) {
+        log(Event.reviewPrompt, parameters: [
+            Param.source: sanitize(trigger)
         ])
     }
 

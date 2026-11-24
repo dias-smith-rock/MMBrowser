@@ -1381,12 +1381,18 @@ final class BrowserViewController: UIViewController {
         refreshAccountChip()
         toolbar.pulseAccountChip()
         AppAnalytics.logSpaceSwitch(spaceName: container.name, source: "chip")
+        AppReviewPrompt.recordSpaceSwitch()
         let color = AccountColor.color(for: container)
         let detail = subtitle
             ?? "Cookies, history, bookmarks & home stay with this space"
         presentAccountSwitchBanner(name: container.name, detail: detail, color: color)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         flashChrome(with: color)
+        AppReviewPrompt.maybeRequest(
+            from: self,
+            trigger: "space_switch",
+            spaceCount: tabManager.sortedContainers.count
+        )
     }
 
     private var spaceLockSetupBridge: SpaceLockSetupBridge?
@@ -2774,14 +2780,26 @@ extension BrowserViewController: AccountHubViewControllerDelegate {
             guard let self else { return }
             if self.tabManager.adoptContainerOnCurrentNewTab(accountID) {
                 AppAnalytics.logSpaceSwitch(spaceName: container.name, source: "hub_swipe")
+                AppReviewPrompt.recordSpaceSwitch()
                 self.applyPrivateChrome(false)
                 self.refreshAccountChip()
+                AppReviewPrompt.maybeRequest(
+                    from: self,
+                    trigger: "hub_swipe",
+                    spaceCount: self.tabManager.sortedContainers.count
+                )
                 return
             }
             _ = self.tabManager.switchToAccount(accountID)
             AppAnalytics.logSpaceSwitch(spaceName: container.name, source: "hub")
+            AppReviewPrompt.recordSpaceSwitch()
             self.showSelectedTab()
             self.refreshAccountChip()
+            AppReviewPrompt.maybeRequest(
+                from: self,
+                trigger: "hub_switch",
+                spaceCount: self.tabManager.sortedContainers.count
+            )
         }
         if SpaceLockStore.requiresUnlock(accountID) {
             presentSpaceUnlock(for: accountID) { success in
@@ -3613,6 +3631,11 @@ extension BrowserViewController: DualAccountCompareViewControllerDelegate {
         let name = tabManager.container(id: accountID)?.name ?? "Space"
         Toast.show("Continued in \(name)", from: self)
         refreshAccountChip()
+        AppReviewPrompt.maybeRequest(
+            from: self,
+            trigger: "split_view_keep",
+            spaceCount: tabManager.sortedContainers.count
+        )
     }
 }
 
