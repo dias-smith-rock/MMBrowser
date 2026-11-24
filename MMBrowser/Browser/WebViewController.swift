@@ -2434,8 +2434,13 @@ extension WebViewController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        YouTubeDarkMode.applyAppearance(to: webView, url: navigationAction.request.url)
-        if let url = navigationAction.request.url {
+        // Prefer KVC — a nil ObjC request crashes when bridged via `.request`.
+        guard let actionRequest = navigationAction.safeRequest else {
+            decisionHandler(.allow)
+            return
+        }
+        YouTubeDarkMode.applyAppearance(to: webView, url: actionRequest.url)
+        if let url = actionRequest.url {
             let cleaned = URLTrackingCleaner.cleaned(url, enabled: identityProfile.stripTrackingParams)
             if cleaned != url, navigationAction.targetFrame?.isMainFrame ?? true {
                 decisionHandler(.cancel)
@@ -2450,7 +2455,7 @@ extension WebViewController: WKNavigationDelegate {
                     "url": url.absoluteString,
                     "main": isMainFrame,
                     "type": navigationAction.navigationType.rawValue,
-                    "source": navigationAction.sourceFrame.request.url?.absoluteString ?? "nil",
+                    "source": navigationAction.sourceFrame.safeRequest?.url?.absoluteString ?? "nil",
                     "adblock": AppSettings.trackerProtectionEnabled,
                     "ct": Self.xConsentToken(from: url) ?? "nil",
                     "targetNil": navigationAction.targetFrame == nil
@@ -2572,11 +2577,11 @@ extension WebViewController: WKNavigationDelegate {
             }
         }
         if GlobalPrivacyControl.shouldRewriteMainFrame(navigationAction),
-           let frameURL = navigationAction.request.url {
+           let frameURL = actionRequest.url {
             if gpcRewriteInFlightURL != frameURL.absoluteString {
                 gpcRewriteInFlightURL = frameURL.absoluteString
                 decisionHandler(.cancel)
-                webView.load(GlobalPrivacyControl.applying(to: navigationAction.request))
+                webView.load(GlobalPrivacyControl.applying(to: actionRequest))
                 return
             }
             gpcRewriteInFlightURL = nil
@@ -2992,7 +2997,7 @@ extension WebViewController: WKNavigationDelegate {
 
 extension WebViewController: WKUIDelegate {
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
-        let url = navigationAction.request.url
+        let url = navigationAction.safeRequest?.url
         let urlString = url?.absoluteString ?? "nil"
         let isAuth = XSiteProbe.isRelevant(url)
             || XSiteProbe.isRelevant(webView.url)
@@ -4087,7 +4092,7 @@ final class AuthPopupViewController: UIViewController, WKUIDelegate, WKNavigatio
     ) -> WKWebView? {
         // This web view was not created with `configuration`. Returning it crashes
         // with "Returned WKWebView was not created with the given configuration."
-        let nestedURL = navigationAction.request.url
+        let nestedURL = navigationAction.safeRequest?.url
         XSiteProbe.log("popup.nestedOpen", [
             "url": nestedURL?.absoluteString ?? "nil",
             "action": "loadExisting"
@@ -4101,7 +4106,11 @@ final class AuthPopupViewController: UIViewController, WKUIDelegate, WKNavigatio
     // MARK: - WKNavigationDelegate
 
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
-        guard let url = navigationAction.request.url else {
+        guard let actionRequest = navigationAction.safeRequest else {
+            decisionHandler(.allow)
+            return
+        }
+        guard let url = actionRequest.url else {
             decisionHandler(.allow)
             return
         }
@@ -4137,7 +4146,7 @@ final class AuthPopupViewController: UIViewController, WKUIDelegate, WKNavigatio
             if popupGPCRewriteInFlightURL != url.absoluteString {
                 popupGPCRewriteInFlightURL = url.absoluteString
                 decisionHandler(.cancel)
-                webView.load(GlobalPrivacyControl.applying(to: navigationAction.request))
+                webView.load(GlobalPrivacyControl.applying(to: actionRequest))
                 return
             }
             popupGPCRewriteInFlightURL = nil

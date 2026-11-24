@@ -1,6 +1,21 @@
 import Foundation
 import WebKit
 
+extension WKNavigationAction {
+    /// WebKit can hand a nil `NSURLRequest`. Reading `.request` from Swift force-bridges and
+    /// crashes in `URLRequest._unconditionallyBridgeFromObjectiveC`.
+    var safeRequest: URLRequest? {
+        value(forKey: "request") as? URLRequest
+    }
+}
+
+extension WKFrameInfo {
+    /// Same nil-request bridge hazard as `WKNavigationAction.request`.
+    var safeRequest: URLRequest? {
+        value(forKey: "request") as? URLRequest
+    }
+}
+
 /// Sends the Global Privacy Control signal (`Sec-GPC: 1` and `navigator.globalPrivacyControl`).
 enum GlobalPrivacyControl {
     static var userScript: WKUserScript {
@@ -18,7 +33,7 @@ enum GlobalPrivacyControl {
     /// Main-frame http(s) loads that still lack the header should be reissued once.
     static func shouldRewriteMainFrame(_ action: WKNavigationAction) -> Bool {
         guard AppSettings.globalPrivacyControlEnabled else { return false }
-        let request = action.request
+        guard let request = action.safeRequest else { return false }
         guard request.value(forHTTPHeaderField: "Sec-GPC") == nil else { return false }
         let method = request.httpMethod?.uppercased() ?? "GET"
         guard method == "GET" else { return false }
