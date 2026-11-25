@@ -1,17 +1,18 @@
-# XBrowser Feature Catalog
+# X Browser Feature Catalog
 
 Product positioning: **dual primary** — a **private browser** and a **multi-account browser**. Ads and trackers are blocked by default; Spaces keep logins from mixing.  
+**Website emphasis:** highlight the dual ad-free claim up front — (1) **no in-app ads** on Free or Premium, and (2) **built-in web ad & tracker blocking** (best-effort).  
 YouTube experience and the built-in player remain strong acquisition hooks, not a third brand identity.  
-Honest boundary: isolation, blocking, and local locks — not a VPN, not IP anonymity, and not “blocks all trackers.”
+Honest boundary: isolation, blocking, and local locks — not a VPN, not IP anonymity, and not “blocks all trackers” / “ad-free YouTube.”
 
 This document lists **core** vs **non-core** features. Each row is one user-facing capability with a short description.  
-Premium (current): unlimited Spaces + Space Lock. Free tier includes up to **3** Spaces.
+Premium (current): unlimited Spaces + Space Lock, via Yearly/Monthly subscription or Lifetime one-time purchase. Free tier includes up to **3** Spaces.
 
 ---
 
 ## 1. Core features
 
-Capabilities that define XBrowser’s identity, or that are essential to being a credible daily browser.
+Capabilities that define X Browser’s identity, or that are essential to being a credible daily browser.
 
 ### 1.1 Multi-identity (Spaces)
 
@@ -47,7 +48,7 @@ Capabilities that define XBrowser’s identity, or that are essential to being a
 | **Default browser** | Hidden until Apple grants `com.apple.developer.web-browser`. Info.plist registers `http`/`https` (plus `xbrowser`) and opens those links directly in a tab. Custom wallpaper uses the privacy-preserving Photos picker (no `NSPhotoLibraryUsageDescription`); screenshots only use Add-only photo access. When enabled: Settings row, menu/home promo, and a dismissible prompt that opens iPhone Default Apps / app Settings. |
 | **Search engines** | Privacy-friendly (DuckDuckGo) and General groups. One-time picker does not change an existing engine until Continue. |
 | **HTTPS First** | Prefer HTTPS navigation by default; no automatic HTTP fallback. |
-| **Downloads** | App-wide shared download list (not per Space); unavailable in Private Browsing. |
+| **Downloads** | App-wide shared download list (not per Space); unavailable in Private Browsing. Open from the page tools menu (Downloads shortcut) or the app menu. |
 | **Home ↔ page Back restore** | After leaving a webpage via Home (or Back-to-Home), Back on the home screen can return to that page tab. |
 
 ### 1.4 Premium (current membership)
@@ -56,7 +57,7 @@ Capabilities that define XBrowser’s identity, or that are essential to being a
 | --- | --- |
 | **Unlimited Spaces** | Remove the free 3-Space limit. |
 | **Space Lock** | Per-Space PIN/pattern protection (see above). |
-| **Paywall / trial** | Subscription paywall, restore purchases, optional cold-start present. |
+| **Paywall / trial** | Premium paywall with Yearly / Monthly subscriptions (optional free trial) and Lifetime one-time purchase (`xbrowser.lifetime`); restore purchases; optional cold-start present. |
 
 ---
 
@@ -68,8 +69,8 @@ Valuable for acquisition, retention, or polish. Listed in full so media, ads, We
 
 | Feature | Description |
 | --- | --- |
-| **Ad-free product chrome** | XBrowser does not monetize with in-app ads (no AdMob-style banners / interstitials / app-open ads in the app UI). Optional Premium is App Store subscription. |
-| **Block Ads & Trackers** | Blocks ad/tracker network requests and hides common on-page ad banners. Toggle in Settings; address-bar shield reflects protection. |
+| **Ad-free product chrome** | X Browser does not monetize with in-app ads (no AdMob-style banners / interstitials / app-open ads in the app UI) on Free or Premium. Optional Premium is App Store subscription or Lifetime one-time purchase. Website marketing leads with this alongside web blocking. |
+| **Block Ads & Trackers** | Blocks ad/tracker network requests and hides common on-page ad banners. Toggle in Settings; address-bar shield reflects protection. Paired on the site with “no in-app ads” as the dual ad-free story. |
 | **Accurate Block Count** | Optional shield badge that counts blocks via a heavier page scan (uses more CPU). |
 | **Filter updates** | Downloadable/updatable filter packs so blocking can recover after site changes. |
 | **Per-page ad block toggle** | Turn ad blocking on/off for the current page from the page menu without changing the global setting. |
@@ -106,7 +107,7 @@ Native player used for supported streams (alongside system PiP where applicable)
 | **Sleep Timer** | Pause playback automatically after 10 / 15 / 30 / 45 / 60 minutes or a custom duration; available on floating and fullscreen players (middle-right control). |
 | **Sticky Picture in Picture** | Prefer keeping PiP / advancing to the next video when sticky mode is on (including background handoff helpers). |
 | **Background Audio** | Keep supported video/audio playing after leaving the app (Settings toggle; works with media keep-alive paths). |
-| **Manual PiP from menu** | Start custom/system PiP from the page/tools menu when a stream is available. |
+| **Manual PiP from toolbar** | Start custom/system PiP from the bottom toolbar PiP button when a stream is available. |
 
 ### 2.4 Web Editor
 
@@ -146,7 +147,7 @@ Native player used for supported streams (alongside system PiP where applicable)
 | **Erase browsing data** | One-tap erase for This Space (default) or All Spaces, from the tab switcher (🔥), page menu Clear (🔥), Privacy report, and Settings. A full-page burn plays for about 1.5s, then the cleared page opens. Optional bookmarks and shared Downloads. Private mode closes private tabs. Does not erase App Lock or Space Lock. |
 | **Clear data for this site** | Page menu and Privacy report clear one site’s cookies and site data in the current Space only. |
 | **Per-site blocking exception** | Allow or block ads and trackers for the current site without changing the global switch. Reversible. Report a broken site opens mail to support. |
-| **What we collect** | Settings page and xxxxxbrowser.cc/privacy-data/ describe on-device data, optional Firebase crash/analytics (on by default), and App Tracking Transparency on launch for the advertising identifier when permission is not yet decided. |
+| **What we collect** | Settings page and xxxxxbrowser.cc/privacy-data/ describe on-device data and optional Firebase crash/analytics (**off by default**). No in-app ad monetization; we don’t sell browsing history. ATT may still appear when the OS asks about the advertising identifier. |
 | **Filter list recovery** | Settings shows Up to date or Last updated, with Update now. |
 | **Global Privacy Control** | Sends Sec-GPC and `navigator.globalPrivacyControl` so sites can treat the visit as opted out of sale or sharing. On by default; toggle in Settings. |
 | **Dangerous site warning** | Blocks lookalike / phishing-style hosts on main-frame and popup loads. Go Back is recommended; Continue is explicit. |
@@ -168,8 +169,10 @@ Native player used for supported streams (alongside system PiP where applicable)
 | **Themes** | Theme packs (e.g. Default, Minimal, Cute, Steady, Feminine). |
 | **Home wallpaper** | Space home / New Tab wallpapers: Default, Deep Blue, Forest & Midnight photos, plus Custom photo via the system PHPicker (no full Photo Library permission). Display modes Fit / Tile / Stretch / Fill, with adjustable dark overlay mask for readability. |
 | **Background gallery** | Menu shortcut into Appearance → Wallpaper. |
-| **Onboarding (Feature Highlights)** | First-run Highlights lead with private-by-default protections, then Spaces, locks, and background playback. Split View Wow waits until the first toolbar page-menu tap. No auto VIP paywall (and home crown hidden) on the install calendar day. |
+| **Onboarding (Feature Highlights)** | First-run Highlights lead with private-by-default protections, then Spaces, locks, and background playback. Split View Wow waits until the first toolbar page-menu tap. No auto VIP paywall on the install calendar day; home crown remains available for non-Premium users. |
 | **Tips** | Lightweight UX tips (address-bar tab swipe; post-onboarding ads shield and Background Audio toasts for new users). |
+| **App Store rating prompt** | After a calm Spaces “aha” (e.g. switching Spaces or finishing Split View), not on install day: system `requestReview` with cooldown. Apple may suppress the dialog. |
+| **Product analytics (feature use)** | Firebase events for core journeys: Spaces create/switch (with space count), Split View, Privacy report, menu tools (`feature_use`), locks; gated by diagnostics toggle. |
 | **What's New / about copy** | In-app feature summary strings for releases and settings. |
 | **Settings (hub IA)** | Root Settings uses a Brave-style layout: Premium VIP card, then Features / General / Display / Spaces / Support / About. Detail toggles live on secondary pages. Open from the toolbar menu, tab switcher, or the page menu Settings shortcut (before Clear). |
 
@@ -180,7 +183,7 @@ Native player used for supported streams (alongside system PiP where applicable)
 | Tier | Role in product/marketing |
 | --- | --- |
 | **Core — Private + Spaces** | Dual primary: blocked-by-default browsing and isolated accounts |
-| **Core — Essential browsing** | Table stakes so XBrowser feels like a real browser |
+| **Core — Essential browsing** | Table stakes so X Browser feels like a real browser |
 | **Non-core — Ads / YouTube / Player / Web Editor** | Strong hooks and retention; list explicitly in store & content |
 | **Non-core — Libraries & tools** | Completeness and power-user depth |
 | **Non-core — Appearance** | Personalization; low differentiation |
@@ -204,9 +207,9 @@ When describing YouTube ad reduction / auto-skip publicly:
 
 When describing the product as ad-free:
 
-- Prefer: *private by default*, *ads and trackers blocked*, *accounts never mix*, *no in-app ads*, *HTTPS First*, *not a VPN*.
-- Keep clear: product chrome is ad-free; website blocking is best-effort; Spaces do not change your IP; YouTube video ads may still appear.
+- Prefer: *no in-app ads on Free or Premium*, *we don’t sell your browsing data*, *analytics off by default*, *ads and trackers blocked on the web (best-effort)*, *accounts never mix*, *HTTPS First*, *not a VPN*.
+- Keep clear: Free is already ad-free in the product chrome; Premium unlocks Spaces/locks only; website blocking is best-effort; Spaces do not change your IP; YouTube video ads may still appear; optional diagnostics are opt-in, not advertising.
 
 ---
 
-*Generated from the XBrowser / MMBrowser iOS product surface. UI strings in the app remain English.*
+*Generated from the X Browser / MMBrowser iOS product surface. UI strings in the app remain English.*
