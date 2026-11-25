@@ -175,6 +175,7 @@ Native player used for supported streams (alongside system PiP where applicable)
 | **Product analytics (feature use)** | Firebase events for core journeys: Spaces create/switch (with space count), Split View, Privacy report, menu tools (`feature_use`), locks; gated by diagnostics toggle. |
 | **What's New / about copy** | In-app feature summary strings for releases and settings. |
 | **Settings (hub IA)** | Root Settings uses a Brave-style layout: Premium VIP card, then Features / General / Display / Spaces / Support / About. Detail toggles live on secondary pages. Open from the toolbar menu, tab switcher, or the page menu Settings shortcut (before Clear). |
+| **Language** | In-app UI language under Settings → Display → Language. Supports System, English, 简体中文, 繁體中文, Español, Português (Brazil), العربية (RTL), Français, 한국어, 日本語, and Русский. Changing language refreshes the interface immediately. |
 
 ---
 
