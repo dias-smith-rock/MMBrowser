@@ -43,7 +43,7 @@ final class SearchPrivacyPromptViewController: UIViewController {
         }
 
         let continueButton = UIButton(type: .system)
-        continueButton.setTitle("Continue", for: .normal)
+        continueButton.setTitle("Continue".l10n, for: .normal)
         continueButton.setTitleColor(.white, for: .normal)
         continueButton.backgroundColor = BrowserTheme.chromeBlue
         continueButton.layer.cornerRadius = 12

@@ -14,7 +14,7 @@ final class AboutSettingsViewController: UIViewController, UITableViewDataSource
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "About"
+        title = "About".l10n
         applyChrome()
         tableView.dataSource = self
         tableView.delegate = self
@@ -72,23 +72,23 @@ final class AboutSettingsViewController: UIViewController, UITableViewDataSource
             cell.textLabel?.text = "X Browser 1.0"
             cell.selectionStyle = .none
         case 1:
-            cell.textLabel?.text = "Filters"
+            cell.textLabel?.text = "Filters".l10n
             cell.detailTextLabel?.text = FilterUpdateManager.shared.statusSummary
             cell.accessoryType = .disclosureIndicator
         case 2:
-            cell.textLabel?.text = "What's New"
+            cell.textLabel?.text = "What's New".l10n
             cell.accessoryType = .disclosureIndicator
         case 3:
-            cell.textLabel?.text = "Privacy Policy"
+            cell.textLabel?.text = "Privacy Policy".l10n
             cell.accessoryType = .disclosureIndicator
         case 4:
-            cell.textLabel?.text = "Terms of Use"
+            cell.textLabel?.text = "Terms of Use".l10n
             cell.accessoryType = .disclosureIndicator
         case 5:
-            cell.textLabel?.text = "Rate Us"
+            cell.textLabel?.text = "Rate Us".l10n
             cell.accessoryType = .disclosureIndicator
         default:
-            cell.textLabel?.text = "Contact Us"
+            cell.textLabel?.text = "Contact Us".l10n
             cell.accessoryType = .disclosureIndicator
         }
         return cell
@@ -101,11 +101,11 @@ final class AboutSettingsViewController: UIViewController, UITableViewDataSource
             presentFilterUpdateAlert()
         case 2:
             let alert = UIAlertController(
-                title: "What's New",
-                message: "Private by default and isolated by Space. Ads and trackers are blocked, HTTPS First and Global Privacy Control are on, and each Space keeps its own cookies and logins. Not a VPN. YouTube video ads stay best-effort.",
+                title: "What's New".l10n,
+                message: "Private by default and isolated by Space. Ads and trackers are blocked, HTTPS First and Global Privacy Control are on, and each Space keeps its own cookies and logins. Not a VPN. YouTube video ads stay best-effort.".l10n,
                 preferredStyle: .alert
             )
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            alert.addAction(UIAlertAction(title: "OK".l10n, style: .default))
             present(alert, animated: true)
         case 3:
             openLegalURL(AboutLinks.privacy)
@@ -122,19 +122,19 @@ final class AboutSettingsViewController: UIViewController, UITableViewDataSource
 
     private func presentFilterUpdateAlert() {
         let alert = UIAlertController(
-            title: "Filter lists",
+            title: "Filter lists".l10n,
             message: "\(FilterUpdateManager.shared.filterStatusLine)\n\nFilters block page ads and trackers. Protection is best-effort.",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Update now", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Update now".l10n, style: .default) { [weak self] _ in
             FilterUpdateManager.shared.refresh(force: true) { ok in
                 self?.tableView.reloadData()
                 if let self {
-                    Toast.show(ok ? "Filters updated" : "Using cached / bundled filters", from: self)
+                    Toast.show(ok ? "Filters updated".l10n : "Using cached / bundled filters".l10n, from: self)
                 }
             }
         })
-        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+        alert.addAction(UIAlertAction(title: "OK".l10n, style: .cancel))
         present(alert, animated: true)
     }
 

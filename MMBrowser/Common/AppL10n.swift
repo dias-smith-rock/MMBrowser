@@ -1,76 +1,60 @@
 import Foundation
 
-/// Lightweight localization for user-facing strings. Uses the preferred language;
-/// falls back to English when a translation is missing.
+/// App-wide localization. English source strings are the lookup keys.
+/// Missing translations fall back to English.
 enum AppL10n {
+    /// Legacy typed keys (kept for existing call sites).
     enum Key: String {
-        case hubCloseNoTabsHint
+        case hubCloseNoTabsHint = "Please enter a search term or URL to open a web page"
+    }
+
+    private static var table: [String: String] = [:]
+    private static var loadedCode: String?
+
+    static func reload() {
+        loadedCode = nil
+        _ = ensureTable()
     }
 
     static func string(_ key: Key) -> String {
-        let table = tableForPreferredLanguage()
-        return table[key.rawValue] ?? en[key.rawValue] ?? key.rawValue
+        t(key.rawValue)
     }
 
-    private static func tableForPreferredLanguage() -> [String: String] {
-        let preferred = Locale.preferredLanguages.first?.lowercased() ?? "en"
-        if preferred.hasPrefix("zh-hant") || preferred.hasPrefix("zh-tw") || preferred.hasPrefix("zh-hk") {
-            return zhHant
-        }
-        if preferred.hasPrefix("zh") {
-            return zhHans
-        }
-        if preferred.hasPrefix("ja") { return ja }
-        if preferred.hasPrefix("ko") { return ko }
-        if preferred.hasPrefix("es") { return es }
-        if preferred.hasPrefix("pt") { return pt }
-        if preferred.hasPrefix("fr") { return fr }
-        if preferred.hasPrefix("de") { return de }
-        return en
+    static func t(_ key: String) -> String {
+        let table = ensureTable()
+        return table[key] ?? key
     }
 
-    private static let en: [String: String] = [
-        Key.hubCloseNoTabsHint.rawValue:
-            "Please enter a search term or URL to open a web page"
-    ]
+    static func format(_ key: String, _ arguments: CVarArg...) -> String {
+        let format = t(key)
+        return String(format: format, locale: Locale(identifier: LanguageManager.activeLocalizationCode), arguments: arguments)
+    }
 
-    private static let zhHans: [String: String] = [
-        Key.hubCloseNoTabsHint.rawValue:
-            "请输入搜索词或者网址以打开网页"
-    ]
+    private static func ensureTable() -> [String: String] {
+        let code = LanguageManager.activeLocalizationCode
+        if loadedCode == code, !table.isEmpty { return table }
+        loadedCode = code
+        table = loadTable(code: code)
+        return table
+    }
 
-    private static let zhHant: [String: String] = [
-        Key.hubCloseNoTabsHint.rawValue:
-            "請輸入搜尋詞或網址以開啟網頁"
-    ]
+    private static func loadTable(code: String) -> [String: String] {
+        if code == "en" || code.hasPrefix("en-") {
+            return [:]
+        }
+        let name = "L10n_\(code)"
+        guard let url = Bundle.main.url(forResource: name, withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: String]
+        else {
+            // Try normalized codes (pt → pt-BR already handled by AppLanguage).
+            return [:]
+        }
+        return json
+    }
+}
 
-    private static let ja: [String: String] = [
-        Key.hubCloseNoTabsHint.rawValue:
-            "検索語またはURLを入力してページを開いてください"
-    ]
-
-    private static let ko: [String: String] = [
-        Key.hubCloseNoTabsHint.rawValue:
-            "검색어 또는 URL을 입력하여 웹페이지를 여세요"
-    ]
-
-    private static let es: [String: String] = [
-        Key.hubCloseNoTabsHint.rawValue:
-            "Introduce un término de búsqueda o una URL para abrir una página"
-    ]
-
-    private static let pt: [String: String] = [
-        Key.hubCloseNoTabsHint.rawValue:
-            "Digite um termo de pesquisa ou URL para abrir uma página"
-    ]
-
-    private static let fr: [String: String] = [
-        Key.hubCloseNoTabsHint.rawValue:
-            "Saisissez un terme de recherche ou une URL pour ouvrir une page"
-    ]
-
-    private static let de: [String: String] = [
-        Key.hubCloseNoTabsHint.rawValue:
-            "Gib einen Suchbegriff oder eine URL ein, um eine Seite zu öffnen"
-    ]
+extension String {
+    /// Translate this English source string using the active in-app language.
+    var l10n: String { AppL10n.t(self) }
 }

@@ -14,13 +14,13 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
         action: #selector(toggleSelect)
     )
     private lazy var doneSelectButton = UIBarButtonItem(
-        title: "Done",
+        title: "Done".l10n,
         style: .done,
         target: self,
         action: #selector(toggleSelect)
     )
     private lazy var deleteButton = UIBarButtonItem(
-        title: "Delete",
+        title: "Delete".l10n,
         style: .plain,
         target: self,
         action: #selector(deleteSelected)
@@ -41,12 +41,12 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Web Editor"
+        title = "Web Editor".l10n
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
 
         if showsCloseButton {
             navigationItem.leftBarButtonItem = UIBarButtonItem(
-                title: "Close",
+                title: "Close".l10n,
                 style: .plain,
                 target: self,
                 action: #selector(close)
@@ -115,7 +115,7 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
         }
         if isSelecting {
             let selectedCount = tableView.indexPathsForSelectedRows?.count ?? 0
-            deleteButton.title = selectedCount > 0 ? "Delete (\(selectedCount))" : "Delete"
+            deleteButton.title = selectedCount > 0 ? "Delete (\(selectedCount))" : "Delete".l10n
             deleteButton.isEnabled = selectedCount > 0
             deleteButton.tintColor = .systemRed
             navigationItem.rightBarButtonItems = [doneSelectButton, deleteButton]
@@ -139,7 +139,7 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
             message: "Hidden elements will show again after pages reload.",
             preferredStyle: .actionSheet
         )
-        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Delete".l10n, style: .destructive) { [weak self] _ in
             guard let self else { return }
             PageCleanerStore.shared.remove(ids: ids)
             AppAnalytics.logWebEditorAction(action: "rules_delete", count: ids.count)
@@ -147,7 +147,7 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
             self.tableView.setEditing(false, animated: true)
             self.reloadData()
         })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = alert.popoverPresentationController {
             pop.barButtonItem = deleteButton
         }
@@ -160,8 +160,8 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
             message: "Hidden elements will show again after pages reload.",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Clear", style: .destructive) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Clear".l10n, style: .destructive) { [weak self] _ in
             let count = PageCleanerStore.shared.items.count
             PageCleanerStore.shared.removeAll()
             AppAnalytics.logWebEditorAction(action: "rules_clear", count: count)
@@ -266,7 +266,7 @@ final class PageCleanerRulesViewController: UIViewController, UITableViewDataSou
     ) -> UISwipeActionsConfiguration? {
         guard !sections.isEmpty, !isSelecting else { return nil }
         let rule = sections[indexPath.section].rules[indexPath.row]
-        let delete = UIContextualAction(style: .destructive, title: "Delete") { _, _, done in
+        let delete = UIContextualAction(style: .destructive, title: "Delete".l10n) { _, _, done in
             PageCleanerStore.shared.remove(id: rule.id)
             AppAnalytics.logWebEditorAction(action: "rules_delete", host: rule.host, count: 1)
             done(true)

@@ -18,7 +18,7 @@ final class ReadingListViewController: UIViewController, UITableViewDataSource, 
         super.viewDidLoad()
         title = "Reading List"
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
-        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Close", style: .plain, target: self, action: #selector(close))
+        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Close".l10n, style: .plain, target: self, action: #selector(close))
         reload()
         tableView.dataSource = self
         tableView.delegate = self

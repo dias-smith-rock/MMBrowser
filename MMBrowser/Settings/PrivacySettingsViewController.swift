@@ -14,7 +14,7 @@ final class PrivacySettingsViewController: UIViewController, UITableViewDataSour
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Privacy & Security"
+        title = "Privacy & Security".l10n
         applyChrome()
         tableView.dataSource = self
         tableView.delegate = self
@@ -95,84 +95,84 @@ final class PrivacySettingsViewController: UIViewController, UITableViewDataSour
         case .protections:
             switch indexPath.row {
             case 0:
-                cell.textLabel?.text = "Recommended for privacy"
-                cell.detailTextLabel?.text = "Private-browser defaults"
+                cell.textLabel?.text = "Recommended for privacy".l10n
+                cell.detailTextLabel?.text = "Private-browser defaults".l10n
                 cell.accessoryType = .disclosureIndicator
             case 1:
-                cell.textLabel?.text = "Block Ads & Trackers"
-                cell.detailTextLabel?.text = "Network ads, trackers, and page banners"
+                cell.textLabel?.text = "Block Ads & Trackers".l10n
+                cell.detailTextLabel?.text = "Network ads, trackers, and page banners".l10n
                 cell.selectionStyle = .none
                 cell.accessoryView = makeSwitch(on: AppSettings.trackerProtectionEnabled, action: #selector(tpChanged(_:)))
             case 2:
-                cell.textLabel?.text = "Accurate Block Count"
-                cell.detailTextLabel?.text = "Shield badge via page scan · uses more CPU"
+                cell.textLabel?.text = "Accurate Block Count".l10n
+                cell.detailTextLabel?.text = "Shield badge via page scan · uses more CPU".l10n
                 cell.selectionStyle = .none
                 let sw = makeSwitch(on: AppSettings.accurateBlockCountEnabled, action: #selector(accurateBlockCountChanged(_:)))
                 sw.isEnabled = AppSettings.trackerProtectionEnabled
                 cell.accessoryView = sw
             case 3:
-                cell.textLabel?.text = "HTTPS First"
-                cell.detailTextLabel?.text = "Prefer secure connections"
+                cell.textLabel?.text = "HTTPS First".l10n
+                cell.detailTextLabel?.text = "Prefer secure connections".l10n
                 cell.selectionStyle = .none
                 cell.accessoryView = makeSwitch(on: AppSettings.httpsOnly, action: #selector(httpsChanged(_:)))
             case 4:
-                cell.textLabel?.text = "Global Privacy Control"
-                cell.detailTextLabel?.text = "Sec-GPC opt-out signal"
+                cell.textLabel?.text = "Global Privacy Control".l10n
+                cell.detailTextLabel?.text = "Sec-GPC opt-out signal".l10n
                 cell.selectionStyle = .none
                 cell.accessoryView = makeSwitch(on: AppSettings.globalPrivacyControlEnabled, action: #selector(gpcChanged(_:)))
             default:
-                cell.textLabel?.text = "Filter lists"
+                cell.textLabel?.text = "Filter lists".l10n
                 cell.detailTextLabel?.text = FilterUpdateManager.shared.filterStatusLine
                 cell.accessoryType = .disclosureIndicator
             }
         case .data:
             switch indexPath.row {
             case 0:
-                cell.textLabel?.text = "Block Images"
-                cell.detailTextLabel?.text = "No-image mode for all tabs"
+                cell.textLabel?.text = "Block Images".l10n
+                cell.detailTextLabel?.text = "No-image mode for all tabs".l10n
                 cell.selectionStyle = .none
                 cell.accessoryView = makeSwitch(on: AppSettings.noImagesEnabled, action: #selector(noImagesChanged(_:)))
             case 1:
-                cell.textLabel?.text = "Aggressive Image Block"
-                cell.detailTextLabel?.text = "Also scrub images inside iframes"
+                cell.textLabel?.text = "Aggressive Image Block".l10n
+                cell.detailTextLabel?.text = "Also scrub images inside iframes".l10n
                 cell.selectionStyle = .none
                 let sw = makeSwitch(on: AppSettings.aggressiveNoImagesEnabled, action: #selector(aggressiveNoImagesChanged(_:)))
                 sw.isEnabled = AppSettings.noImagesEnabled
                 cell.accessoryView = sw
             case 2:
-                cell.textLabel?.text = "Clear Option"
+                cell.textLabel?.text = "Clear Option".l10n
                 cell.detailTextLabel?.text = AppSettings.clearOptionSummary
                 cell.accessoryType = .disclosureIndicator
             default:
-                cell.textLabel?.text = "Erase browsing data"
-                cell.detailTextLabel?.text = "This Space or all Spaces"
+                cell.textLabel?.text = "Erase browsing data".l10n
+                cell.detailTextLabel?.text = "This Space or all Spaces".l10n
                 cell.accessoryType = .disclosureIndicator
             }
         case .access:
             switch indexPath.row {
             case 0:
-                cell.textLabel?.text = "Location"
+                cell.textLabel?.text = "Location".l10n
                 cell.detailTextLabel?.text = AppSettings.locationSummary
                 cell.accessoryType = .disclosureIndicator
             case 1:
-                cell.textLabel?.text = "App Lock"
+                cell.textLabel?.text = "App Lock".l10n
                 cell.detailTextLabel?.text = AppLockSettings.isEnabled
                     ? "On · whole-app PIN / pattern"
                     : "Off · protect the whole app"
                 cell.accessoryType = .disclosureIndicator
             default:
-                cell.textLabel?.text = "Default browser"
+                cell.textLabel?.text = "Default browser".l10n
                 cell.detailTextLabel?.text = "Off — links may open in Safari"
                 cell.accessoryType = .disclosureIndicator
             }
         case .learn:
             if indexPath.row == 0 {
-                cell.textLabel?.text = "Privacy Explained"
-                cell.detailTextLabel?.text = "Private by default, Spaces, and limits"
+                cell.textLabel?.text = "Privacy Explained".l10n
+                cell.detailTextLabel?.text = "Private by default, Spaces, and limits".l10n
                 cell.accessoryType = .disclosureIndicator
             } else {
-                cell.textLabel?.text = "What we collect"
-                cell.detailTextLabel?.text = "On-device data and diagnostics"
+                cell.textLabel?.text = "What we collect".l10n
+                cell.detailTextLabel?.text = "On-device data and diagnostics".l10n
                 cell.accessoryType = .disclosureIndicator
             }
         }
@@ -240,7 +240,7 @@ final class PrivacySettingsViewController: UIViewController, UITableViewDataSour
                     _ = tabManager.addTab(incognito: false, select: true, containerID: containerID)
                 }
             }
-            Toast.show("Browsing data erased", from: self)
+            Toast.show("Browsing data erased".l10n, from: self)
             self.onRequestRebuildWebViews?()
         }
         let nav = UINavigationController(rootViewController: erase)
@@ -251,12 +251,12 @@ final class PrivacySettingsViewController: UIViewController, UITableViewDataSour
 
     private func presentDefaultBrowserHelp() {
         let alert = UIAlertController(
-            title: "Default browser",
+            title: "Default browser".l10n,
             message: "Off — links may open in Safari.\n\nSettings → Apps → X Browser → Default Browser App → X Browser",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Open iPhone Settings", style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Open iPhone Settings".l10n, style: .default) { _ in
             if #available(iOS 18.3, *),
                let url = URL(string: UIApplication.openDefaultApplicationsSettingsURLString) {
                 UIApplication.shared.open(url)
@@ -271,19 +271,19 @@ final class PrivacySettingsViewController: UIViewController, UITableViewDataSour
 
     private func presentFilterUpdateAlert() {
         let alert = UIAlertController(
-            title: "Filter lists",
+            title: "Filter lists".l10n,
             message: "\(FilterUpdateManager.shared.filterStatusLine)\n\nFilters block page ads and trackers. Protection is best-effort.",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Update now", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Update now".l10n, style: .default) { [weak self] _ in
             FilterUpdateManager.shared.refresh(force: true) { ok in
                 self?.tableView.reloadData()
                 if let self {
-                    Toast.show(ok ? "Filters updated" : "Using cached / bundled filters", from: self)
+                    Toast.show(ok ? "Filters updated".l10n : "Using cached / bundled filters".l10n, from: self)
                 }
             }
         })
-        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+        alert.addAction(UIAlertAction(title: "OK".l10n, style: .cancel))
         present(alert, animated: true)
     }
 

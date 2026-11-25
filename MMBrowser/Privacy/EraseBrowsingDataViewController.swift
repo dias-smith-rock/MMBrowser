@@ -37,7 +37,7 @@ final class EraseBrowsingDataViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Erase browsing data"
+        title = "Erase browsing data".l10n
         BrowserTheme.applyScreenChrome(to: self)
         navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(cancelTapped))
 
@@ -119,7 +119,7 @@ final class EraseBrowsingDataViewController: UIViewController {
                 message: "This cannot be undone.",
                 preferredStyle: .alert
             )
-            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
             alert.addAction(UIAlertAction(title: "Erase everything", style: .destructive) { [weak self] _ in
                 self?.performErase()
             })

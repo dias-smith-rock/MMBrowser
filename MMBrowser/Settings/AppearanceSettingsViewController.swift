@@ -28,7 +28,7 @@ final class AppearanceSettingsViewController: UIViewController, UITableViewDataS
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Appearance"
+        title = "Appearance".l10n
         applyChrome()
         tableView.dataSource = self
         tableView.delegate = self
@@ -89,7 +89,7 @@ final class AppearanceSettingsViewController: UIViewController, UITableViewDataS
 
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
-        case .theme: return "Theme"
+        case .theme: return "Theme".l10n
         case .wallpaper: return "Wallpaper"
         case .fitMode: return showsLayoutSections ? "Display Mode" : nil
         case .overlay: return showsLayoutSections ? "Overlay" : nil
@@ -145,12 +145,12 @@ final class AppearanceSettingsViewController: UIViewController, UITableViewDataS
                 cell.imageView?.layer.cornerRadius = 8
                 cell.imageView?.clipsToBounds = true
             } else if indexPath.row == options.count {
-                cell.textLabel?.text = "Change Custom Photo"
+                cell.textLabel?.text = "Change Custom Photo".l10n
                 cell.detailTextLabel?.text = nil
                 cell.accessoryType = .disclosureIndicator
                 cell.imageView?.image = nil
             } else {
-                cell.textLabel?.text = "Remove Custom Photo"
+                cell.textLabel?.text = "Remove Custom Photo".l10n
                 cell.textLabel?.textColor = .systemRed
                 cell.detailTextLabel?.text = nil
                 cell.accessoryType = .none
@@ -194,7 +194,7 @@ final class AppearanceSettingsViewController: UIViewController, UITableViewDataS
                 if option == .custom {
                     if HomeWallpaper.hasCustomImage {
                         AppSettings.homeWallpaperIndex = option.rawValue
-                        Toast.show("Wallpaper: Custom", from: self)
+                        Toast.show("Wallpaper: Custom".l10n, from: self)
                     } else {
                         presentPhotoPicker()
                     }
@@ -206,7 +206,7 @@ final class AppearanceSettingsViewController: UIViewController, UITableViewDataS
                 presentPhotoPicker()
             } else {
                 HomeWallpaper.removeCustomImage()
-                Toast.show("Custom photo removed", from: self)
+                Toast.show("Custom photo removed".l10n, from: self)
             }
             tableView.reloadData()
         case .fitMode:
@@ -254,14 +254,14 @@ final class AppearanceSettingsViewController: UIViewController, UITableViewDataS
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard let image = object as? UIImage else {
-                    Toast.show("Could not load photo", from: self)
+                    Toast.show("Could not load photo".l10n, from: self)
                     return
                 }
                 if HomeWallpaper.saveCustomImage(image) {
-                    Toast.show("Wallpaper: Custom", from: self)
+                    Toast.show("Wallpaper: Custom".l10n, from: self)
                     self.tableView.reloadData()
                 } else {
-                    Toast.show("Could not save photo", from: self)
+                    Toast.show("Could not save photo".l10n, from: self)
                 }
             }
         }
@@ -297,7 +297,7 @@ private final class OverlayOpacityCell: UITableViewCell {
         selectionStyle = .none
         backgroundColor = BrowserTheme.card
 
-        titleLabel.text = "Mask Strength"
+        titleLabel.text = "Mask Strength".l10n
         titleLabel.font = .systemFont(ofSize: 16)
         titleLabel.textColor = BrowserTheme.textPrimary
 

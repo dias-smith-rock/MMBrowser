@@ -181,7 +181,7 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         settingsButton.tintColor = .white
         settingsButton.backgroundColor = UIColor.black.withAlphaComponent(0.28)
         settingsButton.layer.cornerRadius = 16
-        settingsButton.accessibilityLabel = "Settings"
+        settingsButton.accessibilityLabel = "Settings".l10n
         settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
     }
 
@@ -193,7 +193,7 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         premiumButton.tintColor = UIColor(red: 1.0, green: 0.84, blue: 0.35, alpha: 1)
         premiumButton.backgroundColor = UIColor.black.withAlphaComponent(0.28)
         premiumButton.layer.cornerRadius = 16
-        premiumButton.accessibilityLabel = "X Browser Premium"
+        premiumButton.accessibilityLabel = "X Browser Premium".l10n
         premiumButton.addTarget(self, action: #selector(premiumTapped), for: .touchUpInside)
     }
 
@@ -209,7 +209,7 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
         closeButton.tintColor = .black
         closeButton.backgroundColor = BrowserTheme.chromeBlue
         closeButton.layer.cornerRadius = 16
-        closeButton.accessibilityLabel = "Close"
+        closeButton.accessibilityLabel = "Close".l10n
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
         closeButton.snp.makeConstraints { $0.size.equalTo(32) }
     }
@@ -447,7 +447,7 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
     }
 
     private func presentAddFavorite(for accountID: UUID) {
-        let alert = UIAlertController(title: "Add Favorite", message: nil, preferredStyle: .alert)
+        let alert = UIAlertController(title: "Add Favorite".l10n, message: nil, preferredStyle: .alert)
         alert.addTextField { field in
             field.placeholder = "Title"
             field.autocapitalizationType = .words
@@ -458,8 +458,8 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
             field.autocapitalizationType = .none
             field.autocorrectionType = .no
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Add", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Add".l10n, style: .default) { [weak self] _ in
             guard let self else { return }
             let title = alert.textFields?[0].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let raw = alert.textFields?[1].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -472,7 +472,7 @@ final class AccountHubViewController: UIViewController, UIScrollViewDelegate {
                 containerID: accountID
             )
             if !ok {
-                Toast.show("Already in Favorites", from: self)
+                Toast.show("Already in Favorites".l10n, from: self)
             }
             self.pageViews.first(where: { $0.container.id == accountID })?
                 .reloadFavorites(editing: self.isEditingFavorites)
@@ -564,7 +564,7 @@ private final class SpaceHomePageView: UIView {
         pageControl.hidesForSinglePage = true
         pageControl.pageIndicatorTintColor = BrowserTheme.textSecondary.withAlphaComponent(0.35)
         pageControl.currentPageIndicatorTintColor = BrowserTheme.textPrimary
-        pageControl.accessibilityLabel = "Spaces"
+        pageControl.accessibilityLabel = "Spaces".l10n
         pageControl.addTarget(self, action: #selector(pageControlChanged), for: .valueChanged)
 
         titleHeader.axis = .vertical
@@ -580,11 +580,11 @@ private final class SpaceHomePageView: UIView {
         favoritesStack.spacing = 16
         favoritesStack.alignment = .fill
 
-        favoritesTitle.text = "FAVORITES"
+        favoritesTitle.text = "FAVORITES".l10n
         favoritesTitle.font = .systemFont(ofSize: 13, weight: .semibold)
         favoritesTitle.textColor = BrowserTheme.textSecondary
 
-        favoritesDoneButton.setTitle("Done", for: .normal)
+        favoritesDoneButton.setTitle("Done".l10n, for: .normal)
         favoritesDoneButton.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
         favoritesDoneButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
         favoritesDoneButton.addTarget(self, action: #selector(doneEditing), for: .touchUpInside)
@@ -825,13 +825,13 @@ private final class SpaceHomePageView: UIView {
         icon.layer.cornerRadius = size / 2
 
         let label = UILabel()
-        label.text = "Add"
+        label.text = "Add".l10n
         label.font = .systemFont(ofSize: 10, weight: .medium)
         label.textColor = BrowserTheme.textPrimary
         label.textAlignment = .center
 
         let button = UIButton(type: .system)
-        button.accessibilityLabel = "Add Favorite"
+        button.accessibilityLabel = "Add Favorite".l10n
         let accountID = container.id
         button.addAction(UIAction { [weak self] _ in
             self?.onAddFavorite?(accountID)

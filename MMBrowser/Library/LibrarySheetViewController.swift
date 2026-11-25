@@ -79,7 +79,7 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
 
         searchController.searchResultsUpdater = self
         searchController.obscuresBackgroundDuringPresentation = false
-        searchController.searchBar.placeholder = "Search"
+        searchController.searchBar.placeholder = "Search".l10n
         searchController.searchBar.searchTextField.textColor = BrowserTheme.textPrimary
         definesPresentationContext = true
 
@@ -313,10 +313,10 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
                     self?.onSelectURL?(url)
                 }
             }
-            let edit = UIAction(title: "Edit", image: UIImage(systemName: "pencil")) { _ in
+            let edit = UIAction(title: "Edit".l10n, image: UIImage(systemName: "pencil")) { _ in
                 self?.presentEditBookmark(item)
             }
-            let delete = UIAction(title: "Delete", image: UIImage(systemName: "trash"), attributes: .destructive) { _ in
+            let delete = UIAction(title: "Delete".l10n, image: UIImage(systemName: "trash"), attributes: .destructive) { _ in
                 BookmarkStore.shared.remove(id: item.id)
                 self?.reloadAfterMutation()
             }
@@ -342,8 +342,8 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
             field.autocapitalizationType = .none
             field.autocorrectionType = .no
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Save".l10n, style: .default) { [weak self] _ in
             guard let self else { return }
             let title = alert.textFields?[0].text ?? ""
             let urlString = alert.textFields?[1].text ?? ""
@@ -404,7 +404,7 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
                 self?.expanded.removeAll()
                 self?.reloadAfterMutation()
             })
-            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
             present(alert, animated: true)
         } else {
             let alert = UIAlertController(
@@ -417,7 +417,7 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
                 self?.expanded.removeAll()
                 self?.reloadAfterMutation()
             })
-            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
             present(alert, animated: true)
         }
     }
@@ -436,7 +436,7 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
             message: count == 1 ? "1 entry will be deleted." : "\(count) entries will be deleted.",
             preferredStyle: .actionSheet
         )
-        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Delete".l10n, style: .destructive) { [weak self] _ in
             guard let self = self else { return }
             if self.mode == .bookmarks {
                 BookmarkStore.shared.remove(host: host, containerID: self.containerID)
@@ -446,7 +446,7 @@ final class LibrarySheetViewController: UIViewController, UITableViewDataSource,
             self.expanded.remove(self.expandKey(day: day, host: host))
             self.reloadAfterMutation()
         })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         present(alert, animated: true)
     }
 

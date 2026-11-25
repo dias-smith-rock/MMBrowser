@@ -11,7 +11,7 @@ final class SearchEngineSettingsViewController: UIViewController, UITableViewDat
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Search Engine"
+        title = "Search Engine".l10n
         applyChrome()
         tableView.dataSource = self
         tableView.delegate = self
@@ -52,7 +52,7 @@ final class SearchEngineSettingsViewController: UIViewController, UITableViewDat
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .privacyFriendly: return "Privacy-friendly"
-        case .general: return "General"
+        case .general: return "General".l10n
         }
     }
 

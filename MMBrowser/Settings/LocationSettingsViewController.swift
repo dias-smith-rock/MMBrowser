@@ -10,7 +10,7 @@ final class LocationSettingsViewController: UIViewController, UITableViewDataSou
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Location"
+        title = "Location".l10n
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.dataSource = self
         tableView.delegate = self
@@ -98,7 +98,7 @@ final class LocationSettingsViewController: UIViewController, UITableViewDataSou
             cell.accessoryType = selected ? .checkmark : .none
             cell.tintColor = BrowserTheme.chromeBlue
         case .spoofCustom:
-            cell.textLabel?.text = "Choose on Map…"
+            cell.textLabel?.text = "Choose on Map…".l10n
             cell.detailTextLabel?.text = String(format: "%.5f, %.5f", AppSettings.spoofLatitude, AppSettings.spoofLongitude)
             if isCustomSpoofSelected {
                 cell.accessoryType = .checkmark

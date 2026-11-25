@@ -86,10 +86,10 @@ final class PremiumPaywallViewController: UIViewController {
         closeButton.tintColor = .white
         closeButton.backgroundColor = UIColor.white.withAlphaComponent(0.12)
         closeButton.layer.cornerRadius = 16
-        closeButton.accessibilityLabel = "Close"
+        closeButton.accessibilityLabel = "Close".l10n
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
 
-        titleLabel.text = "X Browser Premium"
+        titleLabel.text = "X Browser Premium".l10n
         titleLabel.font = .systemFont(ofSize: 28, weight: .bold)
         titleLabel.textColor = .white
         titleLabel.textAlignment = .center
@@ -115,12 +115,12 @@ final class PremiumPaywallViewController: UIViewController {
         ctaButton.layer.cornerRadius = 14
         ctaButton.addTarget(self, action: #selector(ctaTapped), for: .touchUpInside)
 
-        restoreButton.setTitle("Restore Purchases", for: .normal)
+        restoreButton.setTitle("Restore Purchases".l10n, for: .normal)
         restoreButton.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
         restoreButton.setTitleColor(UIColor.white.withAlphaComponent(0.75), for: .normal)
         restoreButton.addTarget(self, action: #selector(restoreTapped), for: .touchUpInside)
 
-        manageButton.setTitle("Manage Subscription", for: .normal)
+        manageButton.setTitle("Manage Subscription".l10n, for: .normal)
         manageButton.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
         manageButton.setTitleColor(UIColor(red: 0.45, green: 0.78, blue: 1.0, alpha: 1), for: .normal)
         manageButton.addTarget(self, action: #selector(manageTapped), for: .touchUpInside)
@@ -197,14 +197,14 @@ final class PremiumPaywallViewController: UIViewController {
         let monthlyTrial = store.trialDays(for: monthly)
 
         lifetimeCard.configure(
-            title: "Lifetime",
+            title: "Lifetime".l10n,
             price: store.lifetimeDisplayPrice(),
-            detail: "One-time purchase · forever",
-            badge: "Pay once"
+            detail: "One-time purchase · forever".l10n,
+            badge: "Pay once".l10n
         )
 
         yearlyCard.configure(
-            title: "Yearly",
+            title: "Yearly".l10n,
             price: store.displayPrice(for: yearly),
             detail: {
                 var parts: [String] = []
@@ -218,11 +218,11 @@ final class PremiumPaywallViewController: UIViewController {
                 }
                 return parts.joined(separator: " · ")
             }(),
-            badge: "Best Value"
+            badge: "Best Value".l10n
         )
 
         monthlyCard.configure(
-            title: "Monthly",
+            title: "Monthly".l10n,
             price: store.displayPrice(for: monthly),
             detail: {
                 if let days = monthlyTrial {
@@ -246,9 +246,9 @@ final class PremiumPaywallViewController: UIViewController {
         if subscribed {
             let plan: String = {
                 switch store.activeProductID {
-                case PremiumStore.lifetimeProductID: return "Lifetime"
-                case PremiumStore.yearlyProductID: return "Yearly"
-                case PremiumStore.monthlyProductID: return "Monthly"
+                case PremiumStore.lifetimeProductID: return "Lifetime".l10n
+                case PremiumStore.yearlyProductID: return "Yearly".l10n
+                case PremiumStore.monthlyProductID: return "Monthly".l10n
                 default: return "Premium"
                 }
             }()
@@ -273,14 +273,14 @@ final class PremiumPaywallViewController: UIViewController {
         [
             .init(
                 symbol: "square.stack.3d.up.fill",
-                title: subscribed ? "Unlimited Spaces Unlocked" : "Unlimited Spaces",
+                title: subscribed ? "Unlimited Spaces Unlocked" : "Unlimited Spaces".l10n,
                 detail: subscribed
                     ? "Every identity stays separate — cookies, logins, and browsing data."
                     : "Keep every identity separate. Free includes \(PremiumStore.freeSpaceLimit) Spaces."
             ),
             .init(
                 symbol: "lock.fill",
-                title: subscribed ? "Space Lock Unlocked" : "Space Lock",
+                title: subscribed ? "Space Lock Unlocked" : "Space Lock".l10n,
                 detail: "Protect any Space with a PIN or pattern. Locked Spaces stay hidden in Second Lock sessions."
             )
         ]
@@ -298,13 +298,13 @@ final class PremiumPaywallViewController: UIViewController {
         let store = PremiumStore.shared
         switch selectedPlan {
         case .lifetime:
-            ctaButton.setTitle("Buy Lifetime", for: .normal)
+            ctaButton.setTitle("Buy Lifetime".l10n, for: .normal)
         case .yearly, .monthly:
             let product = selectedProduct()
             if let days = store.trialDays(for: product) {
                 ctaButton.setTitle("Start \(days)-Day Free Trial", for: .normal)
             } else {
-                ctaButton.setTitle("Subscribe", for: .normal)
+                ctaButton.setTitle("Subscribe".l10n, for: .normal)
             }
         }
     }
@@ -336,7 +336,7 @@ final class PremiumPaywallViewController: UIViewController {
     @objc private func ctaTapped() {
         guard !isBusy else { return }
         guard let product = selectedProduct() else {
-            Toast.show("Products unavailable. Try again later.", from: self)
+            Toast.show("Products unavailable. Try again later.".l10n, from: self)
             return
         }
         setBusy(true)
@@ -347,13 +347,13 @@ final class PremiumPaywallViewController: UIViewController {
             switch outcome {
             case .success:
                 AppAnalytics.logPurchaseSuccess(productID: product.id, source: source)
-                Toast.show("Welcome to Premium", from: self)
+                Toast.show("Welcome to Premium".l10n, from: self)
                 reloadFromStore()
             case .cancelled:
                 AppAnalytics.logPurchaseFail(productID: product.id, source: source, reason: "cancelled")
             case .pending:
                 AppAnalytics.logPurchaseFail(productID: product.id, source: source, reason: "pending")
-                Toast.show("Purchase pending approval", from: self)
+                Toast.show("Purchase pending approval".l10n, from: self)
             case .failed(let message):
                 AppAnalytics.logPurchaseFail(productID: product.id, source: source, reason: "failed")
                 Toast.show(message, from: self)
@@ -372,7 +372,7 @@ final class PremiumPaywallViewController: UIViewController {
                 Toast.show("Premium restored", from: self)
                 reloadFromStore()
             } else {
-                Toast.show("No Premium purchase found", from: self)
+                Toast.show("No Premium purchase found".l10n, from: self)
             }
         }
     }
@@ -397,8 +397,8 @@ final class PremiumPaywallViewController: UIViewController {
                 .foregroundColor: UIColor.white.withAlphaComponent(0.45)
             ]
         )
-        let termsRange = (text as NSString).range(of: "Terms of Use")
-        let privacyRange = (text as NSString).range(of: "Privacy Policy")
+        let termsRange = (text as NSString).range(of: "Terms of Use".l10n)
+        let privacyRange = (text as NSString).range(of: "Privacy Policy".l10n)
         attr.addAttributes([.foregroundColor: UIColor.white.withAlphaComponent(0.75)], range: termsRange)
         attr.addAttributes([.foregroundColor: UIColor.white.withAlphaComponent(0.75)], range: privacyRange)
         return attr
@@ -406,8 +406,8 @@ final class PremiumPaywallViewController: UIViewController {
 
     @objc private func legalTapped(_ gesture: UITapGestureRecognizer) {
         guard let label = gesture.view as? UILabel, let text = label.attributedText?.string else { return }
-        let termsRange = (text as NSString).range(of: "Terms of Use")
-        let privacyRange = (text as NSString).range(of: "Privacy Policy")
+        let termsRange = (text as NSString).range(of: "Terms of Use".l10n)
+        let privacyRange = (text as NSString).range(of: "Privacy Policy".l10n)
         if gesture.didTap(label: label, in: termsRange) {
             present(SFSafariViewController(url: Legal.terms), animated: true)
         } else if gesture.didTap(label: label, in: privacyRange) {

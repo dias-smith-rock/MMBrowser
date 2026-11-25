@@ -20,7 +20,7 @@ final class ReaderViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .black
         title = "Reader"
-        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(close))
+        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Done".l10n, style: .done, target: self, action: #selector(close))
         navigationItem.rightBarButtonItems = [
             UIBarButtonItem(image: UIImage(systemName: "textformat.size"), style: .plain, target: self, action: #selector(cycleFont)),
             UIBarButtonItem(image: UIImage(systemName: "circle.lefthalf.fill"), style: .plain, target: self, action: #selector(cycleTheme))

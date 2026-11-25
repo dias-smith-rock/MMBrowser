@@ -72,7 +72,7 @@ final class AccountTabsPopupViewController: UIViewController {
 
         closeButton.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
         closeButton.tintColor = BrowserTheme.textSecondary
-        closeButton.accessibilityLabel = "Close"
+        closeButton.accessibilityLabel = "Close".l10n
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
 
         view.addSubview(header)
@@ -132,7 +132,7 @@ final class AccountTabsPopupViewController: UIViewController {
         addButton.setImage(UIImage(systemName: "plus"), for: .normal)
         addButton.tintColor = .white
         addButton.layer.cornerRadius = 28
-        addButton.accessibilityLabel = "New Tab"
+        addButton.accessibilityLabel = "New Tab".l10n
         addButton.addTarget(self, action: #selector(addTapped), for: .touchUpInside)
         view.addSubview(addButton)
         addButton.snp.makeConstraints { make in
@@ -153,10 +153,10 @@ final class AccountTabsPopupViewController: UIViewController {
     }
 
     private func makeMoreMenu() -> UIMenu {
-        let rename = UIAction(title: "Rename", image: UIImage(systemName: "pencil")) { [weak self] _ in
+        let rename = UIAction(title: "Rename".l10n, image: UIImage(systemName: "pencil")) { [weak self] _ in
             self?.promptRename()
         }
-        let manage = UIAction(title: "Manage Spaces", image: UIImage(systemName: "slider.horizontal.3")) { [weak self] _ in
+        let manage = UIAction(title: "Manage Spaces".l10n, image: UIImage(systemName: "slider.horizontal.3")) { [weak self] _ in
             self?.presentManageAccounts()
         }
         let closeAll = UIAction(
@@ -188,8 +188,8 @@ final class AccountTabsPopupViewController: UIViewController {
         guard let container = tabManager.container(id: containerID) else { return }
         let alert = UIAlertController(title: "Rename Space", message: nil, preferredStyle: .alert)
         alert.addTextField { $0.text = container.name; $0.placeholder = "Name" }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Save", style: .default, handler: { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Save".l10n, style: .default, handler: { [weak self] _ in
             guard let self else { return }
             let name = alert.textFields?.first?.text ?? ""
             if self.tabManager.renameContainer(id: container.id, to: name) {
@@ -197,11 +197,11 @@ final class AccountTabsPopupViewController: UIViewController {
                 self.delegate?.accountTabsPopupDidChangeAccounts()
             } else {
                 let err = UIAlertController(
-                    title: "Spaces",
+                    title: "Spaces".l10n,
                     message: "Couldn’t rename. Use a unique non-empty name.",
                     preferredStyle: .alert
                 )
-                err.addAction(UIAlertAction(title: "OK", style: .default))
+                err.addAction(UIAlertAction(title: "OK".l10n, style: .default))
                 self.present(err, animated: true)
             }
         }))
@@ -226,8 +226,8 @@ final class AccountTabsPopupViewController: UIViewController {
     private func confirmDelete() {
         guard let container = tabManager.container(id: containerID) else { return }
         guard tabManager.containers.count > 1 else {
-            let alert = UIAlertController(title: "Spaces", message: "Keep at least one space.", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            let alert = UIAlertController(title: "Spaces".l10n, message: "Keep at least one space.", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK".l10n, style: .default))
             present(alert, animated: true)
             return
         }
@@ -236,8 +236,8 @@ final class AccountTabsPopupViewController: UIViewController {
             message: "Tabs in “\(container.name)” will move to another space. Their login session for this space will be removed.",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Delete", style: .destructive, handler: { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete".l10n, style: .destructive, handler: { [weak self] _ in
             guard let self else { return }
             let host = self.view.window ?? self.view!
             EraseFireOverlayView.play(on: host) { [weak self] in
@@ -258,7 +258,7 @@ final class AccountTabsPopupViewController: UIViewController {
                 self?.confirmMove(tab: tab, to: container)
             }))
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = alert.popoverPresentationController {
             pop.sourceView = view
             pop.sourceRect = CGRect(x: view.bounds.midX, y: 80, width: 1, height: 1)
@@ -273,7 +273,7 @@ final class AccountTabsPopupViewController: UIViewController {
             message: "This tab will use that space’s cookies and login. It may look logged out of the previous space.",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         alert.addAction(UIAlertAction(title: "Move", style: .default, handler: { [weak self] _ in
             guard let self else { return }
             self.tabManager.moveTab(tab.id, toContainer: container.id)

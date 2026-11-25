@@ -38,7 +38,7 @@ final class WatchLaterViewController: UIViewController, UICollectionViewDataSour
         navigationItem.titleView = titleLabel
 
         navigationItem.leftBarButtonItem = UIBarButtonItem(
-            title: "Close",
+            title: "Close".l10n,
             style: .plain,
             target: self,
             action: #selector(close)
@@ -203,11 +203,11 @@ final class WatchLaterViewController: UIViewController, UICollectionViewDataSour
     ) -> UIContextMenuConfiguration? {
         let item = sections[indexPath.section].items[indexPath.row]
         return UIContextMenuConfiguration(identifier: item.id.uuidString as NSString, previewProvider: nil) { [weak self] _ in
-            let edit = UIAction(title: "Edit", image: UIImage(systemName: "pencil")) { [weak self] _ in
+            let edit = UIAction(title: "Edit".l10n, image: UIImage(systemName: "pencil")) { [weak self] _ in
                 self?.presentEditor(item: item)
             }
             let delete = UIAction(
-                title: "Delete",
+                title: "Delete".l10n,
                 image: UIImage(systemName: "trash"),
                 attributes: .destructive
             ) { [weak self] _ in
@@ -231,7 +231,7 @@ final class WatchLaterViewController: UIViewController, UICollectionViewDataSour
             WatchLaterStore.shared.clear(containerID: self.containerID)
             self.reloadAfterMutation()
         })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = alert.popoverPresentationController {
             pop.barButtonItem = clearAllButton
         }
@@ -254,7 +254,7 @@ final class WatchLaterViewController: UIViewController, UICollectionViewDataSour
             self.reloadAfterMutation()
             Toast.show("Cleared \(label)", from: self)
         })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = alert.popoverPresentationController {
             pop.sourceView = collectionView
             let attrs = collectionView.layoutAttributesForSupplementaryElement(
@@ -286,8 +286,8 @@ final class WatchLaterViewController: UIViewController, UICollectionViewDataSour
             field.autocorrectionType = .no
             field.clearButtonMode = .whileEditing
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: isNew ? "Add" : "Save", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: isNew ? "Add".l10n : "Save".l10n, style: .default) { [weak self] _ in
             guard let self else { return }
             let title = alert.textFields?.first?.text ?? ""
             let rawURL = alert.textFields?.dropFirst().first?.text ?? ""
@@ -456,7 +456,7 @@ private final class WatchLaterDayHeaderView: UICollectionReusableView {
         super.init(frame: frame)
         titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
         titleLabel.textColor = BrowserTheme.textPrimary
-        clearButton.setTitle("Clear", for: .normal)
+        clearButton.setTitle("Clear".l10n, for: .normal)
         clearButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
         clearButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
         clearButton.addTarget(self, action: #selector(clearTapped), for: .touchUpInside)

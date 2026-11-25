@@ -104,7 +104,7 @@ final class PasswordDetailViewController: UIViewController, UITableViewDataSourc
             let titles = ["Copy login", "Copy password", "Show password"]
             cell.textLabel?.text = passwordVisible && indexPath.row == 2 ? "Hide password" : titles[indexPath.row]
         default:
-            cell.textLabel?.text = "Delete"
+            cell.textLabel?.text = "Delete".l10n
             cell.textLabel?.textColor = .systemRed
             cell.textLabel?.textAlignment = .center
         }
@@ -140,8 +140,8 @@ final class PasswordDetailViewController: UIViewController, UITableViewDataSourc
 
     private func confirmDelete() {
         let alert = UIAlertController(title: "Delete Password?", message: item.host, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete".l10n, style: .destructive) { [weak self] _ in
             guard let self else { return }
             _ = PasswordStore.shared.remove(id: self.item.id)
             self.onChanged?()

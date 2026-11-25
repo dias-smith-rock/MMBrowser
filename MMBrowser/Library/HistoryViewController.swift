@@ -20,7 +20,7 @@ final class HistoryViewController: UIViewController, UITableViewDataSource, UITa
         title = "History"
         view.backgroundColor = BrowserTheme.background
         overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
-        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Close", style: .plain, target: self, action: #selector(close))
+        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Close".l10n, style: .plain, target: self, action: #selector(close))
         navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Clear All", style: .plain, target: self, action: #selector(clearAll))
         if let navigationBar = navigationController?.navigationBar {
             BrowserTheme.applyNavigationBar(to: navigationBar)
@@ -96,7 +96,7 @@ final class HistoryViewController: UIViewController, UITableViewDataSource, UITa
     }
 
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let delete = UIContextualAction(style: .destructive, title: "Delete") { [weak self] _, _, done in
+        let delete = UIContextualAction(style: .destructive, title: "Delete".l10n) { [weak self] _, _, done in
             guard let self = self else { done(false); return }
             let item = self.sections[indexPath.section].items[indexPath.row]
             HistoryStore.shared.remove(id: item.id)
@@ -118,7 +118,7 @@ final class HistoryViewController: UIViewController, UITableViewDataSource, UITa
         titleLabel.textColor = BrowserTheme.textPrimary
 
         let clearButton = UIButton(type: .system)
-        clearButton.setTitle("Clear", for: .normal)
+        clearButton.setTitle("Clear".l10n, for: .normal)
         clearButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
         clearButton.setTitleColor(BrowserTheme.chromeBlue, for: .normal)
         clearButton.tag = section
@@ -159,7 +159,7 @@ final class HistoryViewController: UIViewController, UITableViewDataSource, UITa
             HistoryStore.shared.clear(containerID: self.containerID)
             self.reloadAfterMutation()
         })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = alert.popoverPresentationController {
             pop.barButtonItem = navigationItem.rightBarButtonItem
         }
@@ -182,7 +182,7 @@ final class HistoryViewController: UIViewController, UITableViewDataSource, UITa
             self.reloadAfterMutation()
             Toast.show("Cleared \(label)", from: self)
         })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = alert.popoverPresentationController {
             pop.sourceView = tableView
             pop.sourceRect = tableView.rectForHeader(inSection: section)

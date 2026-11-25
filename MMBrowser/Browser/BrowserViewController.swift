@@ -591,7 +591,7 @@ final class BrowserViewController: UIViewController {
         guard inWindow || hasSecondSpace else { return }
         AppSettings.didShowDefaultBrowserPrompt = true
         let alert = UIAlertController(
-            title: "Open links in X Browser",
+            title: "Open links in X Browser".l10n,
             message: "Keep Spaces, blocking, and locks when you tap links from Mail or Messages.",
             preferredStyle: .alert
         )
@@ -826,7 +826,7 @@ final class BrowserViewController: UIViewController {
         setNeedsStatusBarAppearanceUpdate()
         if enabled, announce, !AppSettings.didShowImmersiveBrowsingTip {
             AppSettings.didShowImmersiveBrowsingTip = true
-            Toast.show("Toolbar hidden — drag or tap the circle to restore", from: self)
+            Toast.show("Toolbar hidden — drag or tap the circle to restore".l10n, from: self)
         }
     }
 
@@ -1094,7 +1094,7 @@ final class BrowserViewController: UIViewController {
     }
 
     private static func compactHostDisplay(for url: URL?) -> String {
-        guard let host = url?.host, !host.isEmpty else { return "Search" }
+        guard let host = url?.host, !host.isEmpty else { return "Search".l10n }
         return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
     }
 
@@ -2321,7 +2321,7 @@ extension BrowserViewController: AddressBarViewDelegate {
     func addressBarTitleForAdjacentTab(offset: Int) -> String? {
         guard let tab = tabManager.tab(adjacentOffset: offset) else { return nil }
         if let host = tab.url?.host, !host.isEmpty { return host }
-        if tab.isNewTabPage { return "New Tab" }
+        if tab.isNewTabPage { return "New Tab".l10n }
         let title = tab.title.trimmingCharacters(in: .whitespacesAndNewlines)
         return title.isEmpty ? "Tab" : title
     }
@@ -2541,10 +2541,10 @@ extension BrowserViewController: AddressBarViewDelegate {
             case .closedPrivateTabs:
                 self.tabManager.closeAllIncognitoTabs()
                 self.showSelectedTab()
-                Toast.show("Browsing data erased", from: self)
+                Toast.show("Browsing data erased".l10n, from: self)
             case .erasedSpaces(let ids):
                 self.resetSpacesAfterErase(ids)
-                Toast.show("Browsing data erased", from: self)
+                Toast.show("Browsing data erased".l10n, from: self)
             }
         }
         presentSheet(erase)
@@ -2570,7 +2570,7 @@ extension BrowserViewController: AddressBarViewDelegate {
             message: "Clear cookies and site data for \(host) in this Space?",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         alert.addAction(UIAlertAction(title: "Clear data for this site", style: .destructive) { [weak self] _ in
             BrowsingDataEraser.clearSiteData(host: host, sessionID: sessionID) {
                 guard let self else { return }
@@ -3120,7 +3120,7 @@ extension BrowserViewController: WebViewControllerDelegate {
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Go Back", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Continue", style: .destructive, handler: { _ in proceed() }))
+        alert.addAction(UIAlertAction(title: "Continue".l10n, style: .destructive, handler: { _ in proceed() }))
         present(alert, animated: true)
     }
 }
@@ -3306,7 +3306,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 return
             }
             if NavigationStore.shared.containsFavorite(url: url, containerID: tab.containerID) {
-                Toast.show("Already in Favorites", from: self)
+                Toast.show("Already in Favorites".l10n, from: self)
             } else {
                 let title = tab.title.trimmingCharacters(in: .whitespacesAndNewlines)
                 let ok = NavigationStore.shared.addToHome(
@@ -3314,7 +3314,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
                     url: url,
                     containerID: tab.containerID
                 )
-                Toast.show(ok ? "Added to Favorites" : "Already in Favorites", from: self)
+                Toast.show(ok ? "Added to Favorites" : "Already in Favorites".l10n, from: self)
                 accountHubController?.reloadFromExternalChange()
             }
         case .printPage:
@@ -3435,7 +3435,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 })
             }
         }
-        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+        alert.addAction(UIAlertAction(title: "OK".l10n, style: .cancel))
         present(alert, animated: true)
     }
 
@@ -3457,7 +3457,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
                 Toast.show(title, from: self)
             })
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = alert.popoverPresentationController {
             pop.sourceView = addressBar
             pop.sourceRect = addressBar.bounds
@@ -3512,7 +3512,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
     private func openAppSettingsForDefaultBrowser() {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)
-        Toast.show("Set X Browser as Default Browser App in Settings", from: self)
+        Toast.show("Set X Browser as Default Browser App in Settings".l10n, from: self)
     }
 
     private func reportBrokenSite() {
@@ -3542,7 +3542,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
             message: "Mail isn’t set up on this device. Send this note to \(address).\n\n\(note)",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Copy", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Copy".l10n, style: .default) { [weak self] _ in
             UIPasteboard.general.string = "\(address)\n\(note)"
             guard let self else { return }
             Toast.show("Report copied", from: self)
@@ -3550,7 +3550,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
         alert.addAction(UIAlertAction(title: "Open Mail", style: .default) { [weak self] _ in
             self?.openBrokenSiteMailto(address: address, subject: subject, page: page)
         })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         present(alert, animated: true)
     }
 

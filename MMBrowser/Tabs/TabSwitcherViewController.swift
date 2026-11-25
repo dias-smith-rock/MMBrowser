@@ -202,7 +202,7 @@ final class TabSwitcherViewController: UIViewController {
         addSpaceButton.backgroundColor = BrowserTheme.secondaryCard
         addSpaceButton.tintColor = BrowserTheme.textPrimary
         addSpaceButton.layer.cornerRadius = 16
-        addSpaceButton.accessibilityLabel = "Add Space"
+        addSpaceButton.accessibilityLabel = "Add Space".l10n
         addSpaceButton.addTarget(self, action: #selector(addSpaceTapped), for: .touchUpInside)
         topBar.addSubview(addSpaceButton)
 
@@ -213,7 +213,7 @@ final class TabSwitcherViewController: UIViewController {
         settingsButton.backgroundColor = BrowserTheme.secondaryCard
         settingsButton.tintColor = BrowserTheme.textPrimary
         settingsButton.layer.cornerRadius = 16
-        settingsButton.accessibilityLabel = "Settings"
+        settingsButton.accessibilityLabel = "Settings".l10n
         settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
         topBar.addSubview(settingsButton)
 
@@ -466,17 +466,17 @@ final class TabSwitcherViewController: UIViewController {
 
         eraseButton.setTitle("🔥", for: .normal)
         eraseButton.titleLabel?.font = .systemFont(ofSize: 22)
-        eraseButton.accessibilityLabel = "Erase browsing data"
+        eraseButton.accessibilityLabel = "Erase browsing data".l10n
         eraseButton.addTarget(self, action: #selector(eraseTapped), for: .touchUpInside)
 
         addButton.setImage(
             UIImage(systemName: "plus", withConfiguration: UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)),
             for: .normal
         )
-        addButton.accessibilityLabel = "New Tab"
+        addButton.accessibilityLabel = "New Tab".l10n
         addButton.addTarget(self, action: #selector(addTapped), for: .touchUpInside)
 
-        doneButton.setTitle("Done", for: .normal)
+        doneButton.setTitle("Done".l10n, for: .normal)
         doneButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
         doneButton.addTarget(self, action: #selector(doneTapped), for: .touchUpInside)
 
@@ -544,7 +544,7 @@ final class TabSwitcherViewController: UIViewController {
         topBar.snp.updateConstraints { $0.height.equalTo(topHeight) }
         topBar.isHidden = showingIncognito
         privateHintWrap.isHidden = !showingIncognito
-        privateButton.accessibilityValue = showingIncognito ? "On" : "Off"
+        privateButton.accessibilityValue = showingIncognito ? "On".l10n : "Off".l10n
     }
 
     private var lastCollectionLayoutWidth: CGFloat = -1
@@ -768,15 +768,15 @@ final class TabSwitcherViewController: UIViewController {
     private func presentRenameAlert(for container: BrowserContainer) {
         let alert = UIAlertController(title: "Rename Space", message: nil, preferredStyle: .alert)
         alert.addTextField { $0.text = container.name; $0.placeholder = "Name" }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Save", style: .default, handler: { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Save".l10n, style: .default, handler: { [weak self] _ in
             guard let self else { return }
             let name = alert.textFields?.first?.text ?? ""
             if self.tabManager.renameContainer(id: container.id, to: name) {
                 self.reload()
             } else {
-                let err = UIAlertController(title: "Spaces", message: "Couldn’t rename. Use a unique non-empty name.", preferredStyle: .alert)
-                err.addAction(UIAlertAction(title: "OK", style: .default))
+                let err = UIAlertController(title: "Spaces".l10n, message: "Couldn’t rename. Use a unique non-empty name.", preferredStyle: .alert)
+                err.addAction(UIAlertAction(title: "OK".l10n, style: .default))
                 self.present(err, animated: true)
             }
         }))
@@ -795,8 +795,8 @@ final class TabSwitcherViewController: UIViewController {
 
     private func confirmDeleteSpaceAndTabs(_ container: BrowserContainer) {
         guard tabManager.containers.count > 1 else {
-            let alert = UIAlertController(title: "Spaces", message: "Keep at least one space.", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            let alert = UIAlertController(title: "Spaces".l10n, message: "Keep at least one space.", preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK".l10n, style: .default))
             present(alert, animated: true)
             return
         }
@@ -805,8 +805,8 @@ final class TabSwitcherViewController: UIViewController {
             message: "“\(container.name)” and all of its tabs will be deleted. The login session for this space will be removed.",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Delete", style: .destructive, handler: { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete".l10n, style: .destructive, handler: { [weak self] _ in
             guard let self else { return }
             let host = self.view.window ?? self.view!
             EraseFireOverlayView.play(on: host) { [weak self] in
@@ -845,7 +845,7 @@ final class TabSwitcherViewController: UIViewController {
                 onPick(container)
             }))
         }
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = sheet.popoverPresentationController {
             pop.sourceView = view
             pop.sourceRect = CGRect(x: view.bounds.midX, y: 80, width: 1, height: 1)
@@ -895,7 +895,7 @@ final class TabSwitcherViewController: UIViewController {
                 }
             }
             self.reload()
-            Toast.show("Browsing data erased", from: self)
+            Toast.show("Browsing data erased".l10n, from: self)
         }
         let nav = UINavigationController(rootViewController: erase)
         nav.overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
@@ -952,13 +952,13 @@ final class TabSwitcherViewController: UIViewController {
                 message: "Choose how to unlock this space",
                 preferredStyle: .actionSheet
             )
-            sheet.addAction(UIAlertAction(title: "4-Digit PIN", style: .default) { [weak self] _ in
+            sheet.addAction(UIAlertAction(title: "4-Digit PIN".l10n, style: .default) { [weak self] _ in
                 self?.presentSpaceLockSetup(.createSpacePIN(containerID: containerID))
             })
-            sheet.addAction(UIAlertAction(title: "Pattern", style: .default) { [weak self] _ in
+            sheet.addAction(UIAlertAction(title: "Pattern".l10n, style: .default) { [weak self] _ in
                 self?.presentSpaceLockSetup(.createSpacePattern(containerID: containerID))
             })
-            sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+            sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
             PlatformSupport.configurePopover(
                 sheet,
                 sourceView: self.view,
@@ -1106,7 +1106,7 @@ final class TabSwitcherViewController: UIViewController {
                 self?.confirmMove(tab: tab, to: container)
             }))
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = alert.popoverPresentationController {
             pop.sourceView = view
             pop.sourceRect = CGRect(x: view.bounds.midX, y: 80, width: 1, height: 1)
@@ -1121,7 +1121,7 @@ final class TabSwitcherViewController: UIViewController {
             message: "This tab will use that space’s cookies and login. It may look logged out of the previous space.",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         alert.addAction(UIAlertAction(title: "Move", style: .default, handler: { [weak self] _ in
             self?.tabManager.moveTab(tab.id, toContainer: container.id)
             self?.reload()
@@ -1333,7 +1333,7 @@ extension TabSwitcherViewController: UITableViewDataSource, UITableViewDelegate 
         _ tableView: UITableView,
         trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath
     ) -> UISwipeActionsConfiguration? {
-        let delete = UIContextualAction(style: .destructive, title: "Delete") { [weak self] _, _, done in
+        let delete = UIContextualAction(style: .destructive, title: "Delete".l10n) { [weak self] _, _, done in
             guard let self else { done(false); return }
             if tableView === self.bookmarksTable {
                 BookmarkStore.shared.remove(id: self.bookmarkItems[indexPath.row].id)
@@ -1907,7 +1907,7 @@ final class TabGridCell: UICollectionViewCell {
     /// Empty-space placeholder matching the reference “New Tab” card.
     func configureAsNewTabPlaceholder(accent: UIColor, selected: Bool) {
         configuredTabID = nil
-        titleLabel.text = "New Tab"
+        titleLabel.text = "New Tab".l10n
         groupButton.isHidden = true
         closeButton.isHidden = true
         colorBar.isHidden = true

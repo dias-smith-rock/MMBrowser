@@ -24,7 +24,7 @@ final class ContainerManageViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Spaces"
+        title = "Spaces".l10n
         BrowserTheme.applyScreenChrome(to: self)
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .add,
@@ -33,7 +33,7 @@ final class ContainerManageViewController: UIViewController {
         )
         if showsDoneButton {
             navigationItem.leftBarButtonItem = UIBarButtonItem(
-                title: "Done",
+                title: "Done".l10n,
                 style: .done,
                 target: self,
                 action: #selector(doneTapped)
@@ -98,8 +98,8 @@ final class ContainerManageViewController: UIViewController {
             message: "Tabs in “\(container.name)” will move to another space. Their login session for this space will be removed.",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Delete", style: .destructive, handler: { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete".l10n, style: .destructive, handler: { [weak self] _ in
             guard let self else { return }
             let host = self.view.window ?? self.view!
             EraseFireOverlayView.play(on: host) { [weak self] in
@@ -114,8 +114,8 @@ final class ContainerManageViewController: UIViewController {
     }
 
     private func presentError(_ message: String) {
-        let alert = UIAlertController(title: "Spaces", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        let alert = UIAlertController(title: "Spaces".l10n, message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK".l10n, style: .default))
         present(alert, animated: true)
     }
 }
@@ -174,7 +174,7 @@ extension ContainerManageViewController: UITableViewDataSource, UITableViewDeleg
         _ tableView: UITableView,
         trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath
     ) -> UISwipeActionsConfiguration? {
-        let delete = UIContextualAction(style: .destructive, title: "Delete") { [weak self] _, _, done in
+        let delete = UIContextualAction(style: .destructive, title: "Delete".l10n) { [weak self] _, _, done in
             guard let self else { done(false); return }
             self.confirmDelete(self.items[indexPath.row])
             done(true)

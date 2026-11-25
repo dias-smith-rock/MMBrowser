@@ -392,7 +392,7 @@ final class ScreenshotEditorViewController: UIViewController {
                     ("textformat.size", "Size", #selector(textSizeTapped), false),
                     ("paintpalette", "Color", #selector(textColorTapped), false),
                     ("textformat", "Font", #selector(textFontTapped), false),
-                    ("checkmark", "Done", #selector(deselectTapped), false)
+                    ("checkmark", "Done".l10n, #selector(deselectTapped), false)
                 ]
             case .arrow:
                 items = [
@@ -400,7 +400,7 @@ final class ScreenshotEditorViewController: UIViewController {
                     ("paintpalette", "Color", #selector(arrowColorTapped), false),
                     ("pencil.tip", "Width", #selector(arrowWidthTapped), false),
                     ("arrow.clockwise", "Angle", #selector(arrowAngleTapped), annotationRotateMode),
-                    ("checkmark", "Done", #selector(deselectTapped), false)
+                    ("checkmark", "Done".l10n, #selector(deselectTapped), false)
                 ]
             }
         } else {
@@ -410,8 +410,8 @@ final class ScreenshotEditorViewController: UIViewController {
                 ("square.on.circle", "Shape", #selector(changeShapeTapped), false),
                 ("rotate.right", "Rotate", #selector(frameRotateTapped), false),
                 ("square.and.arrow.down", "Album", #selector(saveAlbumTapped), false),
-                ("doc.on.clipboard", "Copy", #selector(saveClipboardTapped), false),
-                ("xmark", "Cancel", #selector(cancelTapped), false)
+                ("doc.on.clipboard", "Copy".l10n, #selector(saveClipboardTapped), false),
+                ("xmark", "Cancel".l10n, #selector(cancelTapped), false)
             ]
         }
 
@@ -1038,8 +1038,8 @@ final class ScreenshotEditorViewController: UIViewController {
             rebuildMenu()
             let alert = UIAlertController(title: "Add Text", message: nil, preferredStyle: .alert)
             alert.addTextField { $0.placeholder = "Enter text" }
-            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-            alert.addAction(UIAlertAction(title: "Add", style: .default) { [weak self] _ in
+            alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+            alert.addAction(UIAlertAction(title: "Add".l10n, style: .default) { [weak self] _ in
                 guard let self = self else { return }
                 guard let value = alert.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines),
                       !value.isEmpty else { return }
@@ -1310,7 +1310,7 @@ final class ScreenshotEditorViewController: UIViewController {
                 self?.refreshOverlay(source: "shape")
             })
         }
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         presentSheet(sheet)
     }
 
@@ -1348,7 +1348,7 @@ final class ScreenshotEditorViewController: UIViewController {
                 self?.layoutMenuNearFrame()
             })
         }
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         presentSheet(sheet)
     }
 
@@ -1363,7 +1363,7 @@ final class ScreenshotEditorViewController: UIViewController {
                 self?.redrawAnnotations()
             })
         }
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         presentSheet(sheet)
     }
 
@@ -1380,7 +1380,7 @@ final class ScreenshotEditorViewController: UIViewController {
                 self?.layoutMenuNearFrame()
             })
         }
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         presentSheet(sheet)
     }
 
@@ -1397,7 +1397,7 @@ final class ScreenshotEditorViewController: UIViewController {
                 self?.updateSelectionOutline()
             })
         }
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         presentSheet(sheet)
     }
 
@@ -1412,7 +1412,7 @@ final class ScreenshotEditorViewController: UIViewController {
                 self?.redrawAnnotations()
             })
         }
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         presentSheet(sheet)
     }
 
@@ -1427,7 +1427,7 @@ final class ScreenshotEditorViewController: UIViewController {
                 self?.updateSelectionOutline()
             })
         }
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         presentSheet(sheet)
     }
 

@@ -36,10 +36,10 @@ final class AccountHealthViewController: UIViewController, UITableViewDataSource
             ("Open tabs", "\(tabCount)"),
             ("History entries", "\(historyCount)"),
             ("Bookmarks", "\(bookmarkCount)"),
-            ("Location", container.locationSummary),
+            ("Location".l10n, container.locationSummary),
             ("Locale", container.identity.localeIdentifier ?? "Device default"),
             ("New tabs look like", container.identity.userAgentMode.displayName),
-            ("Strip tracking URLs", container.identity.stripTrackingParams ? "On" : "Off"),
+            ("Strip tracking URLs", container.identity.stripTrackingParams ? "On".l10n : "Off".l10n),
             ("Network IP", "Not changed — geolocation only affects browser APIs")
         ]
         ContainerSiteDataService.estimatedLoggedInDomains(sessionID: container.sessionID) { [weak self] count in

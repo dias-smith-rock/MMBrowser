@@ -151,7 +151,7 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
             message: "Use \(card.maskedNumber) on this page?",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         alert.addAction(UIAlertAction(title: "Fill", style: .default) { [weak self] _ in
             let number = Self.jsString(card.number)
             let name = Self.jsString(card.holderName)
@@ -210,7 +210,7 @@ final class BrowserAutofillCoordinator: NSObject, WKScriptMessageHandler {
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Not Now", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Save", style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "Save".l10n, style: .default) { _ in
             _ = PasswordStore.shared.add(
                 site: url,
                 username: username,

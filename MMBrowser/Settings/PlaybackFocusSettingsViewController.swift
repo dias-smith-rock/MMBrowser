@@ -11,7 +11,7 @@ final class PlaybackFocusSettingsViewController: UIViewController, UITableViewDa
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Playback & Focus"
+        title = "Playback & Focus".l10n
         applyChrome()
         tableView.dataSource = self
         tableView.delegate = self
@@ -87,25 +87,25 @@ final class PlaybackFocusSettingsViewController: UIViewController, UITableViewDa
         switch Section(rawValue: indexPath.section)! {
         case .focus:
             if indexPath.row == 0 {
-                cell.textLabel?.text = "Hide Shorts"
-                cell.detailTextLabel?.text = "Focus Mode — hide shelves and redirect Shorts"
+                cell.textLabel?.text = "Hide Shorts".l10n
+                cell.detailTextLabel?.text = "Focus Mode — hide shelves and redirect Shorts".l10n
                 cell.selectionStyle = .none
                 cell.accessoryView = makeSwitch(on: AppSettings.hideShortsEnabled, action: #selector(shortsChanged(_:)))
             } else {
-                cell.textLabel?.text = "Fewer YouTube Video Ads"
-                cell.detailTextLabel?.text = "Experimental · best-effort"
+                cell.textLabel?.text = "Fewer YouTube Video Ads".l10n
+                cell.detailTextLabel?.text = "Experimental · best-effort".l10n
                 cell.selectionStyle = .none
                 cell.accessoryView = makeSwitch(on: AppSettings.youtubeAdShieldEnabled, action: #selector(ytShieldChanged(_:)))
             }
         case .media:
             if indexPath.row == 0 {
-                cell.textLabel?.text = "Background Audio"
-                cell.detailTextLabel?.text = "Keep playing after leave / lock screen"
+                cell.textLabel?.text = "Background Audio".l10n
+                cell.detailTextLabel?.text = "Keep playing after leave / lock screen".l10n
                 cell.selectionStyle = .none
                 cell.accessoryView = makeSwitch(on: AppSettings.backgroundAudioEnabled, action: #selector(bgAudioChanged(_:)))
             } else {
-                cell.textLabel?.text = "Picture in Picture"
-                cell.detailTextLabel?.text = "Floating system video window"
+                cell.textLabel?.text = "Picture in Picture".l10n
+                cell.detailTextLabel?.text = "Floating system video window".l10n
                 cell.selectionStyle = .none
                 cell.accessoryView = makeSwitch(on: AppSettings.pictureInPictureEnabled, action: #selector(pipChanged(_:)))
             }

@@ -28,7 +28,7 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Spaces"
+        title = "Spaces".l10n
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         configureSheetPresentation()
 
@@ -109,7 +109,7 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
         }
 
         let compare = makeFooterButton(
-            title: "Split View",
+            title: "Split View".l10n,
             action: #selector(compareTapped),
             emphasized: true
         )
@@ -156,7 +156,7 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
         actionBar.addArrangedSubview(topRow)
         actionBar.addArrangedSubview(bottomRow)
 
-        let manage = makeFooterButton(title: "Manage Spaces", action: #selector(manageTapped), emphasized: false)
+        let manage = makeFooterButton(title: "Manage Spaces".l10n, action: #selector(manageTapped), emphasized: false)
         let addCustom = makeFooterButton(title: "Add Custom…", action: #selector(addCustomTapped), emphasized: false)
         actionBar.addArrangedSubview(manage)
         actionBar.addArrangedSubview(addCustom)
@@ -222,7 +222,7 @@ final class AccountSwitcherViewController: UIViewController, UITableViewDataSour
                 self.delegate?.accountSwitcher(self, didRequestCompare: left.id, rightID: other.id)
             })
         }
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = sheet.popoverPresentationController {
             pop.sourceView = splitViewButton
             pop.sourceRect = splitViewButton?.bounds ?? .zero

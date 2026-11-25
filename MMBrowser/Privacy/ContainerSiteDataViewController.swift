@@ -47,8 +47,8 @@ final class ContainerSiteDataViewController: UIViewController, UITableViewDataSo
             message: "Removes cookies, cache, and storage for all sites in “\(container.name)”.",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Clear", style: .destructive, handler: { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Clear".l10n, style: .destructive, handler: { [weak self] _ in
             guard let self else { return }
             ContainerSiteDataService.clearAll(sessionID: self.container.sessionID) {
                 self.reload()
@@ -79,7 +79,7 @@ final class ContainerSiteDataViewController: UIViewController, UITableViewDataSo
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         guard summaries.indices.contains(indexPath.row) else { return nil }
         let host = summaries[indexPath.row].host
-        let delete = UIContextualAction(style: .destructive, title: "Delete") { [weak self] _, _, done in
+        let delete = UIContextualAction(style: .destructive, title: "Delete".l10n) { [weak self] _, _, done in
             guard let self else { done(false); return }
             ContainerSiteDataService.remove(host: host, sessionID: self.container.sessionID) {
                 self.reload()

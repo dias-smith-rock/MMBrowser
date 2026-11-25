@@ -23,7 +23,7 @@ final class PasswordsViewController: UIViewController, UITableViewDataSource, UI
 
         searchController.searchResultsUpdater = self
         searchController.obscuresBackgroundDuringPresentation = false
-        searchController.searchBar.placeholder = "Search"
+        searchController.searchBar.placeholder = "Search".l10n
         navigationItem.searchController = searchController
         navigationItem.hidesSearchBarWhenScrolling = false
         definesPresentationContext = true
@@ -173,7 +173,7 @@ final class PasswordsViewController: UIViewController, UITableViewDataSource, UI
             self?.reload()
             if let self { Toast.show("All passwords deleted", from: self) }
         })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = alert.popoverPresentationController {
             pop.sourceView = tableView
             pop.sourceRect = tableView.bounds

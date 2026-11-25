@@ -87,7 +87,7 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = BrowserTheme.background
-        title = "Split View"
+        title = "Split View".l10n
         setupSplit()
         NotificationCenter.default.addObserver(
             self,
@@ -338,21 +338,21 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
             config: navConfig,
             side: side,
             action: #selector(backTapped(_:)),
-            accessibilityLabel: "Back"
+            accessibilityLabel: "Back".l10n
         )
         let forwardButton = makePaneChromeButton(
             systemName: "chevron.forward",
             config: navConfig,
             side: side,
             action: #selector(forwardTapped(_:)),
-            accessibilityLabel: "Forward"
+            accessibilityLabel: "Forward".l10n
         )
         let reloadButton = makePaneChromeButton(
             systemName: "arrow.clockwise",
             config: navConfig,
             side: side,
             action: #selector(reloadTapped(_:)),
-            accessibilityLabel: "Reload"
+            accessibilityLabel: "Reload".l10n
         )
         pane.backButton = backButton
         pane.forwardButton = forwardButton
@@ -616,7 +616,7 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
                         self?.state(for: side).web?.showFindInPage()
                     },
                     UIAction(
-                        title: "Reload",
+                        title: "Reload".l10n,
                         image: UIImage(systemName: "arrow.clockwise")
                     ) { [weak self] _ in
                         self?.state(for: side).web?.reload()
@@ -771,7 +771,7 @@ final class DualAccountCompareViewController: UIViewController, UITextFieldDeleg
                 self?.switchAccount(side: side, to: container, avoiding: other)
             })
         }
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = sheet.popoverPresentationController {
             pop.sourceView = sender
             pop.sourceRect = sender.bounds

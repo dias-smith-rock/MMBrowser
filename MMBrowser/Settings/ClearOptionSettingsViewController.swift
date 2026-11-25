@@ -54,7 +54,7 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
             switch self {
             case .closeAllTabsOnExit: return "Close All Tabs on Exit"
             case .showTabsPreviewImages: return "Show Tabs Preview Images"
-            case .activeBackgroundTabs: return "Active Background Tabs"
+            case .activeBackgroundTabs: return "Active Background Tabs".l10n
             }
         }
 
@@ -91,7 +91,7 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Clear Option"
+        title = "Clear Option".l10n
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.dataSource = self
         tableView.delegate = self
@@ -204,7 +204,7 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
             AutoClearManager.clearNow(cookies: true)
         case .history:
             AutoClearManager.clearNow(history: true)
-            Toast.show("History cleared", from: self)
+            Toast.show("History cleared".l10n, from: self)
         case .localStorage:
             AutoClearManager.clearNow(localStorage: true)
         }
@@ -216,10 +216,10 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
             ? "This signs you out of websites in every space now, and again each time you leave the app."
             : "This removes local site data (including many login sessions) for every space now, and again each time you leave the app."
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel) { _ in
             sw.setOn(false, animated: true)
         })
-        alert.addAction(UIAlertAction(title: "Enable & Clear", style: .destructive) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Enable & Clear".l10n, style: .destructive) { [weak self] _ in
             guard let self else { return }
             row.setOn(true)
             if row == .cookies {
@@ -236,14 +236,14 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
         guard let row = SessionRow(rawValue: sw.tag - 200), row.usesSwitch else { return }
         row.setOn(sw.isOn)
         if row == .showTabsPreviewImages, !sw.isOn {
-            Toast.show("Tab previews off", from: self)
+            Toast.show("Tab previews off".l10n, from: self)
         }
     }
 
     private func presentActiveBackgroundTabPicker(from sourceView: UIView?) {
         let current = AppSettings.activeBackgroundTabLimit
         let sheet = UIAlertController(
-            title: "Active Background Tabs",
+            title: "Active Background Tabs".l10n,
             message: "Only the most recently used tabs stay loaded in memory. Others reload when you open them.",
             preferredStyle: .actionSheet
         )
@@ -257,7 +257,7 @@ final class ClearOptionSettingsViewController: UIViewController, UITableViewData
                 Toast.show("Keeping \(value) active tab\(value == 1 ? "" : "s")", from: self)
             })
         }
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = sheet.popoverPresentationController {
             pop.sourceView = sourceView ?? view
             pop.sourceRect = sourceView?.bounds ?? CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)

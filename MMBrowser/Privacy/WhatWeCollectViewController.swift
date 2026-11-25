@@ -8,7 +8,7 @@ import FirebaseCrashlytics
 final class WhatWeCollectViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "What we collect"
+        title = "What we collect".l10n
         BrowserTheme.applyScreenChrome(to: self)
 
         let text = UITextView()

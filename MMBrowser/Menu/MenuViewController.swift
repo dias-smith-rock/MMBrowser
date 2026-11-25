@@ -69,14 +69,14 @@ final class MenuViewController: UIViewController {
 
     private func libraryItems() -> [(String, String, MenuAction)] {
         var items: [(String, String, MenuAction)] = [
-            ("Spaces", "person.2", .accounts),
-            ("Settings", "gearshape", .settings),
-            ("Split View", "rectangle.split.1x2", .compareAccounts),
-            ("Passwords (Isolated)", "key", .passwords),
+            ("Spaces".l10n, "person.2", .accounts),
+            ("Settings".l10n, "gearshape", .settings),
+            ("Split View".l10n, "rectangle.split.1x2", .compareAccounts),
+            ("Passwords (Isolated)".l10n, "key", .passwords),
             ("Downloads (Shared)", "arrow.down.circle", .downloads),
-            ("Bookmarks (Isolated)", "bookmark", .bookmarks),
-            ("History (Isolated)", "clock", .history),
-            ("Watch Later (Isolated)", "clock.badge.checkmark", .watchLater),
+            ("Bookmarks (Isolated)".l10n, "bookmark", .bookmarks),
+            ("History (Isolated)".l10n, "clock", .history),
+            ("Watch Later (Isolated)".l10n, "clock.badge.checkmark", .watchLater),
             ("Reading list (Isolated)", "text.book.closed", .readingList)
         ]
         if isIncognito {
@@ -87,9 +87,9 @@ final class MenuViewController: UIViewController {
 
     private func extrasItems() -> [(String, String, MenuAction)] {
         [
-            ("Background gallery", "photo.on.rectangle", .backgroundGallery),
-            ("Theme", "paintpalette", .theme),
-            ("Feedback", "bubble.left", .feedback)
+            ("Background gallery".l10n, "photo.on.rectangle", .backgroundGallery),
+            ("Theme".l10n, "paintpalette", .theme),
+            ("Feedback".l10n, "bubble.left", .feedback)
         ]
     }
 
@@ -229,7 +229,7 @@ enum DefaultBrowserPromoUI {
         button.addAction(UIAction { _ in onTap() }, for: .touchUpInside)
         button.layer.cornerRadius = 14
         button.clipsToBounds = true
-        button.accessibilityLabel = "Make X Browser the default browser"
+        button.accessibilityLabel = "Make X Browser the default browser".l10n
 
         let icon = UIImageView(image: UIImage(systemName: "safari"))
         icon.tintColor = .white
@@ -237,7 +237,7 @@ enum DefaultBrowserPromoUI {
         icon.isUserInteractionEnabled = false
 
         let label = UILabel()
-        label.text = "Make X Browser the default browser"
+        label.text = "Make X Browser the default browser".l10n
         label.textColor = .white
         label.font = .systemFont(ofSize: 14, weight: .semibold)
         label.numberOfLines = 2

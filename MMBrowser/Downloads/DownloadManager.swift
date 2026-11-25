@@ -100,7 +100,7 @@ final class DownloadManager: NSObject {
 
     static var directory: URL {
         let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Downloads", isDirectory: true)
+            .appendingPathComponent("Downloads".l10n, isDirectory: true)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }

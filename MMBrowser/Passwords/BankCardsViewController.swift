@@ -65,8 +65,8 @@ final class BankCardsViewController: UIViewController, UITableViewDataSource, UI
             $0.keyboardType = .numberPad
             $0.text = item?.cvv
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Save".l10n, style: .default) { [weak self] _ in
             let name = alert.textFields?[0].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let number = alert.textFields?[1].text?.filter(\.isNumber) ?? ""
             let month = Int(alert.textFields?[2].text ?? "") ?? 0
@@ -130,7 +130,7 @@ final class BankCardsViewController: UIViewController, UITableViewDataSource, UI
 
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         guard !items.isEmpty else { return nil }
-        let delete = UIContextualAction(style: .destructive, title: "Delete") { [weak self] _, _, done in
+        let delete = UIContextualAction(style: .destructive, title: "Delete".l10n) { [weak self] _, _, done in
             guard let self else { done(false); return }
             _ = BankCardStore.shared.remove(id: self.items[indexPath.row].id)
             self.reload()

@@ -36,7 +36,7 @@ final class MasterPasswordSetupViewController: UIViewController {
         }
 
         navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(cancel))
-        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(done))
+        navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Done".l10n, style: .done, target: self, action: #selector(done))
 
         warningLabel.numberOfLines = 0
         warningLabel.font = .systemFont(ofSize: 13)

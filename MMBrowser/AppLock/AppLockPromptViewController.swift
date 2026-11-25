@@ -10,7 +10,7 @@ final class AppLockPromptViewController: UIViewController {
         view.backgroundColor = BrowserTheme.elevated
 
         let title = UILabel()
-        title.text = "Protect X Browser?"
+        title.text = "Protect X Browser?".l10n
         title.font = .systemFont(ofSize: 22, weight: .bold)
         title.textColor = .white
         title.textAlignment = .center
@@ -79,13 +79,13 @@ final class AppLockPromptViewController: UIViewController {
 
     @objc private func setBioOnly() {
         let alert = UIAlertController(
-            title: "Biometrics Only",
+            title: "Biometrics Only".l10n,
             message: "If \(AppLockBiometrics.biometryDisplayName) fails and you have no PIN or pattern, you can turn off App Lock from the lock screen. Continue?",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Continue", style: .default) { [weak self] _ in
-            AppLockBiometrics.authenticate(reason: "Enable App Lock") { success, message in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Continue".l10n, style: .default) { [weak self] _ in
+            AppLockBiometrics.authenticate(reason: "Enable App Lock".l10n) { success, message in
                 guard success else {
                     if let self = self, let message = message {
                         Toast.show(message, from: self)

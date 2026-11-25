@@ -12,6 +12,15 @@ enum DefaultBrowserFeature {
 enum AppSettings {
     private static let d = UserDefaults.standard
 
+    /// In-app UI language. `.system` follows the device language when supported.
+    static var appLanguage: AppLanguage {
+        get {
+            let raw = d.string(forKey: "app.language") ?? AppLanguage.system.rawValue
+            return AppLanguage(rawValue: raw) ?? .system
+        }
+        set { d.set(newValue.rawValue, forKey: "app.language") }
+    }
+
     static var trackerProtectionEnabled: Bool {
         get { d.object(forKey: "tp.enabled") == nil ? true : d.bool(forKey: "tp.enabled") }
         set { d.set(newValue, forKey: "tp.enabled"); NotificationCenter.default.post(name: .trackerProtectionChanged, object: nil) }
@@ -285,13 +294,13 @@ enum AppSettings {
 
     static var locationSummary: String {
         switch locationPrivacyMode {
-        case .deny: return "Deny"
-        case .ask: return "Current Location"
+        case .deny: return "Deny".l10n
+        case .ask: return "Current Location".l10n
         case .spoof:
             if let preset = SpoofLocationPreset.all.first(where: { $0.id == spoofPresetID }) {
-                return "Spoof · \(preset.name)"
+                return "\("Spoof".l10n) · \(preset.name)"
             }
-            return String(format: "Spoof · %.2f, %.2f", spoofLatitude, spoofLongitude)
+            return String(format: "\("Spoof".l10n) · %.2f, %.2f", spoofLatitude, spoofLongitude)
         }
     }
 
@@ -333,10 +342,10 @@ enum AppSettings {
     static var clearOptionSummary: String {
         let on = [autoClearCache, autoClearCookies, autoClearHistory, autoClearLocalStorage].filter { $0 }.count
         var parts: [String] = []
-        if on == 0 { parts.append("Clear off") }
-        else if on == 4 { parts.append("Clear all") }
-        else { parts.append("Clear \(on)/4") }
-        if closeAllTabsOnExit { parts.append("Close tabs") }
+        if on == 0 { parts.append("Clear off".l10n) }
+        else if on == 4 { parts.append("Clear all".l10n) }
+        else { parts.append(AppL10n.format("Clear %d/4", on)) }
+        if closeAllTabsOnExit { parts.append("Close tabs".l10n) }
         return parts.joined(separator: " · ")
     }
 

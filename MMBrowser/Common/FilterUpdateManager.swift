@@ -54,18 +54,18 @@ final class FilterUpdateManager {
 
     var filterStatusLine: String {
         if health == .ok, lastRemoteUpdate != nil {
-            return "Up to date"
+            return "Up to date".l10n
         }
         if let lastRemoteUpdate {
             let formatted = DateFormatter.localizedString(from: lastRemoteUpdate, dateStyle: .medium, timeStyle: .short)
-            return "Last updated: \(formatted)"
+            return AppL10n.format("Last updated: %@", formatted)
         }
         return statusSummary
     }
 
     var statusSummary: String {
         let v = manifestVersion > 0 ? "v\(manifestVersion)" : "bundled"
-        return "\(health.rawValue) · \(v)"
+        return "\(health.rawValue.l10n) · \(v)"
     }
 
     func refreshIfNeeded(force: Bool = false) {

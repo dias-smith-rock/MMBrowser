@@ -181,7 +181,7 @@ final class CustomPipFloatingView: UIView {
     // MARK: - Setup
 
     private func configureChrome() {
-        closeButton.accessibilityLabel = "Close"
+        closeButton.accessibilityLabel = "Close".l10n
         returnButton.accessibilityLabel = "Return to page"
         rewindButton.accessibilityLabel = "Back 10 seconds"
         forwardButton.accessibilityLabel = "Forward 10 seconds"
@@ -602,7 +602,7 @@ final class CustomPipFloatingView: UIView {
             field.placeholder = "Minutes"
             field.textAlignment = .center
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         alert.addAction(UIAlertAction(title: "Start", style: .default) { [weak self, weak alert] _ in
             guard let self else { return }
             let raw = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

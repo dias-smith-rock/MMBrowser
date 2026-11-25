@@ -45,11 +45,11 @@ final class BottomToolbarView: UIView {
         super.init(frame: frame)
         backgroundColor = .clear
 
-        configure(backButton, action: #selector(backTapped), label: "Back")
-        configure(homeOrForwardButton, action: #selector(homeOrForwardTapped), label: "Home")
-        configure(menuButton, action: #selector(menuTapped), label: "Menu")
-        configure(pipButton, action: #selector(pipTapped), label: "Picture in Picture")
-        configure(tabsButton, action: #selector(tabsTapped), label: "Tabs")
+        configure(backButton, action: #selector(backTapped), label: "Back".l10n)
+        configure(homeOrForwardButton, action: #selector(homeOrForwardTapped), label: "Home".l10n)
+        configure(menuButton, action: #selector(menuTapped), label: "Menu".l10n)
+        configure(pipButton, action: #selector(pipTapped), label: "Picture in Picture".l10n)
+        configure(tabsButton, action: #selector(tabsTapped), label: "Tabs".l10n)
 
         tabsGlyph.isUserInteractionEnabled = false
         tabsGlyph.layer.borderWidth = 1.6
@@ -160,16 +160,16 @@ final class BottomToolbarView: UIView {
                 ThemeManager.shared.image(for: .toolbarForward, configuration: config, pointSize: size),
                 for: .normal
             )
-            homeOrForwardButton.accessibilityLabel = "Forward"
+            homeOrForwardButton.accessibilityLabel = "Forward".l10n
         } else {
             homeOrForwardButton.setImage(UIImage(systemName: "house", withConfiguration: config), for: .normal)
-            homeOrForwardButton.accessibilityLabel = "Home"
+            homeOrForwardButton.accessibilityLabel = "Home".l10n
         }
     }
 
     private func applyNavigationEnabledState() {
         backButton.isUserInteractionEnabled = backActionable
-        backButton.accessibilityLabel = "Back"
+        backButton.accessibilityLabel = "Back".l10n
         let disabledAlpha: CGFloat = ThemeManager.shared.current.isLight ? 0.4 : 0.35
         // Dim when there is no web history (synthetic back-to-home still uses the dimmed control).
         backButton.alpha = canGoBack ? 1 : disabledAlpha

@@ -18,7 +18,7 @@ final class PrivacyRecommendedViewController: UIViewController, UITableViewDataS
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Recommended for privacy"
+        title = "Recommended for privacy".l10n
         BrowserTheme.applyScreenChrome(to: self)
         tableView.dataSource = self
         tableView.delegate = self
@@ -58,29 +58,29 @@ final class PrivacyRecommendedViewController: UIViewController, UITableViewDataS
         cell.selectionStyle = .none
         switch Row(rawValue: indexPath.row)! {
         case .trackers:
-            cell.textLabel?.text = "Block Ads & Trackers"
+            cell.textLabel?.text = "Block Ads & Trackers".l10n
             cell.detailTextLabel?.text = "On by default"
             cell.accessoryView = makeSwitch(on: AppSettings.trackerProtectionEnabled, action: #selector(tpChanged(_:)))
         case .https:
-            cell.textLabel?.text = "HTTPS First"
-            cell.detailTextLabel?.text = "Prefer secure connections"
+            cell.textLabel?.text = "HTTPS First".l10n
+            cell.detailTextLabel?.text = "Prefer secure connections".l10n
             cell.accessoryView = makeSwitch(on: AppSettings.httpsOnly, action: #selector(httpsChanged(_:)))
         case .gpc:
-            cell.textLabel?.text = "Global Privacy Control"
+            cell.textLabel?.text = "Global Privacy Control".l10n
             cell.detailTextLabel?.text = "Tell sites you opt out of sale or sharing"
             cell.accessoryView = makeSwitch(on: AppSettings.globalPrivacyControlEnabled, action: #selector(gpcChanged(_:)))
         case .youtube:
-            cell.textLabel?.text = "Fewer YouTube Video Ads"
+            cell.textLabel?.text = "Fewer YouTube Video Ads".l10n
             cell.detailTextLabel?.text = "Best-effort · may change with the site"
             cell.accessoryView = makeSwitch(on: AppSettings.youtubeAdShieldEnabled, action: #selector(ytChanged(_:)))
         case .clearNote:
-            cell.textLabel?.text = "Clear Option"
+            cell.textLabel?.text = "Clear Option".l10n
             cell.detailTextLabel?.text = "On by default. Cache, cookies, history, and local storage clear when you leave the app."
             cell.accessoryType = .disclosureIndicator
             cell.selectionStyle = .default
         case .appLock:
-            cell.textLabel?.text = "App Lock"
-            cell.detailTextLabel?.text = AppLockSettings.isEnabled ? "On" : "Set a PIN or pattern in Settings"
+            cell.textLabel?.text = "App Lock".l10n
+            cell.detailTextLabel?.text = AppLockSettings.isEnabled ? "On".l10n : "Set a PIN or pattern in Settings"
             cell.accessoryType = .disclosureIndicator
             cell.selectionStyle = .default
         }

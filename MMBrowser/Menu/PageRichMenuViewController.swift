@@ -12,7 +12,7 @@ struct PageRichMenuContext {
     var host: String {
         if let host = url?.host, !host.isEmpty { return host }
         if let url { return url.absoluteString }
-        return "New Tab"
+        return "New Tab".l10n
     }
 }
 
@@ -117,11 +117,11 @@ final class PageRichMenuViewController: UIViewController {
 
     private func pageToolItems() -> [(String, String, MenuAction, Bool)] {
         [
-            ("Downloads", "arrow.down.to.line", .downloads, !context.isIncognito),
-            ("Hide Toolbar", "smallcircle.filled.circle", .hideToolbar, context.hasLoadablePage),
-            ("Web Editor", "wand.and.stars", .pageCleaner, context.hasLoadablePage),
-            ("Screenshot", "camera", .screenshot, context.hasLoadablePage),
-            ("Split View", "rectangle.split.1x2", .compareAccounts, true),
+            ("Downloads".l10n, "arrow.down.to.line", .downloads, !context.isIncognito),
+            ("Hide Toolbar".l10n, "smallcircle.filled.circle", .hideToolbar, context.hasLoadablePage),
+            ("Web Editor".l10n, "wand.and.stars", .pageCleaner, context.hasLoadablePage),
+            ("Screenshot".l10n, "camera", .screenshot, context.hasLoadablePage),
+            ("Split View".l10n, "rectangle.split.1x2", .compareAccounts, true),
             (
                 context.adBlockerEnabled ? "Ad block On" : "Ad block Off",
                 "hand.raised",
@@ -133,15 +133,15 @@ final class PageRichMenuViewController: UIViewController {
 
     private func appLibraryItems() -> [(String, String, MenuAction, Bool)] {
         [
-            ("Settings", "gearshape", .settings, true),
-            ("Clear", "🔥", .eraseBrowsingData, true),
-            ("Watch Later (Isolated)", "clock.badge.checkmark", .watchLater, !context.isIncognito),
-            ("Bookmarks (Isolated)", "bookmark", .bookmarks, !context.isIncognito),
-            ("History (Isolated)", "clock", .history, !context.isIncognito),
-            ("Passwords (Isolated)", "key", .passwords, true),
-            ("Background gallery", "photo.on.rectangle", .backgroundGallery, true),
-            ("Theme", "paintpalette", .theme, true),
-            ("Feedback", "bubble.left", .feedback, true)
+            ("Settings".l10n, "gearshape", .settings, true),
+            ("Clear".l10n, "🔥", .eraseBrowsingData, true),
+            ("Watch Later (Isolated)".l10n, "clock.badge.checkmark", .watchLater, !context.isIncognito),
+            ("Bookmarks (Isolated)".l10n, "bookmark", .bookmarks, !context.isIncognito),
+            ("History (Isolated)".l10n, "clock", .history, !context.isIncognito),
+            ("Passwords (Isolated)".l10n, "key", .passwords, true),
+            ("Background gallery".l10n, "photo.on.rectangle", .backgroundGallery, true),
+            ("Theme".l10n, "paintpalette", .theme, true),
+            ("Feedback".l10n, "bubble.left", .feedback, true)
         ]
     }
 
@@ -220,7 +220,7 @@ final class PageRichMenuViewController: UIViewController {
         button.isEnabled = enabled
         button.alpha = enabled ? 1 : 0.38
         button.addTarget(self, action: #selector(rowTapped(_:)), for: .touchUpInside)
-        button.accessibilityLabel = title == "Clear" ? "Erase browsing data" : title
+        button.accessibilityLabel = action == .eraseBrowsingData ? "Erase browsing data".l10n : title
 
         container.addSubview(box)
         box.addSubview(image)
@@ -276,7 +276,7 @@ final class PageRichMenuViewController: UIViewController {
         textStack.alignment = .leading
 
         let copyButton = makeHeaderIconButton(symbol: "link", action: #selector(copyURLTapped), label: "Copy URL")
-        let shareButton = makeHeaderIconButton(symbol: "square.and.arrow.up", action: #selector(shareTapped), label: "Share")
+        let shareButton = makeHeaderIconButton(symbol: "square.and.arrow.up", action: #selector(shareTapped), label: "Share".l10n)
         copyButton.isEnabled = context.url != nil
         shareButton.isEnabled = context.url != nil
         copyButton.alpha = context.url != nil ? 1 : 0.35

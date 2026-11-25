@@ -5,7 +5,7 @@ import SnapKit
 final class IsolatedVsSharedViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Isolated vs Shared"
+        title = "Isolated vs Shared".l10n
         view.backgroundColor = BrowserTheme.background
         overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
 
@@ -37,7 +37,7 @@ final class IsolatedVsSharedViewController: UIViewController {
             body: "Per-space location Deny / Current Location / Spoof only affects browser geolocation APIs. It does not change your network IP address."
         ))
         stack.addArrangedSubview(makeBlock(
-            title: "Clear Option",
+            title: "Clear Option".l10n,
             body: "Auto-clear when you leave the app can remove site data for every space’s data store. Delete a single space anytime under Manage Spaces to wipe only that identity’s libraries and site data."
         ))
 

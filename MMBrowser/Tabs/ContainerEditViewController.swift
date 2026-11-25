@@ -40,7 +40,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = isNew ? "Add Space" : "Edit Space"
+        title = isNew ? "Add Space".l10n : "Edit Space"
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .cancel,
@@ -122,7 +122,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
 
     private func presentAlert(_ message: String) {
         let alert = UIAlertController(title: "Space", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        alert.addAction(UIAlertAction(title: "OK".l10n, style: .default))
         present(alert, animated: true)
     }
 
@@ -294,7 +294,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
                 cell.accessoryType = draft.identity.userAgentMode == mode ? .checkmark : .none
             } else {
                 cell.textLabel?.text = "Strip tracking URL parameters"
-                cell.detailTextLabel?.text = draft.identity.stripTrackingParams ? "On" : "Off"
+                cell.detailTextLabel?.text = draft.identity.stripTrackingParams ? "On".l10n : "Off".l10n
                 cell.accessoryType = draft.identity.stripTrackingParams ? .checkmark : .none
             }
             cell.tintColor = BrowserTheme.chromeBlue
@@ -319,7 +319,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
             cell.accessoryType = selected ? .checkmark : .none
             cell.tintColor = BrowserTheme.chromeBlue
         case .spoofCustom:
-            cell.textLabel?.text = "Choose on Map…"
+            cell.textLabel?.text = "Choose on Map…".l10n
             cell.detailTextLabel?.text = String(format: "%.5f, %.5f", draft.latitude, draft.longitude)
             cell.accessoryType = isCustomSpoofSelected ? .checkmark : .disclosureIndicator
             cell.tintColor = BrowserTheme.chromeBlue
@@ -332,7 +332,7 @@ final class ContainerEditViewController: UIViewController, UITableViewDataSource
                 cell.textLabel?.text = "Space Health"
                 cell.accessoryType = .disclosureIndicator
             default:
-                cell.textLabel?.text = "Split View"
+                cell.textLabel?.text = "Split View".l10n
                 cell.accessoryType = .disclosureIndicator
             }
         }

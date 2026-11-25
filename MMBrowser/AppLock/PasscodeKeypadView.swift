@@ -162,7 +162,7 @@ final class PasscodeKeypadView: UIView {
 
     private func makeDeleteKey() -> UIButton {
         let button = UIButton(type: .system)
-        button.setTitle("Delete", for: .normal)
+        button.setTitle("Delete".l10n, for: .normal)
         button.setTitleColor(.white, for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 16, weight: .regular)
         button.snp.makeConstraints { $0.size.equalTo(keySize) }

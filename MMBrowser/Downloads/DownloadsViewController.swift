@@ -18,9 +18,9 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Downloads"
+        title = "Downloads".l10n
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
-        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Close", style: .plain, target: self, action: #selector(close))
+        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Close".l10n, style: .plain, target: self, action: #selector(close))
         tableView.dataSource = self
         tableView.delegate = self
         tableView.rowHeight = UITableView.automaticDimension
@@ -155,7 +155,7 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
         var actions: [UIContextualAction] = []
 
         if item.status == .downloading {
-            let cancel = UIContextualAction(style: .destructive, title: "Cancel") { _, _, done in
+            let cancel = UIContextualAction(style: .destructive, title: "Cancel".l10n) { _, _, done in
                 DownloadManager.shared.cancel(id: item.id)
                 done(true)
             }
@@ -169,7 +169,7 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
             actions.append(retry)
         }
 
-        let delete = UIContextualAction(style: .destructive, title: "Delete") { _, _, done in
+        let delete = UIContextualAction(style: .destructive, title: "Delete".l10n) { _, _, done in
             DownloadManager.shared.remove(id: item.id)
             done(true)
         }
@@ -193,14 +193,14 @@ final class DownloadsViewController: UIViewController, UITableViewDataSource, UI
             sheet.addAction(UIAlertAction(title: "Preview", style: .default) { [weak self] _ in
                 self?.preview(item)
             })
-            sheet.addAction(UIAlertAction(title: "Share", style: .default) { [weak self] _ in
+            sheet.addAction(UIAlertAction(title: "Share".l10n, style: .default) { [weak self] _ in
                 self?.share(item)
             })
         }
-        sheet.addAction(UIAlertAction(title: "Delete", style: .destructive) { _ in
+        sheet.addAction(UIAlertAction(title: "Delete".l10n, style: .destructive) { _ in
             DownloadManager.shared.remove(id: item.id)
         })
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         PlatformSupport.configurePopover(sheet, sourceView: view)
         present(sheet, animated: true)
     }

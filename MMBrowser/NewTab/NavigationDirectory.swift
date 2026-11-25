@@ -76,7 +76,7 @@ enum NavigationDirectory {
 
     static func makeSeedCategories(includingHome homeSites: [NavigationSite] = []) -> [NavigationCategory] {
         var result: [NavigationCategory] = [
-            NavigationCategory(title: "Home", sites: homeSites, isHome: true)
+            NavigationCategory(title: "Home".l10n, sites: homeSites, isHome: true)
         ]
         result.append(contentsOf: defaultCategories.map {
             NavigationCategory(
@@ -288,7 +288,7 @@ final class NavigationStore {
             let home = categories.remove(at: idx)
             categories.insert(home, at: 0)
         } else if !categories.contains(where: \.isHome) {
-            categories.insert(NavigationCategory(title: "Home", sites: [], isHome: true), at: 0)
+            categories.insert(NavigationCategory(title: "Home".l10n, sites: [], isHome: true), at: 0)
         }
     }
 

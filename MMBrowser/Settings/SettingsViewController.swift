@@ -27,7 +27,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     }
 
     private enum DisplayRow: Int, CaseIterable {
-        case appearance
+        case appearance, language
     }
 
     private enum SpacesRow: Int, CaseIterable {
@@ -57,8 +57,8 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Settings"
-        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(close))
+        title = "Settings".l10n
+        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Done".l10n, style: .done, target: self, action: #selector(close))
         applyChrome()
 
         tableView.dataSource = self
@@ -123,12 +123,12 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
         switch Section(rawValue: section)! {
         case .premium: return nil
-        case .features: return "Features"
-        case .general: return "General"
-        case .display: return "Display"
-        case .spaces: return "Spaces"
-        case .support: return "Support"
-        case .about: return "About"
+        case .features: return "Features".l10n
+        case .general: return "General".l10n
+        case .display: return "Display".l10n
+        case .spaces: return "Spaces".l10n
+        case .support: return "Support".l10n
+        case .about: return "About".l10n
         }
     }
 
@@ -158,60 +158,67 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         case .features:
             switch FeatureRow(rawValue: indexPath.row)! {
             case .privacy:
-                return hubCell(tableView, title: "Privacy & Security", detail: privacySummary, symbol: "shield.lefthalf.filled")
+                return hubCell(tableView, title: "Privacy & Security".l10n, detail: privacySummary, symbol: "shield.lefthalf.filled")
             case .playback:
-                return hubCell(tableView, title: "Playback & Focus", detail: playbackSummary, symbol: "play.rectangle.on.rectangle")
+                return hubCell(tableView, title: "Playback & Focus".l10n, detail: playbackSummary, symbol: "play.rectangle.on.rectangle")
             case .webEditor:
-                return hubCell(tableView, title: "Web Editor", detail: "Hide page elements", symbol: "wand.and.stars")
+                return hubCell(tableView, title: "Web Editor".l10n, detail: "Hide page elements".l10n, symbol: "wand.and.stars")
             }
         case .general:
             switch GeneralRow.visible[indexPath.row] {
             case .search:
-                return hubCell(tableView, title: "Search Engine", detail: SearchEngineManager.current.name, symbol: "magnifyingglass")
+                return hubCell(tableView, title: "Search Engine".l10n, detail: SearchEngineManager.current.name, symbol: "magnifyingglass")
             case .appLock:
                 return hubCell(
                     tableView,
-                    title: "App Lock",
-                    detail: AppLockSettings.isEnabled ? "On" : "Off",
+                    title: "App Lock".l10n,
+                    detail: (AppLockSettings.isEnabled ? "On" : "Off").l10n,
                     symbol: "lock.fill"
                 )
             case .location:
-                return hubCell(tableView, title: "Location", detail: AppSettings.locationSummary, symbol: "location.fill")
+                return hubCell(tableView, title: "Location".l10n, detail: AppSettings.locationSummary, symbol: "location.fill")
             case .clearOption:
-                return hubCell(tableView, title: "Clear Option", detail: AppSettings.clearOptionSummary, symbol: "trash")
+                return hubCell(tableView, title: "Clear Option".l10n, detail: AppSettings.clearOptionSummary, symbol: "trash")
             case .defaultBrowser:
-                return hubCell(tableView, title: "Default Browser", detail: "System settings", symbol: "compass.drawing")
+                return hubCell(tableView, title: "Default Browser".l10n, detail: "System settings".l10n, symbol: "compass.drawing")
             }
         case .display:
-            return hubCell(tableView, title: "Appearance", detail: appearanceSummary, symbol: "paintpalette.fill")
+            switch DisplayRow(rawValue: indexPath.row)! {
+            case .appearance:
+                return hubCell(tableView, title: "Appearance".l10n, detail: appearanceSummary, symbol: "paintpalette.fill")
+            case .language:
+                return hubCell(tableView, title: "Language".l10n, detail: AppSettings.appLanguage.displayName, symbol: "globe")
+            }
         case .spaces:
             switch SpacesRow(rawValue: indexPath.row)! {
             case .manage:
                 let count = tabManager?.visibleContainers.count ?? 0
-                let detail = count == 1 ? "1 Space" : "\(count) Spaces"
-                return hubCell(tableView, title: "Manage Spaces", detail: detail, symbol: "person.2.fill")
+                let detail = count == 1
+                    ? "1 Space".l10n
+                    : AppL10n.format("%d Spaces".l10n, count)
+                return hubCell(tableView, title: "Manage Spaces".l10n, detail: detail, symbol: "person.2.fill")
             case .isolated:
-                return hubCell(tableView, title: "Isolated vs Shared", detail: "What stays per Space", symbol: "square.split.2x1")
+                return hubCell(tableView, title: "Isolated vs Shared".l10n, detail: "What stays per Space".l10n, symbol: "square.split.2x1")
             }
         case .support:
             switch SupportRow(rawValue: indexPath.row)! {
             case .whatsNew:
-                return hubCell(tableView, title: "What's New", detail: nil, symbol: "sparkles")
+                return hubCell(tableView, title: "What's New".l10n, detail: nil, symbol: "sparkles")
             case .rateUs:
-                return hubCell(tableView, title: "Rate Us", detail: nil, symbol: "star.fill")
+                return hubCell(tableView, title: "Rate Us".l10n, detail: nil, symbol: "star.fill")
             case .contact:
-                return hubCell(tableView, title: "Contact Us", detail: nil, symbol: "envelope.fill")
+                return hubCell(tableView, title: "Contact Us".l10n, detail: nil, symbol: "envelope.fill")
             }
         case .about:
             switch AboutRow(rawValue: indexPath.row)! {
             case .version:
-                return hubCell(tableView, title: "X Browser", detail: "1.0", symbol: "info.circle", disclosure: false)
+                return hubCell(tableView, title: "X Browser".l10n, detail: "1.0", symbol: "info.circle", disclosure: false)
             case .filters:
-                return hubCell(tableView, title: "Filters", detail: FilterUpdateManager.shared.statusSummary, symbol: "line.3.horizontal.decrease.circle")
+                return hubCell(tableView, title: "Filters".l10n, detail: FilterUpdateManager.shared.statusSummary, symbol: "line.3.horizontal.decrease.circle")
             case .privacyPolicy:
-                return hubCell(tableView, title: "Privacy Policy", detail: nil, symbol: "hand.raised.fill")
+                return hubCell(tableView, title: "Privacy Policy".l10n, detail: nil, symbol: "hand.raised.fill")
             case .terms:
-                return hubCell(tableView, title: "Terms of Use", detail: nil, symbol: "doc.text")
+                return hubCell(tableView, title: "Terms of Use".l10n, detail: nil, symbol: "doc.text")
             }
         }
     }
@@ -252,7 +259,12 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
                 presentDefaultBrowserHelp()
             }
         case .display:
-            navigationController?.pushViewController(AppearanceSettingsViewController(), animated: true)
+            switch DisplayRow(rawValue: indexPath.row)! {
+            case .appearance:
+                navigationController?.pushViewController(AppearanceSettingsViewController(), animated: true)
+            case .language:
+                navigationController?.pushViewController(LanguageSettingsViewController(), animated: true)
+            }
         case .spaces:
             switch SpacesRow(rawValue: indexPath.row)! {
             case .manage:
@@ -271,11 +283,11 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
             switch SupportRow(rawValue: indexPath.row)! {
             case .whatsNew:
                 let alert = UIAlertController(
-                    title: "What's New",
-                    message: "Private by default and isolated by Space. Ads and trackers are blocked, HTTPS First and Global Privacy Control are on, and each Space keeps its own cookies and logins. Not a VPN. YouTube video ads stay best-effort.",
+                    title: "What's New".l10n,
+                    message: "Private by default and isolated by Space. Ads and trackers are blocked, HTTPS First and Global Privacy Control are on, and each Space keeps its own cookies and logins. Not a VPN. YouTube video ads stay best-effort.".l10n,
                     preferredStyle: .alert
                 )
-                alert.addAction(UIAlertAction(title: "OK", style: .default))
+                alert.addAction(UIAlertAction(title: "OK".l10n, style: .default))
                 present(alert, animated: true)
             case .rateUs:
                 UIApplication.shared.open(Legal.rateUs)
@@ -326,7 +338,7 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         if AppSettings.trackerProtectionEnabled { parts.append("Trackers") }
         if AppSettings.httpsOnly { parts.append("HTTPS") }
         if AppSettings.globalPrivacyControlEnabled { parts.append("GPC") }
-        return parts.isEmpty ? "Off" : parts.joined(separator: " · ")
+        return parts.isEmpty ? "Off".l10n : parts.joined(separator: " · ")
     }
 
     private var appearanceSummary: String {
@@ -339,18 +351,18 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
         var parts: [String] = []
         if AppSettings.hideShortsEnabled { parts.append("Shorts") }
         if AppSettings.backgroundAudioEnabled { parts.append("Audio") }
-        if AppSettings.pictureInPictureEnabled { parts.append("PiP") }
-        return parts.isEmpty ? "Off" : parts.joined(separator: " · ")
+        if AppSettings.pictureInPictureEnabled { parts.append("PiP".l10n) }
+        return parts.isEmpty ? "Off".l10n : parts.joined(separator: " · ")
     }
 
     private func presentDefaultBrowserHelp() {
         let alert = UIAlertController(
-            title: "Default browser",
-            message: "Off — links may open in Safari.\n\nSettings → Apps → X Browser → Default Browser App → X Browser",
+            title: "Default browser".l10n,
+            message: "Off — links may open in Safari.\n\nSettings → Apps → X Browser → Default Browser App → X Browser".l10n,
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Open iPhone Settings", style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Open iPhone Settings".l10n, style: .default) { _ in
             if #available(iOS 18.3, *),
                let url = URL(string: UIApplication.openDefaultApplicationsSettingsURLString) {
                 UIApplication.shared.open(url)
@@ -365,19 +377,19 @@ final class SettingsViewController: UIViewController, UITableViewDataSource, UIT
 
     private func presentFilterUpdateAlert() {
         let alert = UIAlertController(
-            title: "Filter lists",
-            message: "\(FilterUpdateManager.shared.filterStatusLine)\n\nFilters block page ads and trackers. Protection is best-effort.",
+            title: "Filter lists".l10n,
+            message: "\(FilterUpdateManager.shared.filterStatusLine)\n\n\("Filters block page ads and trackers. Protection is best-effort.".l10n)",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Update now", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Update now".l10n, style: .default) { [weak self] _ in
             FilterUpdateManager.shared.refresh(force: true) { ok in
                 self?.tableView.reloadData()
                 if let self {
-                    Toast.show(ok ? "Filters updated" : "Using cached / bundled filters", from: self)
+                    Toast.show(ok ? "Filters updated".l10n : "Using cached / bundled filters".l10n, from: self)
                 }
             }
         })
-        alert.addAction(UIAlertAction(title: "OK", style: .cancel))
+        alert.addAction(UIAlertAction(title: "OK".l10n, style: .cancel))
         present(alert, animated: true)
     }
 
@@ -459,13 +471,13 @@ private final class SettingsPremiumCardCell: UITableViewCell {
         ctaButton.backgroundColor = BrowserTheme.chromeBlue
 
         if isActive {
-            titleLabel.text = "X Browser Premium"
-            bodyLabel.text = "Unlimited Spaces and Space Lock are unlocked on this device."
-            ctaButton.setTitle("Manage Subscription", for: .normal)
+            titleLabel.text = "X Browser Premium".l10n
+            bodyLabel.text = "Unlimited Spaces and Space Lock are unlocked on this device.".l10n
+            ctaButton.setTitle("Manage Subscription".l10n, for: .normal)
         } else {
-            titleLabel.text = "X Browser Premium"
-            bodyLabel.text = "Unlock unlimited Spaces and Space Lock. Free includes \(PremiumStore.freeSpaceLimit) Spaces."
-            ctaButton.setTitle("View Plans", for: .normal)
+            titleLabel.text = "X Browser Premium".l10n
+            bodyLabel.text = AppL10n.format("Unlock unlimited Spaces and Space Lock. Free includes %d Spaces.".l10n, PremiumStore.freeSpaceLimit)
+            ctaButton.setTitle("View Plans".l10n, for: .normal)
         }
     }
 

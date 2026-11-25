@@ -338,7 +338,7 @@ final class CustomPipFullscreenViewController: UIViewController {
             field.placeholder = "Minutes"
             field.textAlignment = .center
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel) { [weak self] _ in
             self?.scheduleHide()
         })
         alert.addAction(UIAlertAction(title: "Start", style: .default) { [weak self, weak alert] _ in

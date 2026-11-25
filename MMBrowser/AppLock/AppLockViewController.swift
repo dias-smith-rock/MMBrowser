@@ -36,7 +36,7 @@ final class AppLockViewController: UIViewController {
         configureBioButtonChrome()
         bioButton.addTarget(self, action: #selector(bioTapped), for: .touchUpInside)
 
-        disableButton.setTitle("Turn Off App Lock", for: .normal)
+        disableButton.setTitle("Turn Off App Lock".l10n, for: .normal)
         disableButton.setTitleColor(UIColor.white.withAlphaComponent(0.55), for: .normal)
         disableButton.titleLabel?.font = .systemFont(ofSize: 15, weight: .regular)
         disableButton.addTarget(self, action: #selector(disableTapped), for: .touchUpInside)
@@ -111,7 +111,7 @@ final class AppLockViewController: UIViewController {
         case .none:
             idleTitle = bio
                 ? "Unlock with \(AppLockBiometrics.biometryDisplayName)"
-                : "X Browser Locked"
+                : "X Browser Locked".l10n
             titleLabel.text = idleTitle
         }
 
@@ -149,7 +149,7 @@ final class AppLockViewController: UIViewController {
 
     private func attemptBiometrics(auto: Bool) {
         guard AppLockSettings.biometricsEnabled else { return }
-        AppLockBiometrics.authenticate(reason: "Unlock X Browser") { [weak self] success, message in
+        AppLockBiometrics.authenticate(reason: "Unlock X Browser".l10n) { [weak self] success, message in
             guard let self = self else { return }
             if success {
                 // Biometrics always open the full (primary) session.
@@ -162,12 +162,12 @@ final class AppLockViewController: UIViewController {
 
     @objc private func disableTapped() {
         let alert = UIAlertController(
-            title: "Turn Off App Lock?",
+            title: "Turn Off App Lock?".l10n,
             message: "Without a PIN or pattern, failed biometrics can lock you out. Turning off App Lock will let you back in.",
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Turn Off", style: .destructive) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Turn Off".l10n, style: .destructive) { [weak self] _ in
             guard let self = self else { return }
             AppLockSecretStore.clearSecrets()
             AppLockSettings.clearAllFlags()
@@ -225,7 +225,7 @@ extension AppLockViewController: PasscodeKeypadViewDelegate {
                 self.pinValue = ""
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
                     self.dotsView.setFilledCount(0)
-                    self.titleLabel.text = "Try Again"
+                    self.titleLabel.text = "Try Again".l10n
                 }
             }
         }
@@ -249,7 +249,7 @@ extension AppLockViewController: PatternLockViewDelegate {
             showError("Incorrect Pattern")
             view.flashError()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { [weak self] in
-                self?.titleLabel.text = "Try Again"
+                self?.titleLabel.text = "Try Again".l10n
             }
         }
     }

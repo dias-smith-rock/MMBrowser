@@ -36,8 +36,8 @@ final class PasswordEditViewController: UIViewController, UITextFieldDelegate, U
         navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(cancel))
         saveItem = UIBarButtonItem(
             title: {
-                if case .create = mode { return "Add" }
-                return "Save"
+                if case .create = mode { return "Add".l10n }
+                return "Save".l10n
             }(),
             style: .done,
             target: self,

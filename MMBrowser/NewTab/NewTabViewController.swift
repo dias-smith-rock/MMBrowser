@@ -132,10 +132,10 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         }
         scrollView.addGestureRecognizer(siteDragGesture)
 
-        configureChip(editButton, title: "Edit")
+        configureChip(editButton, title: "Edit".l10n)
         editButton.addTarget(self, action: #selector(editTapped), for: .touchUpInside)
 
-        configureChip(settingsButton, title: "Settings")
+        configureChip(settingsButton, title: "Settings".l10n)
         settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
 
         setupAccountHero()
@@ -251,7 +251,7 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         accountHeroSubtitle.isHidden = !AppSettings.showsNewTabAccountHeroSubtitle
 
         let canSwitch = accountCount > 1
-        accountHeroButton.setTitle(canSwitch ? "Switch" : "Add Space", for: .normal)
+        accountHeroButton.setTitle(canSwitch ? "Switch" : "Add Space".l10n, for: .normal)
         accountHeroButton.setTitleColor(color, for: .normal)
         accountHeroButton.backgroundColor = color.withAlphaComponent(0.14)
         accountHeroButton.layer.borderColor = color.withAlphaComponent(0.45).cgColor
@@ -563,7 +563,7 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
             let delete = UIButton(type: .system)
             delete.setImage(UIImage(systemName: "minus.circle.fill"), for: .normal)
             delete.tintColor = .systemRed
-            delete.accessibilityLabel = "Delete"
+            delete.accessibilityLabel = "Delete".l10n
             let siteID = site.id
             let categoryID = category.id
             delete.addAction(UIAction { [weak self] _ in
@@ -601,7 +601,7 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
         plus.contentMode = .scaleAspectFit
 
         let label = UILabel()
-        label.text = "Add"
+        label.text = "Add".l10n
         label.textColor = BrowserTheme.textPrimary
         label.font = .systemFont(ofSize: 13, weight: .semibold)
         label.textAlignment = .center
@@ -647,8 +647,8 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
             field.autocapitalizationType = .none
             field.autocorrectionType = .no
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Add", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Add".l10n, style: .default) { [weak self] _ in
             let title = alert.textFields?[0].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let raw = alert.textFields?[1].text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard !raw.isEmpty else { return }
@@ -667,7 +667,7 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
 
     @objc private func editTapped() {
         isEditingDirectory.toggle()
-        editButton.setTitle(isEditingDirectory ? "Done" : "Edit", for: .normal)
+        editButton.setTitle(isEditingDirectory ? "Done".l10n : "Edit".l10n, for: .normal)
         if !isEditingDirectory {
             cancelSiteDrag(animated: false)
         }
@@ -689,11 +689,11 @@ final class NewTabViewController: UIViewController, UIGestureRecognizerDelegate 
 
     private func presentSiteEditMenu(_ sender: NavigationSiteButton) {
         let sheet = UIAlertController(title: sender.site.title, message: nil, preferredStyle: .actionSheet)
-        sheet.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+        sheet.addAction(UIAlertAction(title: "Delete".l10n, style: .destructive) { [weak self] _ in
             NavigationStore.shared.removeSite(categoryID: sender.categoryID, siteID: sender.site.id, containerID: self?.resolvedContainerID ?? ContainerScope.resolveContainerID(nil))
             self?.buildDirectory()
         })
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = sheet.popoverPresentationController {
             pop.sourceView = sender
             pop.sourceRect = sender.bounds

@@ -18,15 +18,15 @@ final class BookmarksViewController: UIViewController, UITableViewDataSource, UI
 
     private lazy var selectButton = UIBarButtonItem(title: "Select", style: .plain, target: self, action: #selector(toggleSelect))
     private lazy var sortButton = UIBarButtonItem(image: UIImage(systemName: "arrow.up.arrow.down"), style: .plain, target: self, action: #selector(presentSortMenu))
-    private lazy var deleteButton = UIBarButtonItem(title: "Delete", style: .plain, target: self, action: #selector(deleteSelected))
-    private lazy var doneSelectButton = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(toggleSelect))
+    private lazy var deleteButton = UIBarButtonItem(title: "Delete".l10n, style: .plain, target: self, action: #selector(deleteSelected))
+    private lazy var doneSelectButton = UIBarButtonItem(title: "Done".l10n, style: .done, target: self, action: #selector(toggleSelect))
 
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Bookmarks"
         view.backgroundColor = BrowserTheme.background
         overrideUserInterfaceStyle = BrowserTheme.preferredUserInterfaceStyle
-        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Close", style: .plain, target: self, action: #selector(close))
+        navigationItem.leftBarButtonItem = UIBarButtonItem(title: "Close".l10n, style: .plain, target: self, action: #selector(close))
         if let navigationBar = navigationController?.navigationBar {
             BrowserTheme.applyNavigationBar(to: navigationBar)
         }
@@ -184,7 +184,7 @@ final class BookmarksViewController: UIViewController, UITableViewDataSource, UI
         if isSelecting {
             let count = tableView.indexPathsForSelectedRows?.count ?? 0
             deleteButton.isEnabled = count > 0
-            deleteButton.title = count > 0 ? "Delete (\(count))" : "Delete"
+            deleteButton.title = count > 0 ? "Delete (\(count))" : "Delete".l10n
             navigationItem.rightBarButtonItems = [doneSelectButton, deleteButton]
             tableView.tableHeaderView = nil
         } else {
@@ -236,14 +236,14 @@ final class BookmarksViewController: UIViewController, UITableViewDataSource, UI
 
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         guard !isSelecting else { return nil }
-        let edit = UIContextualAction(style: .normal, title: "Edit") { [weak self] _, _, done in
+        let edit = UIContextualAction(style: .normal, title: "Edit".l10n) { [weak self] _, _, done in
             guard let self = self else { done(false); return }
             self.presentEdit(for: self.items[indexPath.row])
             done(true)
         }
         edit.backgroundColor = BrowserTheme.chromeBlue
 
-        let delete = UIContextualAction(style: .destructive, title: "Delete") { [weak self] _, _, done in
+        let delete = UIContextualAction(style: .destructive, title: "Delete".l10n) { [weak self] _, _, done in
             guard let self = self else { done(false); return }
             BookmarkStore.shared.remove(id: self.items[indexPath.row].id)
             self.reloadItems()
@@ -267,10 +267,10 @@ final class BookmarksViewController: UIViewController, UITableViewDataSource, UI
                     self?.onSelectURL?(url)
                 }
             }
-            let edit = UIAction(title: "Edit", image: UIImage(systemName: "pencil")) { _ in
+            let edit = UIAction(title: "Edit".l10n, image: UIImage(systemName: "pencil")) { _ in
                 self?.presentEdit(for: item)
             }
-            let delete = UIAction(title: "Delete", image: UIImage(systemName: "trash"), attributes: .destructive) { _ in
+            let delete = UIAction(title: "Delete".l10n, image: UIImage(systemName: "trash"), attributes: .destructive) { _ in
                 BookmarkStore.shared.remove(id: item.id)
                 self?.reloadItems()
                 self?.tableView.reloadData()
@@ -308,7 +308,7 @@ final class BookmarksViewController: UIViewController, UITableViewDataSource, UI
             message: "This cannot be undone.",
             preferredStyle: .actionSheet
         )
-        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Delete".l10n, style: .destructive) { [weak self] _ in
             guard let self = self else { return }
             BookmarkStore.shared.remove(ids: ids)
             self.reloadItems()
@@ -317,7 +317,7 @@ final class BookmarksViewController: UIViewController, UITableViewDataSource, UI
             self.tableView.reloadData()
             self.updateToolbarButtons()
         })
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = alert.popoverPresentationController {
             pop.barButtonItem = deleteButton
         }
@@ -337,7 +337,7 @@ final class BookmarksViewController: UIViewController, UITableViewDataSource, UI
                 Toast.show("Sorted: \(option.displayName)", from: self)
             })
         }
-        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
         if let pop = sheet.popoverPresentationController {
             pop.barButtonItem = sortButton
         }
@@ -360,8 +360,8 @@ final class BookmarksViewController: UIViewController, UITableViewDataSource, UI
             field.autocapitalizationType = .none
             field.autocorrectionType = .no
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Save".l10n, style: .default) { [weak self] _ in
             guard let self = self else { return }
             let title = alert.textFields?[0].text ?? ""
             let urlString = alert.textFields?[1].text ?? ""

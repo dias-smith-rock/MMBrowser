@@ -7,6 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		L10NBF01010101010101 /* AppLanguage.swift in Sources */ = {isa = PBXBuildFile; fileRef = L10NFR01010101010101 /* AppLanguage.swift */; };
+		L10NBF01010101010102 /* LanguageManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = L10NFR01010101010102 /* LanguageManager.swift */; };
+		L10NBF01010101010103 /* LanguageSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = L10NFR01010101010103 /* LanguageSettingsViewController.swift */; };
+		L10NBF01010101010110 /* L10n_zh-Hans.json in Resources */ = {isa = PBXBuildFile; fileRef = L10NFR01010101010110 /* L10n_zh-Hans.json */; };
+		L10NBF01010101010111 /* L10n_zh-Hant.json in Resources */ = {isa = PBXBuildFile; fileRef = L10NFR01010101010111 /* L10n_zh-Hant.json */; };
+		L10NBF01010101010112 /* L10n_es.json in Resources */ = {isa = PBXBuildFile; fileRef = L10NFR01010101010112 /* L10n_es.json */; };
+		L10NBF01010101010113 /* L10n_pt-BR.json in Resources */ = {isa = PBXBuildFile; fileRef = L10NFR01010101010113 /* L10n_pt-BR.json */; };
+		L10NBF01010101010114 /* L10n_ar.json in Resources */ = {isa = PBXBuildFile; fileRef = L10NFR01010101010114 /* L10n_ar.json */; };
+		L10NBF01010101010115 /* L10n_fr.json in Resources */ = {isa = PBXBuildFile; fileRef = L10NFR01010101010115 /* L10n_fr.json */; };
+		L10NBF01010101010116 /* L10n_ko.json in Resources */ = {isa = PBXBuildFile; fileRef = L10NFR01010101010116 /* L10n_ko.json */; };
+		L10NBF01010101010117 /* L10n_ja.json in Resources */ = {isa = PBXBuildFile; fileRef = L10NFR01010101010117 /* L10n_ja.json */; };
+		L10NBF01010101010118 /* L10n_ru.json in Resources */ = {isa = PBXBuildFile; fileRef = L10NFR01010101010118 /* L10n_ru.json */; };
 		05EE9C9F5639484BA9BA6FF2 /* TabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFE04E67D090450B987F05FB /* TabManager.swift */; };
 		0696A518DA3C4EAF95A48D06 /* DualAccountCompareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BEB93FF23E74A24BDBB00DA /* DualAccountCompareViewController.swift */; };
 		08452A36D3F74BD49D37C472 /* ContainerSiteDataViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FFAC9E4AEF4A79BC9F8B18 /* ContainerSiteDataViewController.swift */; };
@@ -203,6 +215,18 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		L10NFR01010101010101 /* AppLanguage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLanguage.swift; sourceTree = "<group>"; };
+		L10NFR01010101010102 /* LanguageManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageManager.swift; sourceTree = "<group>"; };
+		L10NFR01010101010103 /* LanguageSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageSettingsViewController.swift; sourceTree = "<group>"; };
+		L10NFR01010101010110 /* L10n_zh-Hans.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = L10n_zh-Hans.json; sourceTree = "<group>"; };
+		L10NFR01010101010111 /* L10n_zh-Hant.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = L10n_zh-Hant.json; sourceTree = "<group>"; };
+		L10NFR01010101010112 /* L10n_es.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = L10n_es.json; sourceTree = "<group>"; };
+		L10NFR01010101010113 /* L10n_pt-BR.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = L10n_pt-BR.json; sourceTree = "<group>"; };
+		L10NFR01010101010114 /* L10n_ar.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = L10n_ar.json; sourceTree = "<group>"; };
+		L10NFR01010101010115 /* L10n_fr.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = L10n_fr.json; sourceTree = "<group>"; };
+		L10NFR01010101010116 /* L10n_ko.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = L10n_ko.json; sourceTree = "<group>"; };
+		L10NFR01010101010117 /* L10n_ja.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = L10n_ja.json; sourceTree = "<group>"; };
+		L10NFR01010101010118 /* L10n_ru.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = L10n_ru.json; sourceTree = "<group>"; };
 		00A238E7FC51408BA0111F44 /* HistoryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewController.swift; sourceTree = "<group>"; };
 		021143DE7C6A427AB58BAFF7 /* AccountHealthViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountHealthViewController.swift; sourceTree = "<group>"; };
 		06A90094244742E9A90F6D53 /* YouTubeAdShield.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeAdShield.swift; sourceTree = "<group>"; };
@@ -399,6 +423,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		L10NGRP01010101010101 /* L10n */ = {
+			isa = PBXGroup;
+			children = (
+				L10NFR01010101010110 /* L10n_zh-Hans.json */,
+				L10NFR01010101010111 /* L10n_zh-Hant.json */,
+				L10NFR01010101010112 /* L10n_es.json */,
+				L10NFR01010101010113 /* L10n_pt-BR.json */,
+				L10NFR01010101010114 /* L10n_ar.json */,
+				L10NFR01010101010115 /* L10n_fr.json */,
+				L10NFR01010101010116 /* L10n_ko.json */,
+				L10NFR01010101010117 /* L10n_ja.json */,
+				L10NFR01010101010118 /* L10n_ru.json */,
+			);
+			path = L10n;
+			sourceTree = "<group>";
+		};
 		01E11A63E266468B846C126C /* Downloads */ = {
 			isa = PBXGroup;
 			children = (
@@ -413,6 +453,7 @@
 			isa = PBXGroup;
 			children = (
 				148219CAF76C4E93AD37C016 /* DefaultFilterManifest.json */,
+				L10NGRP01010101010101 /* L10n */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -448,6 +489,7 @@
 			isa = PBXGroup;
 			children = (
 				8DD96938CCB3479484E2D530 /* SettingsViewController.swift */,
+				L10NFR01010101010103 /* LanguageSettingsViewController.swift */,
 				SETIA01FR01010101010101 /* PrivacySettingsViewController.swift */,
 				SETIA01FR01010101010105 /* SpacesSettingsViewController.swift */,
 				SETIA01FR01010101010102 /* SearchEngineSettingsViewController.swift */,
@@ -701,6 +743,8 @@
 				HWP00FR01010101010102 /* HomeWallpaperBackdropView.swift */,
 				37FC46822386450BA067F7F5 /* Toast.swift */,
 				A1B2C3D4E5F60202020202L1 /* AppL10n.swift */,
+				L10NFR01010101010101 /* AppLanguage.swift */,
+				L10NFR01010101010102 /* LanguageManager.swift */,
 				TIP0SWIPEA1B2C3D4E5F60002 /* AddressBarSwipeTipView.swift */,
 				A1B2C3D4E5F6020202020270 /* KeyboardDismissCoordinator.swift */,
 				F1A2B3C4D5E64789A0B1C2D3 /* ScreenshotPerf.swift */,
@@ -839,6 +883,15 @@
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hans",
+				"zh-Hant",
+				es,
+				"pt-BR",
+				ar,
+				fr,
+				ko,
+				ja,
+				ru,
 			);
 			mainGroup = 84E6B60729CD567D001723AE;
 			productRefGroup = 84E6B61129CD567E001723AE /* Products */;
@@ -861,6 +914,15 @@
 				84E6B61D29CD5680001723AE /* Assets.xcassets in Resources */,
 				A11F1BEBA5E1000000000011 /* GoogleService-Info.plist in Resources */,
 				PRIV00BF01010101010101 /* PrivacyInfo.xcprivacy in Resources */,
+				L10NBF01010101010110 /* L10n_zh-Hans.json in Resources */,
+				L10NBF01010101010111 /* L10n_zh-Hant.json in Resources */,
+				L10NBF01010101010112 /* L10n_es.json in Resources */,
+				L10NBF01010101010113 /* L10n_pt-BR.json in Resources */,
+				L10NBF01010101010114 /* L10n_ar.json in Resources */,
+				L10NBF01010101010115 /* L10n_fr.json in Resources */,
+				L10NBF01010101010116 /* L10n_ko.json in Resources */,
+				L10NBF01010101010117 /* L10n_ja.json in Resources */,
+				L10NBF01010101010118 /* L10n_ru.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -882,9 +944,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-MMBrowser/Pods-MMBrowser-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -1002,6 +1068,9 @@
 				3B0B5010105C7BB485B89CD7 /* IsolatedVsSharedViewController.swift in Sources */,
 				90F8BD6BD7DB43AF80342259 /* Toast.swift in Sources */,
 				A1B2C3D4E5F60101010101L1 /* AppL10n.swift in Sources */,
+				L10NBF01010101010101 /* AppLanguage.swift in Sources */,
+				L10NBF01010101010102 /* LanguageManager.swift in Sources */,
+				L10NBF01010101010103 /* LanguageSettingsViewController.swift in Sources */,
 				TIP0SWIPEA1B2C3D4E5F60001 /* AddressBarSwipeTipView.swift in Sources */,
 				A1B2C3D4E5F6010101010170 /* KeyboardDismissCoordinator.swift in Sources */,
 				PWD0006F6D53A60E5B801 /* PasswordSettings.swift in Sources */,
@@ -1259,7 +1328,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -1285,7 +1354,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.4.1;
+				MARKETING_VERSION = 1.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -1307,7 +1376,7 @@
 				CODE_SIGN_ENTITLEMENTS = MMBrowser/MMBrowser.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "MMBrowser/MMBrowser-MacCatalyst.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 8S748AQ4H7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MMBrowser/Info.plist;
@@ -1328,7 +1397,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.4.1;
+				MARKETING_VERSION = 1.5.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.goodcraft.browser;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";

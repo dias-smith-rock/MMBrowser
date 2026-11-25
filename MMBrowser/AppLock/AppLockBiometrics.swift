@@ -74,7 +74,7 @@ enum AppLockBiometrics {
 
     static func authenticate(reason: String, completion: @escaping (Bool, String?) -> Void) {
         let context = LAContext()
-        context.localizedCancelTitle = "Cancel"
+        context.localizedCancelTitle = "Cancel".l10n
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
             DispatchQueue.main.async {
@@ -96,7 +96,7 @@ enum AppLockBiometrics {
     /// Face ID / Touch ID with fallback to the device passcode.
     static func authenticateDeviceOwner(reason: String, completion: @escaping (Bool, String?) -> Void) {
         let context = LAContext()
-        context.localizedCancelTitle = "Cancel"
+        context.localizedCancelTitle = "Cancel".l10n
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
             DispatchQueue.main.async {

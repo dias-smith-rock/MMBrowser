@@ -39,7 +39,7 @@ final class BrowserTab {
     init(isIncognito: Bool = false, containerID: UUID) {
         self.id = UUID()
         self.containerID = containerID
-        self.title = "New Tab"
+        self.title = "New Tab".l10n
         self.url = nil
         self.isIncognito = isIncognito
         self.isNewTabPage = true

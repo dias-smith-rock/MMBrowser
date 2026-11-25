@@ -10,7 +10,7 @@ final class SpacesSettingsViewController: UIViewController, UITableViewDataSourc
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Spaces"
+        title = "Spaces".l10n
         applyChrome()
         tableView.dataSource = self
         tableView.delegate = self
@@ -65,10 +65,10 @@ final class SpacesSettingsViewController: UIViewController, UITableViewDataSourc
         cell.selectionStyle = .default
         if indexPath.row == 0 {
             let count = tabManager?.visibleContainers.count ?? 0
-            cell.textLabel?.text = "Manage Spaces"
-            cell.detailTextLabel?.text = count == 1 ? "1 Space" : "\(count) Spaces"
+            cell.textLabel?.text = "Manage Spaces".l10n
+            cell.detailTextLabel?.text = count == 1 ? "1 Space".l10n : "\(count) Spaces"
         } else {
-            cell.textLabel?.text = "Isolated vs Shared"
+            cell.textLabel?.text = "Isolated vs Shared".l10n
             cell.detailTextLabel?.text = "What stays per space"
         }
         return cell

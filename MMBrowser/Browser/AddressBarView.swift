@@ -104,16 +104,16 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         container.layer.cornerCurve = .continuous
         addSubview(container)
 
-        configureNavButton(backButton, action: #selector(backTapped), label: "Back")
-        configureNavButton(forwardButton, action: #selector(forwardTapped), label: "Forward")
+        configureNavButton(backButton, action: #selector(backTapped), label: "Back".l10n)
+        configureNavButton(forwardButton, action: #selector(forwardTapped), label: "Forward".l10n)
         backButton.isHidden = true
         forwardButton.isHidden = true
         backButton.isUserInteractionEnabled = false
         forwardButton.isUserInteractionEnabled = false
 
-        reloadButton.accessibilityLabel = "Reload"
+        reloadButton.accessibilityLabel = "Reload".l10n
         reloadButton.addTarget(self, action: #selector(reloadTapped), for: .touchUpInside)
-        hideToolbarButton.accessibilityLabel = "Minimize address bar"
+        hideToolbarButton.accessibilityLabel = "Minimize address bar".l10n
         hideToolbarButton.addTarget(self, action: #selector(hideToolbarTapped), for: .touchUpInside)
 
         richMenuButton.isHidden = true
@@ -432,7 +432,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
         cleanerPageChip.addTarget(self, action: #selector(cleanerPageTapped), for: .touchUpInside)
         cleanerExitChip.addTarget(self, action: #selector(cleanerExitTapped), for: .touchUpInside)
 
-        cleanerTitleButton.setTitle("Web Editor", for: .normal)
+        cleanerTitleButton.setTitle("Web Editor".l10n, for: .normal)
         cleanerTitleButton.setTitleColor(BrowserTheme.textSecondary, for: .normal)
         cleanerTitleButton.titleLabel?.font = .systemFont(ofSize: 12, weight: .semibold)
         cleanerTitleButton.contentEdgeInsets = UIEdgeInsets(top: 4, left: 2, bottom: 4, right: 2)
@@ -592,7 +592,7 @@ final class AddressBarView: UIView, UITextFieldDelegate, UIGestureRecognizerDele
 
     private static func compactHost(from text: String?) -> String {
         let raw = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !raw.isEmpty else { return "Search" }
+        guard !raw.isEmpty else { return "Search".l10n }
         if let url = URL(string: raw), let host = url.host, !host.isEmpty {
             return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
         }

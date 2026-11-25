@@ -81,8 +81,8 @@ enum PasswordVaultGate {
             field.autocapitalizationType = .none
             field.autocorrectionType = .no
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in completion(false) })
-        alert.addAction(UIAlertAction(title: "Unlock", style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel) { _ in completion(false) })
+        alert.addAction(UIAlertAction(title: "Unlock".l10n, style: .default) { _ in
             let text = alert.textFields?.first?.text ?? ""
             if let key = VaultCrypto.unlockMasterPassword(text) {
                 VaultCrypto.setSessionMasterKey(key)

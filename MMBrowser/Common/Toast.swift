@@ -36,7 +36,7 @@ enum Toast {
         banner.translatesAutoresizingMaskIntoConstraints = false
 
         let label = UILabel()
-        label.text = message
+        label.text = AppL10n.t(message)
         label.textColor = .white
         label.font = .systemFont(ofSize: 15, weight: .semibold)
         label.textAlignment = actionTitle == nil ? .center : .left

@@ -14,7 +14,7 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "App Lock"
+        title = "App Lock".l10n
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.dataSource = self
         tableView.delegate = self
@@ -54,7 +54,7 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
         case .status: return "Status"
         case .methods: return "Unlock Method"
         case .biometrics: return AppLockBiometrics.biometryDisplayName
-        case .secondLock: return "Second Lock"
+        case .secondLock: return "Second Lock".l10n
         }
     }
 
@@ -101,25 +101,25 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
         switch Section(rawValue: indexPath.section)! {
         case .status:
             if indexPath.row == StatusRow.master.rawValue {
-                rowCell.textLabel?.text = "App Lock"
+                rowCell.textLabel?.text = "App Lock".l10n
                 rowCell.selectionStyle = .none
                 let sw = UISwitch()
                 sw.isOn = AppLockSettings.isEnabled
                 sw.addTarget(self, action: #selector(masterToggled(_:)), for: .valueChanged)
                 rowCell.accessoryView = sw
             } else {
-                rowCell.textLabel?.text = "Lock After"
+                rowCell.textLabel?.text = "Lock After".l10n
                 rowCell.detailTextLabel?.text = AppLockSettings.gracePeriod.shortDisplayName
                 rowCell.accessoryType = .disclosureIndicator
             }
         case .methods:
             if indexPath.row == 0 {
-                rowCell.textLabel?.text = "4-Digit PIN"
-                rowCell.detailTextLabel?.text = AppLockSettings.primaryMethod == .pin ? "On" : "Off"
+                rowCell.textLabel?.text = "4-Digit PIN".l10n
+                rowCell.detailTextLabel?.text = AppLockSettings.primaryMethod == .pin ? "On".l10n : "Off".l10n
                 rowCell.accessoryType = .disclosureIndicator
             } else {
-                rowCell.textLabel?.text = "Pattern"
-                rowCell.detailTextLabel?.text = AppLockSettings.primaryMethod == .pattern ? "On" : "Off"
+                rowCell.textLabel?.text = "Pattern".l10n
+                rowCell.detailTextLabel?.text = AppLockSettings.primaryMethod == .pattern ? "On".l10n : "Off".l10n
                 rowCell.accessoryType = .disclosureIndicator
             }
         case .biometrics:
@@ -134,12 +134,12 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
             rowCell.accessoryView = sw
         case .secondLock:
             if !canConfigureSecondLock {
-                rowCell.textLabel?.text = "Second Lock"
-                rowCell.detailTextLabel?.text = "Requires PIN or Pattern"
+                rowCell.textLabel?.text = "Second Lock".l10n
+                rowCell.detailTextLabel?.text = "Requires PIN or Pattern".l10n
                 rowCell.selectionStyle = .none
                 rowCell.textLabel?.textColor = BrowserTheme.textSecondary
             } else if indexPath.row == 0 {
-                rowCell.textLabel?.text = "Second Lock"
+                rowCell.textLabel?.text = "Second Lock".l10n
                 rowCell.selectionStyle = .none
                 let sw = UISwitch()
                 sw.isOn = AppLockSettings.isSecondLockEnabled
@@ -148,7 +148,7 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
             } else {
                 let method = AppLockSettings.primaryMethod
                 rowCell.textLabel?.text = method == .pattern ? "Change Pattern" : "Change Passcode"
-                rowCell.detailTextLabel?.text = AppLockSettings.isSecondLockEnabled ? "On" : "Off"
+                rowCell.detailTextLabel?.text = AppLockSettings.isSecondLockEnabled ? "On".l10n : "Off".l10n
                 rowCell.accessoryType = .disclosureIndicator
             }
         }
@@ -230,11 +230,11 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
     @objc private func masterToggled(_ sw: UISwitch) {
         if sw.isOn {
             sw.isOn = AppLockSettings.isEnabled
-            let sheet = UIAlertController(title: "Enable App Lock", message: "Choose an unlock method", preferredStyle: .actionSheet)
-            sheet.addAction(UIAlertAction(title: "4-Digit PIN", style: .default) { [weak self] _ in
+            let sheet = UIAlertController(title: "Enable App Lock".l10n, message: "Choose an unlock method".l10n, preferredStyle: .actionSheet)
+            sheet.addAction(UIAlertAction(title: "4-Digit PIN".l10n, style: .default) { [weak self] _ in
                 self?.pushSetup(.createPIN)
             })
-            sheet.addAction(UIAlertAction(title: "Pattern", style: .default) { [weak self] _ in
+            sheet.addAction(UIAlertAction(title: "Pattern".l10n, style: .default) { [weak self] _ in
                 self?.pushSetup(.createPattern)
             })
             if case .available = AppLockBiometrics.availability() {
@@ -242,7 +242,7 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
                     self?.enableBioOnly()
                 })
             }
-            sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
+            sheet.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel) { [weak self] _ in
                 self?.tableView.reloadData()
             })
             if let pop = sheet.popoverPresentationController {
@@ -269,7 +269,7 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
                 if AppLockSettings.primaryMethod != .none {
                     self.pushSetup(.verifyThen(action: .disableLock))
                 } else {
-                    Toast.show("Authentication failed", from: self)
+                    Toast.show("Authentication failed".l10n, from: self)
                     self.tableView.reloadData()
                 }
             }
@@ -315,15 +315,15 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
 
     private func enableBioOnly() {
         let alert = UIAlertController(
-            title: "Biometrics Only",
-            message: "If biometrics fail, you can turn off App Lock from the lock screen.",
+            title: "Biometrics Only".l10n,
+            message: "If biometrics fail, you can turn off App Lock from the lock screen.".l10n,
             preferredStyle: .alert
         )
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel) { [weak self] _ in
             self?.tableView.reloadData()
         })
-        alert.addAction(UIAlertAction(title: "Continue", style: .default) { [weak self] _ in
-            AppLockBiometrics.authenticate(reason: "Enable App Lock") { success, message in
+        alert.addAction(UIAlertAction(title: "Continue".l10n, style: .default) { [weak self] _ in
+            AppLockBiometrics.authenticate(reason: "Enable App Lock".l10n) { success, message in
                 if success {
                     AppLockSecretStore.clearSecrets()
                     AppLockSettings.primaryMethod = .none
@@ -354,7 +354,7 @@ final class AppLockSettingsViewController: UIViewController, UITableViewDataSour
                     // Fall through to PIN/pattern verify UI.
                     work()
                 } else {
-                    Toast.show("Authentication failed", from: self)
+                    Toast.show("Authentication failed".l10n, from: self)
                     self.tableView.reloadData()
                 }
             }
@@ -391,7 +391,7 @@ final class AppLockGracePeriodViewController: UIViewController, UITableViewDataS
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Lock After"
+        title = "Lock After".l10n
         BrowserTheme.applyScreenChrome(to: self, tableView: tableView)
         tableView.dataSource = self
         tableView.delegate = self

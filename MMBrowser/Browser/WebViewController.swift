@@ -676,8 +676,8 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
             field.autocapitalizationType = .sentences
             field.returnKeyType = .done
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Save", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Save".l10n, style: .default) { [weak self] _ in
             guard let self, let webView = self.webView else { return }
             let next = alert.textFields?.first?.text ?? ""
             PageCleanerManager.setText(next, selector: selector, on: webView)
@@ -1339,7 +1339,7 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
     private func makePipEntryButton() -> UIButton {
         let button = UIButton(type: .system)
         button.isHidden = true
-        button.accessibilityLabel = "Picture in Picture"
+        button.accessibilityLabel = "Picture in Picture".l10n
         var config = UIButton.Configuration.filled()
         config.cornerStyle = .capsule
         config.baseForegroundColor = .white
@@ -1347,7 +1347,7 @@ final class WebViewController: UIViewController, UIGestureRecognizerDelegate {
         config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
         config.image = UIImage(systemName: "pip.enter")
         config.imagePadding = 6
-        config.title = "PiP"
+        config.title = "PiP".l10n
         config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { incoming in
             var outgoing = incoming
             outgoing.font = .systemFont(ofSize: 13, weight: .semibold)
@@ -4002,10 +4002,10 @@ final class AuthPopupViewController: UIViewController, WKUIDelegate, WKNavigatio
         titleLabel.textAlignment = .center
         titleLabel.text = "Sign in"
 
-        closeBar.setTitle("Done", for: .normal)
+        closeBar.setTitle("Done".l10n, for: .normal)
         closeBar.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
         closeBar.addTarget(self, action: #selector(doneTapped), for: .touchUpInside)
-        closeBar.accessibilityLabel = "Done"
+        closeBar.accessibilityLabel = "Done".l10n
 
         view.addSubview(header)
         header.addSubview(titleLabel)
@@ -4164,7 +4164,7 @@ final class AuthPopupViewController: UIViewController, WKUIDelegate, WKNavigatio
             preferredStyle: .alert
         )
         alert.addAction(UIAlertAction(title: "Go Back", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Continue", style: .destructive) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Continue".l10n, style: .destructive) { [weak self] _ in
             guard let self else { return }
             self.allowedPopupDangerousURL = url.absoluteString
             self.popupWebView.load(GlobalPrivacyControl.applying(to: URLRequest(url: url)))

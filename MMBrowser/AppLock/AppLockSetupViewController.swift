@@ -68,7 +68,7 @@ final class AppLockSetupViewController: UIViewController {
         view.backgroundColor = .black
         navigationController?.setNavigationBarHidden(true, animated: false)
 
-        cancelButton.setTitle("Cancel", for: .normal)
+        cancelButton.setTitle("Cancel".l10n, for: .normal)
         cancelButton.setTitleColor(.white, for: .normal)
         cancelButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .regular)
         cancelButton.addTarget(self, action: #selector(cancel), for: .touchUpInside)
@@ -244,7 +244,7 @@ final class AppLockSetupViewController: UIViewController {
                 pinValue = ""
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { [weak self] in
                     self?.dotsView.setFilledCount(0)
-                    self?.titleLabel.text = "Try Again"
+                    self?.titleLabel.text = "Try Again".l10n
                 }
             }
         case .verifySpace(let containerID, let action):
@@ -255,7 +255,7 @@ final class AppLockSetupViewController: UIViewController {
                 pinValue = ""
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { [weak self] in
                     self?.dotsView.setFilledCount(0)
-                    self?.titleLabel.text = "Try Again"
+                    self?.titleLabel.text = "Try Again".l10n
                 }
             }
         default:
@@ -338,7 +338,7 @@ final class AppLockSetupViewController: UIViewController {
                 showError("Incorrect Pattern")
                 patternView.flashError()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { [weak self] in
-                    self?.titleLabel.text = "Try Again"
+                    self?.titleLabel.text = "Try Again".l10n
                 }
             }
         case .verifySpace(let containerID, let action):
@@ -348,7 +348,7 @@ final class AppLockSetupViewController: UIViewController {
                 showError("Incorrect Pattern")
                 patternView.flashError()
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { [weak self] in
-                    self?.titleLabel.text = "Try Again"
+                    self?.titleLabel.text = "Try Again".l10n
                 }
             }
         default:
@@ -467,7 +467,7 @@ extension AppLockSetupViewController: PasscodeKeypadViewDelegate {
         case .confirmPIN, .confirmSpacePIN, .confirmSecondPIN:
             idleRestore = "Re-enter your Passcode"
         case .verifyThen, .verifySpace:
-            idleRestore = (titleLabel.text == "Incorrect Passcode" || titleLabel.text == "Try Again"
+            idleRestore = (titleLabel.text == "Incorrect Passcode" || titleLabel.text == "Try Again".l10n
                 || titleLabel.text == "Must Differ From App Lock")
                 ? "Enter Passcode" : nil
         default:

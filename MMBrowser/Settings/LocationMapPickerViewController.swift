@@ -28,7 +28,7 @@ final class LocationMapPickerViewController: UIViewController, MKMapViewDelegate
             action: #selector(cancelTapped)
         )
         navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: "Done",
+            title: "Done".l10n,
             style: .done,
             target: self,
             action: #selector(doneTapped)
@@ -154,8 +154,8 @@ final class LocationMapPickerViewController: UIViewController, MKMapViewDelegate
             $0.keyboardType = .numbersAndPunctuation
             $0.text = String(format: "%.5f", self.selected.longitude)
         }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        alert.addAction(UIAlertAction(title: "Apply", style: .default) { [weak self] _ in
+        alert.addAction(UIAlertAction(title: "Cancel".l10n, style: .cancel))
+        alert.addAction(UIAlertAction(title: "Apply".l10n, style: .default) { [weak self] _ in
             guard let self = self,
                   let latText = alert.textFields?[0].text, let lonText = alert.textFields?[1].text,
                   let lat = Double(latText), let lon = Double(lonText),

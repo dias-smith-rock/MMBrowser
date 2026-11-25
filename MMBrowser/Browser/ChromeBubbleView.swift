@@ -19,7 +19,7 @@ final class ChromeBubbleView: UIControl {
         bounds = CGRect(x: 0, y: 0, width: Self.diameter, height: Self.diameter)
         isAccessibilityElement = true
         accessibilityTraits = .button
-        accessibilityLabel = "Show address bar and toolbar"
+        accessibilityLabel = "Show address bar and toolbar".l10n
         isUserInteractionEnabled = true
 
         backgroundColor = UIColor.black.withAlphaComponent(0.28)
