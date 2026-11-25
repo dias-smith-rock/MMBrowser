@@ -3517,7 +3517,7 @@ extension BrowserViewController: MenuViewControllerDelegate {
 
     private func reportBrokenSite() {
         let host = SiteBlockingStore.hostKey(for: tabManager.selectedTab?.url) ?? "unknown"
-        let address = "support@xxxxxbrowser.cc"
+        let address = "gaowei85714@gmail.com"
         let subject = "Broken site with blocking: \(host)"
         let page = tabManager.selectedTab?.url?.absoluteString ?? ""
         if MFMailComposeViewController.canSendMail() {

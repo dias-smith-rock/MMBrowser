@@ -1,9 +1,8 @@
 /* Site config — set appStoreUrl before publish */
 window.XBrowserSite = {
   appStoreUrl: "https://apps.apple.com/us/app/id6804914972?l=en-us",
-  /** Public-facing support address (domain identity for trust / EEAT). */
-  contactEmailDisplay: "support@xxxxxbrowser.cc",
-  /** Actual mailbox that receives mail (until domain inbox is fully cut over). */
+  /** Public support address (display + mailto). */
+  contactEmailDisplay: "gaowei85714@gmail.com",
   contactEmailMailto: "gaowei85714@gmail.com",
 };
 

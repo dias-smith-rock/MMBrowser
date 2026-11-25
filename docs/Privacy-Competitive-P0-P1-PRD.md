@@ -233,7 +233,7 @@ Reviewers emphasize minimal telemetry and clear diagnostics toggles.
 **Title:** What XBrowser Collects  
 **H1:** What XBrowser collects (and what stays on your iPhone)
 
-Body sections: On-device by default · Operational services · Purchases · What we don’t do · Contact (`support@xxxxxbrowser.cc`) · Link to full Privacy Policy.
+Body sections: On-device by default · Operational services · Purchases · What we don’t do · Contact (`gaowei85714@gmail.com`) · Link to full Privacy Policy.
 
 ---
 
